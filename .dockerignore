@@ -1,0 +1,26 @@
+# Version control
+.git/
+.gitignore
+
+# Editor directories
+.idea/
+.vscode/
+
+# Elixir build artifacts
+/_build/
+/deps/
+*.beam
+*.plt
+
+# Elixir release output
+/rel/
+
+# ElixirLS generated files
+.elixir_ls
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Test directories and files
+/test/

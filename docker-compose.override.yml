@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      target: development
+    volumes:
+      - .:/app
+      - deps:/app/deps
+      - build:/app/_build
+    command: []
+    stdin_open: true
+    tty: true
+
+volumes:
+  deps:
+  build:

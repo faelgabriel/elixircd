@@ -1,0 +1,7 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      target: production
+    command: ["./bin/elixircd", "start"]

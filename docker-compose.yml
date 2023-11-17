@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-6667}:6667"
+      - "${SSL_PORT:-6697}:6697"
+    environment:
+      - PORT=${PORT:-6667}
+      - SSL_PORT=${SSL_PORT:-6697}
