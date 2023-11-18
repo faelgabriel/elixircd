@@ -25,6 +25,9 @@ elixircd-*.tar
 # Temporary files, for example, from tests.
 /tmp/
 
+# Certs
+/priv/cert/
+
 # Dialyzer
 /priv/plts/*.plt
 /priv/plts/*.plt.hash

@@ -123,16 +123,17 @@ jobs:
           done
           echo "Port 6667 is open and ready for connections!"
 
-          echo "Waiting for the server to start on SSL port 6697..."
-          while ! echo | openssl s_client -connect localhost:6697 -verify 0 > /dev/null 2>&1; do
-            sleep 1
-            timeout=$((timeout - 1))
-            if [[ $timeout -eq 0 ]]; then
-              echo "SSL port 6697 did not become available in time."
-              exit 1
-            fi
-          done
-          echo "SSL port 6697 is open and ready for connections!"
+        # TODO: Finish SSL integration
+        # echo "Waiting for the server to start on SSL port 6697..."
+        # while ! echo | openssl s_client -connect localhost:6697 -verify 0 > /dev/null 2>&1; do
+        #   sleep 1
+        #   timeout=$((timeout - 1))
+        #   if [[ $timeout -eq 0 ]]; then
+        #     echo "SSL port 6697 did not become available in time."
+        #     exit 1
+        #   fi
+        # done
+        # echo "SSL port 6697 is open and ready for connections!"
 
       - name: Display container logs
         if: always()

@@ -11,7 +11,6 @@ WORKDIR /app
 
 COPY mix.exs mix.lock ./
 
-
 # ---- Development Stage ----
 # This stage installs and compiles dependencies for the development environment.
 FROM base AS development
@@ -21,8 +20,10 @@ ENV MIX_ENV=dev
 RUN mix deps.get && \
     mix deps.compile
 
-CMD ["/bin/sh"]
+# Create certificate for SSL (self-signed for development)
+RUN make ssl_keys
 
+CMD ["/bin/sh"]
 
 # ---- Production Build Application Stage ----
 # This stage builds the production application by compiling the source code and generating a release.
@@ -38,6 +39,8 @@ COPY lib lib/
 
 RUN mix do compile, release
 
+# Create certificate for SSL (TODO: use Let's Encrypt for production)
+RUN make ssl_keys
 
 # ---- Production Run Application Stage ----
 # This stage sets up the environment to run the built application in production.
