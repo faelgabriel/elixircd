@@ -46,7 +46,7 @@ RUN mix do compile, release
 RUN make ssl_keys
 
 # ---- Production Run Application Stage ----
-# This stage sets up the environment to run the built application in production, with a minimal image size.
+# This stage sets up the environment to run the built application in production with a minimal image size.
 FROM elixir:1.15.7-otp-25-alpine AS production
 
 WORKDIR /app
