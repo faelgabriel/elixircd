@@ -23,9 +23,6 @@ ENV MIX_ENV=dev
 RUN mix deps.get && \
     mix deps.compile
 
-# Create certificate for SSL (self-signed for development)
-RUN make ssl_keys
-
 CMD ["/bin/sh"]
 
 # ---- Production Build Application Stage ----
@@ -41,9 +38,6 @@ COPY config config/
 COPY lib lib/
 
 RUN mix do compile, release
-
-# Create certificate for SSL (TODO: use Let's Encrypt for production)
-RUN make ssl_keys
 
 # ---- Production Run Application Stage ----
 # This stage sets up the environment to run the built application in production with a minimal image size.
