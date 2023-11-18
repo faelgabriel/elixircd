@@ -28,7 +28,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Build development image
+      - name: Build image
         uses: docker/build-push-action@v5
         with:
           target: development
@@ -38,7 +38,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
-      - name: Run development container
+      - name: Run container
         run: docker run -p 6667:6667 -p 6697:6697 --name elixircd -d elixircd:development mix run --no-halt
 
       - name: Check if the server is running
@@ -50,7 +50,7 @@ jobs:
             sleep 1
             timeout=$((timeout - 1))
             if [[ $timeout -eq 0 ]]; then
-              echo "Port 6667 did not become available in time"
+              echo "Port 6667 did not become available in time."
               exit 1
             fi
           done
@@ -61,13 +61,16 @@ jobs:
             sleep 1
             timeout=$((timeout - 1))
             if [[ $timeout -eq 0 ]]; then
-              echo "SSL port 6697 did not become available in time"
+              echo "SSL port 6697 did not become available in time."
               exit 1
             fi
           done
           echo "SSL port 6697 is open and ready for connections!"
 
-      - name: Stop development container
+      - name: Display container logs
+        run: docker logs elixircd
+
+      - name: Stop container
         if: always()
         run: docker rm --force elixircd
 
@@ -91,7 +94,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Build production image
+      - name: Build image
         uses: docker/build-push-action@v5
         with:
           target: production
@@ -101,7 +104,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
 
-      - name: Run production container
+      - name: Run container
         run: docker run -p 6667:6667 -p 6697:6697 --name elixircd -d elixircd:production
 
       - name: Check if the server is running
@@ -113,7 +116,7 @@ jobs:
             sleep 1
             timeout=$((timeout - 1))
             if [[ $timeout -eq 0 ]]; then
-              echo "Port 6667 did not become available in time"
+              echo "Port 6667 did not become available in time."
               exit 1
             fi
           done
@@ -124,12 +127,15 @@ jobs:
             sleep 1
             timeout=$((timeout - 1))
             if [[ $timeout -eq 0 ]]; then
-              echo "SSL port 6697 did not become available in time"
+              echo "SSL port 6697 did not become available in time."
               exit 1
             fi
           done
           echo "SSL port 6697 is open and ready for connections!"
 
-      - name: Stop production container
+      - name: Display container logs
+        run: docker logs elixircd
+
+      - name: Stop container
         if: always()
         run: docker rm --force elixircd
