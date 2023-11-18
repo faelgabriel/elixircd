@@ -39,7 +39,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
 
       - name: Run container
-        run: docker run -p 6667:6667 -p 6697:6697 --name elixircd -d elixircd:development mix run --no-halt
+        run: docker run -p 6667:6667 -p 6697:6697 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd -d elixircd:development mix run --no-halt
 
       - name: Check if the server is running
         run: |
