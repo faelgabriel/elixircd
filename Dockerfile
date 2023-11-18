@@ -5,7 +5,7 @@ FROM elixir:1.15.7-otp-25-alpine AS base
 ENV LANG=C.UTF-8
 
 RUN apk update && \
-    apk add make
+    apk --no-cache add openssl make
 
 RUN mix local.hex --force && \
     mix local.rebar --force
