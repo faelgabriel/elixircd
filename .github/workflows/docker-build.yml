@@ -36,7 +36,7 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
 
       - name: Test development image
-        run: docker-compose up --abort-on-container-exit
+        run: docker-compose -f docker-compose.yml -f docker-compose.override.yml -f docker-compose.ci.yml up --abort-on-container-exit
 
       - name: Build production image
         uses: docker/build-push-action@v5
@@ -47,4 +47,4 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache
 
       - name: Test production image
-        run: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --abort-on-container-exit
+        run: docker-compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ci.yml up --abort-on-container-exit
