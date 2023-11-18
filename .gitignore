@@ -31,6 +31,3 @@ elixircd-*.tar
 
 # Dev tools
 .history
-
-# Certs
-/priv/cert/
