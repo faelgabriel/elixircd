@@ -101,16 +101,16 @@ mix deps.get
 
 ### Docker
 
-To install ElixIRCd, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the required containers by running:
+To install ElixIRCd, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the application container by running:
 
 Dev:
 ```bash
-docker compose up -d
+docker run -it -p 6667:6667 -p 6697:6697 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd_dev -d elixircd:development
 ```
 
 Prod:
 ```bash
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+docker run -p 6667:6667 -p 6697:6697 --name elixircd_prod -d elixircd:production
 ```
 
 
