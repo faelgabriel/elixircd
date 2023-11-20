@@ -34,7 +34,7 @@ FROM base AS production-build
 
 ENV MIX_ENV=prod
 
-RUN mix deps.get --only prod && \
+RUN mix deps.get && \
     mix deps.compile
 
 COPY config config/

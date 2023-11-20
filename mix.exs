@@ -16,7 +16,8 @@ defmodule ElixIRCd.MixProject do
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
-        "coveralls.html": :test
+        "coveralls.html": :test,
+        "coveralls.cobertura": :test
       ],
       test_coverage: [tool: ExCoveralls]
     ]
@@ -42,7 +43,7 @@ defmodule ElixIRCd.MixProject do
       {:doctor, "~> 0.21.0", only: :dev},
       {:ecto, "~> 3.0"},
       {:etso, "~> 1.1.0"},
-      {:excoveralls, "~> 0.10", only: :test},
+      {:excoveralls, "~> 0.18", only: :test},
       {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:typed_ecto_schema, "~> 0.4.1", runtime: false}
