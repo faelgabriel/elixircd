@@ -67,6 +67,9 @@ jobs:
       - name: Run Credo for linting
         run: mix credo --strict
 
+      - name: Run Sobelow security check
+        run: mix sobelow --exit
+
       - name: Create PLTs
         if: steps.plt-cache.outputs.cache-hit != 'true'
         run: |

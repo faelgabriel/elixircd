@@ -18,21 +18,24 @@ defmodule ElixIRCd.Types.TransportType do
   Casts the transport.
   """
   @spec cast(atom()) :: {:ok, t()} | :error
-  def cast(transport) when transport in [:ranch_tcp, :ranch_ssl], do: {:ok, transport}
+  def cast(:ranch_tcp), do: {:ok, :ranch_tcp}
+  def cast(:ranch_ssl), do: {:ok, :ranch_ssl}
   def cast(_), do: :error
 
   @doc """
   Loads the transport.
   """
   @spec load(String.t()) :: {:ok, t()} | :error
-  def load(transport) when transport in ["ranch_tcp", "ranch_ssl"], do: {:ok, String.to_atom(transport)}
+  def load("ranch_tcp"), do: {:ok, :ranch_tcp}
+  def load("ranch_ssl"), do: {:ok, :ranch_ssl}
   def load(_), do: :error
 
   @doc """
   Dumps the transport.
   """
   @spec dump(t()) :: {:ok, String.t()} | :error
-  def dump(transport) when transport in [:ranch_tcp, :ranch_ssl], do: {:ok, Atom.to_string(transport)}
+  def dump(:ranch_tcp), do: {:ok, "ranch_tcp"}
+  def dump(:ranch_ssl), do: {:ok, "ranch_ssl"}
   def dump(_), do: :error
 
   @doc """
@@ -47,8 +50,5 @@ defmodule ElixIRCd.Types.TransportType do
   @spec equal?(t(), t()) :: boolean
   def equal?(nil, _), do: false
   def equal?(_, nil), do: false
-
-  def equal?(transport1, transport2)
-      when transport1 in [:ranch_tcp, :ranch_ssl] and transport2 in [:ranch_tcp, :ranch_ssl],
-      do: transport1 == transport2
+  def equal?(transport1, transport2), do: transport1 == transport2
 end
