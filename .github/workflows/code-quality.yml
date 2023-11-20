@@ -70,6 +70,9 @@ jobs:
       - name: Run Sobelow security check
         run: mix sobelow --exit
 
+      - name: Run MixAudit security check
+        run: mix deps.audit
+
       - name: Run Doctor for documentation health
         run: mix doctor
 
