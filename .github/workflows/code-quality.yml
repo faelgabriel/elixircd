@@ -29,7 +29,7 @@ jobs:
           otp-version: ${{ matrix.otp }}
 
       - name: Restore deps cache
-        uses: actions/cache/restore@v3
+        uses: actions/cache@v3
         with:
           path: deps
           key: ${{ runner.os }}-mix-deps-${{ hashFiles('**/mix.lock') }}
@@ -37,7 +37,7 @@ jobs:
             ${{ runner.os }}-mix-deps-
 
       - name: Restore _build cache
-        uses: actions/cache/restore@v3
+        uses: actions/cache@v3
         with:
           path: _build
           key: ${{ runner.os }}-mix-build-${{ hashFiles('**/mix.lock') }}
@@ -46,7 +46,7 @@ jobs:
 
       - name: Restore PLT cache
         id: plt-cache
-        uses: actions/cache/restore@v3
+        uses: actions/cache@v3
         with:
           key: |
             plt-${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
