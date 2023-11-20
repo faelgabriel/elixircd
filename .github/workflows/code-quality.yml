@@ -9,7 +9,8 @@ on:
       - main
 
 jobs:
-  dialyzer:
+  setup:
+    name: Setup
     runs-on: ubuntu-latest
 
     strategy:
@@ -58,11 +59,29 @@ jobs:
       - name: Compile code
         run: mix compile --warnings-as-errors
 
+  lint:
+    name: Lint
+    needs: setup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
       - name: Check code formatting
         run: mix format --check-formatted
 
       - name: Run Credo for linting
         run: mix credo --strict
+
+  dialyzer:
+    name: Dialyzer
+    needs: setup
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Create PLTs
         if: steps.plt-cache.outputs.cache-hit != 'true'
