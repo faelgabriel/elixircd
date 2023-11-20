@@ -1,0 +1,74 @@
+name: Code Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  dialyzer:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        elixir: ['1.15.7']
+        otp: ['25.3.2.6']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Elixir
+        uses: actions/setup-elixir@v1
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+
+      - name: Restore deps cache
+        uses: actions/cache@v2
+        with:
+          path: deps
+          key: ${{ runner.os }}-mix-deps-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-deps-
+
+      - name: Restore _build cache
+        uses: actions/cache@v2
+        with:
+          path: _build
+          key: ${{ runner.os }}-mix-build-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-build-
+
+      - name: Retrieve PLT Cache
+        uses: actions/cache@v2
+        id: plt-cache
+        with:
+          path: priv/plts
+          key: ${{ runner.os }}-plt-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-plt-
+
+      - name: Install dependencies
+        run: mix deps.get
+
+      - name: Compile code
+        run: mix compile --warnings-as-errors
+
+      - name: Check code formatting
+        run: mix format --check-formatted
+
+      - name: Run Credo for linting
+        run: mix credo --strict
+
+      - name: Create PLTs
+        if: steps.plt-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p priv/plts
+          mix dialyzer --plt
+
+      - name: Run dialyzer
+        run: mix dialyzer --no-check --format dialyxir

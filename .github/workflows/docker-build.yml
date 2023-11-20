@@ -10,7 +10,7 @@ on:
 
 jobs:
   build_dev:
-    name: Check Development Container Build
+    name: Docker Development Image Build
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   build_prod:
-    name: Check Production Container Build
+    name: Docker Production Image Build
     runs-on: ubuntu-latest
 
     steps:

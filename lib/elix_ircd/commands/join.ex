@@ -16,24 +16,10 @@ defmodule ElixIRCd.Commands.Join do
 
   @impl true
   def handle(user, [channel_names]) when user.identity != nil do
-    splitted_channel_names = channel_names |> String.split(",") |> Enum.map(&(&1 |> String.trim()))
-
-    Enum.each(splitted_channel_names, fn channel_name ->
-      get_or_create_channel(channel_name)
-      |> case do
-        %Schemas.Channel{} = channel ->
-          join_channel(user, channel)
-
-        {:error, %Changeset{errors: errors}} ->
-          error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
-
-          MessageHandler.send_message(
-            user,
-            :server,
-            "448 #{user.nick} #{channel_name} :Cannot join channel: #{error_message}"
-          )
-      end
-    end)
+    channel_names
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.each(&handle_channel(user, &1))
   end
 
   @impl true
@@ -44,6 +30,23 @@ defmodule ElixIRCd.Commands.Join do
   @impl true
   def handle(user, _) do
     MessageHandler.message_not_registered(user)
+  end
+
+  @spec handle_channel(Schemas.User.t(), String.t()) :: :ok
+  defp handle_channel(user, channel_name) do
+    case get_or_create_channel(channel_name) do
+      %Schemas.Channel{} = channel ->
+        join_channel(user, channel)
+
+      {:error, %Changeset{errors: errors}} ->
+        error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
+
+        MessageHandler.send_message(
+          user,
+          :server,
+          "448 #{user.nick} #{channel_name} :Cannot join channel: #{error_message}"
+        )
+    end
   end
 
   @spec get_or_create_channel(String.t()) :: Schemas.Channel.t() | {:error, Changeset.t()}

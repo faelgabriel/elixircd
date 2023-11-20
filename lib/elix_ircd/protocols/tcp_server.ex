@@ -44,7 +44,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
         ServerHandler.handle_quit_socket(socket, "Connection Error: " <> reason)
         :ok
 
-      # TODO: Handle manual closed connection - maybe with Registry?
+        # Future:: Handle manual closed connection - maybe with Registry?
     after
       @timeout ->
         ServerHandler.handle_quit_socket(socket, "Connection Timeout")

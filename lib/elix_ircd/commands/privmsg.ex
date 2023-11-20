@@ -13,7 +13,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @impl true
   def handle(user, [receiver | message]) when user.identity != nil do
-    # TODO: move the logic to a separate function to check if receiver is a channel or a user
+    # Future:: move the logic to a separate function to check if receiver is a channel or a user
     case String.starts_with?(receiver, "#") do
       # Message is sent to a channel when receiver starts with #
       true ->

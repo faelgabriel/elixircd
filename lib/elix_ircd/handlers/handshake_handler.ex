@@ -46,7 +46,7 @@ defmodule ElixIRCd.Handlers.HandshakeHandler do
     MessageHandler.send_message(user, :server, "002 #{user.nick} Your host is ElixIRCd, running version 0.1.0.")
     MessageHandler.send_message(user, :server, "003 #{user.nick} ElixIRCd 0.1.0 +i +int")
     MessageHandler.send_message(user, :server, "376 #{user.nick} :End of MOTD command")
-    # TODO: MessageHandler.send_message(user, :server, "422 :MOTD File is missing")
+    # Future:: MessageHandler.send_message(user, :server, "422 :MOTD File is missing")
     :ok
   end
 end

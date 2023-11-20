@@ -31,6 +31,3 @@ elixircd-*.tar
 # Dialyzer
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
-
-# Dev tools
-.history
