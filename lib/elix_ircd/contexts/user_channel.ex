@@ -31,6 +31,9 @@ defmodule ElixIRCd.Contexts.UserChannel do
     Repo.delete(user_channel)
   end
 
+  @doc """
+  Deletes all user_channel
+  """
   @spec delete_all(list(UserChannel.t())) :: {integer(), nil}
   def delete_all(user_channels) do
     ids = Enum.map(user_channels, & &1.id)
@@ -66,6 +69,9 @@ defmodule ElixIRCd.Contexts.UserChannel do
     |> Repo.all()
   end
 
+  @doc """
+  Gets a user_channel for a user and channel
+  """
   @spec get_by_user_and_channel(User.t(), Channel.t()) :: UserChannel.t()
   def get_by_user_and_channel(user, channel) do
     from(uc in UserChannel,

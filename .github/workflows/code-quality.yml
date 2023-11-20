@@ -70,6 +70,9 @@ jobs:
       - name: Run Sobelow security check
         run: mix sobelow --exit
 
+      - name: Run Doctor for documentation health
+        run: mix doctor
+
       - name: Create PLTs
         if: steps.plt-cache.outputs.cache-hit != 'true'
         run: |

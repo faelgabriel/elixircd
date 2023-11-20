@@ -21,6 +21,9 @@ defmodule ElixIRCd.Schemas.UserChannel do
     belongs_to(:channel, Channel, references: :name, type: :string, foreign_key: :channel_name)
   end
 
+  @doc """
+  Creates a changeset for a UserChannel.
+  """
   @spec changeset(UserChannel.t(), map()) :: Changeset.t()
   def changeset(user_channel, attrs) do
     user_channel
