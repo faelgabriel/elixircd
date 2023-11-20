@@ -12,6 +12,8 @@ defmodule ElixIRCd.MixProject do
       aliases: aliases(),
       dialyzer: dialyzer(),
       elixirc_paths: elixirc_paths(Mix.env()),
+
+      # Coveralls
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
@@ -19,7 +21,16 @@ defmodule ElixIRCd.MixProject do
         "coveralls.html": :test,
         "coveralls.cobertura": :test
       ],
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+
+      # Docs
+      name: "ElixIRCd",
+      source_url: "https://github.com/faelgabriel/elixircd",
+      homepage_url: "https://faelgabriel.github.io/elixircd",
+      docs: [
+        main: "ElixIRCd",
+        extras: ["README.md"]
+      ]
     ]
   end
 
@@ -43,6 +54,7 @@ defmodule ElixIRCd.MixProject do
       {:doctor, "~> 0.21.0", only: :dev},
       {:ecto, "~> 3.0"},
       {:etso, "~> 1.1.0"},
+      {:ex_doc, "~> 0.30", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
       {:ranch, "~> 2.1"},

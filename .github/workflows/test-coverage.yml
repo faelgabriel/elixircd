@@ -1,4 +1,4 @@
-name: Test
+name: Test Coverage
 
 on:
   push:
@@ -10,7 +10,7 @@ on:
 
 jobs:
   code_quality:
-    name: Test
+    name: Test Coverage
     runs-on: ubuntu-latest
 
     env:
