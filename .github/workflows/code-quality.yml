@@ -9,8 +9,8 @@ on:
       - main
 
 jobs:
-  setup:
-    name: Setup
+  code_quality:
+    name: Code Quality
     runs-on: ubuntu-latest
 
     strategy:
@@ -29,7 +29,7 @@ jobs:
           otp-version: ${{ matrix.otp }}
 
       - name: Restore deps cache
-        uses: actions/cache@v2
+        uses: actions/cache/restore@v3
         with:
           path: deps
           key: ${{ runner.os }}-mix-deps-${{ hashFiles('**/mix.lock') }}
@@ -37,21 +37,23 @@ jobs:
             ${{ runner.os }}-mix-deps-
 
       - name: Restore _build cache
-        uses: actions/cache@v2
+        uses: actions/cache/restore@v3
         with:
           path: _build
           key: ${{ runner.os }}-mix-build-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-build-
 
-      - name: Retrieve PLT Cache
-        uses: actions/cache@v2
+      - name: Restore PLT cache
         id: plt-cache
+        uses: actions/cache/restore@v3
         with:
-          path: priv/plts
-          key: ${{ runner.os }}-plt-${{ matrix.elixir }}-${{ matrix.otp }}-${{ hashFiles('**/mix.lock') }}
+          key: |
+            plt-${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            ${{ runner.os }}-plt-
+            plt-${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-
+          path: |
+            priv/plts
 
       - name: Install dependencies
         run: mix deps.get
@@ -59,29 +61,11 @@ jobs:
       - name: Compile code
         run: mix compile --warnings-as-errors
 
-  lint:
-    name: Lint
-    needs: setup
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-
       - name: Check code formatting
         run: mix format --check-formatted
 
       - name: Run Credo for linting
         run: mix credo --strict
-
-  dialyzer:
-    name: Dialyzer
-    needs: setup
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
 
       - name: Create PLTs
         if: steps.plt-cache.outputs.cache-hit != 'true'
