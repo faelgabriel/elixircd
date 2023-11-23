@@ -1,9 +1,8 @@
 ---
 name: Feature Implementation
-about: Template to provide a structured and comprehensive format for proposing the
-  addition of a new feature.
+about: Propose an addition of a new feature.
 title: ''
-labels: ''
+labels: feature
 assignees: ''
 
 ---
@@ -23,7 +22,7 @@ assignees: ''
 [Discuss how this feature will integrate with and affect other parts of the project]
 
 ### Implementation Plan
-[State your plan and timeline for implementing the feature, indicating any help or input you need]
+[State your plan and timeline for implementing the feature, indicating any help or input needed]
 
 ### Related Issues/PRs
 [Link to any relevant issues or PRs]
