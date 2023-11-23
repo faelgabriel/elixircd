@@ -26,6 +26,7 @@ elixircd-*.tar
 /tmp/
 
 # Certs
+/priv/cert/
 
 # Dialyzer
 /priv/plts/*.plt
