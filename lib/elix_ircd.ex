@@ -14,7 +14,6 @@ defmodule ElixIRCd do
     ssl_opts = [
       {:port, 6697},
       {:certfile, "priv/cert/server.crt"},
-      {:cacertfile, "priv/cert/ca.pem"},
       {:keyfile, "priv/cert/server.pem"}
     ]
 
