@@ -1,4 +1,4 @@
-# ElixIRCd
+# ElixIRCd (Under Development)
 
 ## Introduction
 
@@ -17,7 +17,14 @@ This project is licensed under the [AGPL License](https://github.com/faelgabriel
 # Features
 
 ## Classic IRCd Features
-These features are based on traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol. Key RFCs include RFC 1459 (Internet Relay Chat Protocol), RFC 2810 (IRC: Architecture), RFC 2811 (IRC: Channel Management), RFC 2812 (IRC: Client Protocol), and RFC 2813 (IRC: Server Protocol).
+These features are based on traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol. Key RFCs include RFC 1459 (Internet Relay Chat Protocol), RFC 2810 (IRC: Architecture), RFC 2811 (IRC: Channel Management), RFC 2812 (IRC: Client Protocol), RFC 2813 (IRC: Server Protocol), and RFC 7194 (Default Port for IRC via TLS/SSL).
+
+### Protocol Mechanics
+- **Message Formatting**: Standard IRC message format.
+- **Channel Types and Modes**: Public, private, secret channels, and various modes.
+- **User Modes**: Different modes for users like invisible, operator, etc.
+- **Connection Management**: Using PING/PONG for connection stability.
+- **TLS Protocol**: For secure, encrypted connections.
 
 ### Server Commands
 
@@ -55,31 +62,47 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **REHASH**: Enable operators to reload the server's configuration.
 - **RESTART**: Allow operators to restart the server.
 - **SERVICE**: Handle registration of new services.
-
-### Protocol Mechanics
-- **Message Formatting**: Standard IRC message format.
-- **Channel Types and Modes**: Public, private, secret channels, and various modes.
-- **User Modes**: Different modes for users like invisible, operator, etc.
-- **Connection Management**: Using PING/PONG for connection stability.
+- **OPER**: Allow operators to gain elevated privileges on the server.
+- **SQUIT**: Allow operators to disconnect a server from the network gracefully.
 
 ## IRCv3 Features
-These features are based on the IRCv3 specifications, providing modern capabilities.
+These features are based on the IRCv3 specifications, providing modern capabilities. More information at [ircv3.net](https://ircv3.net/).
 
 ### Enhanced Commands and Extensions
-- **SASL Authentication**: Secure authentication mechanism.
-- **Multi-prefix**: Support for multiple status prefixes.
-- **Account Tagging**: Associating messages with accounts.
-- **Extended JOIN**: Additional information in JOIN messages.
-- **Metadata Framework**: Arbitrary metadata associated with users or channels.
+- **Capability Negotiation**: Capability negotiation mechanism between clients and servers.
 - **Message Tags**: Additional metadata in messages.
-- **Batched Messages**: Sending messages in batches.
-- **Capability negotiation**: Capability negotiation mechanism between clients and servers.
-- **Client Capabilities**: Enhanced client capabilities negotiation.
+- **Account Authentication and Registration**: Secure SASL authentication mechanism.
+- **Account Tracking**: Account notifications and tagging.
+- **Away Notifications**: Real-time notifications of user "away" status changes.
+- **Batches**: Sending messages in batches.
+- **Bot Mode**: Identification of bots in channels.
+- **Changing User Properties**: Dynamic updating of user properties.
+- **Client-Only Tags**: Attaching metadata to messages not transmitted to the server.
+- **Echo Message**: Clients receive a copy of their sent messages.
+- **Invite Notify**: Notifications when a user is invited to a channel.
+- **Labeled Responses**: Associating responses with sent commands.
+- **Listing Users**: Enhanced user information in channel queries.
+- **Message IDs**: Unique identifiers for messages.
+- **Monitor**: Efficient tracking of user online/offline status.
+- **Server Time**: Timestamp information for messages.
+- **Standard Replies**: Standardized format for server and client replies.
+- **Strict Transport Security (STS)**: Automatic TLS encryption upgrade.
+- **UTF8ONLY**: Indication of UTF-8 only traffic support.
+- **WebIRC**: Provision of real IP address for users connecting through gateways.
+- **WebSocket Protocol**: Enabling IRC over WebSockets for web clients.
 
-### Advanced Protocol Mechanics
-- **TLS Support**: For secure, encrypted connections.
-- **WebSocket Support**: Enabling IRC over WebSockets for web clients.
-
+### Server Commands
+- **CAP**: Negotiate client capabilities with the server.
+- **AUTHENTICATE**: Log in to a client account using SASL authentication.
+- **ACCOUNT**: Notify clients of friends' new logins.
+- **CHGHOST**: Notify clients about changes in friends' usernames and hostnames.
+- **INVITE**: Alert other clients when someone is invited to a channel.
+- **JOIN**: Extended to include usernames and hostnames in join messages.
+- **MONITOR**: Track when specific nicknames enter or leave the network.
+- **NAMES**: List nicknames on a channel, extended to include account names.
+- **TAGMSG**: Send messages with tags but without text content.
+- **WEBIRC**: Provide real IP addresses of clients connecting through a gateway.
+- **WHO**: Extended to allow clients to request additional information.
 
 <!-- ElixIRCd is a full IRC server implementation written in Elixir, taking advantage of its powerful features.
 
