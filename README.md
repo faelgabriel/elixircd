@@ -1,5 +1,10 @@
 # ElixIRCd (Under Development)
 
+[![Code Quality](https://github.com/faelgabriel/elixircd/actions/workflows/code-quality.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/code-quality.yml)
+[![Docker Build](https://github.com/faelgabriel/elixircd/actions/workflows/docker-build.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/test-coverage.yml)
+[![Test Coverage](https://github.com/faelgabriel/elixircd/actions/workflows/test-coverage.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/test-coverage.yml)
+[![License](https://img.shields.io/badge/License-AGPL-blue.svg)](https://github.com/faelgabriel/elixircd/blob/main/LICENSE)
+
 ## Introduction
 
 ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust, scalable, and highly concurrent IRCd server environment. Its implementation leverages the functional nature and concurrency model of Elixir to deliver an efficient and reliable platform for IRC operations.
@@ -17,13 +22,28 @@ This project is licensed under the [AGPL License](https://github.com/faelgabriel
 # Features
 
 ## Classic IRCd Features
-These features are based on traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol. Key RFCs include RFC 1459 (Internet Relay Chat Protocol), RFC 2810 (IRC: Architecture), RFC 2811 (IRC: Channel Management), RFC 2812 (IRC: Client Protocol), RFC 2813 (IRC: Server Protocol), and RFC 7194 (Default Port for IRC via TLS/SSL).
+These features are based on traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol. Key RFCs include [RFC 1459](https://datatracker.ietf.org/doc/html/rfc1459) (Internet Relay Chat Protocol), [RFC 2810](https://datatracker.ietf.org/doc/html/rfc2810) (IRC: Architecture), [RFC 2811](https://datatracker.ietf.org/doc/html/rfc2811) (IRC: Channel Management), [RFC 2812](https://datatracker.ietf.org/doc/html/rfc2812) (IRC: Client Protocol), [RFC 2813](https://datatracker.ietf.org/doc/html/rfc2813) (IRC: Server Protocol), and [RFC 7194](https://datatracker.ietf.org/doc/html/rfc7194) (Default Port for IRC via TLS/SSL).
 
 ### Protocol Mechanics
 - **Message Formatting**: Standard IRC message format.
+- **Message Handling**: Routing and delivery of messages.
+- **Message Types**: Different types of messages, e.g., PRIVMSG, NOTICE.
+- **Channel Control**: Creating, joining, and leaving channels.
 - **Channel Types and Modes**: Public, private, secret channels, and various modes.
+- **Channel Topics**: Managing and displaying channel topics.
+- **Channel Lists**: Retrieving lists of available channels.
+- **Nicknames**: Rules for nickname registration and uniqueness.
 - **User Modes**: Different modes for users like invisible, operator, etc.
+- **User Lists**: Obtaining lists of users in channels.
+- **Bans and Kicks**: Rules for user removal from channels.
+- **Privileges**: Granting operator and user privileges.
+- **CTCP (Client-to-Client Protocol)**: Custom commands and queries.
+- **Idle Time Tracking**: Monitoring user activity and idle times.
 - **Connection Management**: Using PING/PONG for connection stability.
+- **Error Handling**: How errors and exceptional conditions are managed.
+- **Motd (Message of the Day)**: Customization of server-wide announcements and informational messages.
+- **Server Statistics**: Gathering and reporting network and server statistics.
+- **Oper Commands**: Special commands for server operators (IRCops).
 - **TLS Protocol**: For secure, encrypted connections.
 
 ### Server Commands
