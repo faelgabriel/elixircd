@@ -43,9 +43,7 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(IrcMessage.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def unparse(%IrcMessage{command: nil}) do
-    {:error, "Invalid IRC message format"}
-  end
+  def unparse(%IrcMessage{command: nil}), do: {:error, "Invalid IRC message format"}
 
   def unparse(%IrcMessage{prefix: nil, command: command, params: params, body: body}) do
     base = [command | params]
@@ -58,26 +56,17 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
   end
 
   # Extracts the prefix from the message if present.
+  # It returns {prefix, message_without_prefix}.
   @spec extract_prefix(String.t()) :: {String.t() | nil, String.t()}
-  defp extract_prefix(message) do
-    case String.starts_with?(message, ":") do
-      true ->
-        parts = String.split(message, " ", parts: 2)
-
-        case parts do
-          [prefix | rest] ->
-            {String.trim_leading(prefix, ":"), Enum.join(rest, " ")}
-
-          _ ->
-            {nil, message}
-        end
-
-      false ->
-        {nil, message}
-    end
+  defp extract_prefix(":" <> message) do
+    [prefix | rest] = String.split(message, " ", parts: 2)
+    {String.trim_leading(prefix, ":"), Enum.join(rest, " ")}
   end
 
+  defp extract_prefix(message), do: {nil, message}
+
   # Parses the command and parameters from the message.
+  # It returns {command, params, body} or {:error, error}.
   @spec parse_command_and_params(String.t()) :: {String.t(), [String.t()], String.t() | nil} | {:error, String.t()}
   defp parse_command_and_params(message) do
     parts = String.split(message, " ", trim: true)
@@ -93,6 +82,7 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
   end
 
   # Extracts the body from the parameters if present.
+  # It returns {params, body} or {params, nil}.
   @spec extract_body([String.t()]) :: {[String.t()], String.t() | nil}
   defp extract_body(parts) do
     # Find the index of the part where the body begins (first part containing a ':')
