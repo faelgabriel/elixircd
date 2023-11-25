@@ -3,7 +3,6 @@ defmodule ElixIRCd.Handlers.ServerHandler do
   Module for handling IRC server.
   """
 
-  alias ElixIRCd.Commands.Quit
   alias ElixIRCd.Contexts
   alias ElixIRCd.Handlers.CommandHandler
   alias ElixIRCd.Parsers.IrcMessageParser
