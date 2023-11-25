@@ -18,12 +18,15 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
   - For a message ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user",
   - the function parses it into `%IrcMessage{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`
   """
-  @spec parse(String.t()) :: IrcMessage.t()
+  @spec parse(String.t()) :: {:ok, IrcMessage.t()} | {:error, String.t()}
   def parse(message) do
     {prefix, message} = extract_prefix(message)
-    {command, params, body} = parse_command_and_params(message)
 
-    %IrcMessage{prefix: prefix, command: command, params: params, body: body}
+    parse_command_and_params(message)
+    |> case do
+      {command, params, body} -> {:ok, %IrcMessage{prefix: prefix, command: command, params: params, body: body}}
+      {:error, error} -> {:error, error}
+    end
   end
 
   @doc """
@@ -39,15 +42,19 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
   - For `%IrcMessage{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`,
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
-  @spec unparse(IrcMessage.t()) :: String.t()
+  @spec unparse(IrcMessage.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def unparse(%IrcMessage{command: nil}) do
+    {:error, "Invalid IRC message format"}
+  end
+
   def unparse(%IrcMessage{prefix: nil, command: command, params: params, body: body}) do
     base = [command | params]
-    unparse_message(base, body)
+    {:ok, unparse_message(base, body)}
   end
 
   def unparse(%IrcMessage{prefix: prefix, command: command, params: params, body: body}) do
     base = [":" <> prefix, command | params]
-    unparse_message(base, body)
+    {:ok, unparse_message(base, body)}
   end
 
   # Extracts the prefix from the message if present.
@@ -61,8 +68,6 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
           [prefix | rest] ->
             {String.trim_leading(prefix, ":"), Enum.join(rest, " ")}
 
-          # [prefix] -> will never match type because the prefix is always followed by a space
-
           _ ->
             {nil, message}
         end
@@ -73,12 +78,18 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
   end
 
   # Parses the command and parameters from the message.
-  @spec parse_command_and_params(String.t()) :: {String.t(), [String.t()], String.t() | nil}
+  @spec parse_command_and_params(String.t()) :: {String.t(), [String.t()], String.t() | nil} | {:error, String.t()}
   defp parse_command_and_params(message) do
-    [command | params_and_body] = String.split(message, " ", trim: true)
-    {params, body} = extract_body(params_and_body)
+    parts = String.split(message, " ", trim: true)
 
-    {command, params, body}
+    case parts do
+      [command | params_and_body] ->
+        {params, body} = extract_body(params_and_body)
+        {command, params, body}
+
+      [] ->
+        {:error, "Invalid IRC message format"}
+    end
   end
 
   # Extracts the body from the parameters if present.
