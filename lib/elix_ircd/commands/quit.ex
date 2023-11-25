@@ -12,8 +12,7 @@ defmodule ElixIRCd.Commands.Quit do
   @behaviour ElixIRCd.Behaviors.Command
 
   @impl true
-  def handle(user, quit_messages) do
-    quit_message = Enum.join(quit_messages, " ")
+  def handle(user, %{command: "QUIT", body: quit_message}) do
     user_channels = Contexts.UserChannel.get_by_user(user)
 
     Enum.each(user_channels, fn %Schemas.UserChannel{} = user_channel ->

@@ -74,7 +74,7 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
     case parts do
       [command | params_and_body] ->
         {params, body} = extract_body(params_and_body)
-        {command, params, body}
+        {String.upcase(command), params, body}
 
       [] ->
         {:error, "Invalid IRC message format"}

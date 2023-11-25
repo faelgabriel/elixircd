@@ -8,13 +8,13 @@ defmodule ElixIRCd.Commands.Cap do
   @behaviour ElixIRCd.Behaviors.Command
 
   @impl true
-  def handle(user, ["LS", "302"]) do
+  def handle(user, %{command: "CAP", params: ["LS", "302"]}) do
     MessageHandler.send_message(user, :server, "CAP * LS :")
     :ok
   end
 
   @impl true
-  def handle(_user, _) do
+  def handle(_user, %{command: "CAP"}) do
     # Ignores all other CAP commands since it is not supported yet.
     :ok
   end

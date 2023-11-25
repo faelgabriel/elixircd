@@ -9,14 +9,13 @@ defmodule ElixIRCd.Commands.Part do
   alias ElixIRCd.Schemas
 
   @behaviour ElixIRCd.Behaviors.Command
-  @command "PART"
 
   @impl true
-  def handle(user, [channel_name | part_message]) when user.identity != nil do
+  def handle(user, %{command: "PART", body: part_message, params: [channel_name]}) when user.identity != nil do
     %Schemas.Channel{} = channel = Contexts.Channel.get_by_name(channel_name)
     %Schemas.UserChannel{} = user_channel = Contexts.UserChannel.get_by_user_and_channel(user, channel)
 
-    part_message(user_channel.user, user_channel.channel, Enum.join(part_message, " "))
+    part_message(user_channel.user, user_channel.channel, part_message)
 
     {:ok, _deleted_user_channel} = Contexts.UserChannel.delete(user_channel)
 
@@ -24,12 +23,12 @@ defmodule ElixIRCd.Commands.Part do
   end
 
   @impl true
-  def handle(user, []) when user.identity != nil do
-    MessageHandler.message_not_enough_params(user, @command)
+  def handle(user, %{command: "PART"}) when user.identity != nil do
+    MessageHandler.message_not_enough_params(user, "PART")
   end
 
   @impl true
-  def handle(user, _) do
+  def handle(user, %{command: "PART"}) do
     MessageHandler.message_not_registered(user)
   end
 
@@ -41,7 +40,7 @@ defmodule ElixIRCd.Commands.Part do
     channel = channel |> Repo.preload(user_channels: :user)
     channel_users = channel.user_channels |> Enum.map(& &1.user)
 
-    MessageHandler.broadcast(channel_users, "#{user.identity} #{@command} #{channel.name} #{part_message}")
-    MessageHandler.send_message(user, :server, "#{@command} :#{channel.name}")
+    MessageHandler.broadcast(channel_users, "#{user.identity} PART #{channel.name} #{part_message}")
+    MessageHandler.send_message(user, :server, "PART :#{channel.name}")
   end
 end

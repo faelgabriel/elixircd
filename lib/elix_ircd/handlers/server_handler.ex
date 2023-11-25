@@ -6,7 +6,9 @@ defmodule ElixIRCd.Handlers.ServerHandler do
   alias ElixIRCd.Commands.Quit
   alias ElixIRCd.Contexts
   alias ElixIRCd.Handlers.CommandHandler
+  alias ElixIRCd.Parsers.IrcMessageParser
   alias ElixIRCd.Schemas
+  alias ElixIRCd.Structs.IrcMessage
 
   require Logger
 
@@ -40,14 +42,13 @@ defmodule ElixIRCd.Handlers.ServerHandler do
   defp handle_message(socket, message) do
     Logger.debug("<- #{inspect(message)}")
 
-    command = message |> String.trim() |> String.split(" ")
-
     with {:ok, user} <- handle_user(socket),
-         :ok <- CommandHandler.handle(user, command) do
+         {:ok, irc_message} <- IrcMessageParser.parse(message),
+         :ok <- CommandHandler.handle(user, irc_message) do
       :ok
     else
       error ->
-        Logger.error("Error handling command #{inspect(command)}: #{inspect(error)}")
+        Logger.error("Error handling message #{inspect(message)}: #{inspect(error)}")
         :error
     end
   end
@@ -134,7 +135,7 @@ defmodule ElixIRCd.Handlers.ServerHandler do
 
     case Contexts.User.get_by_socket(socket) do
       nil -> :ok
-      user -> Quit.handle(user, [reason])
+      user -> CommandHandler.handle(user, %IrcMessage{command: "QUIT", body: reason})
     end
   end
 end

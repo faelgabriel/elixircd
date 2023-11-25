@@ -15,10 +15,9 @@ defmodule ElixIRCd.Commands.Nick do
   require Logger
 
   @behaviour ElixIRCd.Behaviors.Command
-  @command "NICK"
 
   @impl true
-  def handle(user, [nick]) do
+  def handle(user, %{command: "NICK", params: [nick]}) do
     if nick_in_use?(nick) do
       MessageHandler.send_message(user, :server, "433 * #{nick} :Nickname is already in use")
     else
@@ -27,8 +26,8 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   @impl true
-  def handle(user, []) do
-    MessageHandler.message_not_enough_params(user, @command)
+  def handle(user, %{command: "NICK"}) do
+    MessageHandler.message_not_enough_params(user, "NICK")
   end
 
   @spec handle_nick(Schemas.User.t(), String.t()) :: :ok
@@ -43,7 +42,7 @@ defmodule ElixIRCd.Commands.Nick do
   defp handle_identity(user, nick) do
     case user.identity do
       nil -> HandshakeHandler.handshake(user)
-      _ -> MessageHandler.send_message(user, :user, "#{@command} #{nick}")
+      _ -> MessageHandler.send_message(user, :user, "NICK #{nick}")
     end
   end
 

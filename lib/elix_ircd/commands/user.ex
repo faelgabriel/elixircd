@@ -9,7 +9,7 @@ defmodule ElixIRCd.Commands.User do
   @behaviour ElixIRCd.Behaviors.Command
 
   @impl true
-  def handle(user, [username, _mode, _, realname]) do
+  def handle(user, %{command: "USER", body: realname, params: [username, _, _]}) do
     {:ok, user} = Contexts.User.update(user, %{username: username, realname: realname})
 
     HandshakeHandler.handshake(user)

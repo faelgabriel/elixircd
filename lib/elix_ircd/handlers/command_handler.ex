@@ -6,51 +6,37 @@ defmodule ElixIRCd.Handlers.CommandHandler do
   alias ElixIRCd.Commands
   alias ElixIRCd.Handlers.MessageHandler
   alias ElixIRCd.Schemas
+  alias ElixIRCd.Structs.IrcMessage
 
   require Logger
 
   @commands %{
-    "cap" => Commands.Cap,
-    "join" => Commands.Join,
-    "nick" => Commands.Nick,
-    "part" => Commands.Part,
-    "ping" => Commands.Ping,
-    "privmsg" => Commands.Privmsg,
-    "quit" => Commands.Quit,
-    "user" => Commands.User,
-    "whois" => Commands.Whois
+    "CAP" => Commands.Cap,
+    "JOIN" => Commands.Join,
+    "NICK" => Commands.Nick,
+    "PART" => Commands.Part,
+    "PING" => Commands.Ping,
+    "PRIVMSG" => Commands.Privmsg,
+    "QUIT" => Commands.Quit,
+    "USER" => Commands.User,
+    "WHOIS" => Commands.Whois
   }
 
   @doc """
-  Handles the command and forward to the proper module.
+  Handles the irc message command and forwards to the proper module.
   """
-  @spec handle(Schemas.User.t(), [String.t()]) :: :ok
-  def handle(user, [command | args]) do
-    command_module = Map.get(@commands, String.downcase(command))
+  @spec handle(Schemas.User.t(), IrcMessage.t()) :: :ok
+  def handle(user, %{command: command} = irc_message) do
+    command_module = Map.get(@commands, command)
 
     case command_module do
-      nil -> MessageHandler.send_message(user, :server, "421 #{user.nick} #{command} :Unknown command")
-      module -> module.handle(user, build_command(args))
+      nil -> handle_unknown_command(user, command)
+      module -> module.handle(user, irc_message)
     end
   end
 
-  # When an argument in the list starts with the ":" character,
-  # all arguments from that point on are joined into a single argument.
-  @spec build_command([String.t()]) :: [String.t()]
-  defp build_command(args) do
-    case Enum.find_index(args, &String.starts_with?(&1, ":")) do
-      nil ->
-        args
-
-      index ->
-        # Join the arguments after the ":" character and removes the ":" character from the beginning.
-        single_argument =
-          Enum.join(Enum.drop(args, index), " ")
-          |> String.replace_leading(":", "")
-
-        # Take the arguments before the ":" character and append the single argument.
-        [Enum.take(args, index), single_argument]
-        |> List.flatten()
-    end
+  @spec handle_unknown_command(Schemas.User.t(), String.t()) :: :ok
+  defp handle_unknown_command(user, command) do
+    MessageHandler.send_message(user, :server, "421 #{user.nick} #{command} :Unknown command")
   end
 end

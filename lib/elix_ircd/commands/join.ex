@@ -12,10 +12,9 @@ defmodule ElixIRCd.Commands.Join do
   require Logger
 
   @behaviour ElixIRCd.Behaviors.Command
-  @command "JOIN"
 
   @impl true
-  def handle(user, [channel_names]) when user.identity != nil do
+  def handle(user, %{command: "JOIN", params: [channel_names]}) when user.identity != nil do
     channel_names
     |> String.split(",")
     |> Enum.map(&String.trim/1)
@@ -23,12 +22,12 @@ defmodule ElixIRCd.Commands.Join do
   end
 
   @impl true
-  def handle(user, []) when user.identity != nil do
-    MessageHandler.message_not_enough_params(user, @command)
+  def handle(user, %{command: "JOIN"}) when user.identity != nil do
+    MessageHandler.message_not_enough_params(user, "JOIN")
   end
 
   @impl true
-  def handle(user, _) do
+  def handle(user, %{command: "JOIN"}) do
     MessageHandler.message_not_registered(user)
   end
 
@@ -63,7 +62,7 @@ defmodule ElixIRCd.Commands.Join do
       channel = channel |> Repo.preload(user_channels: :user)
       channel_users = channel.user_channels |> Enum.map(& &1.user)
 
-      MessageHandler.broadcast(channel_users, ":#{user.identity} #{@command} #{channel.name}")
+      MessageHandler.broadcast(channel_users, ":#{user.identity} JOIN #{channel.name}")
 
       MessageHandler.send_message(
         user,

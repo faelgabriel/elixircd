@@ -8,13 +8,12 @@ defmodule ElixIRCd.Commands.Ping do
   @behaviour ElixIRCd.Behaviors.Command
 
   @impl true
-  def handle(user, message_parts) when message_parts != [] do
-    message = Enum.join(message_parts, " ")
-    MessageHandler.send_message(user, :server, "PONG #{message}")
+  def handle(user, %{command: "PING", params: [param]}) do
+    MessageHandler.send_message(user, :server, "PONG #{param}")
   end
 
   @impl true
-  def handle(user, []) do
+  def handle(user, %{command: "PING"}) do
     MessageHandler.send_message(user, :server, "409 #{user.nick} :No origin specified")
   end
 end
