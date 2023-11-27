@@ -1,14 +1,13 @@
-defmodule ElixIRCd.Handlers.ServerHandler do
+defmodule ElixIRCd.Core.Server do
   @moduledoc """
   Module for handling IRC server.
   """
 
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Handlers.CommandHandler
-  alias ElixIRCd.Parsers.IrcMessageParser
-  alias ElixIRCd.Schemas
-  alias ElixIRCd.Structs.IrcMessage
-
+  alias ElixIRCd.Core.Command
+  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
+  alias ElixIRCd.Message.MessageParser
   require Logger
 
   @doc """
@@ -42,8 +41,8 @@ defmodule ElixIRCd.Handlers.ServerHandler do
     Logger.debug("<- #{inspect(message)}")
 
     with {:ok, user} <- handle_user(socket),
-         {:ok, irc_message} <- IrcMessageParser.parse(message),
-         :ok <- CommandHandler.handle(user, irc_message) do
+         {:ok, irc_message} <- MessageParser.parse(message),
+         :ok <- Command.handle(user, irc_message) do
       :ok
     else
       error ->
@@ -134,7 +133,24 @@ defmodule ElixIRCd.Handlers.ServerHandler do
 
     case Contexts.User.get_by_socket(socket) do
       nil -> :ok
-      user -> CommandHandler.handle(user, %IrcMessage{command: "QUIT", body: reason})
+      user -> Command.handle(user, %Message{command: "QUIT", body: reason})
     end
+  end
+
+  @doc """
+  Sends a message to the given user.
+
+  The message can be a Message struct or a raw IRC message string.
+  """
+  @spec send_message(Message.t() | String.t(), Schemas.User.t()) :: :ok
+  def send_message(%Message{} = message, user) do
+    message
+    |> MessageParser.unparse!()
+    |> send_message(user)
+  end
+
+  def send_message(message, %{transport: transport, socket: socket}) do
+    Logger.debug("-> #{inspect(message)}")
+    transport.send(socket, message <> "\r\n")
   end
 end

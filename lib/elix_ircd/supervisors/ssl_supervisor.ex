@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Listeners.SslListener do
+defmodule ElixIRCd.Supervisors.SslSupervisor do
   @moduledoc """
   Module for the SSL listener.
   """

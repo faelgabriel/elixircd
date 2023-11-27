@@ -1,12 +1,13 @@
-defmodule ElixIRCd.Handlers.HandshakeHandler do
+defmodule ElixIRCd.Core.Handshake do
   @moduledoc """
   Module for handling IRC handshake.
   """
 
   alias Ecto.Changeset
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Handlers.MessageHandler
-  alias ElixIRCd.Schemas
+  alias ElixIRCd.Core.Server
+  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.MessageBuilder
 
   require Logger
 
@@ -42,11 +43,18 @@ defmodule ElixIRCd.Handlers.HandshakeHandler do
 
   @spec handle_motd(Schemas.User.t()) :: :ok
   defp handle_motd(user) do
-    MessageHandler.send_message(user, :server, "001 #{user.nick} Welcome to the IRC network.")
-    MessageHandler.send_message(user, :server, "002 #{user.nick} Your host is ElixIRCd, running version 0.1.0.")
-    MessageHandler.send_message(user, :server, "003 #{user.nick} ElixIRCd 0.1.0 +i +int")
-    MessageHandler.send_message(user, :server, "376 #{user.nick} :End of MOTD command")
-    # Future:: MessageHandler.send_message(user, :server, "422 :MOTD File is missing")
+    MessageBuilder.server_message(:rpl_welcome, [user.nick], "Welcome to the IRC network.")
+    |> Server.send_message(user)
+
+    MessageBuilder.server_message(:rpl_yourhost, [user.nick], "Your host is ElixIRCd, running version 0.1.0.")
+    |> Server.send_message(user)
+
+    MessageBuilder.server_message(:rpl_created, [user.nick], "ElixIRCd 0.1.0 +i +int")
+    |> Server.send_message(user)
+
+    MessageBuilder.server_message(:rpl_endofmotd, [user.nick], "End of MOTD command")
+    |> Server.send_message(user)
+
     :ok
   end
 end

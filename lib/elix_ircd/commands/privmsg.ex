@@ -4,11 +4,11 @@ defmodule ElixIRCd.Commands.Privmsg do
   """
 
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Handlers.MessageHandler
-  alias ElixIRCd.Repo
-  alias ElixIRCd.Schemas
+  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Repo
+  alias ElixIRCd.Data.Schemas
 
-  @behaviour ElixIRCd.Behaviors.Command
+  @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "PRIVMSG", body: message, params: [receiver]}) when user.identity != nil do
@@ -20,34 +20,34 @@ defmodule ElixIRCd.Commands.Privmsg do
         channel_users = channel.user_channels |> Enum.map(& &1.user)
 
         if channel_users |> Enum.member?(user) do
-          MessageHandler.broadcast_except_for_user(
+          Messaging.broadcast_except_for_user(
             channel_users,
             user,
             ":#{user.identity} PRIVMSG #{channel.name} :#{message}"
           )
         else
-          MessageHandler.send_message(user, :server, "404 #{user.nick} #{receiver} :Cannot send to channel")
+          Messaging.send_message(user, :server, "404 #{user.nick} #{receiver} :Cannot send to channel")
         end
 
       # Message is sent to a user
       false ->
         case Contexts.User.get_by_nick(receiver) do
           %Schemas.User{} = receiver_user ->
-            MessageHandler.send_message(receiver_user, :user, "PRIVMSG #{user.nick} :#{message}")
+            Messaging.send_message(receiver_user, :user, "PRIVMSG #{user.nick} :#{message}")
 
           nil ->
-            MessageHandler.send_message(user, :server, "401 #{user.nick} #{receiver} :No such nickname")
+            Messaging.send_message(user, :server, "401 #{user.nick} #{receiver} :No such nickname")
         end
     end
   end
 
   @impl true
   def handle(user, %{command: "PRIVMSG"}) when user.identity != nil do
-    MessageHandler.message_not_enough_params(user, "PRIVMSG")
+    Messaging.message_not_enough_params(user, "PRIVMSG")
   end
 
   @impl true
   def handle(user, %{command: "PRIVMSG"}) do
-    MessageHandler.message_not_registered(user)
+    Messaging.message_not_registered(user)
   end
 end

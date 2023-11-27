@@ -1,22 +1,22 @@
-defmodule ElixIRCd.Handlers.MessageHandler do
+defmodule ElixIRCd.Core.Messaging do
   @moduledoc """
   Module for handling IRC messages.
   """
 
-  alias ElixIRCd.Handlers.ServerHandler
-  alias ElixIRCd.Schemas
+  alias ElixIRCd.Core.Server
+  alias ElixIRCd.Data.Schemas
 
   @doc """
   Sends a message to a user in the form of a server message or a user message.
   """
   @spec send_message(Schemas.User.t(), atom(), String.t()) :: :ok
   def send_message(user, :server, message) do
-    server_name = ServerHandler.server_name()
-    ServerHandler.send_packet(user, ":#{server_name} #{message}")
+    server_name = Server.server_name()
+    Server.send_packet(user, ":#{server_name} #{message}")
   end
 
   def send_message(user, :user, message) do
-    ServerHandler.send_packet(user, ":#{user.identity} #{message}")
+    Server.send_packet(user, ":#{user.identity} #{message}")
   end
 
   @doc """
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Handlers.MessageHandler do
   def broadcast_except_for_user(users, excluded_user, message) do
     Enum.each(users, fn user ->
       if user != excluded_user do
-        ServerHandler.send_packet(user, message)
+        Server.send_packet(user, message)
       end
     end)
   end
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Handlers.MessageHandler do
   @spec broadcast([Schemas.User.t()], String.t()) :: :ok
   def broadcast(users, message) do
     Enum.each(users, fn user ->
-      ServerHandler.send_packet(user, message)
+      Server.send_packet(user, message)
     end)
   end
 

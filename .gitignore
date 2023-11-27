@@ -31,3 +31,6 @@ elixircd-*.tar
 # Dialyzer
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
+
+# ElixirLS
+/.elixir_ls/

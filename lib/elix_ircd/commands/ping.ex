@@ -3,17 +3,17 @@ defmodule ElixIRCd.Commands.Ping do
   This module defines the PING command.
   """
 
-  alias ElixIRCd.Handlers.MessageHandler
+  alias ElixIRCd.Core.Messaging
 
-  @behaviour ElixIRCd.Behaviors.Command
+  @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  def handle(user, %{command: "PING", params: [param]}) do
-    MessageHandler.send_message(user, :server, "PONG #{param}")
+  def handle(user, %{command: "PING", body: body}) do
+    Messaging.send_message(user, :server, "PONG #{body}")
   end
 
   @impl true
   def handle(user, %{command: "PING"}) do
-    MessageHandler.send_message(user, :server, "409 #{user.nick} :No origin specified")
+    Messaging.send_message(user, :server, "409 #{user.nick} :No origin specified")
   end
 end

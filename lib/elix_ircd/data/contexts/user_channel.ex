@@ -4,10 +4,10 @@ defmodule ElixIRCd.Contexts.UserChannel do
   """
 
   alias Ecto.Changeset
-  alias ElixIRCd.Repo
-  alias ElixIRCd.Schemas.Channel
-  alias ElixIRCd.Schemas.User
-  alias ElixIRCd.Schemas.UserChannel
+  alias ElixIRCd.Data.Repo
+  alias ElixIRCd.Data.Schemas.Channel
+  alias ElixIRCd.Data.Schemas.User
+  alias ElixIRCd.Data.Schemas.UserChannel
 
   require Logger
 

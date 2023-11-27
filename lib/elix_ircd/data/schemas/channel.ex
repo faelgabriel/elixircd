@@ -1,11 +1,11 @@
-defmodule ElixIRCd.Schemas.Channel do
+defmodule ElixIRCd.Data.Schemas.Channel do
   @moduledoc """
   Module for the Channel schema.
   """
 
   alias Ecto.Changeset
-  alias ElixIRCd.Schemas.Channel
-  alias ElixIRCd.Schemas.UserChannel
+  alias ElixIRCd.Data.Schemas.Channel
+  alias ElixIRCd.Data.Schemas.UserChannel
 
   import Ecto.Changeset
 

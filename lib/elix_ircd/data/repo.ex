@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Repo do
+defmodule ElixIRCd.Data.Repo do
   @moduledoc """
   ETS Repo
   """

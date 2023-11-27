@@ -4,8 +4,8 @@ defmodule ElixIRCd.Contexts.Channel do
   """
 
   alias Ecto.Changeset
-  alias ElixIRCd.Repo
-  alias ElixIRCd.Schemas.Channel
+  alias ElixIRCd.Data.Repo
+  alias ElixIRCd.Data.Schemas.Channel
 
   require Logger
 

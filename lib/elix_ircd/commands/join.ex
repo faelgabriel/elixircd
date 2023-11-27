@@ -5,13 +5,13 @@ defmodule ElixIRCd.Commands.Join do
 
   alias Ecto.Changeset
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Handlers.MessageHandler
-  alias ElixIRCd.Repo
-  alias ElixIRCd.Schemas
+  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Repo
+  alias ElixIRCd.Data.Schemas
 
   require Logger
 
-  @behaviour ElixIRCd.Behaviors.Command
+  @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "JOIN", params: [channel_names]}) when user.identity != nil do
@@ -23,12 +23,12 @@ defmodule ElixIRCd.Commands.Join do
 
   @impl true
   def handle(user, %{command: "JOIN"}) when user.identity != nil do
-    MessageHandler.message_not_enough_params(user, "JOIN")
+    Messaging.message_not_enough_params(user, "JOIN")
   end
 
   @impl true
   def handle(user, %{command: "JOIN"}) do
-    MessageHandler.message_not_registered(user)
+    Messaging.message_not_registered(user)
   end
 
   @spec handle_channel(Schemas.User.t(), String.t()) :: :ok
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Commands.Join do
       {:error, %Changeset{errors: errors}} ->
         error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
 
-        MessageHandler.send_message(
+        Messaging.send_message(
           user,
           :server,
           "448 #{user.nick} #{channel_name} :Cannot join channel: #{error_message}"
@@ -62,9 +62,9 @@ defmodule ElixIRCd.Commands.Join do
       channel = channel |> Repo.preload(user_channels: :user)
       channel_users = channel.user_channels |> Enum.map(& &1.user)
 
-      MessageHandler.broadcast(channel_users, ":#{user.identity} JOIN #{channel.name}")
+      Messaging.broadcast(channel_users, ":#{user.identity} JOIN #{channel.name}")
 
-      MessageHandler.send_message(
+      Messaging.send_message(
         user,
         :server,
         "332 #{user.nick} #{channel.name} :this is a topic and it is a grand topic"
@@ -72,8 +72,8 @@ defmodule ElixIRCd.Commands.Join do
 
       names = channel_users |> Enum.map_join(" ", fn user -> user.nick end)
 
-      MessageHandler.send_message(user, :server, "353 #{user.nick} = #{channel.name} :#{names}")
-      MessageHandler.send_message(user, :server, "366 #{user.nick} #{channel.name} :End of /NAMES list.")
+      Messaging.send_message(user, :server, "353 #{user.nick} = #{channel.name} :#{names}")
+      Messaging.send_message(user, :server, "366 #{user.nick} #{channel.name} :End of /NAMES list.")
       :ok
     end
   end

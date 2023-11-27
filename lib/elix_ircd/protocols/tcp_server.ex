@@ -3,12 +3,12 @@ defmodule ElixIRCd.Protocols.TcpServer do
   Module for the TCP server protocol.
   """
 
-  alias ElixIRCd.Handlers.ServerHandler
+  alias ElixIRCd.Core.Server
 
   require Logger
 
   @behaviour :ranch_protocol
-  @timeout 300_000
+  @timeout 60_000
 
   @doc """
   Starts a linked process for the TCP server protocol.
@@ -46,7 +46,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
   def init(ref, transport, _opts) do
     case :ranch.handshake(ref) do
       {:ok, socket} ->
-        ServerHandler.handle_connect_socket(socket, transport)
+        Server.handle_connect_socket(socket, transport)
 
         transport.setopts(socket, active: :once)
         loop(socket, transport)
@@ -63,21 +63,21 @@ defmodule ElixIRCd.Protocols.TcpServer do
   defp loop(socket, transport, buffer \\ "") do
     receive do
       {:tcp, ^socket, data} ->
-        remainder_buffer = ServerHandler.handle_stream(socket, buffer, data)
+        remainder_buffer = Server.handle_stream(socket, buffer, data)
 
         transport.setopts(socket, active: :once)
         loop(socket, transport, remainder_buffer)
 
       {:tcp_closed, ^socket} ->
-        ServerHandler.handle_quit_socket(socket, "Connection Closed")
+        Server.handle_quit_socket(socket, "Connection Closed")
 
       {:tcp_error, ^socket, reason} ->
-        ServerHandler.handle_quit_socket(socket, "Connection Error: " <> reason)
+        Server.handle_quit_socket(socket, "Connection Error: " <> reason)
 
         # Future:: Handle manual closed connection - maybe with Registry?
     after
       @timeout ->
-        ServerHandler.handle_quit_socket(socket, "Connection Timeout")
+        Server.handle_quit_socket(socket, "Connection Timeout")
     end
   end
 end

@@ -1,31 +1,42 @@
-defmodule ElixIRCd.Parsers.IrcMessageParser do
+defmodule ElixIRCd.Message.MessageParser do
   @moduledoc """
-  Module for parsing IRC messages to IrcMessage structs.
+  Module for parsing raw IRC messages to IrcMessage structs and vice versa.
   """
 
-  alias ElixIRCd.Structs.IrcMessage
+  alias ElixIRCd.Message.Message
 
   @doc """
   Parses a raw IRC message string into an IrcMessage struct.
 
   ## Examples
   - For a message ":irc.example.com NOTICE user :Server restarting",
-  - the function parses it into `%IrcMessage{prefix: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`
+  - the function parses it into `%Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`
 
   - For a message "JOIN #channel",
-  - the function parses it into `%IrcMessage{prefix: nil, command: "JOIN", params: ["#channel"], body: nil}`
+  - the function parses it into `%Message{prefix: nil, command: "JOIN", params: ["#channel"], body: nil}`
 
   - For a message ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user",
-  - the function parses it into `%IrcMessage{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`
+  - the function parses it into `%Message{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`
   """
-  @spec parse(String.t()) :: {:ok, IrcMessage.t()} | {:error, String.t()}
+  @spec parse(String.t()) :: {:ok, Message.t()} | {:error, String.t()}
   def parse(message) do
     {prefix, message} = extract_prefix(message)
 
     parse_command_and_params(message)
     |> case do
-      {command, params, body} -> {:ok, %IrcMessage{prefix: prefix, command: command, params: params, body: body}}
+      {command, params, body} -> {:ok, %Message{prefix: prefix, command: command, params: params, body: body}}
       {:error, error} -> {:error, error}
+    end
+  end
+
+  @doc """
+  Parses the IrcMessage struct into a raw IRC message string.
+  Raises an ArgumentError if the message cannot be unparsed.
+  """
+  def parse!(message) do
+    case parse(message) do
+      {:ok, parsed} -> parsed
+      {:error, error} -> raise ArgumentError, error
     end
   end
 
@@ -33,26 +44,38 @@ defmodule ElixIRCd.Parsers.IrcMessageParser do
   Unparses the IrcMessage struct into a raw IRC message string.
 
   ## Examples
-  - For `%IrcMessage{prefix: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`,
+  - For `%Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`,
   - the function unparses it into ":irc.example.com NOTICE user :Server restarting"
 
-  - For `%IrcMessage{prefix: nil, command: "JOIN", params: ["#channel"], body: nil}`,
+  - For `%Message{prefix: nil, command: "JOIN", params: ["#channel"], body: nil}`,
   - the function unparses it into "JOIN #channel"
 
-  - For `%IrcMessage{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`,
+  - For `%Message{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`,
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
-  @spec unparse(IrcMessage.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def unparse(%IrcMessage{command: nil}), do: {:error, "Invalid IRC message format"}
+  @spec unparse(Message.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def unparse(%Message{command: nil}), do: {:error, "Invalid IRC message format"}
 
-  def unparse(%IrcMessage{prefix: nil, command: command, params: params, body: body}) do
+  def unparse(%Message{prefix: nil, command: command, params: params, body: body}) do
     base = [command | params]
     {:ok, unparse_message(base, body)}
   end
 
-  def unparse(%IrcMessage{prefix: prefix, command: command, params: params, body: body}) do
+  def unparse(%Message{prefix: prefix, command: command, params: params, body: body}) do
     base = [":" <> prefix, command | params]
     {:ok, unparse_message(base, body)}
+  end
+
+  @doc """
+  Unparses the IrcMessage struct into a raw IRC message string.
+  Raises an ArgumentError if the message cannot be unparsed.
+  """
+  @spec unparse!(Message.t()) :: String.t()
+  def unparse!(message) do
+    case unparse(message) do
+      {:ok, unparsed} -> unparsed
+      {:error, error} -> raise ArgumentError, error
+    end
   end
 
   # Extracts the prefix from the message if present.

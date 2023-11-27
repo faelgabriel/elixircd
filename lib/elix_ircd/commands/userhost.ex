@@ -2,15 +2,15 @@
 #   @moduledoc """
 #   This module defines the USERHOST command.
 #   """
-#   alias ElixIRCd.Handlers.MessageHandler
-#   alias ElixIRCd.Schemas.User, as: UserSchema
+#   alias ElixIRCd.Core.Messaging
+#   alias ElixIRCd.Data.Schemas.User, as: UserSchema
 #   alias ElixIRCd.Handlers.StorageHandler
 
-#   @behaviour ElixIRCd.Behaviors.Command
+#   @behaviour ElixIRCd.Commands.Behavior
 
 #   @impl true
 #   def handle(user, [nicks]) when user.identity != nil do
-#     MessageHandler.userhost(socket, user_data, nicks)
+#     Messaging.userhost(socket, user_data, nicks)
 #   end
 
 #   def handle({socket, %{identity: _} = user_data}, [[nicknames]]) do
@@ -39,6 +39,6 @@
 #       end)
 #       |> Enum.join(" ")
 
-#     MessageHandler.send_message(user, :server, "302 #{user.nick} #{userhost_list}")
+#     Messaging.send_message(user, :server, "302 #{user.nick} #{userhost_list}")
 #   end
 # end

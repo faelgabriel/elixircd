@@ -4,8 +4,8 @@ defmodule ElixIRCd.Contexts.User do
   """
 
   alias Ecto.Changeset
-  alias ElixIRCd.Repo
-  alias ElixIRCd.Schemas.User
+  alias ElixIRCd.Data.Repo
+  alias ElixIRCd.Data.Schemas.User
 
   require Logger
 

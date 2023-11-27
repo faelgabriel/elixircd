@@ -3,13 +3,13 @@ defmodule ElixIRCd.Commands.Cap do
   This module defines the CAP command.
   """
 
-  alias ElixIRCd.Handlers.MessageHandler
+  alias ElixIRCd.Core.Messaging
 
-  @behaviour ElixIRCd.Behaviors.Command
+  @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "CAP", params: ["LS", "302"]}) do
-    MessageHandler.send_message(user, :server, "CAP * LS :")
+    Messaging.send_message(user, :server, "CAP * LS :")
     :ok
   end
 

@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Structs.IrcMessage do
+defmodule ElixIRCd.Message.Message do
   @moduledoc """
   Represents a structured format for IRC messages.
 

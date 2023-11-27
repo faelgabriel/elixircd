@@ -8,18 +8,18 @@ defmodule ElixIRCd.Commands.Nick do
 
   alias Ecto.Changeset
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Handlers.HandshakeHandler
-  alias ElixIRCd.Handlers.MessageHandler
-  alias ElixIRCd.Schemas
+  alias ElixIRCd.Core.Handshake
+  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Schemas
 
   require Logger
 
-  @behaviour ElixIRCd.Behaviors.Command
+  @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "NICK", params: [nick]}) do
     if nick_in_use?(nick) do
-      MessageHandler.send_message(user, :server, "433 * #{nick} :Nickname is already in use")
+      Messaging.send_message(user, :server, "433 * #{nick} :Nickname is already in use")
     else
       handle_nick(user, nick)
     end
@@ -27,7 +27,7 @@ defmodule ElixIRCd.Commands.Nick do
 
   @impl true
   def handle(user, %{command: "NICK"}) do
-    MessageHandler.message_not_enough_params(user, "NICK")
+    Messaging.message_not_enough_params(user, "NICK")
   end
 
   @spec handle_nick(Schemas.User.t(), String.t()) :: :ok
@@ -41,8 +41,8 @@ defmodule ElixIRCd.Commands.Nick do
   @spec handle_identity(Schemas.User.t(), String.t()) :: :ok
   defp handle_identity(user, nick) do
     case user.identity do
-      nil -> HandshakeHandler.handshake(user)
-      _ -> MessageHandler.send_message(user, :user, "NICK #{nick}")
+      nil -> Handshake.handshake(user)
+      _ -> Messaging.send_message(user, :user, "NICK #{nick}")
     end
   end
 
@@ -50,7 +50,7 @@ defmodule ElixIRCd.Commands.Nick do
   defp handle_error(user, nick, errors) do
     error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
 
-    MessageHandler.send_message(
+    Messaging.send_message(
       user,
       :server,
       "432 #{user.nick} #{nick} :Nickname is unavailable: #{error_message}"

@@ -4,12 +4,12 @@ defmodule ElixIRCd.Commands.Quit do
   """
 
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Handlers.MessageHandler
-  alias ElixIRCd.Handlers.ServerHandler
-  alias ElixIRCd.Repo
-  alias ElixIRCd.Schemas
+  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Core.Server
+  alias ElixIRCd.Data.Repo
+  alias ElixIRCd.Data.Schemas
 
-  @behaviour ElixIRCd.Behaviors.Command
+  @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "QUIT", body: quit_message}) do
@@ -19,13 +19,13 @@ defmodule ElixIRCd.Commands.Quit do
       # Broadcast QUIT message to all users in the channel
       channel = user_channel.channel |> Repo.preload(user_channels: :user)
       channel_users = channel.user_channels |> Enum.map(& &1.user)
-      MessageHandler.broadcast(channel_users, "#{user.identity} QUIT :#{quit_message}")
+      Messaging.broadcast(channel_users, "#{user.identity} QUIT :#{quit_message}")
     end)
 
     # Delete the user and all associated user channels
     Contexts.User.delete(user)
 
-    ServerHandler.close_connection(user)
+    Server.close_connection(user)
 
     :ok
   end

@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Listeners.TcpListener do
+defmodule ElixIRCd.Supervisors.TcpSupervisor do
   @moduledoc """
   Module for the TCP listener.
   """

@@ -1,12 +1,12 @@
-defmodule ElixIRCd.Handlers.CommandHandler do
+defmodule ElixIRCd.Core.Command do
   @moduledoc """
   Module for handling IRC commands.
   """
 
   alias ElixIRCd.Commands
-  alias ElixIRCd.Handlers.MessageHandler
-  alias ElixIRCd.Schemas
-  alias ElixIRCd.Structs.IrcMessage
+  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
 
   require Logger
 
@@ -25,7 +25,7 @@ defmodule ElixIRCd.Handlers.CommandHandler do
   @doc """
   Handles the irc message command and forwards to the proper module.
   """
-  @spec handle(Schemas.User.t(), IrcMessage.t()) :: :ok
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(user, %{command: command} = irc_message) do
     command_module = Map.get(@commands, command)
 
@@ -37,6 +37,6 @@ defmodule ElixIRCd.Handlers.CommandHandler do
 
   @spec handle_unknown_command(Schemas.User.t(), String.t()) :: :ok
   defp handle_unknown_command(user, command) do
-    MessageHandler.send_message(user, :server, "421 #{user.nick} #{command} :Unknown command")
+    Messaging.send_message(user, :server, "421 #{user.nick} #{command} :Unknown command")
   end
 end

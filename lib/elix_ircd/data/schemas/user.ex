@@ -1,11 +1,11 @@
-defmodule ElixIRCd.Schemas.User do
+defmodule ElixIRCd.Data.Schemas.User do
   @moduledoc """
   Module for the User schema.
   """
 
   alias Ecto.Changeset
-  alias ElixIRCd.Schemas.User
-  alias ElixIRCd.Schemas.UserChannel
+  alias ElixIRCd.Data.Schemas.User
+  alias ElixIRCd.Data.Schemas.UserChannel
   alias ElixIRCd.Types.PortType
   alias ElixIRCd.Types.TransportType
 

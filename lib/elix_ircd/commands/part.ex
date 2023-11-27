@@ -4,11 +4,11 @@ defmodule ElixIRCd.Commands.Part do
   """
 
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Handlers.MessageHandler
-  alias ElixIRCd.Repo
-  alias ElixIRCd.Schemas
+  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Repo
+  alias ElixIRCd.Data.Schemas
 
-  @behaviour ElixIRCd.Behaviors.Command
+  @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "PART", body: part_message, params: [channel_name]}) when user.identity != nil do
@@ -24,12 +24,12 @@ defmodule ElixIRCd.Commands.Part do
 
   @impl true
   def handle(user, %{command: "PART"}) when user.identity != nil do
-    MessageHandler.message_not_enough_params(user, "PART")
+    Messaging.message_not_enough_params(user, "PART")
   end
 
   @impl true
   def handle(user, %{command: "PART"}) do
-    MessageHandler.message_not_registered(user)
+    Messaging.message_not_registered(user)
   end
 
   @doc """
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Commands.Part do
     channel = channel |> Repo.preload(user_channels: :user)
     channel_users = channel.user_channels |> Enum.map(& &1.user)
 
-    MessageHandler.broadcast(channel_users, "#{user.identity} PART #{channel.name} #{part_message}")
-    MessageHandler.send_message(user, :server, "PART :#{channel.name}")
+    Messaging.broadcast(channel_users, "#{user.identity} PART #{channel.name} #{part_message}")
+    Messaging.send_message(user, :server, "PART :#{channel.name}")
   end
 end

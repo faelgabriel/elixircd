@@ -18,9 +18,9 @@ defmodule ElixIRCd do
     ]
 
     children = [
-      {ElixIRCd.Repo, []},
-      {ElixIRCd.Listeners.TcpListener, tcp_opts},
-      {ElixIRCd.Listeners.SslListener, ssl_opts}
+      {ElixIRCd.Data.Repo, []},
+      {ElixIRCd.Supervisors.TcpSupervisor, tcp_opts},
+      {ElixIRCd.Supervisors.SslSupervisor, ssl_opts}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: ElixIRCd.Supervisor)
