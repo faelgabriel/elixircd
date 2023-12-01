@@ -7,6 +7,7 @@ defmodule ElixIRCd.Commands.Part do
   alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
@@ -24,12 +25,14 @@ defmodule ElixIRCd.Commands.Part do
 
   @impl true
   def handle(user, %{command: "PART"}) when user.identity != nil do
-    Messaging.message_not_enough_params(user, "PART")
+    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "PART"], "Not enough parameters")
+    |> Messaging.send_message(user)
   end
 
   @impl true
   def handle(user, %{command: "PART"}) do
-    Messaging.message_not_registered(user)
+    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
+    |> Messaging.send_message(user)
   end
 
   @doc """
@@ -40,7 +43,7 @@ defmodule ElixIRCd.Commands.Part do
     channel = channel |> Repo.preload(user_channels: :user)
     channel_users = channel.user_channels |> Enum.map(& &1.user)
 
-    Messaging.broadcast(channel_users, "#{user.identity} PART #{channel.name} #{part_message}")
-    Messaging.send_message(user, :server, "PART :#{channel.name}")
+    MessageBuilder.user_message(user.identity, "PART", [channel.name], part_message)
+    |> Messaging.send_message(channel_users)
   end
 end

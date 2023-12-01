@@ -5,7 +5,7 @@ defmodule ElixIRCd.Core.Handshake do
 
   alias Ecto.Changeset
   alias ElixIRCd.Contexts
-  alias ElixIRCd.Core.Server
+  alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Message.MessageBuilder
 
@@ -44,16 +44,16 @@ defmodule ElixIRCd.Core.Handshake do
   @spec handle_motd(Schemas.User.t()) :: :ok
   defp handle_motd(user) do
     MessageBuilder.server_message(:rpl_welcome, [user.nick], "Welcome to the IRC network.")
-    |> Server.send_message(user)
+    |> Messaging.send_message(user)
 
     MessageBuilder.server_message(:rpl_yourhost, [user.nick], "Your host is ElixIRCd, running version 0.1.0.")
-    |> Server.send_message(user)
+    |> Messaging.send_message(user)
 
     MessageBuilder.server_message(:rpl_created, [user.nick], "ElixIRCd 0.1.0 +i +int")
-    |> Server.send_message(user)
+    |> Messaging.send_message(user)
 
     MessageBuilder.server_message(:rpl_endofmotd, [user.nick], "End of MOTD command")
-    |> Server.send_message(user)
+    |> Messaging.send_message(user)
 
     :ok
   end

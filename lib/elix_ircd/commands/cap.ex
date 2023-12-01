@@ -4,13 +4,14 @@ defmodule ElixIRCd.Commands.Cap do
   """
 
   alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "CAP", params: ["LS", "302"]}) do
-    Messaging.send_message(user, :server, "CAP * LS :")
-    :ok
+    MessageBuilder.server_message("CAP", ["*", "LS"])
+    |> Messaging.send_message(user)
   end
 
   @impl true

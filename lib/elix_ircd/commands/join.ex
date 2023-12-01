@@ -8,6 +8,7 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.MessageBuilder
 
   require Logger
 
@@ -23,12 +24,14 @@ defmodule ElixIRCd.Commands.Join do
 
   @impl true
   def handle(user, %{command: "JOIN"}) when user.identity != nil do
-    Messaging.message_not_enough_params(user, "JOIN")
+    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "JOIN"], "Not enough parameters")
+    |> Messaging.send_message(user)
   end
 
   @impl true
   def handle(user, %{command: "JOIN"}) do
-    Messaging.message_not_registered(user)
+    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
+    |> Messaging.send_message(user)
   end
 
   @spec handle_channel(Schemas.User.t(), String.t()) :: :ok
@@ -40,11 +43,12 @@ defmodule ElixIRCd.Commands.Join do
       {:error, %Changeset{errors: errors}} ->
         error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
 
-        Messaging.send_message(
-          user,
-          :server,
-          "448 #{user.nick} #{channel_name} :Cannot join channel: #{error_message}"
+        MessageBuilder.server_message(
+          :rpl_cannotjoinchannel,
+          [user.nick, channel_name],
+          "Cannot join channel: #{error_message}"
         )
+        |> Messaging.send_message(user)
     end
   end
 
@@ -62,18 +66,21 @@ defmodule ElixIRCd.Commands.Join do
       channel = channel |> Repo.preload(user_channels: :user)
       channel_users = channel.user_channels |> Enum.map(& &1.user)
 
-      Messaging.broadcast(channel_users, ":#{user.identity} JOIN #{channel.name}")
+      MessageBuilder.user_message(user.identity, "JOIN", [channel.name])
+      |> Messaging.send_message(channel_users)
 
-      Messaging.send_message(
-        user,
-        :server,
-        "332 #{user.nick} #{channel.name} :this is a topic and it is a grand topic"
-      )
+      channel_user_nicks = channel_users |> Enum.map_join(" ", fn user -> user.nick end)
 
-      names = channel_users |> Enum.map_join(" ", fn user -> user.nick end)
+      messages = [
+        {:rpl_topic, [user.nick, channel.name], "Channel topic here"},
+        {:rpl_namreply, ["=", user.nick, channel.name], channel_user_nicks},
+        {:rpl_endofnames, [user.nick, channel.name], "End of NAMES list."}
+      ]
 
-      Messaging.send_message(user, :server, "353 #{user.nick} = #{channel.name} :#{names}")
-      Messaging.send_message(user, :server, "366 #{user.nick} #{channel.name} :End of /NAMES list.")
+      messages
+      |> Enum.map(fn {command, params, body} -> MessageBuilder.server_message(command, params, body) end)
+      |> Messaging.send_messages(user)
+
       :ok
     end
   end

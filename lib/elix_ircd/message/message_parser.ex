@@ -10,21 +10,21 @@ defmodule ElixIRCd.Message.MessageParser do
 
   ## Examples
   - For a message ":irc.example.com NOTICE user :Server restarting",
-  - the function parses it into `%Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`
+  - the function parses it into `%Message{source: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`
 
   - For a message "JOIN #channel",
-  - the function parses it into `%Message{prefix: nil, command: "JOIN", params: ["#channel"], body: nil}`
+  - the function parses it into `%Message{source: nil, command: "JOIN", params: ["#channel"], body: nil}`
 
   - For a message ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user",
-  - the function parses it into `%Message{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`
+  - the function parses it into `%Message{source: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`
   """
   @spec parse(String.t()) :: {:ok, Message.t()} | {:error, String.t()}
   def parse(message) do
-    {prefix, message} = extract_prefix(message)
+    {source, message} = extract_source(message)
 
     parse_command_and_params(message)
     |> case do
-      {command, params, body} -> {:ok, %Message{prefix: prefix, command: command, params: params, body: body}}
+      {command, params, body} -> {:ok, %Message{source: source, command: command, params: params, body: body}}
       {:error, error} -> {:error, error}
     end
   end
@@ -44,25 +44,25 @@ defmodule ElixIRCd.Message.MessageParser do
   Unparses the IrcMessage struct into a raw IRC message string.
 
   ## Examples
-  - For `%Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`,
+  - For `%Message{source: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`,
   - the function unparses it into ":irc.example.com NOTICE user :Server restarting"
 
-  - For `%Message{prefix: nil, command: "JOIN", params: ["#channel"], body: nil}`,
+  - For `%Message{source: nil, command: "JOIN", params: ["#channel"], body: nil}`,
   - the function unparses it into "JOIN #channel"
 
-  - For `%Message{prefix: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`,
+  - For `%Message{source: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`,
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(Message.t()) :: {:ok, String.t()} | {:error, String.t()}
   def unparse(%Message{command: nil}), do: {:error, "Invalid IRC message format"}
 
-  def unparse(%Message{prefix: nil, command: command, params: params, body: body}) do
+  def unparse(%Message{source: nil, command: command, params: params, body: body}) do
     base = [command | params]
     {:ok, unparse_message(base, body)}
   end
 
-  def unparse(%Message{prefix: prefix, command: command, params: params, body: body}) do
-    base = [":" <> prefix, command | params]
+  def unparse(%Message{source: source, command: command, params: params, body: body}) do
+    base = [":" <> source, command | params]
     {:ok, unparse_message(base, body)}
   end
 
@@ -78,15 +78,15 @@ defmodule ElixIRCd.Message.MessageParser do
     end
   end
 
-  # Extracts the prefix from the message if present.
-  # It returns {prefix, message_without_prefix}.
-  @spec extract_prefix(String.t()) :: {String.t() | nil, String.t()}
-  defp extract_prefix(":" <> message) do
-    [prefix | rest] = String.split(message, " ", parts: 2)
-    {String.trim_leading(prefix, ":"), Enum.join(rest, " ")}
+  # Extracts the source from the message if present.
+  # It returns {source, message_without_source}.
+  @spec extract_source(String.t()) :: {String.t() | nil, String.t()}
+  defp extract_source(":" <> message) do
+    [source | rest] = String.split(message, " ", parts: 2)
+    {String.trim_leading(source, ":"), Enum.join(rest, " ")}
   end
 
-  defp extract_prefix(message), do: {nil, message}
+  defp extract_source(message), do: {nil, message}
 
   # Parses the command and parameters from the message.
   # It returns {command, params, body} or {:error, error}.

@@ -7,12 +7,12 @@ defmodule ElixIRCd.Commands.Privmsg do
   alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  def handle(user, %{command: "PRIVMSG", body: message, params: [receiver]}) when user.identity != nil do
-    # Future:: move the logic to a separate function to check if receiver is a channel or a user
+  def handle(user, %{command: "PRIVMSG", params: [receiver], body: message}) when user.identity != nil do
     case String.starts_with?(receiver, "#") do
       # Message is sent to a channel when receiver starts with #
       true ->
@@ -20,34 +20,40 @@ defmodule ElixIRCd.Commands.Privmsg do
         channel_users = channel.user_channels |> Enum.map(& &1.user)
 
         if channel_users |> Enum.member?(user) do
-          Messaging.broadcast_except_for_user(
-            channel_users,
-            user,
-            ":#{user.identity} PRIVMSG #{channel.name} :#{message}"
-          )
+          channel_users_without_user =
+            channel_users
+            |> Enum.reject(fn x -> x == user end)
+
+          MessageBuilder.user_message(user.identity, "PRIVMSG", [channel.name], message)
+          |> Messaging.send_message(channel_users_without_user)
         else
-          Messaging.send_message(user, :server, "404 #{user.nick} #{receiver} :Cannot send to channel")
+          MessageBuilder.server_message(:rpl_cannotsendtochan, [user.nick, receiver], "Cannot send to channel")
+          |> Messaging.send_message(user)
         end
 
       # Message is sent to a user
       false ->
         case Contexts.User.get_by_nick(receiver) do
           %Schemas.User{} = receiver_user ->
-            Messaging.send_message(receiver_user, :user, "PRIVMSG #{user.nick} :#{message}")
+            MessageBuilder.user_message(receiver_user.identity, "PRIVMSG", [user.nick], message)
+            |> Messaging.send_message(receiver_user)
 
           nil ->
-            Messaging.send_message(user, :server, "401 #{user.nick} #{receiver} :No such nickname")
+            MessageBuilder.server_message(:rpl_nouser, [user.nick, receiver], "No such nick")
+            |> Messaging.send_message(user)
         end
     end
   end
 
   @impl true
   def handle(user, %{command: "PRIVMSG"}) when user.identity != nil do
-    Messaging.message_not_enough_params(user, "PRIVMSG")
+    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "PRIVMSG"], "Not enough parameters")
+    |> Messaging.send_message(user)
   end
 
   @impl true
   def handle(user, %{command: "PRIVMSG"}) do
-    Messaging.message_not_registered(user)
+    MessageBuilder.server_message(:err_notregistered, ["*"], "You have not registered")
+    |> Messaging.send_message(user)
   end
 end

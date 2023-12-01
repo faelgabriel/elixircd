@@ -7,6 +7,7 @@ defmodule ElixIRCd.Core.Command do
   alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Message.Message
+  alias ElixIRCd.Message.MessageBuilder
 
   require Logger
 
@@ -37,6 +38,7 @@ defmodule ElixIRCd.Core.Command do
 
   @spec handle_unknown_command(Schemas.User.t(), String.t()) :: :ok
   defp handle_unknown_command(user, command) do
-    Messaging.send_message(user, :server, "421 #{user.nick} #{command} :Unknown command")
+    MessageBuilder.server_message(:err_unknowncommand, [user.nick, command], "Unknown command")
+    |> Messaging.send_message(user)
   end
 end

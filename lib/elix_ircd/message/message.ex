@@ -3,21 +3,21 @@ defmodule ElixIRCd.Message.Message do
   Represents a structured format for IRC messages.
 
   An IRC message consists of the following parts:
-  - `prefix`: The server or user prefix (optional)
+  - `source`: The server or user source (optional)
   - `command`: The IRC command or numeric reply code
   - `params`: A list of parameters for the command (optional)
   - `body`: The trailing part of the message, typically the content of a PRIVMSG or NOTICE (optional)
   """
 
   @type t :: %__MODULE__{
-          prefix: String.t() | nil,
+          source: String.t() | nil,
           command: String.t(),
           params: [String.t()],
           body: String.t() | nil
         }
 
   @doc """
-  The `prefix` denotes the origin of the message. It's typically the server name or a user's nick!user@host.
+  The `source` denotes the origin of the message. It's typically the server name or a user's nick!user@host.
   If present, it starts with a colon `:` and ends before the first space.
 
   ## Examples
@@ -40,6 +40,7 @@ defmodule ElixIRCd.Message.Message do
   ## Examples
   - ["#channel", "Hello there!"] for a PRIVMSG command.
   - ["Nick"] for a NICK command when changing a nickname.
+  - ["*"] for when a user has not registered.
 
   --------------------------------------------
 
@@ -51,5 +52,5 @@ defmodule ElixIRCd.Message.Message do
   - "Hello there!" as the content of a PRIVMSG.
   - "User has quit" as the content of a QUIT message.
   """
-  defstruct prefix: nil, command: nil, params: [], body: nil
+  defstruct source: nil, command: nil, params: [], body: nil
 end

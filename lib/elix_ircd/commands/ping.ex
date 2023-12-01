@@ -4,16 +4,25 @@ defmodule ElixIRCd.Commands.Ping do
   """
 
   alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "PING", body: body}) do
-    Messaging.send_message(user, :server, "PONG #{body}")
+    MessageBuilder.server_message("PONG", [], body)
+    |> Messaging.send_message(user)
+  end
+
+  @impl true
+  def handle(user, %{command: "PING"}) when user.identity != nil do
+    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "PING"], "Not enough parameters")
+    |> Messaging.send_message(user)
   end
 
   @impl true
   def handle(user, %{command: "PING"}) do
-    Messaging.send_message(user, :server, "409 #{user.nick} :No origin specified")
+    MessageBuilder.server_message(:rpl_needmoreparams, ["*", "PING"], "Not enough parameters")
+    |> Messaging.send_message(user)
   end
 end

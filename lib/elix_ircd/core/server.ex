@@ -8,7 +8,10 @@ defmodule ElixIRCd.Core.Server do
   alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageParser
+
   require Logger
+
+  @server_name Application.compile_env(:elixircd, :server)[:name] || :inet.gethostname() |> elem(1) |> to_string()
 
   @doc """
   Handles TCP streams and buffers the data until a complete message is received.
@@ -67,18 +70,18 @@ defmodule ElixIRCd.Core.Server do
   Sends a packet to the given user.
   """
   @spec send_packet(user :: Schemas.User.t(), message :: String.t()) :: :ok
-  def send_packet(user, message) do
+  def send_packet(%{socket: socket, transport: transport}, message) do
     Logger.debug("-> #{inspect(message)}")
-    user.transport.send(user.socket, message <> "\r\n")
+    transport.send(socket, message <> "\r\n")
   end
 
   @doc """
   Closes the connection for the given user if the socket is open.
   """
   @spec close_connection(user :: Schemas.User.t()) :: :ok
-  def close_connection(user) do
-    if is_socket_open?(user.socket) do
-      user.transport.close(user.socket)
+  def close_connection(%{socket: socket, transport: transport}) do
+    if is_socket_open?(socket) do
+      transport.close(socket)
     end
   end
 
@@ -94,15 +97,10 @@ defmodule ElixIRCd.Core.Server do
   @doc """
   Returns the server name.
 
-  It gets from the application configuration if it's set, otherwise it gets the server hostname.
+  If server name configuration is set, it returns that value, otherwise it returns the hostname.
   """
   @spec server_name() :: String.t()
-  def server_name do
-    case Application.get_env(:elixircd, :server)[:name] || nil do
-      nil -> :inet.gethostname() |> elem(1) |> to_string()
-      server_name -> server_name
-    end
-  end
+  def server_name, do: @server_name
 
   @doc """
   Handles a new socket connection to the server.
@@ -135,22 +133,5 @@ defmodule ElixIRCd.Core.Server do
       nil -> :ok
       user -> Command.handle(user, %Message{command: "QUIT", body: reason})
     end
-  end
-
-  @doc """
-  Sends a message to the given user.
-
-  The message can be a Message struct or a raw IRC message string.
-  """
-  @spec send_message(Message.t() | String.t(), Schemas.User.t()) :: :ok
-  def send_message(%Message{} = message, user) do
-    message
-    |> MessageParser.unparse!()
-    |> send_message(user)
-  end
-
-  def send_message(message, %{transport: transport, socket: socket}) do
-    Logger.debug("-> #{inspect(message)}")
-    transport.send(socket, message <> "\r\n")
   end
 end

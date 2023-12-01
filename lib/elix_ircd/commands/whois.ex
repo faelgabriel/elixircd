@@ -7,14 +7,19 @@ defmodule ElixIRCd.Commands.Whois do
   alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
   def handle(user, %{command: "WHOIS", params: [target_nick]}) when user.identity != nil do
     case Contexts.User.get_by_nick(target_nick) do
-      %Schemas.User{} = target_user -> whois_message(user, target_user)
-      nil -> Messaging.send_message(user, :server, "401 #{target_nick} :No such nick/channel")
+      %Schemas.User{} = target_user ->
+        whois_message(user, target_user)
+
+      nil ->
+        MessageBuilder.server_message(:rpl_nouser, [user.nick, target_nick], "No such nick")
+        |> Messaging.send_message(user)
     end
 
     :ok
@@ -25,30 +30,21 @@ defmodule ElixIRCd.Commands.Whois do
   """
   @spec whois_message(Schemas.User.t(), Schemas.User.t()) :: :ok
   def whois_message(user, target_user) do
-    Messaging.send_message(
-      user,
-      :server,
-      "311 #{target_user.nick} #{target_user.nick} #{target_user.identity} * :#{target_user.realname}"
-    )
-
     target_user = target_user |> Repo.preload(user_channels: :channel)
     target_user_channel_names = target_user.user_channels |> Enum.map(& &1.channel.name)
 
-    Messaging.send_message(
-      user,
-      :server,
-      "319 #{target_user.nick} #{target_user.nick} :#{target_user_channel_names |> Enum.join(" ")}"
-    )
+    messages = [
+      {:rpl_whoisuser, [user.nick, target_user.nick, target_user.username, target_user.hostname, "*"],
+       target_user.realname},
+      {:rpl_whoisserver, [user.nick, target_user.nick, "ElixIRCd", "0.1.0"], "Elixir IRC daemon"},
+      {:rpl_whoisidle, [user.nick, target_user.nick, "0"], "seconds idle, signon time"},
+      {:rpl_whoischannels, [user.nick, target_user.nick], target_user_channel_names |> Enum.join(" ")},
+      {:rpl_endofwhois, [user.nick, target_user.nick], "End of /WHOIS list."}
+    ]
 
-    Messaging.send_message(user, :server, "312 #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon")
-
-    Messaging.send_message(
-      user,
-      :server,
-      "317 #{target_user.nick} #{target_user.nick} 0 :seconds idle, signon time"
-    )
-
-    Messaging.send_message(user, :server, "318 #{target_user.nick} #{target_user.nick} :End of /WHOIS list.")
+    messages
+    |> Enum.map(fn {command, params, body} -> MessageBuilder.server_message(command, params, body) end)
+    |> Messaging.send_messages(user)
 
     :ok
   end
