@@ -19,18 +19,7 @@ defmodule ElixIRCd.Commands.User do
 
   @impl true
   def handle(user, %{command: "USER"}) do
-    user_reply = get_user_reply(user)
-
-    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, "USER"], "Not enough parameters")
+    MessageBuilder.server_message(:rpl_needmoreparams, [user, "USER"], "Not enough parameters")
     |> Messaging.send_message(user)
-  end
-
-  @spec get_user_reply(Schemas.User.t()) :: String.t()
-  # Reply with * if user has not yet registered, otherwise reply with user's nick
-  defp get_user_reply(user) do
-    case user.identity do
-      nil -> "*"
-      _ -> user.nick
-    end
   end
 end

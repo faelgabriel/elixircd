@@ -14,23 +14,12 @@ defmodule ElixIRCd.Commands.Cap do
   end
 
   defp handle_cap_command(user, ["LS", "302"]) do
-    user_reply = get_user_reply(user)
-
-    MessageBuilder.server_message("CAP", [user_reply, "LS"])
+    MessageBuilder.server_message("CAP", [user, "LS"])
     |> Messaging.send_message(user)
   end
 
   defp handle_cap_command(_user, _params) do
     # Ignores all other CAP commands since it is not supported yet.
     :ok
-  end
-
-  @spec get_user_reply(Schemas.User.t()) :: String.t()
-  # Reply with * if user has not yet registered, otherwise reply with user's nick
-  defp get_user_reply(user) do
-    case user.identity do
-      nil -> "*"
-      _ -> user.nick
-    end
   end
 end

@@ -4,6 +4,7 @@ defmodule ElixIRCd.Message.MessageBuilder do
   """
 
   alias ElixIRCd.Core.Server
+  alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Message.Message
 
   @doc """
@@ -19,6 +20,18 @@ defmodule ElixIRCd.Message.MessageBuilder do
   """
   @spec server_message(atom() | String.t(), [String.t()], String.t() | nil) :: Message.t()
   def server_message(command, params, body \\ nil)
+
+  # If the first "params" is a user struct, converts that to * if the user has not yet registered,
+  # otherwise converts it to the user's nick.
+  def server_message(command, [%Schemas.User{} = user | rest], body) do
+    user_reply =
+      case user.identity do
+        nil -> "*"
+        _ -> user.nick
+      end
+
+    server_message(command, [user_reply | rest], body)
+  end
 
   # Builds a server message with a numeric reply code.
   def server_message(command, params, body) when is_atom(command) do
