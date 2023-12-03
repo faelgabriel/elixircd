@@ -19,7 +19,9 @@ defmodule ElixIRCd.Commands.User do
 
   @impl true
   def handle(user, %{command: "USER"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user, "USER"], "Not enough parameters")
+    user_reply = MessageBuilder.get_user_reply(user)
+
+    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, "USER"], "Not enough parameters")
     |> Messaging.send_message(user)
   end
 end

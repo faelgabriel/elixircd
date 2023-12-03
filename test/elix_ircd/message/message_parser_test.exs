@@ -3,7 +3,7 @@ defmodule ElixIRCd.Message.MessageParserTest do
   Tests for the `ElixIRCd.Message.MessageParser` module.
   """
 
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest ElixIRCd.Message.MessageParser
 
   alias ElixIRCd.Message.Message

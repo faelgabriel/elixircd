@@ -3,9 +3,11 @@ defmodule ElixIRCd.Data.Schemas.ChannelTest do
   Tests for the Channel schema module.
   """
 
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest ElixIRCd.Data.Schemas.Channel
+
   alias ElixIRCd.Data.Schemas.Channel
+
   import ElixIRCd.Factory
 
   describe "changeset/2" do

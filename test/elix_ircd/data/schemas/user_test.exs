@@ -3,9 +3,11 @@ defmodule ElixIRCd.Data.Schemas.UserTest do
   Tests for the User schema module.
   """
 
-  use ExUnit.Case
+  use ExUnit.Case, async: true
   doctest ElixIRCd.Data.Schemas.User
+
   alias ElixIRCd.Data.Schemas.User
+
   import ElixIRCd.Factory
 
   describe "changeset/2" do

@@ -20,7 +20,9 @@ defmodule ElixIRCd.Commands.Nick do
   @impl true
   def handle(user, %{command: "NICK", params: [nick]}) do
     if nick_in_use?(nick) do
-      MessageBuilder.server_message(:err_nicknameinuse, [user, nick], "Nickname is already in use")
+      user_reply = MessageBuilder.get_user_reply(user)
+
+      MessageBuilder.server_message(:err_nicknameinuse, [user_reply, nick], "Nickname is already in use")
       |> Messaging.send_message(user)
     else
       handle_nick(user, nick)
@@ -29,7 +31,9 @@ defmodule ElixIRCd.Commands.Nick do
 
   @impl true
   def handle(user, %{command: "NICK"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user, "NICK"], "Not enough parameters")
+    user_reply = MessageBuilder.get_user_reply(user)
+
+    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, "NICK"], "Not enough parameters")
     |> Messaging.send_message(user)
   end
 

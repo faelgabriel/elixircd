@@ -25,4 +25,10 @@ defmodule ElixIRCd do
 
     Supervisor.start_link(children, strategy: :one_for_one, name: ElixIRCd.Supervisor)
   end
+
+  @impl true
+  def stop(_state) do
+    Logger.info("Server shutting down...")
+    :ok
+  end
 end

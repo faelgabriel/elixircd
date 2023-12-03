@@ -16,7 +16,9 @@ defmodule ElixIRCd.Commands.Ping do
 
   @impl true
   def handle(user, %{command: "PING"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user, "PING"], "Not enough parameters")
+    user_reply = MessageBuilder.get_user_reply(user)
+
+    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, "PING"], "Not enough parameters")
     |> Messaging.send_message(user)
   end
 end
