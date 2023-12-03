@@ -15,14 +15,19 @@ defmodule ElixIRCd.Commands.Ping do
   end
 
   @impl true
-  def handle(user, %{command: "PING"}) when user.identity != nil do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "PING"], "Not enough parameters")
+  def handle(user, %{command: "PING"}) do
+    user_reply = get_user_reply(user)
+
+    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, "PING"], "Not enough parameters")
     |> Messaging.send_message(user)
   end
 
-  @impl true
-  def handle(user, %{command: "PING"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, ["*", "PING"], "Not enough parameters")
-    |> Messaging.send_message(user)
+  @spec get_user_reply(Schemas.User.t()) :: String.t()
+  # Reply with * if user has not yet registered, otherwise reply with user's nick
+  defp get_user_reply(user) do
+    case user.identity do
+      nil -> "*"
+      _ -> user.nick
+    end
   end
 end

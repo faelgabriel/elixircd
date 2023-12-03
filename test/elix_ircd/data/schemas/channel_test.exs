@@ -1,11 +1,11 @@
-defmodule ElixIRCd.Schemas.ChannelTest do
+defmodule ElixIRCd.Data.Schemas.ChannelTest do
   @moduledoc """
   Tests for the Channel schema module.
   """
 
   use ExUnit.Case
-  doctest ElixIRCd.Schemas.Channel
-  alias ElixIRCd.Schemas.Channel
+  doctest ElixIRCd.Data.Schemas.Channel
+  alias ElixIRCd.Data.Schemas.Channel
   import ElixIRCd.Factory
 
   describe "changeset/2" do

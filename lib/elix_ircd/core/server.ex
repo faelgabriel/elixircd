@@ -44,8 +44,8 @@ defmodule ElixIRCd.Core.Server do
     Logger.debug("<- #{inspect(message)}")
 
     with {:ok, user} <- handle_user(socket),
-         {:ok, irc_message} <- MessageParser.parse(message),
-         :ok <- Command.handle(user, irc_message) do
+         {:ok, message} <- MessageParser.parse(message),
+         :ok <- Command.handle(user, message) do
       :ok
     else
       error ->

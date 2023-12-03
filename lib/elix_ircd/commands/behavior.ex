@@ -8,6 +8,8 @@ defmodule ElixIRCd.Commands.Behavior do
 
   @doc """
   Handles the irc message command.
+
+  Modules that implement this behaviour should define their own logic for handling IRC commands.
   """
-  @callback handle(user :: User.t(), irc_message :: Message.t()) :: :ok
+  @callback handle(user :: User.t(), message :: Message.t()) :: :ok
 end

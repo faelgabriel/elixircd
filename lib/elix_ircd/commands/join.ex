@@ -15,7 +15,13 @@ defmodule ElixIRCd.Commands.Join do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  def handle(user, %{command: "JOIN", params: [channel_names]}) when user.identity != nil do
+  def handle(%{identity: nil} = user, %{command: "JOIN"}) do
+    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
+    |> Messaging.send_message(user)
+  end
+
+  @impl true
+  def handle(user, %{command: "JOIN", params: [channel_names]}) do
     channel_names
     |> String.split(",")
     |> Enum.map(&String.trim/1)
@@ -23,14 +29,8 @@ defmodule ElixIRCd.Commands.Join do
   end
 
   @impl true
-  def handle(user, %{command: "JOIN"}) when user.identity != nil do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "JOIN"], "Not enough parameters")
-    |> Messaging.send_message(user)
-  end
-
-  @impl true
   def handle(user, %{command: "JOIN"}) do
-    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
+    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "JOIN"], "Not enough parameters")
     |> Messaging.send_message(user)
   end
 

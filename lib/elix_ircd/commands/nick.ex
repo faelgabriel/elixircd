@@ -20,7 +20,9 @@ defmodule ElixIRCd.Commands.Nick do
   @impl true
   def handle(user, %{command: "NICK", params: [nick]}) do
     if nick_in_use?(nick) do
-      MessageBuilder.server_message(:err_nicknameinuse, ["*", nick], "Nickname is already in use")
+      user_reply = get_user_reply(user)
+
+      MessageBuilder.server_message(:err_nicknameinuse, [user_reply, nick], "Nickname is already in use")
       |> Messaging.send_message(user)
     else
       handle_nick(user, nick)
@@ -28,14 +30,10 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   @impl true
-  def handle(user, %{command: "NICK"}) when user.identity != nil do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "NICK"], "Not enough parameters")
-    |> Messaging.send_message(user)
-  end
-
-  @impl true
   def handle(user, %{command: "NICK"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, ["*", "NICK"], "Not enough parameters")
+    user_reply = get_user_reply(user)
+
+    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, "NICK"], "Not enough parameters")
     |> Messaging.send_message(user)
   end
 
@@ -72,6 +70,15 @@ defmodule ElixIRCd.Commands.Nick do
     case Contexts.User.get_by_nick(nick) do
       nil -> false
       _ -> true
+    end
+  end
+
+  @spec get_user_reply(Schemas.User.t()) :: String.t()
+  # Reply with * if user has not yet registered, otherwise reply with user's nick
+  defp get_user_reply(user) do
+    case user.identity do
+      nil -> "*"
+      _ -> user.nick
     end
   end
 end

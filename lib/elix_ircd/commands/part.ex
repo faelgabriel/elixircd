@@ -12,7 +12,13 @@ defmodule ElixIRCd.Commands.Part do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  def handle(user, %{command: "PART", body: part_message, params: [channel_name]}) when user.identity != nil do
+  def handle(%{identity: nil} = user, %{command: "PART"}) do
+    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
+    |> Messaging.send_message(user)
+  end
+
+  @impl true
+  def handle(user, %{command: "PART", body: part_message, params: [channel_name]}) do
     %Schemas.Channel{} = channel = Contexts.Channel.get_by_name(channel_name)
     %Schemas.UserChannel{} = user_channel = Contexts.UserChannel.get_by_user_and_channel(user, channel)
 
@@ -24,14 +30,8 @@ defmodule ElixIRCd.Commands.Part do
   end
 
   @impl true
-  def handle(user, %{command: "PART"}) when user.identity != nil do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "PART"], "Not enough parameters")
-    |> Messaging.send_message(user)
-  end
-
-  @impl true
   def handle(user, %{command: "PART"}) do
-    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
+    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "PART"], "Not enough parameters")
     |> Messaging.send_message(user)
   end
 

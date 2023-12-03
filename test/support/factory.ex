@@ -3,9 +3,9 @@ defmodule ElixIRCd.Factory do
   This module defines the factories for the schemas.
   """
 
-  alias ElixIRCd.Schemas.Channel
-  alias ElixIRCd.Schemas.User
-  alias ElixIRCd.Schemas.UserChannel
+  alias ElixIRCd.Data.Schemas.Channel
+  alias ElixIRCd.Data.Schemas.User
+  alias ElixIRCd.Data.Schemas.UserChannel
 
   def build(:channel) do
     %Channel{

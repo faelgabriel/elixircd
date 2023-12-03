@@ -12,6 +12,12 @@ defmodule ElixIRCd.Commands.Whois do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
+  def handle(%{identity: nil} = user, %{command: "WHOIS"}) do
+    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
+    |> Messaging.send_message(user)
+  end
+
+  @impl true
   def handle(user, %{command: "WHOIS", params: [target_nick]}) when user.identity != nil do
     case Contexts.User.get_by_nick(target_nick) do
       %Schemas.User{} = target_user ->

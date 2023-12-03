@@ -8,7 +8,7 @@ defmodule ElixIRCd.Protocols.SslServer do
   require Logger
 
   @behaviour :ranch_protocol
-  @timeout 60_000
+  @timeout 120_000
 
   @doc """
   Starts a linked process for the SSL server protocol.
