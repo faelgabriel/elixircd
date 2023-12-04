@@ -34,6 +34,12 @@ defmodule ElixIRCd.Message.MessageBuilder do
     %Message{source: server_name, command: command, params: params, body: body}
   end
 
+  @doc """
+  Gets the reply for a user's identity.
+
+  If the user has not registered, the reply is "*".
+  Otherwise, the reply is the user's nick.
+  """
   @spec get_user_reply(Schemas.User.t()) :: String.t()
   def get_user_reply(%{identity: nil}), do: "*"
   def get_user_reply(%{nick: nick}), do: nick

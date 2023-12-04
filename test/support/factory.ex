@@ -3,12 +3,14 @@ defmodule ElixIRCd.Factory do
   This module defines the factories for the schemas.
   """
 
+  use ExMachina.Ecto, repo: ElixIRCd.Data.Repo
+
   alias ElixIRCd.Data.Schemas.Channel
   alias ElixIRCd.Data.Schemas.User
   alias ElixIRCd.Data.Schemas.UserChannel
 
-  use ExMachina.Ecto, repo: ElixIRCd.Data.Repo
-
+  @doc false
+  @spec channel_factory() :: Channel.t()
   def channel_factory do
     %Channel{
       name: "#channel_name",
@@ -16,6 +18,8 @@ defmodule ElixIRCd.Factory do
     }
   end
 
+  @doc false
+  @spec user_factory() :: User.t()
   def user_factory do
     %User{
       socket: Port.open({:spawn, "cat"}, [:binary]),
@@ -28,6 +32,8 @@ defmodule ElixIRCd.Factory do
     }
   end
 
+  @doc false
+  @spec user_channel_factory() :: UserChannel.t()
   def user_channel_factory do
     %UserChannel{
       user: build(:user),

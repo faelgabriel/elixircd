@@ -33,6 +33,7 @@ defmodule ElixIRCd.Message.MessageParser do
   Parses the IrcMessage struct into a raw IRC message string.
   Raises an ArgumentError if the message cannot be unparsed.
   """
+  @spec parse!(String.t()) :: Message.t()
   def parse!(message) do
     case parse(message) do
       {:ok, parsed} -> parsed
