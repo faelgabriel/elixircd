@@ -52,9 +52,11 @@ defmodule ElixIRCd.MixProject do
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:doctor, "~> 0.21.0", only: :dev},
-      {:ecto, "~> 3.0"},
+      # Ecto override until Etso is updated
+      {:ecto, "~> 3.11", override: true},
       {:etso, "~> 1.1.0"},
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},
+      {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.18", only: :test},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
       {:ranch, "~> 2.1"},
@@ -65,10 +67,12 @@ defmodule ElixIRCd.MixProject do
 
   defp dialyzer do
     [
+      plt_add_apps: [:ex_unit],
       plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
     ]
   end
 
   defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 end

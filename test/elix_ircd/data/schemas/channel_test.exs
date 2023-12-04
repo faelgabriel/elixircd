@@ -1,7 +1,5 @@
 defmodule ElixIRCd.Data.Schemas.ChannelTest do
-  @moduledoc """
-  Tests for the Channel schema module.
-  """
+  @moduledoc false
 
   use ExUnit.Case, async: true
   doctest ElixIRCd.Data.Schemas.Channel

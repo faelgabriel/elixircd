@@ -33,6 +33,7 @@ defmodule ElixIRCd.Data.Schemas.User do
     user
     |> cast(attrs, [:socket, :transport, :nick, :hostname, :username, :realname, :identity])
     |> validate_required([:socket, :transport])
+    |> unique_constraint(:socket, name: :primary_key)
     |> validate_nick()
   end
 

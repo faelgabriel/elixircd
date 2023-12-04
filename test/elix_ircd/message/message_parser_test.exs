@@ -1,7 +1,5 @@
 defmodule ElixIRCd.Message.MessageParserTest do
-  @moduledoc """
-  Tests for the `ElixIRCd.Message.MessageParser` module.
-  """
+  @moduledoc false
 
   use ExUnit.Case, async: true
   doctest ElixIRCd.Message.MessageParser

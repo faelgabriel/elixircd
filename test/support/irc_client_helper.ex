@@ -1,9 +1,8 @@
-Code.require_file("../test_helper.exs", __DIR__)
-
 defmodule ElixIRCd.IrcClientHelper do
   @moduledoc """
   This module provides a simple IRC client helper for testings.
   """
+
   use ExUnit.Case
 
   @doc """

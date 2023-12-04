@@ -1,7 +1,5 @@
 defmodule ElixIRCd.Data.Schemas.UserTest do
-  @moduledoc """
-  Tests for the User schema module.
-  """
+  @moduledoc false
 
   use ExUnit.Case, async: true
   doctest ElixIRCd.Data.Schemas.User

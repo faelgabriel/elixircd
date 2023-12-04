@@ -14,7 +14,9 @@ defmodule ElixIRCd.Commands.Cap do
   end
 
   defp handle_cap_command(user, ["LS", "302"]) do
-    MessageBuilder.server_message("CAP", [user, "LS"])
+    user_reply = MessageBuilder.get_user_reply(user)
+
+    MessageBuilder.server_message("CAP", [user_reply, "LS"])
     |> Messaging.send_message(user)
   end
 

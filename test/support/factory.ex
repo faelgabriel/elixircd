@@ -7,15 +7,18 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Data.Schemas.User
   alias ElixIRCd.Data.Schemas.UserChannel
 
-  def build(:channel) do
+  use ExMachina.Ecto, repo: ElixIRCd.Data.Repo
+
+  def channel_factory do
     %Channel{
-      name: "#channel_name"
+      name: "#channel_name",
+      topic: "Channel topic"
     }
   end
 
-  def build(:user) do
+  def user_factory do
     %User{
-      socket: build(:port),
+      socket: Port.open({:spawn, "cat"}, [:binary]),
       transport: :ranch_tcp,
       nick: "Nick",
       hostname: "test",
@@ -25,18 +28,10 @@ defmodule ElixIRCd.Factory do
     }
   end
 
-  def build(:user_channel) do
+  def user_channel_factory do
     %UserChannel{
       user: build(:user),
       channel: build(:channel)
     }
-  end
-
-  def build(:port) do
-    Port.open({:spawn, "cat"}, [:binary])
-  end
-
-  def build(factory_name, attributes) do
-    factory_name |> build() |> struct!(attributes)
   end
 end
