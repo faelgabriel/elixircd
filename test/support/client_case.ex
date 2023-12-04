@@ -1,9 +1,9 @@
-defmodule ElixIRCd.IrcClientHelper do
+defmodule ElixIRCd.ClientCase do
   @moduledoc """
-  This module provides a simple IRC client helper for testings.
+  This module defines the base test case for client tests.
   """
 
-  use ExUnit.Case
+  use ExUnit.CaseTemplate
 
   @doc """
   Sets up an IRC connection for testing.
