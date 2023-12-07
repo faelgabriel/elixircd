@@ -13,7 +13,7 @@ defmodule ElixIRCd.Factory do
   @spec channel_factory() :: Channel.t()
   def channel_factory do
     %Channel{
-      name: "#channel_name",
+      name: "##{sequence("channel_name")}",
       topic: "Channel topic"
     }
   end
@@ -22,9 +22,9 @@ defmodule ElixIRCd.Factory do
   @spec user_factory() :: User.t()
   def user_factory do
     %User{
-      socket: Port.open({:spawn, "cat"}, [:binary]),
+      socket: Port.open({:spawn, "cat /dev/null"}, [:binary]),
       transport: :ranch_tcp,
-      nick: "Nick",
+      nick: "#{sequence("Nick")}",
       hostname: "test",
       username: "test",
       realname: "test",
