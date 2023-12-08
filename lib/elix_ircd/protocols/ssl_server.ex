@@ -48,7 +48,7 @@ defmodule ElixIRCd.Protocols.SslServer do
 
     case :ranch.handshake(ref, ssl_opts) do
       {:ok, socket} ->
-        Server.handle_connect_socket(socket, transport)
+        Server.handle_connect_socket(socket, transport, self())
 
         transport.setopts(socket, active: :once)
         loop(socket, transport)
@@ -70,17 +70,17 @@ defmodule ElixIRCd.Protocols.SslServer do
         loop(socket, transport, remainder_buffer)
 
       {:ssl_closed, ^socket} ->
-        Server.handle_quit_socket(socket, "Connection Closed")
+        Server.handle_quit_socket(socket, transport, "Connection Closed")
         :ok
 
       {:ssl_error, ^socket, reason} ->
-        Server.handle_quit_socket(socket, "Connection Error: " <> reason)
-        :ok
+        Server.handle_quit_socket(socket, transport, "Connection Error: " <> reason)
 
-        # Future:: Handle manual closed connection - maybe with Registry?
+      {:quit, ^socket, reason} ->
+        Server.handle_quit_socket(socket, transport, reason)
     after
       @timeout ->
-        Server.handle_quit_socket(socket, "Connection Timeout")
+        Server.handle_quit_socket(socket, transport, "Connection Timeout")
         :ok
     end
   end

@@ -5,8 +5,10 @@ defmodule ElixIRCd.Core.Server do
 
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Command
+  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message.Message
+  alias ElixIRCd.Message.MessageBuilder
   alias ElixIRCd.Message.MessageParser
 
   require Logger
@@ -76,28 +78,9 @@ defmodule ElixIRCd.Core.Server do
   end
 
   @doc """
-  Closes the connection for the given user if the socket is open.
-  """
-  @spec close_connection(user :: Schemas.User.t()) :: :ok
-  def close_connection(%{socket: socket, transport: transport}) do
-    if is_socket_open?(socket) do
-      transport.close(socket)
-    end
-  end
-
-  # Returns true if the socket is open.
-  @spec is_socket_open?(socket :: port()) :: boolean()
-  defp is_socket_open?(socket) do
-    case :inet.getopts(socket, [:active]) do
-      {:ok, _} -> true
-      {:error, _} -> false
-    end
-  end
-
-  @doc """
   Returns the server name.
 
-  If server name configuration is set, it returns that value, otherwise it returns the hostname.
+  The server name is the hostname of the server, or the custom name configured in the config file.
   """
   @spec server_name() :: String.t()
   def server_name, do: @server_name
@@ -105,11 +88,14 @@ defmodule ElixIRCd.Core.Server do
   @doc """
   Handles a new socket connection to the server.
 
-  It creates a new user and returns it.
+  It registers the socket in the registry and creates a new user.
   """
-  @spec handle_connect_socket(socket :: port(), transport :: atom()) :: {:ok, Schemas.User.t()} | {:error, String.t()}
-  def handle_connect_socket(socket, transport) do
+  @spec handle_connect_socket(socket :: port(), transport :: atom(), pid :: pid()) ::
+          {:ok, Schemas.User.t()} | {:error, String.t()}
+  def handle_connect_socket(socket, transport, pid) do
     Logger.debug("New connection: #{inspect(socket)}")
+
+    Registry.register(ElixIRCd.Protocols.Registry, socket, pid)
 
     case Contexts.User.create(%{socket: socket, transport: transport}) do
       {:ok, user} ->
@@ -121,17 +107,50 @@ defmodule ElixIRCd.Core.Server do
   end
 
   @doc """
-  Handles a socket quitting the server.
+  Handles a socket connection quitting the server.
 
-  If the user exists, it handles the QUIT command, otherwise it does nothing.
+  It closes the socket and unregisters the socket from the registry.
+  If the socket is associated with a user, it handles the user quitting the server.
   """
-  @spec handle_quit_socket(socket :: port(), reason :: String.t()) :: :ok
-  def handle_quit_socket(socket, reason) do
+  @spec handle_quit_socket(socket :: port(), transport :: atom(), reason :: String.t()) :: :ok
+  def handle_quit_socket(socket, transport, reason) do
     Logger.debug("Connection #{inspect(socket)} terminated: #{inspect(reason)}")
+
+    if is_socket_open?(socket), do: transport.close(socket)
+
+    Registry.unregister(ElixIRCd.Protocols.Registry, socket)
 
     case Contexts.User.get_by_socket(socket) do
       nil -> :ok
-      user -> Command.handle(user, %Message{command: "QUIT", body: reason})
+      user -> handle_user_quit(user, reason)
     end
+  end
+
+  @spec is_socket_open?(socket :: port()) :: boolean()
+  defp is_socket_open?(socket) do
+    case :inet.getopts(socket, [:active]) do
+      {:ok, _} -> true
+      {:error, _} -> false
+    end
+  end
+
+  @spec handle_user_quit(user :: Schemas.User.t(), quit_message :: String.t()) :: :ok
+  defp handle_user_quit(user, quit_message) do
+    user_channels = Contexts.UserChannel.get_by_user(user)
+
+    all_channel_users =
+      Enum.reduce(user_channels, [], fn %Schemas.UserChannel{} = user_channel, acc ->
+        channel = user_channel.channel |> Repo.preload(user_channels: :user)
+        channel_users = channel.user_channels |> Enum.map(& &1.user)
+        acc ++ channel_users
+      end)
+      |> Enum.uniq()
+      |> Enum.reject(fn x -> x == user end)
+
+    MessageBuilder.user_message(user.identity, "QUIT", [], quit_message)
+    |> Messaging.send_message(all_channel_users)
+
+    # Delete the user and all associated user channels
+    Contexts.User.delete(user)
   end
 end

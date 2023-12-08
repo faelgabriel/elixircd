@@ -33,7 +33,7 @@ defmodule ElixIRCd.Message.MessageBuilderTest do
       body = nil
 
       expected = %Message{
-        source: "localhost",
+        source: "server.example.test",
         command: "001",
         params: params,
         body: body
@@ -48,7 +48,7 @@ defmodule ElixIRCd.Message.MessageBuilderTest do
       body = nil
 
       expected = %Message{
-        source: "localhost",
+        source: "server.example.test",
         command: command,
         params: params,
         body: body

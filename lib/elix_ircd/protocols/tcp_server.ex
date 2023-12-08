@@ -46,7 +46,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
   def init(ref, transport, _opts) do
     case :ranch.handshake(ref) do
       {:ok, socket} ->
-        Server.handle_connect_socket(socket, transport)
+        Server.handle_connect_socket(socket, transport, self())
 
         transport.setopts(socket, active: :once)
         loop(socket, transport)
@@ -69,15 +69,16 @@ defmodule ElixIRCd.Protocols.TcpServer do
         loop(socket, transport, remainder_buffer)
 
       {:tcp_closed, ^socket} ->
-        Server.handle_quit_socket(socket, "Connection Closed")
+        Server.handle_quit_socket(socket, transport, "Connection Closed")
 
       {:tcp_error, ^socket, reason} ->
-        Server.handle_quit_socket(socket, "Connection Error: " <> reason)
+        Server.handle_quit_socket(socket, transport, "Connection Error: " <> reason)
 
-        # Future:: Handle manual closed connection - maybe with Registry?
+      {:quit, ^socket, reason} ->
+        Server.handle_quit_socket(socket, transport, reason)
     after
       @timeout ->
-        Server.handle_quit_socket(socket, "Connection Timeout")
+        Server.handle_quit_socket(socket, transport, "Connection Timeout")
     end
   end
 end

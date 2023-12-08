@@ -1,7 +1,6 @@
 import Config
 
-config :elixircd, :server,
-  # Uncomment this line to set a server name manually, by default it will be the hostname
-  name: "localhost",
-  # Server port
-  port: 6667
+# Uncomment this line to set a server name manually, by default it gets the system hostname
+# config :elixircd, :server, name: "server.example.com"
+
+import_config "#{Mix.env()}.exs"

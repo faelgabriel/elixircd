@@ -20,7 +20,8 @@ defmodule ElixIRCd do
     children = [
       {ElixIRCd.Data.Repo, []},
       {ElixIRCd.Supervisors.TcpSupervisor, tcp_opts},
-      {ElixIRCd.Supervisors.SslSupervisor, ssl_opts}
+      {ElixIRCd.Supervisors.SslSupervisor, ssl_opts},
+      {Registry, keys: :unique, name: ElixIRCd.Protocols.Registry}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: ElixIRCd.Supervisor)
