@@ -1,20 +1,30 @@
 defmodule ElixIRCd.Supervisors.TcpSupervisor do
   @moduledoc """
-  Module for the TCP listener.
+  Supervisor for the TCP server.
   """
 
   require Logger
 
+  use Supervisor
+
   @doc """
   Starts the TCP server supervisor.
   """
-  @spec child_spec(keyword()) :: Supervisor.child_spec()
-  def child_spec(opts) do
-    Logger.info("Starting TCP server on port #{Keyword.get(opts, :port)}...")
+  @spec start_link(keyword()) :: Supervisor.on_start()
+  def start_link(opts) do
+    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+  end
 
-    :ranch.child_spec(__MODULE__, :ranch_tcp, opts, ElixIRCd.Protocols.TcpServer, [])
-    |> tap(fn _ ->
-      Logger.info("TCP server started on port #{Keyword.get(opts, :port)}.")
-    end)
+  @impl true
+  def init(_opts) do
+    tcp_opts = [
+      {:port, Application.get_env(:elix_ircd, :tcp_port, 6667)}
+    ]
+
+    Logger.info("Starting TCP server on port #{Keyword.get(tcp_opts, :port)}...")
+    children = [:ranch.child_spec(__MODULE__, :ranch_tcp, tcp_opts, ElixIRCd.Protocols.TcpServer, [])]
+    Logger.info("TCP server started on port #{Keyword.get(tcp_opts, :port)}.")
+
+    Supervisor.init(children, strategy: :one_for_one)
   end
 end

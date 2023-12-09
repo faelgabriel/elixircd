@@ -9,9 +9,10 @@ defmodule ElixIRCd.Protocols.TcpServer do
 
   @behaviour :ranch_protocol
   @timeout 120_000
+  @reuseaddr Mix.env() in [:dev, :test]
 
   @doc """
-  Starts a linked process for the TCP server protocol.
+  Starts a linked user connection process for the TCP server protocol.
 
   This function initializes the TCP server process and links it to the calling process.
 
@@ -45,8 +46,12 @@ defmodule ElixIRCd.Protocols.TcpServer do
   @spec init(ref :: any(), transport :: atom(), _opts :: keyword()) :: :ok | :error
   def init(ref, transport, _opts) do
     with {:ok, socket} <- :ranch.handshake(ref),
-         {:ok, _user} <- Server.handle_connect_socket(socket, transport, self()) do
-      transport.setopts(socket, active: :once)
+         {:ok, _new_user} <- Server.handle_connect(socket, transport, self()) do
+      transport.setopts(socket, [
+        {:packet, :line},
+        {:reuseaddr, @reuseaddr}
+      ])
+
       loop(socket, transport)
     else
       {:continue, reason} ->
@@ -62,25 +67,25 @@ defmodule ElixIRCd.Protocols.TcpServer do
   # Continuously processes incoming data on the TCP server.
   # This function is the main loop of the server, handling incoming data and managing the socket's state.
   @spec loop(port(), atom()) :: :ok
-  defp loop(socket, transport, buffer \\ "") do
+  defp loop(socket, transport) do
+    transport.setopts(socket, active: :once)
+
     receive do
       {:tcp, ^socket, data} ->
-        remainder_buffer = Server.handle_stream(socket, buffer, data)
-
-        transport.setopts(socket, active: :once)
-        loop(socket, transport, remainder_buffer)
+        Server.handle_packet(socket, data)
+        loop(socket, transport)
 
       {:tcp_closed, ^socket} ->
-        Server.handle_quit_socket(socket, transport, "Connection Closed")
+        Server.handle_disconnect(socket, transport, "Connection Closed")
 
       {:tcp_error, ^socket, reason} ->
-        Server.handle_quit_socket(socket, transport, "Connection Error: #{reason}")
+        Server.handle_disconnect(socket, transport, "Connection Error: #{reason}")
 
       {:quit, ^socket, reason} ->
-        Server.handle_quit_socket(socket, transport, reason)
+        Server.handle_disconnect(socket, transport, reason)
     after
       @timeout ->
-        Server.handle_quit_socket(socket, transport, "Connection Timeout")
+        Server.handle_disconnect(socket, transport, "Connection Timeout")
     end
   end
 end

@@ -16,87 +16,24 @@ defmodule ElixIRCd.Core.Server do
   @server_name Application.compile_env(:elixircd, :server)[:name] || :inet.gethostname() |> elem(1) |> to_string()
 
   @doc """
-  Handles TCP streams and buffers the data until a complete message is received.
-  """
-  @spec handle_stream(socket :: port(), buffer :: String.t(), data :: String.t()) :: String.t()
-  def handle_stream(socket, buffer, data) do
-    {complete_messages, remainder_buffer} = extract_messages(buffer <> data)
-
-    Enum.each(complete_messages, &handle_message(socket, &1))
-
-    remainder_buffer
-  end
-
-  # Extracts complete messages from the buffer and returns the remaining buffer.
-  @spec extract_messages(buffer :: String.t()) :: {[String.t()], String.t()}
-  defp extract_messages(buffer) do
-    parts = String.split(buffer, "\r\n")
-
-    case Enum.reverse(parts) do
-      [last | rest] -> {Enum.reverse(rest), last}
-      [] -> {[], ""}
-    end
-  end
-
-  # Handles a single message from a incoming stream.
-  @spec handle_message(socket :: port(), message :: String.t()) :: :ok
-  defp handle_message(socket, message) do
-    Logger.debug("<- #{inspect(message)}")
-
-    with {:ok, user} <- Contexts.User.get_by_socket(socket),
-         {:ok, message} <- MessageParser.parse(message),
-         :ok <- Command.handle(user, message) do
-      :ok
-    else
-      {:error, error} ->
-        Logger.error("Error handling message #{inspect(message)}: #{inspect(error)}")
-    end
-  end
-
-  @doc """
-  Sends a packet to the given user.
-  """
-  @spec send_packet(user :: Schemas.User.t(), message :: String.t()) :: :ok
-  def send_packet(%{socket: socket, transport: transport}, message) do
-    Logger.debug("-> #{inspect(message)}")
-    transport.send(socket, message <> "\r\n")
-  end
-
-  @doc """
-  Returns the server name.
-
-  The server name is the hostname of the server, or the custom name configured in the config file.
-  """
-  @spec server_name() :: String.t()
-  def server_name, do: @server_name
-
-  @doc """
   Handles a new socket connection to the server.
-
-  It registers the socket in the registry and creates a new user.
   """
-  @spec handle_connect_socket(socket :: port(), transport :: atom(), pid :: pid()) ::
+  @spec handle_connect(socket :: port(), transport :: atom(), pid :: pid()) ::
           {:ok, Schemas.User.t()} | {:error, String.t()}
-  def handle_connect_socket(socket, transport, pid) do
+  def handle_connect(socket, transport, pid) do
     Logger.debug("New connection: #{inspect(socket)}")
 
     case Contexts.User.create(%{socket: socket, transport: transport, pid: pid}) do
-      {:ok, user} ->
-        {:ok, user}
-
-      {:error, changeset} ->
-        {:error, "Error creating user: #{inspect(changeset)}"}
+      {:ok, user} -> {:ok, user}
+      {:error, changeset} -> {:error, "Error creating user: #{inspect(changeset)}"}
     end
   end
 
   @doc """
-  Handles a socket connection quitting the server.
-
-  It closes the socket and unregisters the socket from the registry.
-  If the socket is associated with a user, it handles the user quitting the server.
+  Handles a socket disconnection from the server.
   """
-  @spec handle_quit_socket(socket :: port(), transport :: atom(), reason :: String.t()) :: :ok
-  def handle_quit_socket(socket, transport, reason) do
+  @spec handle_disconnect(socket :: port(), transport :: atom(), reason :: String.t()) :: :ok
+  def handle_disconnect(socket, transport, reason) do
     Logger.debug("Connection #{inspect(socket)} terminated: #{inspect(reason)}")
 
     if is_socket_open?(socket), do: transport.close(socket)
@@ -106,6 +43,38 @@ defmodule ElixIRCd.Core.Server do
       {:ok, user} -> handle_user_quit(user, reason)
     end
   end
+
+  @doc """
+  Handles a packet data from the given socket.
+  """
+  @spec handle_packet(socket :: port(), data :: String.t()) :: :ok
+  def handle_packet(socket, data) do
+    message = String.trim_trailing(data)
+    Logger.debug("<- #{inspect(message)}")
+
+    with {:ok, user} <- Contexts.User.get_by_socket(socket),
+         {:ok, message} <- MessageParser.parse(message),
+         :ok <- Command.handle(user, message) do
+      :ok
+    else
+      {:error, error} -> Logger.error("Error handling message #{inspect(message)}: #{inspect(error)}")
+    end
+  end
+
+  @doc """
+  Sends a packet data to the given user.
+  """
+  @spec send_packet(user :: Schemas.User.t(), message :: String.t()) :: :ok
+  def send_packet(%{socket: socket, transport: transport}, message) do
+    Logger.debug("-> #{inspect(message)}")
+    transport.send(socket, message <> "\r\n")
+  end
+
+  @doc """
+  Returns the server name.
+  """
+  @spec server_name() :: String.t()
+  def server_name, do: @server_name
 
   @spec is_socket_open?(socket :: port()) :: boolean()
   defp is_socket_open?(socket) do
@@ -132,9 +101,10 @@ defmodule ElixIRCd.Core.Server do
     MessageBuilder.user_message(user.identity, "QUIT", [], quit_message)
     |> Messaging.send_message(all_channel_users)
 
-    # Delete the user and all associated user channels
-    Contexts.User.delete(user)
-
-    :ok
+    # Delete the user and all its associated user channels
+    case Contexts.User.delete(user) do
+      {:ok, _} -> :ok
+      {:error, changeset} -> Logger.error("Error deleting user #{inspect(user)}: #{inspect(changeset)}")
+    end
   end
 end

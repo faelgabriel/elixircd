@@ -9,11 +9,9 @@ defmodule ElixIRCd do
 
   @impl true
   def start(_type, _args) do
-    tcp_opts = [{:port, 6667}]
-
     children = [
-      {ElixIRCd.Data.Repo, []},
-      {ElixIRCd.Supervisors.TcpSupervisor, tcp_opts}
+      ElixIRCd.Data.Repo,
+      ElixIRCd.Supervisors.TcpSupervisor
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: ElixIRCd.Supervisor)
