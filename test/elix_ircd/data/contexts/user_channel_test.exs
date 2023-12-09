@@ -57,8 +57,20 @@ defmodule ElixIRCd.Contexts.UserChannelTest do
     test "deletes a user_channel" do
       user_channel = insert(:user_channel)
 
-      assert {:ok, deleted_user_channel} = UserChannel.delete(user_channel)
+      assert {:ok, %Schemas.UserChannel{} = deleted_user_channel} = UserChannel.delete(user_channel)
       assert deleted_user_channel.user_socket == user_channel.user_socket
+    end
+  end
+
+  describe "get_by_user_and_channel/2" do
+    test "gets a user_channel for a user and channel" do
+      user = insert(:user)
+      channel = insert(:channel)
+      insert(:user_channel, user: user, channel: channel)
+
+      assert {:ok, %Schemas.UserChannel{} = fetched_user_channel} = UserChannel.get_by_user_and_channel(user, channel)
+      assert fetched_user_channel.user_socket == user.socket
+      assert fetched_user_channel.channel_name == channel.name
     end
   end
 
@@ -77,18 +89,6 @@ defmodule ElixIRCd.Contexts.UserChannelTest do
       insert_pair(:user_channel, channel: channel)
 
       assert length(UserChannel.get_by_channel(channel)) == 2
-    end
-  end
-
-  describe "get_by_user_and_channel/2" do
-    test "gets a user_channel for a user and channel" do
-      user = insert(:user)
-      channel = insert(:channel)
-      insert(:user_channel, user: user, channel: channel)
-
-      assert {:ok, user_channel} = UserChannel.get_by_user_and_channel(user, channel)
-      assert user_channel.user_socket == user.socket
-      assert user_channel.channel_name == channel.name
     end
   end
 end

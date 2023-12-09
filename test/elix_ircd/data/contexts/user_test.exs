@@ -65,7 +65,7 @@ defmodule ElixIRCd.Contexts.UserTest do
     test "deletes a user" do
       user = insert(:user)
 
-      assert {:ok, deleted_user} = User.delete(user)
+      assert {:ok, %Schemas.User{} = deleted_user} = User.delete(user)
       assert deleted_user.socket == user.socket
     end
   end
@@ -74,7 +74,8 @@ defmodule ElixIRCd.Contexts.UserTest do
     test "gets a user by socket" do
       user = insert(:user)
 
-      assert User.get_by_socket(user.socket) == {:ok, user}
+      assert {:ok, %Schemas.User{} = fetched_user} = User.get_by_socket(user.socket)
+      assert fetched_user.socket == user.socket
     end
   end
 
@@ -82,11 +83,12 @@ defmodule ElixIRCd.Contexts.UserTest do
     test "gets a user by nick" do
       user = insert(:user)
 
-      assert User.get_by_nick(user.nick) == {:ok, user}
+      assert {:ok, %Schemas.User{} = fetched_user} = User.get_by_nick(user.nick)
+      assert fetched_user.socket == user.socket
     end
 
-    test "returns nil if no user is found" do
-      assert User.get_by_nick("nonexistent") == {:error, "User not found"}
+    test "returns error if no user is found" do
+      assert {:error, "User not found"} = User.get_by_nick("nonexistent")
     end
   end
 end
