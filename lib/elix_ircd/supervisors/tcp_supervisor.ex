@@ -17,13 +17,13 @@ defmodule ElixIRCd.Supervisors.TcpSupervisor do
 
   @impl true
   def init(_opts) do
-    tcp_opts = [
+    opts = [
       {:port, Application.get_env(:elix_ircd, :tcp_port, 6667)}
     ]
 
-    Logger.info("Starting TCP server on port #{Keyword.get(tcp_opts, :port)}...")
-    children = [:ranch.child_spec(__MODULE__, :ranch_tcp, tcp_opts, ElixIRCd.Protocols.TcpServer, [])]
-    Logger.info("TCP server started on port #{Keyword.get(tcp_opts, :port)}.")
+    children = [
+      :ranch.child_spec(__MODULE__, :ranch_tcp, opts, ElixIRCd.Protocols.TcpServer, [])
+    ]
 
     Supervisor.init(children, strategy: :one_for_one)
   end
