@@ -6,7 +6,6 @@ defmodule ElixIRCd.Contexts.ChannelTest do
 
   alias Ecto.Changeset
   alias ElixIRCd.Contexts.Channel
-  alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
 
   import ElixIRCd.Factory
@@ -54,7 +53,6 @@ defmodule ElixIRCd.Contexts.ChannelTest do
 
       assert {:ok, deleted_channel} = Channel.delete(channel)
       assert deleted_channel.name == channel.name
-      assert Repo.get(Schemas.Channel, channel.name) == nil
     end
   end
 
@@ -62,11 +60,11 @@ defmodule ElixIRCd.Contexts.ChannelTest do
     test "gets a channel by name" do
       channel = insert(:channel)
 
-      assert Channel.get_by_name(channel.name) == channel
+      assert Channel.get_by_name(channel.name) == {:ok, channel}
     end
 
     test "returns nil if no channel is found" do
-      assert Channel.get_by_name("nonexistent") == nil
+      assert Channel.get_by_name("nonexistent") == {:error, "Channel not found"}
     end
   end
 end

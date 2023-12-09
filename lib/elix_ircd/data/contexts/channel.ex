@@ -32,7 +32,7 @@ defmodule ElixIRCd.Contexts.Channel do
   @doc """
   Deletes a channel
   """
-  @spec delete(Channel.t()) :: :ok | {:error, Changeset.t()}
+  @spec delete(Channel.t()) :: {:ok, Channel.t()} | {:error, Changeset.t()}
   def delete(channel) do
     Repo.delete(channel)
   end
@@ -40,8 +40,26 @@ defmodule ElixIRCd.Contexts.Channel do
   @doc """
   Gets a channel by name
   """
-  @spec get_by_name(String.t()) :: Channel.t() | nil
+  @spec get_by_name(String.t()) :: {:ok, Channel.t()} | {:error, String.t()}
   def get_by_name(name) do
-    Repo.get(Channel, name)
+    case Repo.get_by(Channel, name: name) do
+      nil -> {:error, "Channel not found"}
+      channel -> {:ok, channel}
+    end
+  end
+
+  @doc """
+  Gets a channel by name and preloads its users
+  """
+  @spec get_by_name_with_users(String.t()) :: {:ok, Channel.t()} | {:error, String.t()}
+  def get_by_name_with_users(name) do
+    case get_by_name(name) do
+      {:ok, channel} ->
+        channel = Repo.preload(channel, :user_channels)
+        {:ok, channel}
+
+      {:error, _} = error ->
+        error
+    end
   end
 end

@@ -20,10 +20,10 @@ defmodule ElixIRCd.Commands.Whois do
   @impl true
   def handle(user, %{command: "WHOIS", params: [target_nick]}) when user.identity != nil do
     case Contexts.User.get_by_nick(target_nick) do
-      %Schemas.User{} = target_user ->
+      {:ok, target_user} ->
         whois_message(user, target_user)
 
-      nil ->
+      {:error, _} ->
         MessageBuilder.server_message(:rpl_nouser, [user.nick, target_nick], "No such nick")
         |> Messaging.send_message(user)
     end

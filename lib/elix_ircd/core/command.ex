@@ -26,7 +26,7 @@ defmodule ElixIRCd.Core.Command do
   @doc """
   Handles the irc message command and forwards to the proper module.
   """
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok | {:error, String.t()}
   def handle(user, %{command: command} = message) do
     command_module = Map.get(@commands, command)
 

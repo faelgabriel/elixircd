@@ -9,8 +9,6 @@ defmodule ElixIRCd.Contexts.User do
 
   require Logger
 
-  import Ecto.Query
-
   @doc """
   Creates a new user
   """
@@ -34,7 +32,7 @@ defmodule ElixIRCd.Contexts.User do
   @doc """
   Deletes a user
   """
-  @spec delete(User.t()) :: :ok | {:error, Changeset.t()}
+  @spec delete(User.t()) :: {:ok, User.t()} | {:error, Changeset.t()}
   def delete(user) do
     Repo.delete(user)
   end
@@ -42,17 +40,22 @@ defmodule ElixIRCd.Contexts.User do
   @doc """
   Gets a user by socket
   """
-  @spec get_by_socket(port()) :: User.t() | nil
+  @spec get_by_socket(port()) :: {:ok, User.t()} | {:error, String.t()}
   def get_by_socket(socket) do
-    Repo.get(User, socket)
+    case Repo.get_by(User, socket: socket) do
+      nil -> {:error, "User not found"}
+      user -> {:ok, user}
+    end
   end
 
   @doc """
   Gets a user by nick
   """
-  @spec get_by_nick(String.t()) :: User.t() | nil
+  @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, String.t()}
   def get_by_nick(nick) do
-    from(u in User, where: u.nick == ^nick)
-    |> Repo.one()
+    case Repo.get_by(User, nick: nick) do
+      nil -> {:error, "User not found"}
+      user -> {:ok, user}
+    end
   end
 end

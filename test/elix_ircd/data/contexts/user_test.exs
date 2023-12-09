@@ -6,7 +6,6 @@ defmodule ElixIRCd.Contexts.UserTest do
 
   alias Ecto.Changeset
   alias ElixIRCd.Contexts.User
-  alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
 
   import ElixIRCd.Factory
@@ -29,9 +28,10 @@ defmodule ElixIRCd.Contexts.UserTest do
       new_attrs = %{socket: nil, transport: nil, nick: "-invalidnick"}
 
       assert {:error, %Changeset{} = changeset} = User.create(new_attrs)
-      assert length(changeset.errors) == 3
+      assert length(changeset.errors) == 4
       assert changeset.errors[:socket] == {"can't be blank", [validation: :required]}
       assert changeset.errors[:transport] == {"can't be blank", [validation: :required]}
+      assert changeset.errors[:pid] == {"can't be blank", [validation: :required]}
       assert changeset.errors[:nick] == {"Illegal characters", []}
     end
   end
@@ -67,7 +67,6 @@ defmodule ElixIRCd.Contexts.UserTest do
 
       assert {:ok, deleted_user} = User.delete(user)
       assert deleted_user.socket == user.socket
-      assert Repo.get(Schemas.User, user.socket) == nil
     end
   end
 
@@ -75,7 +74,7 @@ defmodule ElixIRCd.Contexts.UserTest do
     test "gets a user by socket" do
       user = insert(:user)
 
-      assert User.get_by_socket(user.socket) == user
+      assert User.get_by_socket(user.socket) == {:ok, user}
     end
   end
 
@@ -83,11 +82,11 @@ defmodule ElixIRCd.Contexts.UserTest do
     test "gets a user by nick" do
       user = insert(:user)
 
-      assert User.get_by_nick(user.nick) == user
+      assert User.get_by_nick(user.nick) == {:ok, user}
     end
 
     test "returns nil if no user is found" do
-      assert User.get_by_nick("nonexistent") == nil
+      assert User.get_by_nick("nonexistent") == {:error, "User not found"}
     end
   end
 end

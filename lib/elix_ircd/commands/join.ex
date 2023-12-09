@@ -54,9 +54,12 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec get_or_create_channel(String.t()) :: Schemas.Channel.t() | {:error, Changeset.t()}
   defp get_or_create_channel(channel_name) do
-    with nil <- Contexts.Channel.get_by_name(channel_name),
+    with {:error, _} <- Contexts.Channel.get_by_name(channel_name),
          {:ok, channel} <- Contexts.Channel.create(%{name: channel_name}) do
       channel
+    else
+      {:ok, channel} -> channel
+      error -> error
     end
   end
 

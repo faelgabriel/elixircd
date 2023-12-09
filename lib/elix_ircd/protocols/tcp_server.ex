@@ -23,7 +23,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
   ## Returns
   - `{:ok, pid}` on successful start of the process.
   """
-  @spec start_link(ref :: any(), transport :: atom(), opts :: keyword()) :: {:ok, pid()}
+  @spec start_link(ref :: pid(), transport :: module(), opts :: keyword()) :: {:ok, pid()}
   def start_link(ref, transport, opts) do
     {:ok, spawn_link(__MODULE__, :init, [ref, transport, opts])}
   end
@@ -44,22 +44,24 @@ defmodule ElixIRCd.Protocols.TcpServer do
   """
   @spec init(ref :: any(), transport :: atom(), _opts :: keyword()) :: :ok | :error
   def init(ref, transport, _opts) do
-    case :ranch.handshake(ref) do
-      {:ok, socket} ->
-        Server.handle_connect_socket(socket, transport, self())
-
-        transport.setopts(socket, active: :once)
-        loop(socket, transport)
-
+    with {:ok, socket} <- :ranch.handshake(ref),
+         {:ok, _user} <- Server.handle_connect_socket(socket, transport, self()) do
+      transport.setopts(socket, active: :once)
+      loop(socket, transport)
+    else
       {:continue, reason} ->
         Logger.error("TCP Handshake Error: #{inspect(reason)}")
+        :error
+
+      {:error, reason} ->
+        Logger.error("Server Error: #{inspect(reason)}")
         :error
     end
   end
 
   # Continuously processes incoming data on the TCP server.
   # This function is the main loop of the server, handling incoming data and managing the socket's state.
-  @spec loop(port(), atom()) :: no_return()
+  @spec loop(port(), atom()) :: :ok
   defp loop(socket, transport, buffer \\ "") do
     receive do
       {:tcp, ^socket, data} ->
@@ -72,7 +74,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
         Server.handle_quit_socket(socket, transport, "Connection Closed")
 
       {:tcp_error, ^socket, reason} ->
-        Server.handle_quit_socket(socket, transport, "Connection Error: " <> reason)
+        Server.handle_quit_socket(socket, transport, "Connection Error: #{reason}")
 
       {:quit, ^socket, reason} ->
         Server.handle_quit_socket(socket, transport, reason)

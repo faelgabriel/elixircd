@@ -68,8 +68,8 @@ defmodule ElixIRCd.Commands.Nick do
   @spec nick_in_use?(String.t()) :: boolean()
   defp nick_in_use?(nick) do
     case Contexts.User.get_by_nick(nick) do
-      nil -> false
-      _ -> true
+      {:ok, _} -> true
+      {:error, _} -> false
     end
   end
 end

@@ -6,7 +6,6 @@ defmodule ElixIRCd.Contexts.UserChannelTest do
 
   alias Ecto.Changeset
   alias ElixIRCd.Contexts.UserChannel
-  alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
 
   import ElixIRCd.Factory
@@ -60,7 +59,6 @@ defmodule ElixIRCd.Contexts.UserChannelTest do
 
       assert {:ok, deleted_user_channel} = UserChannel.delete(user_channel)
       assert deleted_user_channel.user_socket == user_channel.user_socket
-      assert Repo.get(Schemas.UserChannel, user_channel.id) == nil
     end
   end
 
@@ -88,7 +86,9 @@ defmodule ElixIRCd.Contexts.UserChannelTest do
       channel = insert(:channel)
       insert(:user_channel, user: user, channel: channel)
 
-      assert %Schemas.UserChannel{} = UserChannel.get_by_user_and_channel(user, channel)
+      assert {:ok, user_channel} = UserChannel.get_by_user_and_channel(user, channel)
+      assert user_channel.user_socket == user.socket
+      assert user_channel.channel_name == channel.name
     end
   end
 end

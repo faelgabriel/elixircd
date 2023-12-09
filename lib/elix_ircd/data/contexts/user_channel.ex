@@ -42,6 +42,18 @@ defmodule ElixIRCd.Contexts.UserChannel do
   end
 
   @doc """
+  Gets a user_channel for a user and channel
+  """
+  @spec get_by_user_and_channel(User.t(), Channel.t()) :: {:ok, UserChannel.t()} | {:error, String.t()}
+  def get_by_user_and_channel(user, channel) do
+    Repo.get_by(UserChannel, user_socket: user.socket, channel_name: channel.name)
+    |> case do
+      nil -> {:error, "UserChannel not found"}
+      user_channel -> {:ok, user_channel}
+    end
+  end
+
+  @doc """
   Gets all user_channel for a user
   """
   @spec get_by_user(User.t()) :: list(UserChannel.t())
@@ -57,17 +69,5 @@ defmodule ElixIRCd.Contexts.UserChannel do
   def get_by_channel(channel) do
     from(uc in UserChannel, where: uc.channel_name == ^channel.name, preload: [:user, :channel])
     |> Repo.all()
-  end
-
-  @doc """
-  Gets a user_channel for a user and channel
-  """
-  @spec get_by_user_and_channel(User.t(), Channel.t()) :: UserChannel.t()
-  def get_by_user_and_channel(user, channel) do
-    from(uc in UserChannel,
-      where: uc.user_socket == ^user.socket and uc.channel_name == ^channel.name,
-      preload: [:user, :channel]
-    )
-    |> Repo.one()
   end
 end

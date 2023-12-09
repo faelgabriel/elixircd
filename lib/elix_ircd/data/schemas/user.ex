@@ -6,6 +6,7 @@ defmodule ElixIRCd.Data.Schemas.User do
   alias Ecto.Changeset
   alias ElixIRCd.Data.Schemas.User
   alias ElixIRCd.Data.Schemas.UserChannel
+  alias ElixIRCd.Types.PidType
   alias ElixIRCd.Types.PortType
   alias ElixIRCd.Types.TransportType
 
@@ -16,6 +17,7 @@ defmodule ElixIRCd.Data.Schemas.User do
   @primary_key {:socket, PortType, autogenerate: false}
   typed_schema "user" do
     field(:transport, TransportType)
+    field(:pid, PidType)
     field(:nick, :string)
     field(:hostname, :string)
     field(:username, :string)
@@ -31,8 +33,8 @@ defmodule ElixIRCd.Data.Schemas.User do
   @spec changeset(User.t(), map()) :: Changeset.t()
   def changeset(%User{} = user, attrs) do
     user
-    |> cast(attrs, [:socket, :transport, :nick, :hostname, :username, :realname, :identity])
-    |> validate_required([:socket, :transport])
+    |> cast(attrs, [:socket, :transport, :pid, :nick, :hostname, :username, :realname, :identity])
+    |> validate_required([:socket, :transport, :pid])
     |> unique_constraint(:socket, name: :primary_key)
     |> validate_nick()
   end

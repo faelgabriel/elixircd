@@ -16,8 +16,6 @@ defmodule ElixIRCd.Core.Messaging do
   def send_message(message, %Schemas.User{} = user) do
     raw_message = MessageParser.unparse!(message)
     Server.send_packet(user, raw_message)
-
-    :ok
   end
 
   # Sends a message to multiple users.

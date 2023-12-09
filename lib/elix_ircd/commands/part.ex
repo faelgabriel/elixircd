@@ -19,8 +19,8 @@ defmodule ElixIRCd.Commands.Part do
 
   @impl true
   def handle(user, %{command: "PART", body: part_message, params: [channel_name]}) do
-    %Schemas.Channel{} = channel = Contexts.Channel.get_by_name(channel_name)
-    %Schemas.UserChannel{} = user_channel = Contexts.UserChannel.get_by_user_and_channel(user, channel)
+    {:ok, channel} = Contexts.Channel.get_by_name(channel_name)
+    {:ok, user_channel} = Contexts.UserChannel.get_by_user_and_channel(user, channel)
 
     part_message(user_channel.user, user_channel.channel, part_message)
 

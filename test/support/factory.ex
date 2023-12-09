@@ -24,6 +24,7 @@ defmodule ElixIRCd.Factory do
     %User{
       socket: Port.open({:spawn, "cat /dev/null"}, [:binary]),
       transport: :ranch_tcp,
+      pid: self(),
       nick: "#{sequence("Nick")}",
       hostname: "test",
       username: "test",

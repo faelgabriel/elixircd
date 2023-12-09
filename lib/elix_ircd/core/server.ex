@@ -22,9 +22,7 @@ defmodule ElixIRCd.Core.Server do
   def handle_stream(socket, buffer, data) do
     {complete_messages, remainder_buffer} = extract_messages(buffer <> data)
 
-    Enum.each(complete_messages, fn message ->
-      handle_message(socket, message)
-    end)
+    Enum.each(complete_messages, &handle_message(socket, &1))
 
     remainder_buffer
   end
@@ -41,30 +39,17 @@ defmodule ElixIRCd.Core.Server do
   end
 
   # Handles a single message from a incoming stream.
-  @spec handle_message(socket :: port(), message :: String.t()) :: :ok | :error
+  @spec handle_message(socket :: port(), message :: String.t()) :: :ok
   defp handle_message(socket, message) do
     Logger.debug("<- #{inspect(message)}")
 
-    with {:ok, user} <- handle_user(socket),
+    with {:ok, user} <- Contexts.User.get_by_socket(socket),
          {:ok, message} <- MessageParser.parse(message),
          :ok <- Command.handle(user, message) do
       :ok
     else
-      error ->
+      {:error, error} ->
         Logger.error("Error handling message #{inspect(message)}: #{inspect(error)}")
-        :error
-    end
-  end
-
-  # Returns the user for the given socket.
-  @spec handle_user(socket :: port()) :: {:ok, Schemas.User.t()} | {:error, String.t()}
-  defp handle_user(socket) do
-    case Contexts.User.get_by_socket(socket) do
-      nil ->
-        {:error, "Could not find user for socket #{socket}."}
-
-      user ->
-        {:ok, user}
     end
   end
 
@@ -95,9 +80,7 @@ defmodule ElixIRCd.Core.Server do
   def handle_connect_socket(socket, transport, pid) do
     Logger.debug("New connection: #{inspect(socket)}")
 
-    Registry.register(ElixIRCd.Protocols.Registry, socket, pid)
-
-    case Contexts.User.create(%{socket: socket, transport: transport}) do
+    case Contexts.User.create(%{socket: socket, transport: transport, pid: pid}) do
       {:ok, user} ->
         {:ok, user}
 
@@ -118,11 +101,9 @@ defmodule ElixIRCd.Core.Server do
 
     if is_socket_open?(socket), do: transport.close(socket)
 
-    Registry.unregister(ElixIRCd.Protocols.Registry, socket)
-
     case Contexts.User.get_by_socket(socket) do
-      nil -> :ok
-      user -> handle_user_quit(user, reason)
+      {:error, _} -> :ok
+      {:ok, user} -> handle_user_quit(user, reason)
     end
   end
 
@@ -138,6 +119,7 @@ defmodule ElixIRCd.Core.Server do
   defp handle_user_quit(user, quit_message) do
     user_channels = Contexts.UserChannel.get_by_user(user)
 
+    # All users in all channels the user is in
     all_channel_users =
       Enum.reduce(user_channels, [], fn %Schemas.UserChannel{} = user_channel, acc ->
         channel = user_channel.channel |> Repo.preload(user_channels: :user)
@@ -152,5 +134,7 @@ defmodule ElixIRCd.Core.Server do
 
     # Delete the user and all associated user channels
     Contexts.User.delete(user)
+
+    :ok
   end
 end
