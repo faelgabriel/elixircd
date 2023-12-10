@@ -72,8 +72,16 @@ defmodule ElixIRCd.Protocols.TcpServer do
 
     receive do
       {:tcp, ^socket, data} ->
-        Server.handle_packet(socket, data)
-        loop(socket, transport)
+        # Handle the packet in a try/catch block to prevent the server from crashing on unexpected behavior.
+        # If the server crashes, the socket will be closed and the client will be disconnected for safety.
+        try do
+          Server.handle_packet(socket, data)
+          loop(socket, transport)
+        catch
+          error ->
+            Logger.error("Error handling packet #{inspect(data)}: #{inspect(error)}")
+            Server.handle_disconnect(socket, transport, "Unexpected Behavior")
+        end
 
       {:tcp_closed, ^socket} ->
         Server.handle_disconnect(socket, transport, "Connection Closed")

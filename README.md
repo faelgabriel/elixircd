@@ -148,12 +148,14 @@ To install ElixIRCd, you'll need to have [Docker](https://docker.com/) installed
 
 Dev:
 ```bash
-docker run -it -p 6667:6667 -p 6697:6697 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd_dev -d elixircd:development
+docker build --target development --tag elixircd:development .
+docker run -it -p 6667:6667 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd_dev -d elixircd:development
 ```
 
 Prod:
 ```bash
-docker run -p 6667:6667 -p 6697:6697 --name elixircd_prod -d elixircd:production
+docker build --target production --tag elixircd:production .
+docker run -p 6667:6667 --restart always --name elixircd_prod -d elixircd:production
 ```
 
 

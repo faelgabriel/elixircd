@@ -1,3 +1,4 @@
 import Config
 
-config :logger, level: :info
+# Debug level logging temporarily enabled due to development phase
+config :logger, level: :debug

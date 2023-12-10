@@ -159,12 +159,12 @@ defmodule ElixIRCd.Message.MessageParserTest do
     end
 
     test "handles malformed messages" do
-      expected = {:error, "Invalid IRC message format"}
+      assert MessageParser.parse(":unexpected") ==
+               {:error, "Invalid IRC message format on parsing command and params: \"\""}
 
-      assert MessageParser.parse(":unexpected") == expected
-      assert MessageParser.parse(":") == expected
-      assert MessageParser.parse(" ") == expected
-      assert MessageParser.parse("") == expected
+      assert MessageParser.parse(":") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
+      assert MessageParser.parse(" ") == {:error, "Invalid IRC message format on parsing command and params: \" \""}
+      assert MessageParser.parse("") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
     end
   end
 
@@ -307,7 +307,9 @@ defmodule ElixIRCd.Message.MessageParserTest do
         body: nil
       }
 
-      expected = {:error, "Invalid IRC message format"}
+      expected =
+        {:error,
+         "Invalid IRC message format on unparsing command: %ElixIRCd.Message.Message{source: nil, command: nil, params: [], body: nil}"}
 
       assert MessageParser.unparse(irc_message) == expected
     end
