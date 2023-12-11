@@ -4,7 +4,7 @@ defmodule ElixIRCd.Message.MessageBuilderTest do
   use ExUnit.Case, async: true
   doctest ElixIRCd.Message.MessageBuilder
 
-  alias ElixIRCd.Data.Schemas.User
+  alias ElixIRCd.Data.Tables.User
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 

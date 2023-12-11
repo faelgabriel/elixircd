@@ -5,14 +5,14 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(Tables.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PRIVMSG"}) do
     MessageBuilder.server_message(:err_notregistered, ["*"], "You have not registered")
     |> Messaging.send_message(user)

@@ -4,16 +4,16 @@ defmodule ElixIRCd.Core.Messaging do
   """
 
   alias ElixIRCd.Core.Server
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageParser
 
   @doc """
   Sends a message to the given user or users.
   """
-  @spec send_message(Message.t(), Schemas.User.t() | [Schemas.User.t()]) :: :ok
+  @spec send_message(Message.t(), Tables.User.t() | [Tables.User.t()]) :: :ok
   # Sends a message to a single user.
-  def send_message(message, %Schemas.User{} = user) do
+  def send_message(message, %Tables.User{} = user) do
     raw_message = MessageParser.unparse!(message)
     Server.send_packet(user, raw_message)
   end
@@ -32,9 +32,9 @@ defmodule ElixIRCd.Core.Messaging do
   @doc """
   Sends messages to the given user or users.
   """
-  @spec send_messages([Message.t()], Schemas.User.t() | [Schemas.User.t()]) :: :ok
+  @spec send_messages([Message.t()], Tables.User.t() | [Tables.User.t()]) :: :ok
   # Sends messages to a single user.
-  def send_messages(messages, %Schemas.User{} = user) do
+  def send_messages(messages, %Tables.User{} = user) do
     Enum.each(messages, fn message ->
       raw_message = MessageParser.unparse!(message)
       Server.send_packet(user, raw_message)

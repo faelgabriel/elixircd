@@ -5,7 +5,7 @@ defmodule ElixIRCd.Commands.Part do
 
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
@@ -14,7 +14,7 @@ defmodule ElixIRCd.Commands.Part do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(Tables.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PART"}) do
     MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
     |> Messaging.send_message(user)
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Commands.Part do
   @doc """
   Sends a message to all users in the channel that the user has left.
   """
-  @spec part_message(Schemas.User.t(), Schemas.Channel.t(), String.t()) :: :ok
+  @spec part_message(Tables.User.t(), Tables.Channel.t(), String.t()) :: :ok
   def part_message(user, channel, part_message) do
     channel_users = Contexts.UserChannel.get_by_channel(channel) |> Enum.map(& &1.user)
 

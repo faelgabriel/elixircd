@@ -3,38 +3,44 @@ defmodule ElixIRCd.Contexts.Channel do
   Module for the Channel contexts.
   """
 
-  alias Ecto.Changeset
-  alias ElixIRCd.Data.Repo
-  alias ElixIRCd.Data.Schemas.Channel
+  alias ElixIRCd.Data.Tables.Channel
 
   require Logger
 
   @doc """
   Creates a new channel
   """
-  @spec create(map()) :: {:ok, Channel.t()} | {:error, Changeset.t()}
+  @spec create(map()) :: {:ok, Channel.t()} | {:error, String.t()}
   def create(attrs) do
     %Channel{}
     |> Channel.changeset(attrs)
-    |> Repo.insert()
+    |> Memento.Query.write()
+    |> case do
+      %Channel{} = channel -> {:ok, channel}
+      error -> {:error, "Channel not created: #{error}"}
+    end
   end
 
   @doc """
   Updates a channel
   """
-  @spec update(Channel.t(), map()) :: {:ok, Channel.t()} | {:error, Changeset.t()}
+  @spec update(Channel.t(), map()) :: {:ok, Channel.t()} | {:error, String.t()}
   def update(channel, attrs) do
     channel
     |> Channel.changeset(attrs)
-    |> Repo.update()
+    |> Memento.Query.write()
+    |> case do
+      %Channel{} = channel -> {:ok, channel}
+      error -> {:error, "Channel not updated: #{error}"}
+    end
   end
 
   @doc """
   Deletes a channel
   """
-  @spec delete(Channel.t()) :: {:ok, Channel.t()} | {:error, Changeset.t()}
+  @spec delete(Channel.t()) :: :ok
   def delete(channel) do
-    Repo.delete(channel)
+    Memento.Query.delete(Channel, channel.name)
   end
 
   @doc """
@@ -42,9 +48,10 @@ defmodule ElixIRCd.Contexts.Channel do
   """
   @spec get_by_name(String.t()) :: {:ok, Channel.t()} | {:error, String.t()}
   def get_by_name(name) do
-    case Repo.get_by(Channel, name: name) do
+    Memento.Query.read(Channel, name)
+    |> case do
+      %Channel{} = channel -> {:ok, channel}
       nil -> {:error, "Channel not found"}
-      channel -> {:ok, channel}
     end
   end
 end

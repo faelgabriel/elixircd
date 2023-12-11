@@ -5,14 +5,14 @@ defmodule ElixIRCd.Commands.Whois do
 
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(Tables.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "WHOIS"}) do
     MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
     |> Messaging.send_message(user)
@@ -43,16 +43,18 @@ defmodule ElixIRCd.Commands.Whois do
   @doc """
   Sends a message to the user with information about the target user.
   """
-  @spec whois_message(Schemas.User.t(), Schemas.User.t()) :: :ok
+  @spec whois_message(Tables.User.t(), Tables.User.t()) :: :ok
   def whois_message(user, target_user) do
-    target_user_channel_names = Contexts.UserChannel.get_by_user(target_user) |> Enum.map(& &1.user)
+    target_user_channel_names =
+      Contexts.UserChannel.get_by_user_socket(target_user.socket)
+      |> Enum.map_join(& &1.channel_name, " ")
 
     messages = [
       {:rpl_whoisuser, [user.nick, target_user.nick, target_user.username, target_user.hostname, "*"],
        target_user.realname},
       {:rpl_whoisserver, [user.nick, target_user.nick, "ElixIRCd", "0.1.0"], "Elixir IRC daemon"},
       {:rpl_whoisidle, [user.nick, target_user.nick, "0"], "seconds idle, signon time"},
-      {:rpl_whoischannels, [user.nick, target_user.nick], target_user_channel_names |> Enum.join(" ")},
+      {:rpl_whoischannels, [user.nick, target_user.nick], target_user_channel_names},
       {:rpl_endofwhois, [user.nick, target_user.nick], "End of /WHOIS list."}
     ]
 

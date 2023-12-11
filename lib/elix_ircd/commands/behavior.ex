@@ -3,7 +3,7 @@ defmodule ElixIRCd.Commands.Behavior do
   This module defines the behaviour for the command handlers.
   """
 
-  alias ElixIRCd.Data.Schemas.User
+  alias ElixIRCd.Data.Tables.User
   alias ElixIRCd.Message.Message
 
   @doc """

@@ -4,7 +4,7 @@ defmodule ElixIRCd.Message.MessageBuilder do
   """
 
   alias ElixIRCd.Core.Server
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.Message
 
   @doc """
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Message.MessageBuilder do
   If the user has not registered, the reply is "*".
   Otherwise, the reply is the user's nick.
   """
-  @spec get_user_reply(Schemas.User.t()) :: String.t()
+  @spec get_user_reply(Tables.User.t()) :: String.t()
   def get_user_reply(%{identity: nil}), do: "*"
   def get_user_reply(%{nick: nick}), do: nick
 

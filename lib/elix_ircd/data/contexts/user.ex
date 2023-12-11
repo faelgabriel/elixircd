@@ -3,38 +3,42 @@ defmodule ElixIRCd.Contexts.User do
   Module for the User contexts.
   """
 
-  alias Ecto.Changeset
-  alias ElixIRCd.Data.Repo
-  alias ElixIRCd.Data.Schemas.User
-
-  require Logger
+  alias ElixIRCd.Data.Tables.User
 
   @doc """
   Creates a new user
   """
-  @spec create(map()) :: {:ok, User.t()} | {:error, Changeset.t()}
+  @spec create(map()) :: {:ok, User.t()} | {:error, String.t()}
   def create(attrs) do
     %User{}
     |> User.changeset(attrs)
-    |> Repo.insert()
+    |> Memento.Query.write()
+    |> case do
+      %User{} = user -> {:ok, user}
+      error -> {:error, "User not created: #{error}"}
+    end
   end
 
   @doc """
   Updates a user
   """
-  @spec update(User.t(), map()) :: {:ok, User.t()} | {:error, Changeset.t()}
+  @spec update(User.t(), map()) :: {:ok, User.t()} | {:error, String.t()}
   def update(user, attrs) do
     user
     |> User.changeset(attrs)
-    |> Repo.update()
+    |> Memento.Query.write()
+    |> case do
+      %User{} = user -> {:ok, user}
+      error -> {:error, "User not updated: #{error}"}
+    end
   end
 
   @doc """
   Deletes a user
   """
-  @spec delete(User.t()) :: {:ok, User.t()} | {:error, Changeset.t()}
+  @spec delete(User.t()) :: :ok
   def delete(user) do
-    Repo.delete(user)
+    Memento.Query.delete(Channel, user.socket)
   end
 
   @doc """
@@ -42,9 +46,10 @@ defmodule ElixIRCd.Contexts.User do
   """
   @spec get_by_socket(port()) :: {:ok, User.t()} | {:error, String.t()}
   def get_by_socket(socket) do
-    case Repo.get_by(User, socket: socket) do
+    Memento.Query.read(User, socket)
+    |> case do
+      %User{} = user -> {:ok, user}
       nil -> {:error, "User not found"}
-      user -> {:ok, user}
     end
   end
 
@@ -53,9 +58,10 @@ defmodule ElixIRCd.Contexts.User do
   """
   @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, String.t()}
   def get_by_nick(nick) do
-    case Repo.get_by(User, nick: nick) do
-      nil -> {:error, "User not found"}
-      user -> {:ok, user}
+    Memento.Query.select(User, {:==, :nick, nick})
+    |> case do
+      [%User{} = user] -> {:ok, user}
+      [] -> {:error, "User not found"}
     end
   end
 end

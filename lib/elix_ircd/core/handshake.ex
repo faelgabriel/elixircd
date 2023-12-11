@@ -3,10 +3,9 @@ defmodule ElixIRCd.Core.Handshake do
   Module for handling IRC handshake.
   """
 
-  alias Ecto.Changeset
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.MessageBuilder
 
   require Logger
@@ -14,7 +13,7 @@ defmodule ElixIRCd.Core.Handshake do
   @doc """
   Handles the user handshake.
   """
-  @spec handshake(Schemas.User.t()) :: :ok
+  @spec handshake(Tables.User.t()) :: :ok
   def handshake(user) when user.nick != nil and user.username != nil and user.realname != nil do
     {:ok, user} = handle_lookup_hostname(user)
     :ok = handle_motd(user)
@@ -23,7 +22,7 @@ defmodule ElixIRCd.Core.Handshake do
 
   def handshake(_user), do: :ok
 
-  @spec handle_lookup_hostname(Schemas.User.t()) :: {:ok, Schemas.User.t()} | {:error, Changeset.t()}
+  @spec handle_lookup_hostname(Tables.User.t()) :: {:ok, Tables.User.t()} | {:error, String.t()}
   defp handle_lookup_hostname(user) do
     {:ok, {ip, _port}} = :inet.peername(user.socket)
 
@@ -41,7 +40,7 @@ defmodule ElixIRCd.Core.Handshake do
     Contexts.User.update(user, %{hostname: hostname, identity: identity})
   end
 
-  @spec handle_motd(Schemas.User.t()) :: :ok
+  @spec handle_motd(Tables.User.t()) :: :ok
   defp handle_motd(user) do
     MessageBuilder.server_message(:rpl_welcome, [user.nick], "Welcome to the IRC network.")
     |> Messaging.send_message(user)

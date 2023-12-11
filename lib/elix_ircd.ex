@@ -9,8 +9,9 @@ defmodule ElixIRCd do
 
   @impl true
   def start(_type, _args) do
+    ElixIRCd.Data.Tables.setup()
+
     children = [
-      ElixIRCd.Data.Repo,
       ElixIRCd.Supervisors.TcpSupervisor
     ]
 

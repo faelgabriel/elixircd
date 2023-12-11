@@ -6,11 +6,10 @@ defmodule ElixIRCd.Commands.Nick do
   Future:: issue on changing nick twice
   """
 
-  alias Ecto.Changeset
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Handshake
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
@@ -19,7 +18,7 @@ defmodule ElixIRCd.Commands.Nick do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(Tables.User.t(), Message.t()) :: :ok
   def handle(user, %{command: "NICK", params: [], body: nick}) do
     handle(user, %Message{command: "NICK", params: [nick]})
   end
@@ -43,15 +42,15 @@ defmodule ElixIRCd.Commands.Nick do
     |> Messaging.send_message(user)
   end
 
-  @spec handle_nick(Schemas.User.t(), String.t()) :: :ok
+  @spec handle_nick(Tables.User.t(), String.t()) :: :ok
   defp handle_nick(user, nick) do
     case Contexts.User.update(user, %{nick: nick}) do
       {:ok, user} -> handle_identity(user, nick)
-      {:error, %Changeset{errors: errors}} -> handle_error(user, nick, errors)
+      {:error, error} -> handle_error(user, nick, error)
     end
   end
 
-  @spec handle_identity(Schemas.User.t(), String.t()) :: :ok
+  @spec handle_identity(Tables.User.t(), String.t()) :: :ok
   defp handle_identity(user, nick) do
     case user.identity do
       nil ->
@@ -63,11 +62,9 @@ defmodule ElixIRCd.Commands.Nick do
     end
   end
 
-  @spec handle_error(Schemas.User.t(), String.t(), list()) :: :ok
-  defp handle_error(user, nick, errors) do
-    error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
-
-    MessageBuilder.server_message(:err_erroneusnickname, ["*", nick], ":Nickname is unavailable: #{error_message}")
+  @spec handle_error(Tables.User.t(), String.t(), String.t()) :: :ok
+  defp handle_error(user, nick, error) do
+    MessageBuilder.server_message(:err_erroneusnickname, ["*", nick], ":Nickname is unavailable: #{error}")
     |> Messaging.send_message(user)
   end
 

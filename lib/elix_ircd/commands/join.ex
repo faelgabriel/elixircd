@@ -3,10 +3,9 @@ defmodule ElixIRCd.Commands.Join do
   This module defines the JOIN command.
   """
 
-  alias Ecto.Changeset
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
@@ -15,7 +14,7 @@ defmodule ElixIRCd.Commands.Join do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(Tables.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "JOIN"}) do
     MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
     |> Messaging.send_message(user)
@@ -35,25 +34,23 @@ defmodule ElixIRCd.Commands.Join do
     |> Messaging.send_message(user)
   end
 
-  @spec handle_channel(Schemas.User.t(), String.t()) :: :ok
+  @spec handle_channel(Tables.User.t(), String.t()) :: :ok
   defp handle_channel(user, channel_name) do
     case get_or_create_channel(channel_name) do
-      %Schemas.Channel{} = channel ->
+      %Tables.Channel{} = channel ->
         join_channel(user, channel)
 
-      {:error, %Changeset{errors: errors}} ->
-        error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
-
+      {:error, error} ->
         MessageBuilder.server_message(
           :rpl_cannotjoinchannel,
           [user.nick, channel_name],
-          "Cannot join channel: #{error_message}"
+          "Cannot join channel: #{error}"
         )
         |> Messaging.send_message(user)
     end
   end
 
-  @spec get_or_create_channel(String.t()) :: Schemas.Channel.t() | {:error, Changeset.t()}
+  @spec get_or_create_channel(String.t()) :: Tables.Channel.t() | {:error, Changeset.t()}
   defp get_or_create_channel(channel_name) do
     with {:error, _} <- Contexts.Channel.get_by_name(channel_name),
          {:ok, channel} <- Contexts.Channel.create(%{name: channel_name}) do
@@ -64,7 +61,7 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  @spec join_channel(Schemas.User.t(), Schemas.Channel.t()) :: :ok
+  @spec join_channel(Tables.User.t(), Tables.Channel.t()) :: :ok
   defp join_channel(user, channel) do
     with {:ok, _user_channel} <- Contexts.UserChannel.create(%{user_socket: user.socket, channel_name: channel.name}) do
       channel_users = Contexts.UserChannel.get_by_channel(channel) |> Enum.map(& &1.user)

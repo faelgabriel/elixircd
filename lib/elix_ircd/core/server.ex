@@ -6,7 +6,7 @@ defmodule ElixIRCd.Core.Server do
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Command
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Data.Tables
   alias ElixIRCd.Message.MessageBuilder
   alias ElixIRCd.Message.MessageParser
 
@@ -18,7 +18,7 @@ defmodule ElixIRCd.Core.Server do
   Handles a new socket connection to the server.
   """
   @spec handle_connect(socket :: port(), transport :: atom(), pid :: pid()) ::
-          {:ok, Schemas.User.t()} | {:error, String.t()}
+          {:ok, Tables.User.t()} | {:error, String.t()}
   def handle_connect(socket, transport, pid) do
     Logger.debug("New connection: #{inspect(socket)}")
 
@@ -63,7 +63,7 @@ defmodule ElixIRCd.Core.Server do
   @doc """
   Sends a packet data to the given user.
   """
-  @spec send_packet(user :: Schemas.User.t(), message :: String.t()) :: :ok
+  @spec send_packet(user :: Tables.User.t(), message :: String.t()) :: :ok
   def send_packet(%{socket: socket, transport: transport}, message) do
     Logger.debug("-> #{inspect(message)}")
     transport.send(socket, message <> "\r\n")
@@ -83,14 +83,14 @@ defmodule ElixIRCd.Core.Server do
     end
   end
 
-  @spec handle_user_quit(user :: Schemas.User.t(), quit_message :: String.t()) :: :ok
+  @spec handle_user_quit(user :: Tables.User.t(), quit_message :: String.t()) :: :ok
   defp handle_user_quit(user, quit_message) do
-    user_channels = Contexts.UserChannel.get_by_user(user)
+    user_channels = Contexts.UserChannel.get_by_user_socket(user.socket)
 
     # All users in all channels the user is in
     all_channel_users =
-      Enum.reduce(user_channels, [], fn %Schemas.UserChannel{} = user_channel, acc ->
-        channel_users = Contexts.UserChannel.get_by_channel(user_channel.channel) |> Enum.map(& &1.user)
+      Enum.reduce(user_channels, [], fn %Tables.UserChannel{} = user_channel, acc ->
+        channel_users = Contexts.UserChannel.get_by_channel_name(user_channel.channel_name) |> Enum.map(& &1.user)
         acc ++ channel_users
       end)
       |> Enum.uniq()
