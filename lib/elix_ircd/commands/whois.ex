@@ -5,13 +5,14 @@ defmodule ElixIRCd.Commands.Whois do
 
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "WHOIS"}) do
     MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
     |> Messaging.send_message(user)
@@ -44,8 +45,7 @@ defmodule ElixIRCd.Commands.Whois do
   """
   @spec whois_message(Schemas.User.t(), Schemas.User.t()) :: :ok
   def whois_message(user, target_user) do
-    target_user = target_user |> Repo.preload(user_channels: :channel)
-    target_user_channel_names = target_user.user_channels |> Enum.map(& &1.channel.name)
+    target_user_channel_names = Contexts.UserChannel.get_by_user(target_user) |> Enum.map(& &1.user)
 
     messages = [
       {:rpl_whoisuser, [user.nick, target_user.nick, target_user.username, target_user.hostname, "*"],

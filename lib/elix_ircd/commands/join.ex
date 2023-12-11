@@ -6,8 +6,8 @@ defmodule ElixIRCd.Commands.Join do
   alias Ecto.Changeset
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   require Logger
@@ -15,6 +15,7 @@ defmodule ElixIRCd.Commands.Join do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "JOIN"}) do
     MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
     |> Messaging.send_message(user)
@@ -66,8 +67,7 @@ defmodule ElixIRCd.Commands.Join do
   @spec join_channel(Schemas.User.t(), Schemas.Channel.t()) :: :ok
   defp join_channel(user, channel) do
     with {:ok, _user_channel} <- Contexts.UserChannel.create(%{user_socket: user.socket, channel_name: channel.name}) do
-      channel = channel |> Repo.preload(user_channels: :user)
-      channel_users = channel.user_channels |> Enum.map(& &1.user)
+      channel_users = Contexts.UserChannel.get_by_channel(channel) |> Enum.map(& &1.user)
 
       MessageBuilder.user_message(user.identity, "JOIN", [channel.name])
       |> Messaging.send_message(channel_users)

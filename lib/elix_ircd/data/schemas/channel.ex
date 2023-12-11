@@ -5,7 +5,6 @@ defmodule ElixIRCd.Data.Schemas.Channel do
 
   alias Ecto.Changeset
   alias ElixIRCd.Data.Schemas.Channel
-  alias ElixIRCd.Data.Schemas.UserChannel
 
   import Ecto.Changeset
 
@@ -14,8 +13,6 @@ defmodule ElixIRCd.Data.Schemas.Channel do
   @primary_key {:name, :string, autogenerate: false}
   typed_schema "channel" do
     field(:topic, :string)
-
-    has_many(:user_channels, UserChannel, foreign_key: :channel_name)
   end
 
   @doc """

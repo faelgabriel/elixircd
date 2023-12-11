@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.Nick do
   alias ElixIRCd.Core.Handshake
   alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   require Logger
@@ -18,6 +19,7 @@ defmodule ElixIRCd.Commands.Nick do
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(user, %{command: "NICK", params: [nick]}) do
     if nick_in_use?(nick) do
       user_reply = MessageBuilder.get_user_reply(user)

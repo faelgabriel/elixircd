@@ -68,20 +68,4 @@ defmodule ElixIRCd.Contexts.ChannelTest do
       assert {:error, "Channel not found"} = Channel.get_by_name("nonexistent")
     end
   end
-
-  describe "get_by_name_with_users/1" do
-    test "gets a channel by name and preloads its users" do
-      channel = insert(:channel)
-      user = insert(:user)
-      insert(:user_channel, user: user, channel: channel)
-
-      assert {:ok, %Schemas.Channel{} = fetched_channel} = Channel.get_by_name_with_users(channel.name)
-      assert length(fetched_channel.user_channels) == 1
-      assert fetched_channel.user_channels |> Enum.any?(fn uc -> uc.user_socket == user.socket end)
-    end
-
-    test "returns error if no channel is found" do
-      assert {:error, "Channel not found"} = Channel.get_by_name_with_users("nonexistent")
-    end
-  end
 end

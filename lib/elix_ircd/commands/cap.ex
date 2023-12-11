@@ -4,11 +4,14 @@ defmodule ElixIRCd.Commands.Cap do
   """
 
   alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(user, %{command: "CAP", params: params}) do
     handle_cap_command(user, params)
   end

@@ -6,7 +6,6 @@ defmodule ElixIRCd.Core.Server do
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Command
   alias ElixIRCd.Core.Messaging
-  alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Message.MessageBuilder
   alias ElixIRCd.Message.MessageParser
@@ -91,8 +90,7 @@ defmodule ElixIRCd.Core.Server do
     # All users in all channels the user is in
     all_channel_users =
       Enum.reduce(user_channels, [], fn %Schemas.UserChannel{} = user_channel, acc ->
-        channel = user_channel.channel |> Repo.preload(user_channels: :user)
-        channel_users = channel.user_channels |> Enum.map(& &1.user)
+        channel_users = Contexts.UserChannel.get_by_channel(user_channel.channel) |> Enum.map(& &1.user)
         acc ++ channel_users
       end)
       |> Enum.uniq()
@@ -102,8 +100,10 @@ defmodule ElixIRCd.Core.Server do
     |> Messaging.send_message(all_channel_users)
 
     # Delete the user and all its associated user channels
-    case Contexts.User.delete(user) do
-      {:ok, _} -> :ok
+    with {:ok, _} <- Contexts.UserChannel.delete_all(user_channels),
+         {:ok, _} <- Contexts.User.delete(user) do
+      :ok
+    else
       {:error, changeset} -> Logger.error("Error deleting user #{inspect(user)}: #{inspect(changeset)}")
     end
   end

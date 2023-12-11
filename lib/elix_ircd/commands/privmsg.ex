@@ -5,10 +5,14 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
+
   @impl true
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PRIVMSG"}) do
     MessageBuilder.server_message(:err_notregistered, ["*"], "You have not registered")
     |> Messaging.send_message(user)
@@ -28,8 +32,9 @@ defmodule ElixIRCd.Commands.Privmsg do
   end
 
   defp handle_channel_message(user, channel_name, message) do
-    with {:ok, channel} <- Contexts.Channel.get_by_name_with_users(channel_name),
-         channel_users = Enum.map(channel.user_channels, & &1.user),
+    with {:ok, channel} <- Contexts.Channel.get_by_name(channel_name),
+         user_channels <- Contexts.UserChannel.get_by_channel(channel),
+         channel_users = Enum.map(user_channels, & &1.user),
          true <- Enum.member?(channel_users, user) do
       channel_users_without_user = Enum.reject(channel_users, &(&1 == user))
 

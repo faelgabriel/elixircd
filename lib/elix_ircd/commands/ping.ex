@@ -4,11 +4,14 @@ defmodule ElixIRCd.Commands.Ping do
   """
 
   alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Message.Message
   alias ElixIRCd.Message.MessageBuilder
 
   @behaviour ElixIRCd.Commands.Behavior
 
   @impl true
+  @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(user, %{command: "PING", body: body}) do
     MessageBuilder.server_message("PONG", [], body)
     |> Messaging.send_message(user)

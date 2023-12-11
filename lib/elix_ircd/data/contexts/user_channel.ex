@@ -31,6 +31,11 @@ defmodule ElixIRCd.Contexts.UserChannel do
     Repo.delete(user_channel)
   end
 
+  @spec delete_all(list(UserChannel.t())) :: {:ok, list(UserChannel.t())} | {:error, Changeset.t()}
+  def delete_all(user_channels) do
+    Repo.delete_all(user_channels)
+  end
+
   @doc """
   Updates a user_channel
   """
@@ -46,10 +51,17 @@ defmodule ElixIRCd.Contexts.UserChannel do
   """
   @spec get_by_user_and_channel(User.t(), Channel.t()) :: {:ok, UserChannel.t()} | {:error, String.t()}
   def get_by_user_and_channel(user, channel) do
-    Repo.get_by(UserChannel, user_socket: user.socket, channel_name: channel.name)
+    from(uc in UserChannel,
+      where: uc.user_socket == ^user.socket and uc.channel_name == ^channel.name,
+      preload: [:user, :channel]
+    )
+    |> Repo.one()
     |> case do
-      nil -> {:error, "UserChannel not found"}
-      user_channel -> {:ok, user_channel}
+      nil ->
+        {:error, "UserChannel not found"}
+
+      user_channel ->
+        {:ok, user_channel}
     end
   end
 
