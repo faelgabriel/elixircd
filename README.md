@@ -3,6 +3,7 @@
 [![Code Quality](https://github.com/faelgabriel/elixircd/actions/workflows/code-quality.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/code-quality.yml)
 [![Docker Build](https://github.com/faelgabriel/elixircd/actions/workflows/docker-build.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/test-coverage.yml)
 [![Tests & Coverage](https://github.com/faelgabriel/elixircd/actions/workflows/tests-and-coverage.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/test-coverage.yml)
+[![Coverage Status](https://coveralls.io/repos/github/faelgabriel/elixircd/badge.svg?branch=main)](https://coveralls.io/github/faelgabriel/elixircd?branch=main)
 [![License](https://img.shields.io/badge/License-AGPL-blue.svg)](https://github.com/faelgabriel/elixircd/blob/main/LICENSE)
 
 ## Introduction
