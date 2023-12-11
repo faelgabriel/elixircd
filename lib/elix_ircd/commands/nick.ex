@@ -20,6 +20,10 @@ defmodule ElixIRCd.Commands.Nick do
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  def handle(user, %{command: "NICK", params: [], body: nick}) do
+    handle(user, %Message{command: "NICK", params: [nick]})
+  end
+
   def handle(user, %{command: "NICK", params: [nick]}) do
     if nick_in_use?(nick) do
       user_reply = MessageBuilder.get_user_reply(user)

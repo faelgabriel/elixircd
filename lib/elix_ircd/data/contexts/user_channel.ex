@@ -34,9 +34,13 @@ defmodule ElixIRCd.Contexts.UserChannel do
   @doc """
   Deletes all user_channels
   """
-  @spec delete_all(list(UserChannel.t())) :: {:ok, list(UserChannel.t())} | {:error, Changeset.t()}
+  @spec delete_all(list(UserChannel.t())) :: number()
   def delete_all(user_channels) do
-    Repo.delete_all(user_channels)
+    from(uc in UserChannel, where: uc.id in ^Enum.map(user_channels, & &1.id))
+    |> Repo.delete_all()
+    |> case do
+      {count, _} -> count
+    end
   end
 
   @doc """

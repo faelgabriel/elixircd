@@ -100,7 +100,7 @@ defmodule ElixIRCd.Core.Server do
     |> Messaging.send_message(all_channel_users)
 
     # Delete the user and all its associated user channels
-    with {:ok, _} <- Contexts.UserChannel.delete_all(user_channels),
+    with _ <- Contexts.UserChannel.delete_all(user_channels),
          {:ok, _} <- Contexts.User.delete(user) do
       :ok
     else

@@ -5,6 +5,7 @@ defmodule ElixIRCd.Data.Schemas.User do
 
   alias Ecto.Changeset
   alias ElixIRCd.Data.Schemas.User
+  alias ElixIRCd.Data.Schemas.UserChannel
   alias ElixIRCd.Types.PidType
   alias ElixIRCd.Types.PortType
   alias ElixIRCd.Types.TransportType
@@ -22,6 +23,8 @@ defmodule ElixIRCd.Data.Schemas.User do
     field(:username, :string)
     field(:realname, :string)
     field(:identity, :string)
+
+    has_many(:user_channels, UserChannel, foreign_key: :user_socket, on_delete: :delete_all)
   end
 
   @doc """

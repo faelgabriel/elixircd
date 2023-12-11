@@ -15,6 +15,7 @@ jobs:
 
     env:
       MIX_ENV: test
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     strategy:
       matrix:
@@ -53,5 +54,6 @@ jobs:
       - name: Compile code
         run: mix compile
 
-      - name: Run tests and coverage
-        run: mix test --cover
+      - name: Run Tests
+        # run: mix test --cover
+        run: mix coveralls.github
