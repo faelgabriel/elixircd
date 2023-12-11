@@ -159,7 +159,7 @@ docker run -p 6667:6667 --restart always --name elixircd_prod -d elixircd:produc
 ```
 
 
-## Usage
+## Usage (Development mode)
 
 To start the ElixIRCd server, run the following command:
 
@@ -172,12 +172,3 @@ To start the ElixIRCd server in interactive mode, run the following command:
 ```bash
 iex -S mix
 ```
-
-This will start the Elixir environment and load your application's modules into the interactive shell. From here, you can interact with your application's processes directly and test your implementation.
-
-
-## Generating selfsigned certificates
-```bash
-make ssl_keys
-```
--->

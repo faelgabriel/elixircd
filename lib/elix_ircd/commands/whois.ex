@@ -31,6 +31,14 @@ defmodule ElixIRCd.Commands.Whois do
     :ok
   end
 
+  @impl true
+  def handle(user, %{command: "WHOIS"}) do
+    user_reply = MessageBuilder.get_user_reply(user)
+
+    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, "WHOIS"], "Not enough parameters")
+    |> Messaging.send_message(user)
+  end
+
   @doc """
   Sends a message to the user with information about the target user.
   """
