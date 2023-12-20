@@ -6,6 +6,7 @@ defmodule ElixIRCd.Core.Handshake do
   alias Ecto.Changeset
   alias ElixIRCd.Contexts
   alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Core.Server
   alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Message.MessageBuilder
 
@@ -17,8 +18,7 @@ defmodule ElixIRCd.Core.Handshake do
   @spec handshake(Schemas.User.t()) :: :ok
   def handshake(user) when user.nick != nil and user.username != nil and user.realname != nil do
     {:ok, user} = handle_lookup_hostname(user)
-    :ok = handle_motd(user)
-    :ok
+    handle_motd(user)
   end
 
   def handshake(_user), do: :ok
@@ -43,7 +43,11 @@ defmodule ElixIRCd.Core.Handshake do
 
   @spec handle_motd(Schemas.User.t()) :: :ok
   defp handle_motd(user) do
-    MessageBuilder.server_message(:rpl_welcome, [user.nick], "Welcome to the IRC network.")
+    MessageBuilder.server_message(
+      :rpl_welcome,
+      [user.nick],
+      "Welcome to the #{Server.server_name()} Internet Relay Chat Network #{user.nick}"
+    )
     |> Messaging.send_message(user)
 
     MessageBuilder.server_message(:rpl_yourhost, [user.nick], "Your host is ElixIRCd, running version 0.1.0.")

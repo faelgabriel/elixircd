@@ -14,7 +14,7 @@ defmodule ElixIRCd.Commands.User do
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
-  def handle(user, %{command: "USER", body: realname, params: [username, _, _]}) do
+  def handle(user, %{command: "USER", params: [username, _, _], body: realname}) do
     {:ok, user} = Contexts.User.update(user, %{username: username, realname: realname})
 
     Handshake.handshake(user)

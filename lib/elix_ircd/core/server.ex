@@ -12,8 +12,6 @@ defmodule ElixIRCd.Core.Server do
 
   require Logger
 
-  @server_name Application.compile_env(:elixircd, :server)[:name] || :inet.gethostname() |> elem(1) |> to_string()
-
   @doc """
   Handles a new socket connection to the server.
   """
@@ -35,7 +33,7 @@ defmodule ElixIRCd.Core.Server do
   def handle_disconnect(socket, transport, reason) do
     Logger.debug("Connection #{inspect(socket)} terminated: #{inspect(reason)}")
 
-    if is_socket_open?(socket), do: transport.close(socket)
+    if is_socket_active?(socket), do: transport.close(socket)
 
     case Contexts.User.get_by_socket(socket) do
       {:error, _} -> :ok
@@ -73,10 +71,16 @@ defmodule ElixIRCd.Core.Server do
   Returns the server name.
   """
   @spec server_name() :: String.t()
-  def server_name, do: @server_name
+  def server_name, do: Application.get_env(:elixircd, :server_name)
 
-  @spec is_socket_open?(socket :: port()) :: boolean()
-  defp is_socket_open?(socket) do
+  @doc """
+  Returns the server hostname.
+  """
+  @spec server_hostname() :: String.t()
+  def server_hostname, do: Application.get_env(:elixircd, :server_hostname)
+
+  @spec is_socket_active?(socket :: port()) :: boolean()
+  defp is_socket_active?(socket) do
     case :inet.getopts(socket, [:active]) do
       {:ok, _} -> true
       {:error, _} -> false

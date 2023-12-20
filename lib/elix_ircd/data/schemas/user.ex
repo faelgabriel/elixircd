@@ -23,6 +23,7 @@ defmodule ElixIRCd.Data.Schemas.User do
     field(:username, :string)
     field(:realname, :string)
     field(:identity, :string)
+    field(:modes, {:array, :any}, default: [])
 
     has_many(:user_channels, UserChannel, foreign_key: :user_socket, on_delete: :delete_all)
   end
@@ -33,12 +34,22 @@ defmodule ElixIRCd.Data.Schemas.User do
   @spec changeset(User.t(), map()) :: Changeset.t()
   def changeset(%User{} = user, attrs) do
     user
-    |> cast(attrs, [:socket, :transport, :pid, :nick, :hostname, :username, :realname, :identity])
+    |> cast(attrs, [
+      :socket,
+      :transport,
+      :pid,
+      :nick,
+      :hostname,
+      :username,
+      :realname,
+      :identity,
+      :modes
+    ])
     |> validate_required([:socket, :transport, :pid])
-    |> unique_constraint(:socket, name: :primary_key)
     |> validate_nick()
   end
 
+  # nick is optional since it is set when the user registers
   # cannot start with a number or hyphen
   # A through to Z (Lowercase and uppercase.)
   # 0 through to 9
@@ -46,12 +57,14 @@ defmodule ElixIRCd.Data.Schemas.User do
   @spec validate_nick(Changeset.t()) :: Changeset.t()
   defp validate_nick(changeset) do
     nick = get_field(changeset, :nick)
+    max_nick_length = 30
     nick_pattern = ~r/\A[a-zA-Z\`|\^_{}\[\]\\][a-zA-Z\d\`|\^_\-{}\[\]\\]*\z/
 
-    if !nick || Regex.match?(nick_pattern, nick) do
-      changeset
-    else
-      add_error(changeset, :nick, "Illegal characters")
+    cond do
+      is_nil(nick) -> changeset
+      String.length(nick) > max_nick_length -> add_error(changeset, :nick, "Nickname too long")
+      !Regex.match?(nick_pattern, nick) -> add_error(changeset, :nick, "Illegal characters")
+      true -> changeset
     end
   end
 end

@@ -23,15 +23,15 @@ defmodule ElixIRCd.Message.MessageBuilder do
 
   # Builds a server message with a numeric reply code.
   def server_message(command, params, body) when is_atom(command) do
-    server_name = Server.server_name()
+    server_hostname = Server.server_hostname()
     command_reply = numeric_reply(command)
-    %Message{source: server_name, command: command_reply, params: params, body: body}
+    %Message{source: server_hostname, command: command_reply, params: params, body: body}
   end
 
   # Builds a server message with a raw command string.
   def server_message(command, params, body) do
-    server_name = Server.server_name()
-    %Message{source: server_name, command: command, params: params, body: body}
+    server_hostname = Server.server_hostname()
+    %Message{source: server_hostname, command: command, params: params, body: body}
   end
 
   @doc """
@@ -49,6 +49,7 @@ defmodule ElixIRCd.Message.MessageBuilder do
   defp numeric_reply(:rpl_welcome), do: "001"
   defp numeric_reply(:rpl_yourhost), do: "002"
   defp numeric_reply(:rpl_created), do: "003"
+  defp numeric_reply(:rpl_userhost), do: "302"
   defp numeric_reply(:rpl_whoisuser), do: "311"
   defp numeric_reply(:rpl_whoisserver), do: "312"
   defp numeric_reply(:rpl_whoisidle), do: "317"

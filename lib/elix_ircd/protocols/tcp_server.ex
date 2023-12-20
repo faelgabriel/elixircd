@@ -8,7 +8,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
   require Logger
 
   @behaviour :ranch_protocol
-  @timeout 120_000
+  @timeout 180_000
   @reuseaddr Mix.env() in [:dev, :test]
 
   @doc """
@@ -81,7 +81,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
       {:tcp_error, ^socket, reason} ->
         Server.handle_disconnect(socket, transport, "Connection Error: #{reason}")
 
-      {:quit, ^socket, reason} ->
+      {:user_quit, ^socket, reason} ->
         Server.handle_disconnect(socket, transport, reason)
     after
       @timeout ->
