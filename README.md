@@ -1,18 +1,10 @@
 <h1 align="center">ElixIRCd (Under Development)</h1>
 
 <p align="center">
-  <a href="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml">
-    <img src="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml/badge.svg" alt="Elixir CI">
-  </a>
-  <a href="https://github.com/faelgabriel/elixircd/actions/workflows/docker-ci.yml">
-    <img src="https://github.com/faelgabriel/elixircd/actions/workflows/docker-ci.yml/badge.svg" alt="Docker CI">
-  </a>
-  <a href="https://coveralls.io/github/faelgabriel/elixircd?branch=main">
-    <img src="https://img.shields.io/coverallsCoverage/github/faelgabriel/elixircd?label=Coverage" alt="Coveralls Status">
-  </a>
-  <a href="https://github.com/faelgabriel/elixircd/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/License-AGPL-blue.svg" alt="License">
-  </a>
+  <a href="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml"><img src="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml/badge.svg" alt="Elixir CI"></a>
+  <a href="https://github.com/faelgabriel/elixircd/actions/workflows/docker-ci.yml"><img src="https://github.com/faelgabriel/elixircd/actions/workflows/docker-ci.yml/badge.svg" alt="Docker CI"></a>
+  <a href="https://coveralls.io/github/faelgabriel/elixircd?branch=main"><img src="https://img.shields.io/coverallsCoverage/github/faelgabriel/elixircd?label=Coverage" alt="Coveralls Status"></a>
+  <a href="https://github.com/faelgabriel/elixircd/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-AGPL-blue.svg" alt="License"></a>
 </p>
 
 ## Introduction
