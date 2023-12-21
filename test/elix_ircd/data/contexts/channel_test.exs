@@ -23,8 +23,9 @@ defmodule ElixIRCd.Contexts.ChannelTest do
       new_attrs = %{name: "_invalidname"}
 
       assert {:error, %Changeset{} = changeset} = Channel.create(new_attrs)
-      assert length(changeset.errors) == 1
+      assert length(changeset.errors) == 2
       assert changeset.errors[:name] == {"Channel name must start with a hash mark (#)", []}
+      assert changeset.errors[:topic] == {"can't be blank", [{:validation, :required}]}
     end
   end
 

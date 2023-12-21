@@ -1,4 +1,4 @@
 import Config
 
 config :logger,
-  level: :warning
+  level: :info
