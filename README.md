@@ -1,10 +1,19 @@
-# ElixIRCd (Under Development)
+<h1 align="center">ElixIRCd (Under Development)</h1>
 
-[![Code Quality](https://github.com/faelgabriel/elixircd/actions/workflows/code-quality.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/code-quality.yml)
-[![Docker Build](https://github.com/faelgabriel/elixircd/actions/workflows/docker-build.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/test-coverage.yml)
-[![Tests & Coverage](https://github.com/faelgabriel/elixircd/actions/workflows/tests-and-coverage.yml/badge.svg)](https://github.com/faelgabriel/elixircd/actions/workflows/test-coverage.yml)
-[![Coverage Status](https://coveralls.io/repos/github/faelgabriel/elixircd/badge.svg?branch=main)](https://coveralls.io/github/faelgabriel/elixircd?branch=main)
-[![License](https://img.shields.io/badge/License-AGPL-blue.svg)](https://github.com/faelgabriel/elixircd/blob/main/LICENSE)
+<p align="center">
+  <a href="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml">
+    <img src="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml/badge.svg" alt="Elixir CI">
+  </a>
+  <a href="https://github.com/faelgabriel/elixircd/actions/workflows/docker-ci.yml">
+    <img src="https://github.com/faelgabriel/elixircd/actions/workflows/docker-ci.yml/badge.svg" alt="Docker CI">
+  </a>
+  <a href="https://coveralls.io/github/faelgabriel/elixircd?branch=main">
+    <img src="https://img.shields.io/coverallsCoverage/github/faelgabriel/elixircd?label=Coverage" alt="Coveralls Status">
+  </a>
+  <a href="https://github.com/faelgabriel/elixircd/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/License-AGPL-blue.svg" alt="License">
+  </a>
+</p>
 
 ## Introduction
 
