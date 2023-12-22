@@ -19,6 +19,7 @@ COPY mix.exs mix.lock ./
 FROM base AS development
 
 EXPOSE 6667
+EXPOSE 6697
 
 ENV MIX_ENV=dev
 
@@ -46,6 +47,7 @@ RUN mix do compile, release
 FROM elixir:1.15.7-otp-25-alpine AS production
 
 EXPOSE 6667
+EXPOSE 6697
 
 WORKDIR /app
 RUN chown nobody /app

@@ -1,6 +1,6 @@
-defmodule ElixIRCd.Protocols.TcpServer do
+defmodule ElixIRCd.Protocols.SslServer do
   @moduledoc """
-  Module for the TCP server protocol.
+  Module for the SSL server protocol.
   """
 
   alias ElixIRCd.Core.Server
@@ -12,13 +12,13 @@ defmodule ElixIRCd.Protocols.TcpServer do
   @reuseaddr Mix.env() in [:dev, :test]
 
   @doc """
-  Starts a linked user connection process for the TCP server protocol.
+  Starts a linked user connection process for the SSL server protocol.
 
-  This function initializes the TCP server process and links it to the calling process.
+  This function initializes the SSL server process and links it to the calling process.
 
   ## Parameters
   - `ref`: The reference to the Ranch listener.
-  - `transport`: The transport module (e.g., :ranch_tcp).
+  - `transport`: The transport module (e.g., :ranch_ssl).
   - `opts`: Options for the server.
 
   ## Returns
@@ -30,7 +30,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
   end
 
   @doc """
-  Initializes the TCP server after a connection is established.
+  Initializes the SSL server after a connection is established.
 
   This function is called after a successful connection is established to initialize the server.
 
@@ -55,7 +55,7 @@ defmodule ElixIRCd.Protocols.TcpServer do
       loop(socket, transport)
     else
       {:continue, reason} ->
-        Logger.error("TCP Handshake Error: #{inspect(reason)}")
+        Logger.error("SSL Handshake Error: #{inspect(reason)}")
         :error
 
       {:error, reason} ->
@@ -64,21 +64,21 @@ defmodule ElixIRCd.Protocols.TcpServer do
     end
   end
 
-  # Continuously processes incoming data on the TCP server.
+  # Continuously processes incoming data on the SSL server.
   # This function is the main loop of the server, handling incoming data and managing the socket's state.
   @spec loop(port(), atom()) :: :ok
   defp loop(socket, transport) do
     transport.setopts(socket, active: :once)
 
     receive do
-      {:tcp, ^socket, data} ->
+      {:ssl, ^socket, data} ->
         Server.handle_packet(socket, data)
         loop(socket, transport)
 
-      {:tcp_closed, ^socket} ->
+      {:ssl_closed, ^socket} ->
         Server.handle_disconnect(socket, transport, "Connection Closed")
 
-      {:tcp_error, ^socket, reason} ->
+      {:ssl_error, ^socket, reason} ->
         Server.handle_disconnect(socket, transport, "Connection Error: #{reason}")
 
       {:user_quit, ^socket, reason} ->

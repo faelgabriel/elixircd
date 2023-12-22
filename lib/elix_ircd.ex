@@ -11,7 +11,8 @@ defmodule ElixIRCd do
   def start(_type, _args) do
     children = [
       ElixIRCd.Data.Repo,
-      ElixIRCd.Supervisors.TcpSupervisor
+      ElixIRCd.Supervisors.TcpSupervisor,
+      ElixIRCd.Supervisors.SslSupervisor
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: ElixIRCd.Supervisor)
