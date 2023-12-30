@@ -17,26 +17,17 @@ defmodule ElixIRCd.Core.Handshake do
   """
   @spec handshake(Schemas.User.t()) :: :ok
   def handshake(user) when user.nick != nil and user.username != nil and user.realname != nil do
-    {:ok, user} = handle_lookup_hostname(user)
-    handle_motd(user)
+    case handle_lookup_hostname(user) do
+      {:ok, user} -> handle_motd(user)
+      error -> Logger.error("Error looking up hostname for user #{inspect(user)}: #{inspect(error)}")
+    end
   end
 
   def handshake(_user), do: :ok
 
   @spec handle_lookup_hostname(Schemas.User.t()) :: {:ok, Schemas.User.t()} | {:error, Changeset.t()}
   defp handle_lookup_hostname(user) do
-    {:ok, {ip, _port}} = :inet.peername(user.socket)
-
-    hostname =
-      case :inet.gethostbyaddr(ip) do
-        {:ok, {:hostent, hostname, _, _, _, _}} ->
-          hostname |> to_string()
-
-        {:error, _error} ->
-          Logger.info("Could not resolve hostname for #{ip}. Using IP instead.")
-          Enum.join(Tuple.to_list(ip), ".")
-      end
-
+    hostname = Server.get_socket_hostname(user.socket)
     identity = "#{user.nick}!#{String.slice(user.username, 0..7)}@#{hostname}"
     Contexts.User.update(user, %{hostname: hostname, identity: identity})
   end

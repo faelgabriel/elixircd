@@ -7,14 +7,14 @@ defmodule ElixIRCd.Data.Schemas.User do
   alias ElixIRCd.Data.Schemas.User
   alias ElixIRCd.Data.Schemas.UserChannel
   alias ElixIRCd.Types.PidType
-  alias ElixIRCd.Types.PortType
+  alias ElixIRCd.Types.SocketType
   alias ElixIRCd.Types.TransportType
 
   import Ecto.Changeset
 
   use TypedEctoSchema
 
-  @primary_key {:socket, PortType, autogenerate: false}
+  @primary_key {:socket, SocketType, autogenerate: false}
   typed_schema "user" do
     field(:transport, TransportType)
     field(:pid, PidType)

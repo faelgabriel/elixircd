@@ -66,7 +66,7 @@ defmodule ElixIRCd.Protocols.SslServer do
 
   # Continuously processes incoming data on the SSL server.
   # This function is the main loop of the server, handling incoming data and managing the socket's state.
-  @spec loop(port(), atom()) :: :ok
+  @spec loop(:inet.socket(), atom()) :: :ok
   defp loop(socket, transport) do
     transport.setopts(socket, active: :once)
 

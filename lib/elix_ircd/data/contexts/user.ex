@@ -6,6 +6,7 @@ defmodule ElixIRCd.Contexts.User do
   alias Ecto.Changeset
   alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas.User
+  alias ElixIRCd.Types.SocketType
 
   require Logger
 
@@ -40,7 +41,7 @@ defmodule ElixIRCd.Contexts.User do
   @doc """
   Gets a user by socket
   """
-  @spec get_by_socket(port()) :: {:ok, User.t()} | {:error, String.t()}
+  @spec get_by_socket(SocketType.t()) :: {:ok, User.t()} | {:error, String.t()}
   def get_by_socket(socket) do
     case Repo.get_by(User, socket: socket) do
       nil -> {:error, "User not found"}
