@@ -120,8 +120,11 @@ defmodule ElixIRCd.Core.Server do
   end
 
   defp format_ip({a, b, c, d, e, f, g, h}) do
-    [a, b, c, d, e, f, g, h]
-    |> Enum.map_join(":", &Integer.to_string(&1, 16))
+    formatted_ip =
+      [a, b, c, d, e, f, g, h]
+      |> Enum.map_join(":", &Integer.to_string(&1, 16))
+
+    Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
   end
 
   @spec is_socket_connected?(socket :: :inet.socket()) :: boolean()

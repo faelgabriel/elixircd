@@ -18,7 +18,8 @@ defmodule ElixIRCd.Supervisors.TcpSupervisor do
   @impl true
   def init(_opts) do
     opts = [
-      {:port, Application.get_env(:elixircd, :tcp_port)}
+      {:port, Application.get_env(:elixircd, :tcp_port)},
+      :inet6
     ]
 
     children = [

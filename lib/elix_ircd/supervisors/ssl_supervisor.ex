@@ -20,7 +20,8 @@ defmodule ElixIRCd.Supervisors.SslSupervisor do
     opts = [
       {:port, Application.get_env(:elixircd, :ssl_port)},
       {:keyfile, Application.get_env(:elixircd, :ssl_keyfile)},
-      {:certfile, Application.get_env(:elixircd, :ssl_certfile)}
+      {:certfile, Application.get_env(:elixircd, :ssl_certfile)},
+      :inet6
     ]
 
     children = [
