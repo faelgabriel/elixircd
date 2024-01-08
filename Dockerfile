@@ -18,8 +18,7 @@ COPY mix.exs mix.lock ./
 # This stage installs and compiles dependencies for the development environment.
 FROM base AS development
 
-EXPOSE 6667
-EXPOSE 6697
+EXPOSE 6667 6668 6697 6698
 
 ENV MIX_ENV=dev
 
@@ -46,8 +45,7 @@ RUN mix do compile, release
 # This stage sets up the environment to run the built application in production with a minimal image size.
 FROM elixir:1.15.7-otp-25-alpine AS production
 
-EXPOSE 6667
-EXPOSE 6697
+EXPOSE 6667 6668 6697 6698
 
 WORKDIR /app
 RUN chown nobody /app

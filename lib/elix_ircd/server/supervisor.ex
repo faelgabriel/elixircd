@@ -98,9 +98,17 @@ defmodule ElixIRCd.Server.Supervisor do
   @spec validate_cert_and_key(tuple(), tuple()) :: :ok | {:error, String.t()}
   defp validate_cert_and_key(cert_entry, key_entry) do
     case {cert_entry, key_entry} do
-      {{:Certificate, _, _}, {:RSAPrivateKey, _, _}} -> :ok
-      {{:Certificate, _, _}, {:ECPrivateKey, _, _}} -> :ok
-      _ -> {:error, "Certificate or private key is invalid"}
+      {{:Certificate, _, _}, {:RSAPrivateKey, _, _}} ->
+        :ok
+
+      {{:Certificate, _, _}, {:ECPrivateKey, _, _}} ->
+        :ok
+
+      {{:Certificate, _, _}, {:PrivateKeyInfo, _, _}} ->
+        :ok
+
+      {cert_value, key_value} ->
+        {:error, "Certificate or private key is invalid. Cert: #{inspect(cert_value)}, Key: #{inspect(key_value)}"}
     end
   end
 end

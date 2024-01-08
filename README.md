@@ -148,18 +148,34 @@ mix deps.get
 
 To install ElixIRCd, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the application container by running:
 
-Dev:
+Development:
 ```bash
 docker build --target development --tag elixircd:development .
 docker run -it -p 6667:6667 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd_dev -d elixircd:development
 ```
 
-Prod:
+Production:
 ```bash
 docker build --target production --tag elixircd:production .
 docker run -p 6667:6667 --restart always --name elixircd_prod -d elixircd:production
 ```
 
+## SSL
+
+To run the server using SSL, you'll need to have a valid certificate and private key files.
+
+Private key file: `priv/ssl/key.pem`
+Certificate file: `priv/ssl/cert.crt`
+
+To customize, see the `ssl_keyfile` and `ssl_certfile` configurations.
+
+For development, you can create a self-signed certificate:
+```
+mkdir -p priv/ssl/
+openssl req -x509 -newkey rsa:4096 -keyout priv/ssl/key.pem -out priv/ssl/cert.crt -days 365 -nodes -subj "/CN=localhost"
+```
+
+For production, you'll need to create a trusted certificate. More info: https://letsencrypt.org/.
 
 ## Usage (Development mode)
 
