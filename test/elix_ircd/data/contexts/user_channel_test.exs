@@ -1,11 +1,11 @@
-defmodule ElixIRCd.Contexts.UserChannelTest do
+defmodule ElixIRCd.Data.Contexts.UserChannelTest do
   @moduledoc false
 
   use ElixIRCd.DataCase
-  doctest ElixIRCd.Contexts.UserChannel
+  doctest ElixIRCd.Data.Contexts.UserChannel
 
   alias Ecto.Changeset
-  alias ElixIRCd.Contexts.UserChannel
+  alias ElixIRCd.Data.Contexts.UserChannel
   alias ElixIRCd.Data.Schemas
 
   import ElixIRCd.Factory

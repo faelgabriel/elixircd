@@ -1,10 +1,10 @@
-defmodule ElixIRCd.Types.PidTypeTest do
+defmodule ElixIRCd.Data.Types.PidTypeTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
-  doctest ElixIRCd.Types.PidType
+  doctest ElixIRCd.Data.Types.PidType
 
-  alias ElixIRCd.Types.PidType
+  alias ElixIRCd.Data.Types.PidType
 
   setup do
     {:ok, pid: self()}

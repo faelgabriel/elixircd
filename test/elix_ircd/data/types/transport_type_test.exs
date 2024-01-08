@@ -1,10 +1,10 @@
-defmodule ElixIRCd.Types.TransportTypeTest do
+defmodule ElixIRCd.Data.Types.TransportTypeTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
-  doctest ElixIRCd.Types.TransportType
+  doctest ElixIRCd.Data.Types.TransportType
 
-  alias ElixIRCd.Types.TransportType
+  alias ElixIRCd.Data.Types.TransportType
 
   describe "type/0" do
     test "returns :string" do

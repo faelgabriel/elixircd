@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Types.TransportType do
+defmodule ElixIRCd.Data.Types.TransportType do
   @moduledoc """
   Transport type for Ecto.
 

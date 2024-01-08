@@ -1,20 +1,22 @@
-defmodule ElixIRCd.Message.MessageHelpers do
+defmodule ElixIRCd.Helper do
   @moduledoc """
-  This module defines helper functions for working with IRC messages.
+  Module for helper functions.
   """
+
+  alias ElixIRCd.Data.Schemas
 
   @doc """
   Extracts the targets from a comma-separated list of targets.
 
   ## Examples
 
-      iex> ElixIRCd.Message.MessageHelpers.extract_targets("#elixir,#elixircd")
+      iex> ElixIRCd.MessageHelpers.extract_targets("#elixir,#elixircd")
       {:channels, ["#elixir", "#elixircd"]}
 
-      iex> ElixIRCd.Message.MessageHelpers.extract_targets("elixir,elixircd")
+      iex> ElixIRCd.MessageHelpers.extract_targets("elixir,elixircd")
       {:users, ["elixir", "elixircd"]}
 
-      iex> ElixIRCd.Message.MessageHelpers.extract_targets("elixir,#elixircd")
+      iex> ElixIRCd.MessageHelpers.extract_targets("elixir,#elixircd")
       {:error, "Invalid targets"}
   """
   @spec extract_targets(String.t()) :: {:channels, [String.t()]} | {:users, [String.t()]} | {:error, String.t()}
@@ -45,4 +47,21 @@ defmodule ElixIRCd.Message.MessageHelpers do
       String.starts_with?(target, "+") ||
       String.starts_with?(target, "!")
   end
+
+  @doc """
+  Extracts the port from a socket.
+  """
+  @spec extract_port_socket(:inet.socket()) :: port()
+  def extract_port_socket(socket) when is_port(socket), do: socket
+  def extract_port_socket({:sslsocket, {:gen_tcp, socket, :tls_connection, _}, _}), do: socket
+
+  @doc """
+  Gets the reply for a user's identity.
+
+  If the user has not registered, the reply is "*".
+  Otherwise, the reply is the user's nick.
+  """
+  @spec get_user_reply(Schemas.User.t()) :: String.t()
+  def get_user_reply(%{identity: nil}), do: "*"
+  def get_user_reply(%{nick: nick}), do: nick
 end

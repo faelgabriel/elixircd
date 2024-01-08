@@ -1,23 +1,23 @@
-defmodule ElixIRCd.Commands.Userhost do
+defmodule ElixIRCd.Command.Userhost do
   @moduledoc """
   This module defines the USER command.
   """
 
-  alias ElixIRCd.Contexts
-  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Contexts
   alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message.Message
-  alias ElixIRCd.Message.MessageBuilder
+  alias ElixIRCd.Helper
+  alias ElixIRCd.Message
+  alias ElixIRCd.Server
 
-  @behaviour ElixIRCd.Commands.Behavior
+  @behaviour ElixIRCd.Command.Behavior
 
   @command "USERHOST"
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: @command}) do
-    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
-    |> Messaging.send_message(user)
+    Message.new(%{source: :server, command: :rpl_notregistered, params: ["*"], body: "You have not registered"})
+    |> Server.send_message(user)
   end
 
   @impl true
@@ -27,16 +27,21 @@ defmodule ElixIRCd.Commands.Userhost do
       |> Enum.map_join(" ", fn nick -> fetch_userhost_info(nick) end)
       |> String.trim()
 
-    MessageBuilder.server_message(:rpl_userhost, [user.nick], userhost_detailed)
-    |> Messaging.send_message(user)
+    Message.new(%{source: :server, command: :rpl_userhost, params: [user.nick], body: userhost_detailed})
+    |> Server.send_message(user)
   end
 
   @impl true
   def handle(user, %{command: @command}) do
-    user_reply = MessageBuilder.get_user_reply(user)
+    user_reply = Helper.get_user_reply(user)
 
-    MessageBuilder.server_message(:rpl_needmoreparams, [user_reply, @command], "Not enough parameters")
-    |> Messaging.send_message(user)
+    Message.new(%{
+      source: :server,
+      command: :err_needmoreparams,
+      params: [user_reply, @command],
+      body: "Not enough parameters"
+    })
+    |> Server.send_message(user)
   end
 
   @spec fetch_userhost_info(String.t()) :: String.t()

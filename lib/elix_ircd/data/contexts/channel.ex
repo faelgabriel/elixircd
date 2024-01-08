@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Contexts.Channel do
+defmodule ElixIRCd.Data.Contexts.Channel do
   @moduledoc """
   Module for the Channel contexts.
   """

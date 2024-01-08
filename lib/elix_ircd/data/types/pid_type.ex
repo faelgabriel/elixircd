@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Types.PidType do
+defmodule ElixIRCd.Data.Types.PidType do
   @moduledoc """
   Pid type for Ecto.
 

@@ -1,12 +1,12 @@
-defmodule ElixIRCd.Commands.Quit do
+defmodule ElixIRCd.Command.Quit do
   @moduledoc """
   This module defines the QUIT command.
   """
 
   alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message.Message
+  alias ElixIRCd.Message
 
-  @behaviour ElixIRCd.Commands.Behavior
+  @behaviour ElixIRCd.Command.Behavior
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok

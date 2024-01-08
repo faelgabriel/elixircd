@@ -3,7 +3,7 @@ import Config
 config :elixircd,
   server_name: "Server Example",
   server_hostname: "server.example.com",
-  tcp_port: 6667,
-  ssl_port: 6697,
+  tcp_ports: [6667, 6668],
+  ssl_ports: [6697, 6698],
   ssl_keyfile: "priv/ssl/key.pem",
   ssl_certfile: "priv/ssl/cert.crt"

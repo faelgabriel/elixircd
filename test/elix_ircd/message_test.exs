@@ -1,15 +1,29 @@
-defmodule ElixIRCd.Message.MessageParserTest do
+defmodule ElixIRCd.MessageTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
-  doctest ElixIRCd.Message.MessageParser
+  doctest ElixIRCd.Message
 
-  alias ElixIRCd.Message.Message
-  alias ElixIRCd.Message.MessageParser
+  alias ElixIRCd.Message
+
+  describe "new/1" do
+    test "creates a message struct" do
+      args = %{source: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}
+
+      expected = %Message{
+        source: args.source,
+        command: args.command,
+        params: args.params,
+        body: args.body
+      }
+
+      assert Message.new(args) == expected
+    end
+  end
 
   describe "parse/1" do
-    test "parses a message with a source" do
-      message = ":irc.example.com NOTICE user :Server restarting"
+    test "parses a raw message with a source" do
+      raw_message = ":irc.example.com NOTICE user :Server restarting"
 
       expected =
         {:ok,
@@ -20,11 +34,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: "Server restarting"
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message without a source" do
-      message = "NOTICE user :Server restarting"
+    test "parses a raw message without a source" do
+      raw_message = "NOTICE user :Server restarting"
 
       expected =
         {:ok,
@@ -35,11 +49,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: "Server restarting"
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with a numeric command" do
-      message = ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
+    test "parses a raw message with a numeric command" do
+      raw_message = ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
 
       expected =
         {:ok,
@@ -50,11 +64,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: "Welcome to the freenode Internet Relay Chat Network user"
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with no params" do
-      message = ":irc.example.com PING"
+    test "parses a raw message with no params" do
+      raw_message = ":irc.example.com PING"
 
       expected =
         {:ok,
@@ -65,11 +79,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: nil
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with no body" do
-      message = ":irc.example.com JOIN #channel"
+    test "parses a raw message with no body" do
+      raw_message = ":irc.example.com JOIN #channel"
 
       expected =
         {:ok,
@@ -80,11 +94,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: nil
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with no params or body" do
-      message = ":irc.example.com PING"
+    test "parses a raw message with no params or body" do
+      raw_message = ":irc.example.com PING"
 
       expected =
         {:ok,
@@ -95,11 +109,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: nil
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with no source, params, or body" do
-      message = "PING"
+    test "parses a raw message with no source, params, or body" do
+      raw_message = "PING"
 
       expected =
         {:ok,
@@ -110,11 +124,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: nil
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with no source or body" do
-      message = "JOIN #channel"
+    test "parses a raw message with no source or body" do
+      raw_message = "JOIN #channel"
 
       expected =
         {:ok,
@@ -125,11 +139,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: nil
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with a complex body" do
-      message = ":user!nick@host PRIVMSG #channel :Some message: with multiple: colons"
+    test "parses a raw message with a complex body" do
+      raw_message = ":user!nick@host PRIVMSG #channel :Some message: with multiple: colons"
 
       expected =
         {:ok,
@@ -140,11 +154,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: "Some message: with multiple: colons"
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "parses a message with multiple parameters" do
-      message = ":Nick!user@host MODE #channel +o User"
+    test "parses a raw message with multiple parameters" do
+      raw_message = ":Nick!user@host MODE #channel +o User"
 
       expected =
         {:ok,
@@ -155,22 +169,22 @@ defmodule ElixIRCd.Message.MessageParserTest do
            body: nil
          }}
 
-      assert MessageParser.parse(message) == expected
+      assert Message.parse(raw_message) == expected
     end
 
-    test "handles malformed messages" do
-      assert MessageParser.parse(":unexpected") ==
+    test "handles malformed raw messages" do
+      assert Message.parse(":unexpected") ==
                {:error, "Invalid IRC message format on parsing command and params: \"\""}
 
-      assert MessageParser.parse(":") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
-      assert MessageParser.parse(" ") == {:error, "Invalid IRC message format on parsing command and params: \" \""}
-      assert MessageParser.parse("") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
+      assert Message.parse(":") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
+      assert Message.parse(" ") == {:error, "Invalid IRC message format on parsing command and params: \" \""}
+      assert Message.parse("") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
     end
   end
 
   describe "unparse/1" do
     test "unparses a message with a source" do
-      irc_message = %Message{
+      message = %Message{
         source: "irc.example.com",
         command: "NOTICE",
         params: ["user"],
@@ -179,11 +193,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, ":irc.example.com NOTICE user :Server restarting"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message without a source" do
-      irc_message = %Message{
+      message = %Message{
         source: nil,
         command: "NOTICE",
         params: ["user"],
@@ -192,11 +206,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, "NOTICE user :Server restarting"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with a numeric command" do
-      irc_message = %Message{
+      message = %Message{
         source: "Freenode.net",
         command: "001",
         params: ["user"],
@@ -205,11 +219,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with no params" do
-      irc_message = %Message{
+      message = %Message{
         source: "irc.example.com",
         command: "PING",
         params: [],
@@ -218,11 +232,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, ":irc.example.com PING"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with no body" do
-      irc_message = %Message{
+      message = %Message{
         source: "irc.example.com",
         command: "JOIN",
         params: ["#channel"],
@@ -231,11 +245,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, ":irc.example.com JOIN #channel"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with no params or body" do
-      irc_message = %Message{
+      message = %Message{
         source: "irc.example.com",
         command: "PING",
         params: [],
@@ -244,11 +258,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, ":irc.example.com PING"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with no source, params, or body" do
-      irc_message = %Message{
+      message = %Message{
         source: nil,
         command: "PING",
         params: [],
@@ -257,11 +271,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, "PING"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with no source or body" do
-      irc_message = %Message{
+      message = %Message{
         source: nil,
         command: "JOIN",
         params: ["#channel"],
@@ -270,11 +284,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, "JOIN #channel"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with a complex body" do
-      irc_message = %Message{
+      message = %Message{
         source: "user!nick@host",
         command: "PRIVMSG",
         params: ["#channel"],
@@ -283,11 +297,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, ":user!nick@host PRIVMSG #channel :Some message: with multiple: colons"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "unparses a message with multiple parameters" do
-      irc_message = %Message{
+      message = %Message{
         source: "Nick!user@host",
         command: "MODE",
         params: ["#channel", "+o", "User"],
@@ -296,11 +310,11 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected = {:ok, ":Nick!user@host MODE #channel +o User"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
 
     test "handles malformed IRC messages" do
-      irc_message = %Message{
+      message = %Message{
         source: nil,
         command: nil,
         params: [],
@@ -309,9 +323,9 @@ defmodule ElixIRCd.Message.MessageParserTest do
 
       expected =
         {:error,
-         "Invalid IRC message format on unparsing command: %ElixIRCd.Message.Message{source: nil, command: nil, params: [], body: nil}"}
+         "Invalid IRC message format on unparsing command: %ElixIRCd.Message{source: nil, command: nil, params: [], body: nil}"}
 
-      assert MessageParser.unparse(irc_message) == expected
+      assert Message.unparse(message) == expected
     end
   end
 end

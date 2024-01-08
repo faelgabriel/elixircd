@@ -1,23 +1,22 @@
-defmodule ElixIRCd.Commands.Part do
+defmodule ElixIRCd.Command.Part do
   @moduledoc """
   This module defines the PART command.
   """
 
-  alias ElixIRCd.Contexts
-  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Contexts
   alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message.Message
-  alias ElixIRCd.Message.MessageBuilder
+  alias ElixIRCd.Message
+  alias ElixIRCd.Server
 
   require Logger
 
-  @behaviour ElixIRCd.Commands.Behavior
+  @behaviour ElixIRCd.Command.Behavior
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PART"}) do
-    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
-    |> Messaging.send_message(user)
+    Message.new(%{source: :server, command: :rpl_notregistered, params: ["*"], body: "You have not registered"})
+    |> Server.send_message(user)
   end
 
   @impl true
@@ -28,12 +27,22 @@ defmodule ElixIRCd.Commands.Part do
       {:ok, _deleted_user_channel} = Contexts.UserChannel.delete(user_channel)
     else
       {:error, "UserChannel not found"} ->
-        MessageBuilder.server_message(:err_notonchannel, [user.nick, channel_name], "You're not on that channel")
-        |> Messaging.send_message(user)
+        Message.new(%{
+          source: :server,
+          command: :err_notonchannel,
+          params: [user.nick, channel_name],
+          body: "You're not on that channel"
+        })
+        |> Server.send_message(user)
 
       {:error, "Channel not found"} ->
-        MessageBuilder.server_message(:err_nosuchchannel, [user.nick, channel_name], "No such channel")
-        |> Messaging.send_message(user)
+        Message.new(%{
+          source: :server,
+          command: :err_nosuchchannel,
+          params: [user.nick, channel_name],
+          body: "No such channel"
+        })
+        |> Server.send_message(user)
 
       error ->
         Logger.error("Error leaving channel #{channel_name}: #{inspect(error)}")
@@ -44,8 +53,13 @@ defmodule ElixIRCd.Commands.Part do
 
   @impl true
   def handle(user, %{command: "PART"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "PART"], "Not enough parameters")
-    |> Messaging.send_message(user)
+    Message.new(%{
+      source: :server,
+      command: :err_needmoreparams,
+      params: [user.nick, "PART"],
+      body: "Not enough parameters"
+    })
+    |> Server.send_message(user)
   end
 
   @doc """
@@ -55,7 +69,12 @@ defmodule ElixIRCd.Commands.Part do
   def part_message(user, channel, part_message) do
     channel_users = Contexts.UserChannel.get_by_channel(channel) |> Enum.map(& &1.user)
 
-    MessageBuilder.user_message(user.identity, "PART", [channel.name], part_message)
-    |> Messaging.send_message(channel_users)
+    Message.new(%{
+      source: user.identity,
+      command: "PART",
+      params: [channel.name],
+      body: part_message
+    })
+    |> Server.send_message(channel_users)
   end
 end

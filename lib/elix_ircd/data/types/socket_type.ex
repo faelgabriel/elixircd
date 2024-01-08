@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Types.SocketType do
+defmodule ElixIRCd.Data.Types.SocketType do
   @moduledoc """
   Socket type for Ecto.
 
@@ -28,6 +28,7 @@ defmodule ElixIRCd.Types.SocketType do
   Loads the socket.
   """
   @spec load(binary()) :: {:ok, :inet.socket()} | :error
+  # sobelow_skip ["Misc.BinToTerm"]
   def load(data) when is_binary(data) do
     {:ok, :erlang.binary_to_term(data)}
   end

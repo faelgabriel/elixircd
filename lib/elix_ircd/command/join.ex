@@ -1,26 +1,25 @@
-defmodule ElixIRCd.Commands.Join do
+defmodule ElixIRCd.Command.Join do
   @moduledoc """
   This module defines the JOIN command.
   """
 
   alias Ecto.Changeset
-  alias ElixIRCd.Contexts
-  alias ElixIRCd.Core.Messaging
+  alias ElixIRCd.Data.Contexts
   alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message.Message
-  alias ElixIRCd.Message.MessageBuilder
+  alias ElixIRCd.Message
+  alias ElixIRCd.Server
 
   require Logger
 
-  @behaviour ElixIRCd.Commands.Behavior
+  @behaviour ElixIRCd.Command.Behavior
 
   @type channel_states :: :created | :existing
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "JOIN"}) do
-    MessageBuilder.server_message(:rpl_notregistered, ["*"], "You have not registered")
-    |> Messaging.send_message(user)
+    Message.new(%{source: :server, command: :rpl_notregistered, params: ["*"], body: "You have not registered"})
+    |> Server.send_message(user)
   end
 
   @impl true
@@ -33,8 +32,13 @@ defmodule ElixIRCd.Commands.Join do
 
   @impl true
   def handle(user, %{command: "JOIN"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "JOIN"], "Not enough parameters")
-    |> Messaging.send_message(user)
+    Message.new(%{
+      source: :server,
+      command: :rpl_needmoreparams,
+      params: [user.nick, "JOIN"],
+      body: "Not enough parameters"
+    })
+    |> Server.send_message(user)
   end
 
   @spec handle_channel(Schemas.User.t(), String.t()) :: :ok
@@ -46,12 +50,13 @@ defmodule ElixIRCd.Commands.Join do
       {:error, %Changeset{errors: errors}} ->
         error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
 
-        MessageBuilder.server_message(
-          :rpl_cannotjoinchannel,
-          [user.nick, channel_name],
-          "Cannot join channel: #{error_message}"
-        )
-        |> Messaging.send_message(user)
+        Message.new(%{
+          source: :server,
+          command: :err_cannotjoinchannel,
+          params: [user.nick, channel_name],
+          body: "Cannot join channel: #{error_message}"
+        })
+        |> Server.send_message(user)
     end
 
     :ok
@@ -87,25 +92,40 @@ defmodule ElixIRCd.Commands.Join do
   defp join_channel(user, channel, user_channel) do
     channel_users = Contexts.UserChannel.get_by_channel(channel) |> Enum.map(& &1.user)
 
-    MessageBuilder.user_message(user.identity, "JOIN", [channel.name])
-    |> Messaging.send_message(channel_users)
+    Message.new(%{
+      source: user.identity,
+      command: "JOIN",
+      params: [channel.name]
+    })
+    |> Server.send_message(channel_users)
 
     if Enum.find(user_channel.modes, fn {mode, _} -> mode == :operator end) do
-      MessageBuilder.server_message("MODE", [channel.name, "+o", user.nick])
-      |> Messaging.send_message(channel_users)
+      Message.new(%{
+        source: :server,
+        command: "MODE",
+        params: [channel.name, "+o", user.nick]
+      })
+      |> Server.send_message(channel_users)
     end
 
     channel_user_nicks = channel_users |> Enum.map_join(" ", fn user -> user.nick end)
 
-    messages = [
-      {:rpl_topic, [user.nick, channel.name], channel.topic},
-      {:rpl_namreply, ["=", user.nick, channel.name], channel_user_nicks},
-      {:rpl_endofnames, [user.nick, channel.name], "End of NAMES list."}
+    [
+      Message.new(%{source: :server, command: :rpl_topic, params: [user.nick, channel.name], body: channel.topic}),
+      Message.new(%{
+        source: :server,
+        command: :rpl_namreply,
+        params: ["=", user.nick, channel.name],
+        body: channel_user_nicks
+      }),
+      Message.new(%{
+        source: :server,
+        command: :rpl_endofnames,
+        params: [user.nick, channel.name],
+        body: "End of NAMES list."
+      })
     ]
-
-    messages
-    |> Enum.map(fn {command, params, body} -> MessageBuilder.server_message(command, params, body) end)
-    |> Messaging.send_messages(user)
+    |> Server.send_messages(user)
 
     :ok
   end

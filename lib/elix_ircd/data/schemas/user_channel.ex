@@ -7,7 +7,7 @@ defmodule ElixIRCd.Data.Schemas.UserChannel do
   alias ElixIRCd.Data.Schemas.Channel
   alias ElixIRCd.Data.Schemas.User
   alias ElixIRCd.Data.Schemas.UserChannel
-  alias ElixIRCd.Types.SocketType
+  alias ElixIRCd.Data.Types.SocketType
 
   import Ecto.Changeset
 

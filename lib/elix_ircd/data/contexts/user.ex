@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Contexts.User do
+defmodule ElixIRCd.Data.Contexts.User do
   @moduledoc """
   Module for the User contexts.
   """
@@ -6,7 +6,7 @@ defmodule ElixIRCd.Contexts.User do
   alias Ecto.Changeset
   alias ElixIRCd.Data.Repo
   alias ElixIRCd.Data.Schemas.User
-  alias ElixIRCd.Types.SocketType
+  alias ElixIRCd.Data.Types.SocketType
 
   require Logger
 

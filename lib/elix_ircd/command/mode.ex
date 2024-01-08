@@ -1,26 +1,25 @@
-defmodule ElixIRCd.Commands.Mode do
+defmodule ElixIRCd.Command.Mode do
   @moduledoc """
   This module defines the Mode command.
   """
 
-  alias ElixIRCd.Core.Messaging
   alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message.Message
-  alias ElixIRCd.Message.MessageBuilder
-  alias ElixIRCd.Message.MessageHelpers
+  alias ElixIRCd.Helper
+  alias ElixIRCd.Message
+  alias ElixIRCd.Server
 
-  @behaviour ElixIRCd.Commands.Behavior
+  @behaviour ElixIRCd.Command.Behavior
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "MODE"}) do
-    MessageBuilder.server_message(:err_notregistered, ["*"], "You have not registered")
-    |> Messaging.send_message(user)
+    Message.new(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    |> Server.send_message(user)
   end
 
   @impl true
   def handle(user, %{command: "MODE", params: [target], body: nil}) do
-    MessageHelpers.extract_targets(target)
+    Helper.extract_targets(target)
     |> case do
       {:channels, channel_names} ->
         Enum.each(channel_names, &handle_channel_mode(user, &1))
@@ -29,15 +28,20 @@ defmodule ElixIRCd.Commands.Mode do
         Enum.each(target_nicks, &handle_user_mode(user, &1))
 
       {:error, error_message} ->
-        MessageBuilder.server_message(:err_nosuchchannel, [user.nick, target], error_message)
-        |> Messaging.send_message(user)
+        Message.new(%{source: :server, command: :err_nosuchchannel, params: [user.nick, target], body: error_message})
+        |> Server.send_message(user)
     end
   end
 
   @impl true
   def handle(user, %{command: "MODE"}) do
-    MessageBuilder.server_message(:rpl_needmoreparams, [user.nick, "MODE"], "Not enough parameters")
-    |> Messaging.send_message(user)
+    Message.new(%{
+      source: :server,
+      command: :err_needmoreparams,
+      params: [user.nick, "MODE"],
+      body: "Not enough parameters"
+    })
+    |> Server.send_message(user)
   end
 
   defp handle_channel_mode(_user, _channel_name) do
