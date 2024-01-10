@@ -56,7 +56,7 @@ defmodule ElixIRCd.MixProject do
       {:ecto, "~> 3.11", override: true},
       {:etso, "~> 1.1.0"},
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},
-      {:ex_machina, "~> 2.7", only: :test},
+      {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.18", only: :test},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.7", only: :test},
