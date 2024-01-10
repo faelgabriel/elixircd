@@ -31,6 +31,17 @@ defmodule ElixIRCd.Data.Schemas.UserTest do
         assert changeset.valid? == false
         assert changeset.errors[:nick] == {"Illegal characters", []}
       end)
+
+      too_long_nick = "ThisNickIsTooLongForThisIRCServer"
+      changeset = User.changeset(user, %{nick: too_long_nick})
+      assert changeset.valid? == false
+      assert changeset.errors[:nick] == {"Nickname too long", []}
+    end
+
+    test "ignores nick validation if nick is nil", %{user: user} do
+      changeset = User.changeset(user, %{nick: nil})
+      assert changeset.valid? == true
+      assert changeset.errors[:nick] == nil
     end
   end
 end
