@@ -6,7 +6,7 @@ defmodule ElixIRCd.Data.Types.PidType do
   """
 
   @behaviour Ecto.Type
-  @type t :: pid
+  @type t :: pid()
 
   @doc """
   Returns the type.

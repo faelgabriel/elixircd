@@ -1,7 +1,7 @@
 defmodule ElixIRCdTest do
   @moduledoc false
 
-  use ExUnit.Case
+  use ExUnit.Case, async: false
   doctest ElixIRCd
 
   describe "start/2" do

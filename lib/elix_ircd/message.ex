@@ -15,6 +15,7 @@ defmodule ElixIRCd.Message do
           params: [String.t()],
           body: String.t() | nil
         }
+  @enforce_keys [:command, :params]
 
   @doc """
   The `source` denotes the origin of the message. It's typically the server name or a user's nick!user@host.
@@ -66,7 +67,7 @@ defmodule ElixIRCd.Message do
   Creates a new Message struct.
   """
   @spec new(%{
-          :source => :server | String.t() | nil,
+          optional(:source) => :server | String.t() | nil,
           :command => atom() | String.t(),
           :params => [String.t()],
           optional(:body) => String.t() | nil

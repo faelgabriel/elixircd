@@ -98,13 +98,7 @@ defmodule ElixIRCd.Server.Supervisor do
   @spec validate_cert_and_key(tuple(), tuple()) :: :ok | {:error, String.t()}
   defp validate_cert_and_key(cert_entry, key_entry) do
     case {cert_entry, key_entry} do
-      {{:Certificate, _, _}, {:RSAPrivateKey, _, _}} ->
-        :ok
-
-      {{:Certificate, _, _}, {:ECPrivateKey, _, _}} ->
-        :ok
-
-      {{:Certificate, _, _}, {:PrivateKeyInfo, _, _}} ->
+      {{:Certificate, _, _}, {private_key_info, _, _}} when is_atom(private_key_info) ->
         :ok
 
       {cert_value, key_value} ->

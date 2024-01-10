@@ -55,18 +55,8 @@ defmodule ElixIRCd.Server.Handshake do
         params: [user.nick],
         body: "This server was created #{DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string()}"
       }),
-      Message.new(%{
-        source: :server,
-        command: :rpl_myinfo,
-        params: [user.nick],
-        body: "ElixIRCd 0.1.0 +i +int"
-      }),
-      Message.new(%{
-        source: :server,
-        command: :rpl_endofmotd,
-        params: [user.nick],
-        body: "End of MOTD command"
-      })
+      Message.new(%{source: :server, command: :rpl_myinfo, params: [user.nick], body: "ElixIRCd 0.1.0 +i +int"}),
+      Message.new(%{source: :server, command: :rpl_endofmotd, params: [user.nick], body: "End of MOTD command"})
     ]
     |> Server.send_messages(user)
 

@@ -31,6 +31,9 @@ defmodule ElixIRCd.Data.Types.SocketType do
   # sobelow_skip ["Misc.BinToTerm"]
   def load(data) when is_binary(data) do
     {:ok, :erlang.binary_to_term(data)}
+  rescue
+    ArgumentError ->
+      :error
   end
 
   def load(_), do: :error

@@ -10,14 +10,14 @@ defmodule ElixIRCd.Helper do
 
   ## Examples
 
-      iex> ElixIRCd.MessageHelpers.extract_targets("#elixir,#elixircd")
+      iex> ElixIRCd.Helper.extract_targets("#elixir,#elixircd")
       {:channels, ["#elixir", "#elixircd"]}
 
-      iex> ElixIRCd.MessageHelpers.extract_targets("elixir,elixircd")
+      iex> ElixIRCd.Helper.extract_targets("elixir,elixircd")
       {:users, ["elixir", "elixircd"]}
 
-      iex> ElixIRCd.MessageHelpers.extract_targets("elixir,#elixircd")
-      {:error, "Invalid targets"}
+      iex> ElixIRCd.Helper.extract_targets("elixir,#elixircd")
+      {:error, "Invalid list of targets"}
   """
   @spec extract_targets(String.t()) :: {:channels, [String.t()]} | {:users, [String.t()]} | {:error, String.t()}
   def extract_targets(targets) do
