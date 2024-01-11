@@ -16,24 +16,12 @@ defmodule ElixIRCd.DataCase do
   ]
 
   setup do
-    setup_sandbox()
-    on_exit(fn -> teardown_sandbox() end)
-  end
-
-  @spec setup_sandbox() :: :ok
-  defp setup_sandbox do
-    :ok
-  end
-
-  @spec teardown_sandbox() :: :ok
-  defp teardown_sandbox do
-    Enum.each(@schemas, &delete_all_ets_objects/1)
-    :ok
+    on_exit(fn -> Enum.each(@schemas, &delete_all_ets_objects/1) end)
   end
 
   @spec delete_all_ets_objects(atom) :: true
-  # Etso adapter does not have a way to sandbox the tables,
-  # so we have to delete all objects in the ETS table.
+  # Currently, the Etso adapter lacks sandboxing capabilities for tables.
+  # Therefore, we need to manually clear all objects from the ETS table.
   defp delete_all_ets_objects(schema) do
     {:ok, table} = TableRegistry.get_table(Repo, schema)
     :ets.delete_all_objects(table)

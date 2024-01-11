@@ -1,7 +1,7 @@
 defmodule ElixIRCd.Data.Contexts.ChannelTest do
   @moduledoc false
 
-  use ElixIRCd.DataCase
+  use ElixIRCd.DataCase, async: false
   doctest ElixIRCd.Data.Contexts.Channel
 
   alias Ecto.Changeset

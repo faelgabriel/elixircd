@@ -1,7 +1,7 @@
 defmodule ElixIRCd.Server.HandshakeTest do
   @moduledoc false
 
-  use ElixIRCd.DataCase
+  use ElixIRCd.DataCase, async: false
   doctest ElixIRCd.Server.Handshake
 
   alias Ecto.Changeset

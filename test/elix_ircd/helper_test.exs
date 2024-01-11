@@ -5,22 +5,9 @@ defmodule ElixIRCd.HelperTest do
   doctest ElixIRCd.Helper
 
   alias ElixIRCd.Helper
+  alias ElixIRCd.IrcClient
 
   import ElixIRCd.Factory
-
-  describe "get_target_list/1" do
-    test "extracts channels" do
-      assert {:channels, ["#elixir", "#elixircd"]} == Helper.get_target_list("#elixir,#elixircd")
-    end
-
-    test "extracts users" do
-      assert {:users, ["elixir", "elixircd"]} == Helper.get_target_list("elixir,elixircd")
-    end
-
-    test "returns error" do
-      assert {:error, "Invalid list of targets"} == Helper.get_target_list("elixir,#elixircd")
-    end
-  end
 
   describe "is_channel_name?/1" do
     test "returns true for channel names" do
@@ -32,24 +19,6 @@ defmodule ElixIRCd.HelperTest do
 
     test "returns false for non-channel names" do
       assert false == Helper.is_channel_name?("elixir")
-    end
-  end
-
-  describe "get_socket_port/1" do
-    test "extracts port from tcp socket" do
-      socket = create_socket(:tcp)
-      extracted_socket_port = Helper.get_socket_port(socket)
-
-      assert is_port(socket)
-      assert is_port(extracted_socket_port)
-    end
-
-    test "extracts port from ssl socket" do
-      socket = create_socket(:ssl)
-      extracted_socket_port = Helper.get_socket_port(socket)
-
-      refute is_port(socket)
-      assert is_port(extracted_socket_port)
     end
   end
 
@@ -66,6 +35,38 @@ defmodule ElixIRCd.HelperTest do
       reply = Helper.get_user_reply(user)
 
       assert reply == "*"
+    end
+  end
+
+  describe "get_target_list/1" do
+    test "gets channel list" do
+      assert {:channels, ["#elixir", "#elixircd"]} == Helper.get_target_list("#elixir,#elixircd")
+    end
+
+    test "gets user list" do
+      assert {:users, ["elixir", "elixircd"]} == Helper.get_target_list("elixir,elixircd")
+    end
+
+    test "returns error" do
+      assert {:error, "Invalid list of targets"} == Helper.get_target_list("elixir,#elixircd")
+    end
+  end
+
+  describe "get_socket_port/1" do
+    test "gets port from tcp socket" do
+      socket = IrcClient.new_connection(:tcp)
+      extracted_socket_port = Helper.get_socket_port(socket)
+
+      assert is_port(socket)
+      assert is_port(extracted_socket_port)
+    end
+
+    test "gets port from ssl socket" do
+      socket = IrcClient.new_connection(:ssl)
+      extracted_socket_port = Helper.get_socket_port(socket)
+
+      refute is_port(socket)
+      assert is_port(extracted_socket_port)
     end
   end
 end
