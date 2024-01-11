@@ -8,17 +8,17 @@ defmodule ElixIRCd.HelperTest do
 
   import ElixIRCd.Factory
 
-  describe "extract_targets/1" do
+  describe "get_target_list/1" do
     test "extracts channels" do
-      assert {:channels, ["#elixir", "#elixircd"]} == Helper.extract_targets("#elixir,#elixircd")
+      assert {:channels, ["#elixir", "#elixircd"]} == Helper.get_target_list("#elixir,#elixircd")
     end
 
     test "extracts users" do
-      assert {:users, ["elixir", "elixircd"]} == Helper.extract_targets("elixir,elixircd")
+      assert {:users, ["elixir", "elixircd"]} == Helper.get_target_list("elixir,elixircd")
     end
 
     test "returns error" do
-      assert {:error, "Invalid list of targets"} == Helper.extract_targets("elixir,#elixircd")
+      assert {:error, "Invalid list of targets"} == Helper.get_target_list("elixir,#elixircd")
     end
   end
 
@@ -35,10 +35,10 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
-  describe "extract_port_socket/1" do
+  describe "get_socket_port/1" do
     test "extracts port from tcp socket" do
       socket = create_socket(:tcp)
-      extracted_socket_port = Helper.extract_port_socket(socket)
+      extracted_socket_port = Helper.get_socket_port(socket)
 
       assert is_port(socket)
       assert is_port(extracted_socket_port)
@@ -46,7 +46,7 @@ defmodule ElixIRCd.HelperTest do
 
     test "extracts port from ssl socket" do
       socket = create_socket(:ssl)
-      extracted_socket_port = Helper.extract_port_socket(socket)
+      extracted_socket_port = Helper.get_socket_port(socket)
 
       refute is_port(socket)
       assert is_port(extracted_socket_port)

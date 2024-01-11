@@ -9,7 +9,7 @@ defmodule ElixIRCd.Command.Userhost do
   alias ElixIRCd.Message
   alias ElixIRCd.Server
 
-  @behaviour ElixIRCd.Command.Behavior
+  @behaviour ElixIRCd.Command
 
   @command "USERHOST"
 

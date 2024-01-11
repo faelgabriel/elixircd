@@ -9,7 +9,7 @@ defmodule ElixIRCd.Command.Whois do
   alias ElixIRCd.Message
   alias ElixIRCd.Server
 
-  @behaviour ElixIRCd.Command.Behavior
+  @behaviour ElixIRCd.Command
 
   @command "WHOIS"
 

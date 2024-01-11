@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.Join do
 
   require Logger
 
-  @behaviour ElixIRCd.Command.Behavior
+  @behaviour ElixIRCd.Command
 
   @type channel_states :: :created | :existing
 

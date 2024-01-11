@@ -77,6 +77,12 @@ defmodule ElixIRCd.Data.Contexts.UserTest do
       assert {:ok, %Schemas.User{} = fetched_user} = User.get_by_socket(user.socket)
       assert fetched_user.socket == user.socket
     end
+
+    test "returns error if no user is found" do
+      virtual_user = build(:user)
+
+      assert {:error, "User not found"} = User.get_by_socket(virtual_user.socket)
+    end
   end
 
   describe "get_by_nick/1" do

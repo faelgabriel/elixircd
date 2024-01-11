@@ -1,9 +1,8 @@
 defmodule ElixIRCd.Server.Handshake do
   @moduledoc """
-  Module for handling IRC server handshake.
+  Module for handling IRC server handshake for users.
   """
 
-  alias Ecto.Changeset
   alias ElixIRCd.Data.Contexts
   alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Helper
@@ -17,20 +16,18 @@ defmodule ElixIRCd.Server.Handshake do
   """
   @spec handle(Schemas.User.t()) :: :ok
   def handle(user) when user.nick != nil and user.username != nil and user.realname != nil do
-    case handle_lookup_hostname(user) do
-      {:ok, user} -> handle_motd(user)
-      error -> Logger.error("Error looking up hostname for user #{inspect(user)}: #{inspect(error)}")
+    with {:ok, hostname} <- resolve_hostname(user.socket),
+         user_identity <- build_user_identity(user, hostname),
+         {:ok, updated_user} <- Contexts.User.update(user, %{hostname: hostname, identity: user_identity}) do
+      handle_motd(updated_user)
+    else
+      {:error, error} ->
+        Logger.error("Error handling handshake for user #{inspect(user)}: #{inspect(error)}")
+        :ok
     end
   end
 
   def handle(_user), do: :ok
-
-  @spec handle_lookup_hostname(Schemas.User.t()) :: {:ok, Schemas.User.t()} | {:error, Changeset.t()}
-  defp handle_lookup_hostname(user) do
-    hostname = get_socket_hostname(user.socket)
-    identity = "#{user.nick}!#{String.slice(user.username, 0..7)}@#{hostname}"
-    Contexts.User.update(user, %{hostname: hostname, identity: identity})
-  end
 
   @spec handle_motd(Schemas.User.t()) :: :ok
   defp handle_motd(user) do
@@ -63,27 +60,22 @@ defmodule ElixIRCd.Server.Handshake do
     :ok
   end
 
-  @spec get_socket_hostname(socket :: :inet.socket()) :: String.t()
-  defp get_socket_hostname(socket) do
-    case get_socket_ip(socket) do
+  @spec resolve_hostname(socket :: :inet.socket()) :: {:ok, String.t()} | {:error, String.t()}
+  defp resolve_hostname(socket) do
+    case Helper.get_socket_ip(socket) do
       {:ok, ip} ->
-        case :inet.gethostbyaddr(ip) do
-          {:ok, {:hostent, hostname, _, _, _, _}} ->
-            to_string(hostname)
+        case Helper.get_socket_hostname(ip) do
+          {:ok, hostname} ->
+            {:ok, hostname}
 
           _ ->
             formatted_ip = format_ip_address(ip)
-            Logger.info("Could not resolve hostname for #{formatted_ip}. Using IP instead.")
-            formatted_ip
+            Logger.debug("Could not resolve hostname for #{formatted_ip}. Using IP instead.")
+            {:ok, formatted_ip}
         end
-    end
-  end
 
-  @spec get_socket_ip(socket :: :inet.socket()) :: {:ok, tuple()} | {:error, any()}
-  defp get_socket_ip(socket) do
-    case :inet.peername(Helper.extract_port_socket(socket)) do
-      {:ok, {ip, _port}} -> {:ok, ip}
-      {:error, error} -> {:error, error}
+      {:error, error} ->
+        {:error, error}
     end
   end
 
@@ -99,5 +91,10 @@ defmodule ElixIRCd.Server.Handshake do
       |> Enum.map_join(":", &Integer.to_string(&1, 16))
 
     Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
+  end
+
+  @spec build_user_identity(Schemas.User.t(), String.t()) :: String.t()
+  defp build_user_identity(user, hostname) do
+    "#{user.nick}!#{String.slice(user.username, 0..7)}@#{hostname}"
   end
 end

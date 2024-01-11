@@ -6,7 +6,7 @@ defmodule ElixIRCd.Command.Quit do
   alias ElixIRCd.Data.Schemas
   alias ElixIRCd.Message
 
-  @behaviour ElixIRCd.Command.Behavior
+  @behaviour ElixIRCd.Command
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok

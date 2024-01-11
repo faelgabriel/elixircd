@@ -8,7 +8,7 @@ defmodule ElixIRCd.Command.Ping do
   alias ElixIRCd.Message
   alias ElixIRCd.Server
 
-  @behaviour ElixIRCd.Command.Behavior
+  @behaviour ElixIRCd.Command
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok

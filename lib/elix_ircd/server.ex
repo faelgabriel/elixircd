@@ -78,14 +78,7 @@ defmodule ElixIRCd.Server do
   Sends multiple messages to the given user or users.
   """
   @spec send_messages([Message.t()], Schemas.User.t() | [Schemas.User.t()]) :: :ok
-  def send_messages(messages, %Schemas.User{} = user) do
-    Enum.each(messages, fn message ->
-      raw_message = Message.unparse!(message)
-      send_packet(user, raw_message)
-    end)
-
-    :ok
-  end
+  def send_messages(messages, %Schemas.User{} = user), do: send_messages(messages, [user])
 
   def send_messages(messages, users) do
     Enum.each(messages, fn message ->
@@ -149,7 +142,7 @@ defmodule ElixIRCd.Server do
   defp handle_disconnect(socket, transport, reason) do
     Logger.debug("Connection #{inspect(socket)} terminated: #{inspect(reason)}")
 
-    if is_socket_connected?(socket), do: transport.close(socket)
+    if Helper.is_socket_connected?(socket), do: transport.close(socket)
 
     case Contexts.User.get_by_socket(socket) do
       {:error, _} -> :ok
@@ -175,14 +168,6 @@ defmodule ElixIRCd.Server do
   defp send_packet(%{socket: socket, transport: transport}, message) do
     Logger.debug("-> #{inspect(message)}")
     transport.send(socket, message <> "\r\n")
-  end
-
-  @spec is_socket_connected?(socket :: :inet.socket()) :: boolean()
-  defp is_socket_connected?(socket) do
-    case :inet.peername(Helper.extract_port_socket(socket)) do
-      {:ok, _peer} -> true
-      {:error, _} -> false
-    end
   end
 
   @spec handle_user_quit(user :: Schemas.User.t(), quit_message :: String.t()) :: :ok

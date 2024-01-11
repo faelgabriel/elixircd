@@ -9,7 +9,14 @@ defmodule ElixIRCd.Command do
   alias ElixIRCd.Server
 
   @doc """
-  Handles the irc message command and forwards to the proper module.
+  Handles the IRC message command.
+
+  Modules that implement this behaviour should define their own logic for handling the IRC message command.
+  """
+  @callback handle(user :: Schemas.User.t(), message :: Message.t()) :: :ok
+
+  @doc """
+  Forwards the IRC message command to the proper module.
   """
   @spec handle(Schemas.User.t(), Message.t()) :: :ok | {:error, String.t()}
   def handle(user, %{command: "CAP"} = message), do: Command.Cap.handle(user, message)

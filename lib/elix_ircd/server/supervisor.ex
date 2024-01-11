@@ -28,7 +28,8 @@ defmodule ElixIRCd.Server.Supervisor do
     tcp_ports = Application.get_env(:elixircd, :tcp_ports)
 
     Enum.map(tcp_ports, fn port ->
-      :ranch.child_spec({__MODULE__, port}, :ranch_tcp, [{:port, port}], ElixIRCd.Server, [])
+      opts = [{:port, port}]
+      create_child_spec(:ranch_tcp, port, opts)
     end)
   end
 
@@ -36,73 +37,16 @@ defmodule ElixIRCd.Server.Supervisor do
   defp ssl_child_specs do
     ssl_keyfile = Application.get_env(:elixircd, :ssl_keyfile)
     ssl_certfile = Application.get_env(:elixircd, :ssl_certfile)
+    ssl_ports = Application.get_env(:elixircd, :ssl_ports)
 
-    case check_cert_and_key(ssl_certfile, ssl_keyfile) do
-      :ok ->
-        ssl_ports = Application.get_env(:elixircd, :ssl_ports)
-
-        Enum.map(ssl_ports, fn port ->
-          :ranch.child_spec(
-            {__MODULE__, port},
-            :ranch_ssl,
-            [
-              {:port, port},
-              {:keyfile, ssl_keyfile},
-              {:certfile, ssl_certfile}
-            ],
-            ElixIRCd.Server,
-            []
-          )
-        end)
-
-      {:error, reason} ->
-        Logger.error("SSL certificate error: #{reason}")
-        []
-    end
+    Enum.map(ssl_ports, fn port ->
+      opts = [{:port, port}, {:keyfile, ssl_keyfile}, {:certfile, ssl_certfile}]
+      create_child_spec(:ranch_ssl, port, opts)
+    end)
   end
 
-  @spec check_cert_and_key(String.t(), String.t()) :: :ok | {:error, String.t()}
-  # sobelow_skip ["Traversal.FileModule"]
-  defp check_cert_and_key(cert_file, key_file) do
-    with {:ok, cert_data} <- File.read(cert_file),
-         {:ok, key_data} <- File.read(key_file),
-         {:ok, cert_entry} <- decode_cert(cert_data),
-         {:ok, key_entry} <- decode_key(key_data),
-         :ok <- validate_cert_and_key(cert_entry, key_entry) do
-      :ok
-    else
-      {:error, error} when is_binary(error) ->
-        {:error, error}
-
-      {:error, _} ->
-        {:error, "Error reading certificate or private key"}
-    end
-  end
-
-  @spec decode_cert(binary()) :: {:ok, tuple()} | {:error, String.t()}
-  defp decode_cert(cert_data) do
-    case :public_key.pem_decode(cert_data) do
-      [cert_entry] -> {:ok, cert_entry}
-      _ -> {:error, "Error decoding certificate"}
-    end
-  end
-
-  @spec decode_key(binary()) :: {:ok, tuple()} | {:error, String.t()}
-  defp decode_key(key_data) do
-    case :public_key.pem_decode(key_data) do
-      [key_entry] -> {:ok, key_entry}
-      _ -> {:error, "Error decoding private key"}
-    end
-  end
-
-  @spec validate_cert_and_key(tuple(), tuple()) :: :ok | {:error, String.t()}
-  defp validate_cert_and_key(cert_entry, key_entry) do
-    case {cert_entry, key_entry} do
-      {{:Certificate, _, _}, {private_key_info, _, _}} when is_atom(private_key_info) ->
-        :ok
-
-      {cert_value, key_value} ->
-        {:error, "Certificate or private key is invalid. Cert: #{inspect(cert_value)}, Key: #{inspect(key_value)}"}
-    end
+  @spec create_child_spec(:ranch_tcp | :ranch_ssl, integer(), keyword()) :: Supervisor.child_spec()
+  defp create_child_spec(transport, port, opts) do
+    :ranch.child_spec({__MODULE__, port}, transport, opts, ElixIRCd.Server, [])
   end
 end

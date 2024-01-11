@@ -10,6 +10,8 @@ Mimic.copy(ElixIRCd.Command.Quit)
 Mimic.copy(ElixIRCd.Command.User)
 Mimic.copy(ElixIRCd.Command.Userhost)
 Mimic.copy(ElixIRCd.Command.Whois)
+Mimic.copy(ElixIRCd.Data.Contexts.User)
+Mimic.copy(ElixIRCd.Helper)
 Mimic.copy(ElixIRCd.Server)
 
 ExUnit.start()

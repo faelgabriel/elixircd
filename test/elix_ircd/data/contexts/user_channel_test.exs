@@ -72,6 +72,13 @@ defmodule ElixIRCd.Data.Contexts.UserChannelTest do
       assert fetched_user_channel.user_socket == user.socket
       assert fetched_user_channel.channel_name == channel.name
     end
+
+    test "returns error if no user_channel is found" do
+      virtual_user = build(:user)
+      virtual_channel = build(:channel)
+
+      assert {:error, "UserChannel not found"} = UserChannel.get_by_user_and_channel(virtual_user, virtual_channel)
+    end
   end
 
   describe "get_by_user/1" do
@@ -89,6 +96,14 @@ defmodule ElixIRCd.Data.Contexts.UserChannelTest do
       insert_pair(:user_channel, channel: channel)
 
       assert length(UserChannel.get_by_channel(channel)) == 2
+    end
+  end
+
+  describe "delete_all/1" do
+    test "deletes all user_channels" do
+      user_channels = insert_pair(:user_channel)
+
+      assert UserChannel.delete_all(user_channels) == 2
     end
   end
 end

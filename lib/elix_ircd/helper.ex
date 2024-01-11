@@ -6,21 +6,39 @@ defmodule ElixIRCd.Helper do
   alias ElixIRCd.Data.Schemas
 
   @doc """
-  Extracts the targets from a comma-separated list of targets.
-
-  ## Examples
-
-      iex> ElixIRCd.Helper.extract_targets("#elixir,#elixircd")
-      {:channels, ["#elixir", "#elixircd"]}
-
-      iex> ElixIRCd.Helper.extract_targets("elixir,elixircd")
-      {:users, ["elixir", "elixircd"]}
-
-      iex> ElixIRCd.Helper.extract_targets("elixir,#elixircd")
-      {:error, "Invalid list of targets"}
+  Determines if a target is a channel name.
   """
-  @spec extract_targets(String.t()) :: {:channels, [String.t()]} | {:users, [String.t()]} | {:error, String.t()}
-  def extract_targets(targets) do
+  @spec is_channel_name?(String.t()) :: boolean()
+  def is_channel_name?(target) do
+    String.starts_with?(target, "#") ||
+      String.starts_with?(target, "&") ||
+      String.starts_with?(target, "+") ||
+      String.starts_with?(target, "!")
+  end
+
+  @doc """
+  Checks if a socket is connected.
+  """
+  @spec is_socket_connected?(socket :: :inet.socket()) :: boolean()
+  def is_socket_connected?(socket) do
+    case :inet.peername(get_socket_port(socket)) do
+      {:ok, _peer} -> true
+      {:error, _} -> false
+    end
+  end
+
+  @doc """
+  Gets the reply for a user's identity.
+  """
+  @spec get_user_reply(Schemas.User.t()) :: String.t()
+  def get_user_reply(%{identity: nil}), do: "*"
+  def get_user_reply(%{nick: nick}), do: nick
+
+  @doc """
+  Gets a list of targets from a comma-separated string.
+  """
+  @spec get_target_list(String.t()) :: {:channels, [String.t()]} | {:users, [String.t()]} | {:error, String.t()}
+  def get_target_list(targets) do
     list_targets =
       targets
       |> String.split(",")
@@ -38,30 +56,31 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
-  Determines if a target is a channel name.
+  Gets the hostname for an IP address.
   """
-  @spec is_channel_name?(String.t()) :: boolean()
-  def is_channel_name?(target) do
-    String.starts_with?(target, "#") ||
-      String.starts_with?(target, "&") ||
-      String.starts_with?(target, "+") ||
-      String.starts_with?(target, "!")
+  @spec get_socket_hostname(ip :: tuple()) :: {:ok, String.t()} | {:error, String.t()}
+  def get_socket_hostname(ip) do
+    case :inet.gethostbyaddr(ip) do
+      {:ok, {:hostent, hostname, _, _, _, _}} -> {:ok, to_string(hostname)}
+      {:error, error} -> {:error, inspect(error)}
+    end
   end
 
   @doc """
-  Extracts the port from a socket.
+  Gets the IP address for a socket.
   """
-  @spec extract_port_socket(:inet.socket()) :: port()
-  def extract_port_socket(socket) when is_port(socket), do: socket
-  def extract_port_socket({:sslsocket, {:gen_tcp, socket, :tls_connection, _}, _}), do: socket
+  @spec get_socket_ip(socket :: :inet.socket()) :: {:ok, tuple()} | {:error, String.t()}
+  def get_socket_ip(socket) do
+    case :inet.peername(get_socket_port(socket)) do
+      {:ok, {ip, _port}} -> {:ok, ip}
+      {:error, error} -> {:error, inspect(error)}
+    end
+  end
 
   @doc """
-  Gets the reply for a user's identity.
-
-  If the user has not registered, the reply is "*".
-  Otherwise, the reply is the user's nick.
+  Gets the port for a socket.
   """
-  @spec get_user_reply(Schemas.User.t()) :: String.t()
-  def get_user_reply(%{identity: nil}), do: "*"
-  def get_user_reply(%{nick: nick}), do: nick
+  @spec get_socket_port(:inet.socket()) :: port()
+  def get_socket_port(socket) when is_port(socket), do: socket
+  def get_socket_port({:sslsocket, {:gen_tcp, socket, :tls_connection, _}, _}), do: socket
 end

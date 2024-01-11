@@ -10,7 +10,7 @@ defmodule ElixIRCd.Command.Part do
 
   require Logger
 
-  @behaviour ElixIRCd.Command.Behavior
+  @behaviour ElixIRCd.Command
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok

@@ -22,6 +22,12 @@ defmodule ElixIRCd.Data.Schemas.UserChannelTest do
       assert changeset.errors[:channel_name] == {"can't be blank", [validation: :required]}
     end
 
+    test "validates modes", %{user_channel: user_channel} do
+      changeset = UserChannel.changeset(user_channel, %{modes: [a: 1]})
+      assert changeset.valid? == false
+      assert changeset.errors[:modes] == {"Invalid user channel modes: [a: 1]", []}
+    end
+
     test "creates a valid changeset", %{user_channel: user_channel} do
       user = build(:user)
 

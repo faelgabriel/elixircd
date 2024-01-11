@@ -8,7 +8,7 @@ defmodule ElixIRCd.Command.Mode do
   alias ElixIRCd.Message
   alias ElixIRCd.Server
 
-  @behaviour ElixIRCd.Command.Behavior
+  @behaviour ElixIRCd.Command
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.Mode do
 
   @impl true
   def handle(user, %{command: "MODE", params: [target], body: nil}) do
-    Helper.extract_targets(target)
+    Helper.get_target_list(target)
     |> case do
       {:channels, channel_names} ->
         Enum.each(channel_names, &handle_channel_mode(user, &1))
