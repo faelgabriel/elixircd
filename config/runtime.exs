@@ -6,5 +6,4 @@ config :elixircd,
   tcp_ports: [6667, 6668],
   ssl_ports: [6697, 6698],
   ssl_keyfile: "priv/ssl/key.pem",
-  ssl_certfile: "priv/ssl/cert.crt",
-  enable_ipv6: true
+  ssl_certfile: "priv/ssl/cert.crt"

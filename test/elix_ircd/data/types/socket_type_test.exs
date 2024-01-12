@@ -4,13 +4,12 @@ defmodule ElixIRCd.Data.Types.SocketTypeTest do
   use ExUnit.Case, async: true
   doctest ElixIRCd.Data.Types.SocketType
 
+  alias ElixIRCd.Client
   alias ElixIRCd.Data.Types.SocketType
 
-  import ElixIRCd.Factory
-
   setup do
-    tcp_socket = create_socket(:tcp)
-    ssl_socket = create_socket(:ssl)
+    tcp_socket = Client.connect(:tcp)
+    ssl_socket = Client.connect(:ssl)
 
     {:ok,
      %{
@@ -90,8 +89,8 @@ defmodule ElixIRCd.Data.Types.SocketTypeTest do
     end
 
     test "returns false for non-equal sockets", %{tcp_socket: tcp_socket, ssl_socket: ssl_socket} do
-      another_tcp_socket = create_socket(:tcp)
-      another_ssl_socket = create_socket(:ssl)
+      another_tcp_socket = Client.connect(:tcp)
+      another_ssl_socket = Client.connect(:ssl)
       refute SocketType.equal?(tcp_socket, another_tcp_socket)
       refute SocketType.equal?(ssl_socket, another_ssl_socket)
       refute SocketType.equal?(tcp_socket, ssl_socket)

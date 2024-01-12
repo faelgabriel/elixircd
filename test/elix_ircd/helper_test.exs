@@ -4,8 +4,8 @@ defmodule ElixIRCd.HelperTest do
   use ExUnit.Case, async: true
   doctest ElixIRCd.Helper
 
+  alias ElixIRCd.Client
   alias ElixIRCd.Helper
-  alias ElixIRCd.IrcClient
 
   import ElixIRCd.Factory
 
@@ -19,6 +19,23 @@ defmodule ElixIRCd.HelperTest do
 
     test "returns false for non-channel names" do
       assert false == Helper.is_channel_name?("elixir")
+    end
+  end
+
+  describe "is_socket_connected?/1" do
+    test "returns true for connected tcp socket" do
+      socket = Client.connect(:tcp)
+      assert true == Helper.is_socket_connected?(socket)
+    end
+
+    test "returns true for connected ssl socket" do
+      socket = Client.connect(:ssl)
+      assert true == Helper.is_socket_connected?(socket)
+    end
+
+    test "returns false for disconnected tcp socket" do
+      virtual_user = build(:user)
+      assert false == Helper.is_socket_connected?(virtual_user.socket)
     end
   end
 
@@ -52,9 +69,45 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
+  describe "get_socket_hostname/1" do
+    test "gets hostname from an ipv4 address" do
+      assert {:ok, _hostname} = Helper.get_socket_hostname({127, 0, 0, 1})
+    end
+
+    test "gets hostname from an ipv6 address" do
+      assert {:ok, _hostname} = Helper.get_socket_hostname({0, 0, 0, 0, 0, 0, 0, 1})
+    end
+
+    test "returns error for invalid address" do
+      assert {:error, "Unable to get hostname for {300, 0, 0, 0}: :einval"} ==
+               Helper.get_socket_hostname({300, 0, 0, 0})
+
+      assert {:error, "Unable to get hostname for {999, 0, 0, 0, 0, 0, 0}: :einval"} ==
+               Helper.get_socket_hostname({999, 0, 0, 0, 0, 0, 0})
+    end
+  end
+
+  describe "get_socket_ip/1" do
+    test "gets ip from tcp socket" do
+      socket = Client.connect(:tcp)
+      assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
+    end
+
+    test "gets ip from ssl socket" do
+      socket = Client.connect(:ssl)
+      assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
+    end
+
+    test "returns error for invalid socket" do
+      virtual_user = build(:user)
+      assert {:error, error} = Helper.get_socket_ip(virtual_user.socket)
+      assert error =~ "Unable to get IP for"
+    end
+  end
+
   describe "get_socket_port/1" do
     test "gets port from tcp socket" do
-      socket = IrcClient.new_connection(:tcp)
+      socket = Client.connect(:tcp)
       extracted_socket_port = Helper.get_socket_port(socket)
 
       assert is_port(socket)
@@ -62,7 +115,7 @@ defmodule ElixIRCd.HelperTest do
     end
 
     test "gets port from ssl socket" do
-      socket = IrcClient.new_connection(:ssl)
+      socket = Client.connect(:ssl)
       extracted_socket_port = Helper.get_socket_port(socket)
 
       refute is_port(socket)

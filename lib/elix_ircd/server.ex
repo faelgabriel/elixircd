@@ -58,12 +58,8 @@ defmodule ElixIRCd.Server do
 
       connection_loop(socket, transport)
     else
-      {:continue, reason} ->
-        Logger.error("SSL Handshake Error: #{inspect(reason)}")
-        :error
-
-      {:error, reason} ->
-        Logger.error("Server Error: #{inspect(reason)}")
+      reason ->
+        Logger.error("Error initializing connection: #{inspect(reason)}")
         :error
     end
   end

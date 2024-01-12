@@ -10,19 +10,6 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Data.Schemas.UserChannel
 
   @doc false
-  @spec create_socket(:tcp | :ssl) :: :inet.socket()
-  def create_socket(:tcp), do: Port.open({:spawn, "cat /dev/null"}, [:binary])
-
-  def create_socket(:ssl) do
-    port = Port.open({:spawn, "cat /dev/null"}, [:binary])
-    pid = self()
-
-    {:sslsocket,
-     {:gen_tcp, port, :tls_connection,
-      [option_tracker: pid, session_tickets_tracker: :disabled, session_id_tracker: pid]}, [pid, pid]}
-  end
-
-  @doc false
   @spec channel_factory() :: Channel.t()
   def channel_factory do
     %Channel{
@@ -35,7 +22,7 @@ defmodule ElixIRCd.Factory do
   @spec user_factory() :: User.t()
   def user_factory do
     %User{
-      socket: create_socket(:tcp),
+      socket: Port.open({:spawn, "cat /dev/null"}, [:binary]),
       transport: :ranch_tcp,
       pid: self(),
       nick: "#{sequence("Nick")}",

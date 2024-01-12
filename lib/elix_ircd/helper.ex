@@ -62,7 +62,7 @@ defmodule ElixIRCd.Helper do
   def get_socket_hostname(ip) do
     case :inet.gethostbyaddr(ip) do
       {:ok, {:hostent, hostname, _, _, _, _}} -> {:ok, to_string(hostname)}
-      {:error, error} -> {:error, inspect(error)}
+      {:error, error} -> {:error, "Unable to get hostname for #{inspect(ip)}: #{inspect(error)}"}
     end
   end
 
@@ -73,7 +73,7 @@ defmodule ElixIRCd.Helper do
   def get_socket_ip(socket) do
     case :inet.peername(get_socket_port(socket)) do
       {:ok, {ip, _port}} -> {:ok, ip}
-      {:error, error} -> {:error, inspect(error)}
+      {:error, error} -> {:error, "Unable to get IP for #{inspect(socket)}: #{inspect(error)}"}
     end
   end
 
