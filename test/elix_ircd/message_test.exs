@@ -407,14 +407,14 @@ defmodule ElixIRCd.MessageTest do
     test "handles malformed IRC messages" do
       message = %Message{
         source: nil,
-        command: nil,
+        command: "",
         params: [],
         body: nil
       }
 
       expected =
         {:error,
-         "Invalid IRC message format on unparsing command: %ElixIRCd.Message{source: nil, command: nil, params: [], body: nil}"}
+         "Invalid IRC message format on unparsing command: %ElixIRCd.Message{source: nil, command: \"\", params: [], body: nil}"}
 
       assert Message.unparse(message) == expected
     end
@@ -437,13 +437,13 @@ defmodule ElixIRCd.MessageTest do
     test "raises an ArgumentError on a malformed IRC message" do
       message = %Message{
         source: nil,
-        command: nil,
+        command: "",
         params: [],
         body: nil
       }
 
       assert_raise ArgumentError,
-                   "Invalid IRC message format on unparsing command: %ElixIRCd.Message{source: nil, command: nil, params: [], body: nil}",
+                   "Invalid IRC message format on unparsing command: %ElixIRCd.Message{source: nil, command: \"\", params: [], body: nil}",
                    fn ->
                      Message.unparse!(message)
                    end

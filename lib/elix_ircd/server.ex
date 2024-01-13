@@ -156,7 +156,7 @@ defmodule ElixIRCd.Server do
          :ok <- Command.handle(user, message) do
       :ok
     else
-      {:error, error} -> Logger.error("Error handling message #{inspect(message)}: #{inspect(error)}")
+      {:error, error} -> Logger.debug("Error handling message #{inspect(message)}: #{inspect(error)}")
     end
   end
 

@@ -143,7 +143,7 @@ defmodule ElixIRCd.Message do
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def unparse(%__MODULE__{command: nil} = message),
+  def unparse(%__MODULE__{command: ""} = message),
     do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
 
   def unparse(%__MODULE__{source: nil, command: command, params: params, body: body}) do

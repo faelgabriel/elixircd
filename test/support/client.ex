@@ -28,6 +28,10 @@ defmodule ElixIRCd.Client do
   def close(socket) when is_port(socket), do: :gen_tcp.close(socket)
   def close(socket), do: :ssl.close(socket)
 
+  @spec send(:inet.socket(), binary()) :: :ok
+  def send(socket, data) when is_port(socket), do: :gen_tcp.send(socket, data)
+  def send(socket, data), do: :ssl.send(socket, data)
+
   @doc """
   Receives a message from the server.
   """
