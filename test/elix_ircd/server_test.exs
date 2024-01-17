@@ -4,141 +4,138 @@ defmodule ElixIRCd.ServerTest do
   use ElixIRCd.DataCase, async: false
   doctest ElixIRCd.Server
 
-  alias Ecto.Changeset
   alias ElixIRCd.Client
   alias ElixIRCd.Command
   alias ElixIRCd.Data.Contexts
   alias ElixIRCd.Message
 
+  import ExUnit.CaptureLog
   import Mimic
 
   describe "init/1 by client connection" do
     setup :set_mimic_global
+    setup :verify_on_exit!
 
     test "handles successful tcp connection initialization" do
-      socket = Client.connect(:ssl)
-      assert {:error, :timeout} == Client.recv(socket)
+      :ranch_tcp
+      |> expect(:setopts, 2, fn _socket, _opts -> :ok end)
+
+      assert {:ok, socket} = Client.connect(:tcp)
+      assert {:error, :timeout} == Client.recv(socket), "The connection got closed"
     end
 
     test "handles successful ssl connection initialization" do
-      socket = Client.connect(:ssl)
-      assert {:error, :timeout} == Client.recv(socket)
+      :ranch_ssl
+      |> expect(:setopts, 2, fn _socket, _opts -> :ok end)
+
+      assert {:ok, socket} = Client.connect(:ssl)
+      assert {:error, :timeout} == Client.recv(socket), "The connection got closed"
     end
 
-    @tag :capture_log
-    test "handles error on tcp connection initialization" do
-      Contexts.User
-      |> expect(:create, fn _ -> {:error, %Changeset{}} end)
+    test "handles ranch handshake error on tcp connection initialization" do
+      :ranch
+      |> expect(:handshake, 1, fn _ref -> :error end)
 
-      socket = Client.connect(:tcp)
-      assert {:error, :closed} == Client.recv(socket)
+      :ranch_tcp
+      |> reject(:setopts, 2)
+
+      log =
+        capture_log(fn ->
+          assert {:ok, socket} = Client.connect(:tcp)
+          assert {:error, :closed} == Client.recv(socket), "The connection did not get closed"
+        end)
+
+      assert log =~ "[error] Error initializing connection: :error"
     end
 
-    @tag :capture_log
-    test "handles error on ssl connection initialization" do
-      Contexts.User
-      |> expect(:create, fn _ -> {:error, %Changeset{}} end)
+    test "handles ranch handshake error on ssl connection initialization" do
+      :ranch
+      |> expect(:handshake, 1, fn _ref -> :error end)
 
-      socket = Client.connect(:ssl)
-      assert {:error, :closed} == Client.recv(socket)
+      :ranch_ssl
+      |> reject(:setopts, 2)
+
+      log =
+        capture_log(fn ->
+          # ssl socket is not returned if the handshake erroed
+          assert {:error, :closed} = Client.connect(:ssl)
+        end)
+
+      assert log =~ "[error] Error initializing connection: :error"
+    end
+
+    test "handles user create error on tcp connection initialization" do
+      Contexts.User
+      |> expect(:create, 1, fn _params -> {:error, %Ecto.Changeset{}} end)
+
+      log =
+        capture_log(fn ->
+          assert {:ok, socket} = Client.connect(:tcp)
+          assert {:error, :closed} == Client.recv(socket), "The connection did not get closed"
+        end)
+
+      assert log =~ "[error] Error initializing connection: {:error, \"Error creating user:"
+    end
+
+    test "handles user create error on ssl connection initialization" do
+      Contexts.User
+      |> expect(:create, 1, fn _params -> {:error, %Ecto.Changeset{}} end)
+
+      log =
+        capture_log(fn ->
+          # ssl socket is returned if the error was not in the handshake, so we check for recv response
+          assert {:ok, socket} = Client.connect(:tcp)
+          assert {:error, :closed} == Client.recv(socket), "The connection did not get closed"
+        end)
+
+      assert log =~ "[error] Error initializing connection: {:error, \"Error creating user:"
     end
   end
 
-  describe "connection_loop/2 by client connection" do
+  describe "handle_connection/2 by client connection" do
     setup :set_mimic_global
+    setup :verify_on_exit!
 
-    test "handles valid tcp connection packet" do
+    test "handles valid tcp connection packet (handle_packet/2)" do
       Command
-      |> expect(:handle, fn _, message ->
-        assert %Message{command: "COMMAND", params: ["test"]} == message
+      |> expect(:handle, 1, fn _user, message ->
+        assert message == %Message{command: "COMMAND", params: ["test"]}
         :ok
       end)
 
-      socket = Client.connect(:tcp)
+      {:ok, socket} = Client.connect(:tcp)
       Client.send(socket, "COMMAND test\r\n")
-      Client.recv(socket)
+      assert {:error, :timeout} = Client.recv(socket), "The connection did not remain open"
     end
 
-    test "handles valid ssl connection packet" do
+    test "handles valid ssl connection packet (handle_packet/2)" do
       Command
-      |> expect(:handle, fn _, message ->
-        assert %Message{command: "TEST", params: []} == message
+      |> expect(:handle, 1, fn _user, message ->
+        assert message == %Message{command: "COMMAND", params: ["test"]}
         :ok
       end)
 
-      socket = Client.connect(:ssl)
-      Client.send(socket, "TEST\r\n")
-      Client.recv(socket)
+      {:ok, socket} = Client.connect(:ssl)
+      Client.send(socket, "COMMAND test\r\n")
+      assert {:error, :timeout} = Client.recv(socket), "The connection did not remain open"
     end
 
-    test "handles invalid tcp connection packet" do
-      reject(&Command.handle/2)
+    test "handles invalid tcp connection packet (handle_packet/2)" do
+      Command
+      |> reject(:handle, 2)
 
-      socket = Client.connect(:tcp)
+      {:ok, socket} = Client.connect(:tcp)
       Client.send(socket, "\r\n")
-      Client.recv(socket)
+      assert {:error, :timeout} = Client.recv(socket), "The connection did not remain open"
     end
 
-    test "handles invalid ssl connection packet" do
-      reject(&Command.handle/2)
+    test "handles invalid ssl connection packet (handle_packet/2)" do
+      Command
+      |> reject(:handle, 2)
 
-      socket = Client.connect(:ssl)
+      {:ok, socket} = Client.connect(:ssl)
       Client.send(socket, "\r\n")
-      Client.recv(socket)
-    end
-
-    test "handles tcp connection closed" do
-      socket = Client.connect(:tcp)
-      assert :ok == Client.close(socket)
-      assert {:error, :closed} == Client.recv(socket)
-    end
-
-    test "handles ssl connection closed" do
-      socket = Client.connect(:ssl)
-      assert :ok == Client.close(socket)
-      assert {:error, :closed} == Client.recv(socket)
-    end
-
-    test "handles tcp connection error" do
-      assert true
-    end
-
-    test "handles ssl connection error" do
-      assert true
-    end
-
-    test "handles connection timeout" do
-      assert true
-    end
-
-    test "handles user quit and its cleans up" do
-      assert true
-    end
-
-    test "handles user quit and logs error when user not found on deletion" do
-      assert true
-    end
-  end
-
-  describe "send_message/2 by client connection" do
-    setup :set_mimic_global
-
-    test "sends a message to a single user" do
-      assert true
-    end
-
-    test "sends a message to multiple users" do
-      assert true
-    end
-  end
-
-  describe "send_messages/2 by client connection" do
-    test "sends messages to a single user" do
-      assert true
-    end
-
-    test "sends messages to multiple users" do
-      assert true
+      assert {:error, :timeout} = Client.recv(socket), "The connection did not remain open"
     end
   end
 end

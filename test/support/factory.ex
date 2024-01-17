@@ -26,10 +26,10 @@ defmodule ElixIRCd.Factory do
       transport: :ranch_tcp,
       pid: self(),
       nick: "#{sequence("Nick")}",
-      hostname: "test",
-      username: "test",
-      realname: "test",
-      identity: "test"
+      hostname: "hostname",
+      username: "username",
+      realname: "realname",
+      identity: "#{sequence("identity")}"
     }
   end
 

@@ -8,17 +8,26 @@ defmodule ElixIRCd.Client do
   @doc """
   Starts a client connection for the TCP or SSL server protocol.
   """
-  @spec connect(:tcp | :ssl) :: :inet.socket()
+  @spec connect(:tcp | :ssl) :: {:ok, :inet.socket()} | {:error, any()}
   def connect(:tcp) do
-    {:ok, socket} = :gen_tcp.connect(~c"127.0.0.1", 6667, [:binary, :inet, active: false])
-    on_exit(fn -> :gen_tcp.close(socket) end)
-    socket
+    socket_result = :gen_tcp.connect(~c"127.0.0.1", 6667, [:binary, :inet, active: false])
+
+    case socket_result do
+      {:ok, socket} -> on_exit(fn -> :gen_tcp.close(socket) end)
+    end
+
+    socket_result
   end
 
   def connect(:ssl) do
-    {:ok, socket} = :ssl.connect(~c"127.0.0.1", 6697, [:binary, :inet, active: false, verify: :verify_none])
-    on_exit(fn -> :ssl.close(socket) end)
-    socket
+    socket_result = :ssl.connect(~c"127.0.0.1", 6697, [:binary, :inet, active: false, verify: :verify_none])
+
+    case socket_result do
+      {:ok, socket} -> on_exit(fn -> :ssl.close(socket) end)
+      _ -> nil
+    end
+
+    socket_result
   end
 
   @doc """

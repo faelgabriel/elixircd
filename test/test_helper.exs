@@ -13,5 +13,8 @@ Mimic.copy(ElixIRCd.Command.Whois)
 Mimic.copy(ElixIRCd.Data.Contexts.User)
 Mimic.copy(ElixIRCd.Helper)
 Mimic.copy(ElixIRCd.Server)
+Mimic.copy(:ranch)
+Mimic.copy(:ranch_tcp)
+Mimic.copy(:ranch_ssl)
 
 ExUnit.start()

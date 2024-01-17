@@ -8,8 +8,8 @@ defmodule ElixIRCd.Data.Types.SocketTypeTest do
   alias ElixIRCd.Data.Types.SocketType
 
   setup do
-    tcp_socket = Client.connect(:tcp)
-    ssl_socket = Client.connect(:ssl)
+    {:ok, tcp_socket} = Client.connect(:tcp)
+    {:ok, ssl_socket} = Client.connect(:ssl)
 
     {:ok,
      %{
@@ -89,8 +89,8 @@ defmodule ElixIRCd.Data.Types.SocketTypeTest do
     end
 
     test "returns false for non-equal sockets", %{tcp_socket: tcp_socket, ssl_socket: ssl_socket} do
-      another_tcp_socket = Client.connect(:tcp)
-      another_ssl_socket = Client.connect(:ssl)
+      {:ok, another_tcp_socket} = Client.connect(:tcp)
+      {:ok, another_ssl_socket} = Client.connect(:ssl)
       refute SocketType.equal?(tcp_socket, another_tcp_socket)
       refute SocketType.equal?(ssl_socket, another_ssl_socket)
       refute SocketType.equal?(tcp_socket, ssl_socket)

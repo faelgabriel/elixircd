@@ -1,6 +1,9 @@
 defmodule ElixIRCd.DataCase do
   @moduledoc """
   This module defines the base test case for data tests.
+
+  It is used to setup the database before running tests and to clear it after running tests.
+  Use this with async: false since ETS tables are global.
   """
 
   use ExUnit.CaseTemplate

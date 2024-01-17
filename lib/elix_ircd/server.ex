@@ -6,7 +6,6 @@ defmodule ElixIRCd.Server do
   alias ElixIRCd.Command
   alias ElixIRCd.Data.Contexts
   alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
 
   require Logger
@@ -56,7 +55,7 @@ defmodule ElixIRCd.Server do
         {:reuseaddr, @reuseaddr}
       ])
 
-      connection_loop(socket, transport)
+      handle_connection(socket, transport)
     else
       reason ->
         Logger.error("Error initializing connection: #{inspect(reason)}")
@@ -90,18 +89,18 @@ defmodule ElixIRCd.Server do
 
   # Continuously processes incoming data on the server.
   # This function is the main loop of the server, handling incoming data and managing the socket's state.
-  @spec connection_loop(:inet.socket(), atom()) :: :ok
-  defp connection_loop(socket, transport) do
+  @spec handle_connection(:inet.socket(), atom()) :: :ok
+  defp handle_connection(socket, transport) do
     transport.setopts(socket, active: :once)
 
     receive do
       {:tcp, ^socket, data} ->
         handle_packet(socket, data)
-        connection_loop(socket, transport)
+        handle_connection(socket, transport)
 
       {:ssl, ^socket, data} ->
         handle_packet(socket, data)
-        connection_loop(socket, transport)
+        handle_connection(socket, transport)
 
       {:tcp_closed, ^socket} ->
         handle_disconnect(socket, transport, "Connection Closed")
@@ -110,10 +109,12 @@ defmodule ElixIRCd.Server do
         handle_disconnect(socket, transport, "Connection Closed")
 
       {:tcp_error, ^socket, reason} ->
-        handle_disconnect(socket, transport, "Connection Error: #{reason}")
+        Logger.warning("TCP connection error: #{inspect(reason)}")
+        handle_disconnect(socket, transport, "Connection Error")
 
       {:ssl_error, ^socket, reason} ->
-        handle_disconnect(socket, transport, "Connection Error: #{reason}")
+        Logger.warning("SSL connection error: #{inspect(reason)}")
+        handle_disconnect(socket, transport, "Connection Error")
 
       {:user_quit, ^socket, reason} ->
         handle_disconnect(socket, transport, reason)
@@ -121,6 +122,10 @@ defmodule ElixIRCd.Server do
       @timeout ->
         handle_disconnect(socket, transport, "Connection Timeout")
     end
+  rescue
+    exception ->
+      Logger.critical("Error handling connection: #{inspect(exception)}")
+      handle_disconnect(socket, transport, "Server Error")
   end
 
   @spec handle_connect(socket :: :inet.socket(), transport :: atom(), pid :: pid()) ::
@@ -138,7 +143,7 @@ defmodule ElixIRCd.Server do
   defp handle_disconnect(socket, transport, reason) do
     Logger.debug("Connection #{inspect(socket)} terminated: #{inspect(reason)}")
 
-    if Helper.is_socket_connected?(socket), do: transport.close(socket)
+    transport.close(socket)
 
     case Contexts.User.get_by_socket(socket) do
       {:error, _} -> :ok

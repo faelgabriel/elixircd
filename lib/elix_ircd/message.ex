@@ -247,4 +247,5 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_nicknameinuse), do: "433"
   defp numeric_reply(:err_notonchannel), do: "442"
   defp numeric_reply(:err_notregistered), do: "451"
+  defp numeric_reply(:err_cannotjoinchannel), do: "473"
 end
