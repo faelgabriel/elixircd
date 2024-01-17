@@ -1,12 +1,12 @@
 defmodule ElixIRCd.Client do
   @moduledoc """
-  This module defines the base command for IRC client tests.
+  This module defines the client helper functions for testing.
   """
 
   use ExUnit.CaseTemplate
 
   @doc """
-  Starts a client connection for the TCP or SSL server protocol.
+  Starts a client connection.
   """
   @spec connect(:tcp | :ssl) :: {:ok, :inet.socket()} | {:error, any()}
   def connect(:tcp) do
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Client do
   end
 
   @doc """
-  Closes a client connectio.
+  Closes a client connection.
   """
   @spec close(:inet.socket()) :: :ok
   def close(socket) when is_port(socket), do: :gen_tcp.close(socket)
