@@ -32,6 +32,8 @@ defmodule ElixIRCd.Data.Schemas.UserChannel do
     belongs_to(:channel, Channel, references: :name, type: :string, foreign_key: :channel_name)
 
     field(:modes, {:array, :any}, default: [])
+
+    timestamps(inserted_at: :created_at, updated_at: false, type: :utc_datetime_usec)
   end
 
   @doc """

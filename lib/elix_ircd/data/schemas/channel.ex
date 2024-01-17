@@ -17,6 +17,8 @@ defmodule ElixIRCd.Data.Schemas.Channel do
     field(:modes, {:array, :any}, default: [])
 
     has_many(:user_channels, UserChannel, foreign_key: :channel_name)
+
+    timestamps(inserted_at: :created_at, updated_at: false, type: :utc_datetime_usec)
   end
 
   @doc """

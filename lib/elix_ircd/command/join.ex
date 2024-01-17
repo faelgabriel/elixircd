@@ -108,7 +108,10 @@ defmodule ElixIRCd.Command.Join do
       |> Server.send_message(channel_users)
     end
 
-    channel_user_nicks = channel_users |> Enum.map_join(" ", fn user -> user.nick end)
+    channel_user_nicks =
+      channel_users
+      |> Enum.sort(fn user1, user2 -> user1.created_at >= user2.created_at end)
+      |> Enum.map_join(" ", fn user -> user.nick end)
 
     [
       Message.new(%{source: :server, command: :rpl_topic, params: [user.nick, channel.name], body: channel.topic}),
