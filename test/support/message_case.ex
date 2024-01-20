@@ -53,6 +53,8 @@ defmodule ElixIRCd.MessageCase do
       end
     end
 
+    Agent.stop(__MODULE__)
+
     :ok
   end
 
