@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.Privmsg do
 
   @impl true
   def handle(user, %{command: "PRIVMSG", params: [receiver], body: message}) do
-    if Helper.is_channel_name?(receiver),
+    if Helper.channel_name?(receiver),
       do: handle_channel_message(user, receiver, message),
       else: handle_user_message(user, receiver, message)
   end

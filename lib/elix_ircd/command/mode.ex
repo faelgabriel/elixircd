@@ -30,7 +30,7 @@ defmodule ElixIRCd.Command.Mode do
 
   @impl true
   def handle(user, %{command: "MODE", params: [target], body: nil}) do
-    case Helper.is_channel_name?(target) do
+    case Helper.channel_name?(target) do
       true -> handle_channel_mode(user, target)
       false -> handle_user_mode(user, target)
     end

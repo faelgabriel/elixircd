@@ -8,8 +8,8 @@ defmodule ElixIRCd.Helper do
   @doc """
   Determines if a target is a channel name.
   """
-  @spec is_channel_name?(String.t()) :: boolean()
-  def is_channel_name?(target) do
+  @spec channel_name?(String.t()) :: boolean()
+  def channel_name?(target) do
     String.starts_with?(target, "#") ||
       String.starts_with?(target, "&") ||
       String.starts_with?(target, "+") ||
@@ -19,8 +19,8 @@ defmodule ElixIRCd.Helper do
   @doc """
   Checks if a socket is connected.
   """
-  @spec is_socket_connected?(socket :: :inet.socket()) :: boolean()
-  def is_socket_connected?(socket) do
+  @spec socket_connected?(socket :: :inet.socket()) :: boolean()
+  def socket_connected?(socket) do
     case :inet.peername(get_socket_port(socket)) do
       {:ok, _peer} -> true
       {:error, _} -> false
@@ -44,10 +44,10 @@ defmodule ElixIRCd.Helper do
       |> String.split(",")
 
     cond do
-      Enum.all?(list_targets, &is_channel_name?/1) ->
+      Enum.all?(list_targets, &channel_name?/1) ->
         {:channels, list_targets}
 
-      Enum.all?(list_targets, fn target -> !is_channel_name?(target) end) ->
+      Enum.all?(list_targets, fn target -> !channel_name?(target) end) ->
         {:users, list_targets}
 
       true ->

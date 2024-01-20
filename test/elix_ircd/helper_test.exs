@@ -9,33 +9,33 @@ defmodule ElixIRCd.HelperTest do
 
   import ElixIRCd.Factory
 
-  describe "is_channel_name?/1" do
+  describe "channel_name?/1" do
     test "returns true for channel names" do
-      assert true == Helper.is_channel_name?("#elixir")
-      assert true == Helper.is_channel_name?("&elixir")
-      assert true == Helper.is_channel_name?("+elixir")
-      assert true == Helper.is_channel_name?("!elixir")
+      assert true == Helper.channel_name?("#elixir")
+      assert true == Helper.channel_name?("&elixir")
+      assert true == Helper.channel_name?("+elixir")
+      assert true == Helper.channel_name?("!elixir")
     end
 
     test "returns false for non-channel names" do
-      assert false == Helper.is_channel_name?("elixir")
+      assert false == Helper.channel_name?("elixir")
     end
   end
 
-  describe "is_socket_connected?/1" do
+  describe "socket_connected?/1" do
     test "returns true for connected tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
-      assert true == Helper.is_socket_connected?(socket)
+      assert true == Helper.socket_connected?(socket)
     end
 
     test "returns true for connected ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
-      assert true == Helper.is_socket_connected?(socket)
+      assert true == Helper.socket_connected?(socket)
     end
 
     test "returns false for disconnected tcp socket" do
       virtual_user = build(:user)
-      assert false == Helper.is_socket_connected?(virtual_user.socket)
+      assert false == Helper.socket_connected?(virtual_user.socket)
     end
   end
 
