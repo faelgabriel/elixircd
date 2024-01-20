@@ -11,7 +11,6 @@ defmodule ElixIRCd.Server do
   require Logger
 
   @behaviour :ranch_protocol
-  @timeout 180_000
   @reuseaddr Mix.env() in [:dev, :test]
 
   @doc """
@@ -119,7 +118,7 @@ defmodule ElixIRCd.Server do
       {:user_quit, ^socket, reason} ->
         handle_disconnect(socket, transport, reason)
     after
-      @timeout ->
+      Application.get_env(:elixircd, :client_timeout) ->
         handle_disconnect(socket, transport, "Connection Timeout")
     end
   rescue
@@ -188,11 +187,9 @@ defmodule ElixIRCd.Server do
     |> send_message(all_channel_users)
 
     # Delete the user and all its associated user channels
-    with _ <- Contexts.UserChannel.delete_all(user_channels),
-         {:ok, _} <- Contexts.User.delete(user) do
-      :ok
-    else
-      {:error, changeset} -> Logger.error("Error deleting user #{inspect(user)}: #{inspect(changeset)}")
-    end
+    Contexts.UserChannel.delete_all(user_channels)
+    Contexts.User.delete(user)
+
+    :ok
   end
 end

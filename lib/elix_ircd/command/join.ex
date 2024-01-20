@@ -18,7 +18,18 @@ defmodule ElixIRCd.Command.Join do
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "JOIN"}) do
-    Message.new(%{source: :server, command: :rpl_notregistered, params: ["*"], body: "You have not registered"})
+    Message.new(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    |> Server.send_message(user)
+  end
+
+  @impl true
+  def handle(user, %{command: "JOIN", params: []}) do
+    Message.new(%{
+      source: :server,
+      command: :err_needmoreparams,
+      params: [user.nick, "JOIN"],
+      body: "Not enough parameters"
+    })
     |> Server.send_message(user)
   end
 
@@ -28,17 +39,6 @@ defmodule ElixIRCd.Command.Join do
     |> String.split(",")
     |> Enum.map(&String.trim/1)
     |> Enum.each(&handle_channel(user, &1))
-  end
-
-  @impl true
-  def handle(user, %{command: "JOIN"}) do
-    Message.new(%{
-      source: :server,
-      command: :rpl_needmoreparams,
-      params: [user.nick, "JOIN"],
-      body: "Not enough parameters"
-    })
-    |> Server.send_message(user)
   end
 
   @spec handle_channel(Schemas.User.t(), String.t()) :: :ok

@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.Ping do
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
-  def handle(user, %{command: "PING", body: body}) do
+  def handle(user, %{command: "PING", body: body}) when not is_nil(body) do
     Message.new(%{source: :server, command: "PONG", params: [], body: body})
     |> Server.send_message(user)
   end

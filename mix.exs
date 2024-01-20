@@ -59,7 +59,7 @@ defmodule ElixIRCd.MixProject do
       {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.18", only: :test},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
-      {:mimic, "~> 1.7", only: :test},
+      {:mimic, "~> 1.7", only: [:dev, :test]},
       {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:typed_ecto_schema, "~> 0.4.1", runtime: false}

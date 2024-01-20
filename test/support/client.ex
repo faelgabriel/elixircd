@@ -3,40 +3,16 @@ defmodule ElixIRCd.Client do
   This module defines the client helper functions for testing.
   """
 
-  use ExUnit.CaseTemplate
-
   @doc """
   Starts a client connection.
   """
   @spec connect(:tcp | :ssl) :: {:ok, :inet.socket()} | {:error, any()}
-  def connect(:tcp) do
-    socket_result = :gen_tcp.connect(~c"127.0.0.1", 6667, [:binary, :inet, active: false])
-
-    case socket_result do
-      {:ok, socket} -> on_exit(fn -> :gen_tcp.close(socket) end)
-    end
-
-    socket_result
-  end
-
-  def connect(:ssl) do
-    socket_result = :ssl.connect(~c"127.0.0.1", 6697, [:binary, :inet, active: false, verify: :verify_none])
-
-    case socket_result do
-      {:ok, socket} -> on_exit(fn -> :ssl.close(socket) end)
-      _ -> nil
-    end
-
-    socket_result
-  end
+  def connect(:tcp), do: :gen_tcp.connect(~c"127.0.0.1", 6667, [:binary, :inet, active: false])
+  def connect(:ssl), do: :ssl.connect(~c"127.0.0.1", 6697, [:binary, :inet, active: false, verify: :verify_none])
 
   @doc """
-  Closes a client connection.
+  Sends a message to the server.
   """
-  @spec close(:inet.socket()) :: :ok
-  def close(socket) when is_port(socket), do: :gen_tcp.close(socket)
-  def close(socket), do: :ssl.close(socket)
-
   @spec send(:inet.socket(), binary()) :: :ok
   def send(socket, data) when is_port(socket), do: :gen_tcp.send(socket, data)
   def send(socket, data), do: :ssl.send(socket, data)

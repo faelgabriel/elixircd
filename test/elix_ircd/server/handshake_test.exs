@@ -10,8 +10,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
   alias ElixIRCd.Server
   alias ElixIRCd.Server.Handshake
 
-  import ExUnit.CaptureLog
   import ElixIRCd.Factory
+  import ExUnit.CaptureLog
   import Mimic
 
   describe "handle/1" do

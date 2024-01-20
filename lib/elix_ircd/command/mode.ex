@@ -18,23 +18,7 @@ defmodule ElixIRCd.Command.Mode do
   end
 
   @impl true
-  def handle(user, %{command: "MODE", params: [target], body: nil}) do
-    Helper.get_target_list(target)
-    |> case do
-      {:channels, channel_names} ->
-        Enum.each(channel_names, &handle_channel_mode(user, &1))
-
-      {:users, target_nicks} ->
-        Enum.each(target_nicks, &handle_user_mode(user, &1))
-
-      {:error, error_message} ->
-        Message.new(%{source: :server, command: :err_nosuchchannel, params: [user.nick, target], body: error_message})
-        |> Server.send_message(user)
-    end
-  end
-
-  @impl true
-  def handle(user, %{command: "MODE"}) do
+  def handle(user, %{command: "MODE", params: []}) do
     Message.new(%{
       source: :server,
       command: :err_needmoreparams,
@@ -42,6 +26,14 @@ defmodule ElixIRCd.Command.Mode do
       body: "Not enough parameters"
     })
     |> Server.send_message(user)
+  end
+
+  @impl true
+  def handle(user, %{command: "MODE", params: [target], body: nil}) do
+    case Helper.is_channel_name?(target) do
+      true -> handle_channel_mode(user, target)
+      false -> handle_user_mode(user, target)
+    end
   end
 
   defp handle_channel_mode(_user, _channel_name) do

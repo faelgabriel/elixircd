@@ -16,7 +16,20 @@ defmodule ElixIRCd.Command.Whois do
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: @command}) do
-    Message.new(%{source: :server, command: :rpl_notregistered, params: ["*"], body: "You have not registered"})
+    Message.new(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    |> Server.send_message(user)
+  end
+
+  @impl true
+  def handle(user, %{command: @command, params: []}) do
+    user_reply = Helper.get_user_reply(user)
+
+    Message.new(%{
+      source: :server,
+      command: :err_needmoreparams,
+      params: [user_reply, @command],
+      body: "Not enough parameters"
+    })
     |> Server.send_message(user)
   end
 
@@ -36,19 +49,6 @@ defmodule ElixIRCd.Command.Whois do
     :ok
   end
 
-  @impl true
-  def handle(user, %{command: @command}) do
-    user_reply = Helper.get_user_reply(user)
-
-    Message.new(%{
-      source: :server,
-      command: :err_needmoreparams,
-      params: [user_reply, @command],
-      body: "Not enough parameters"
-    })
-    |> Server.send_message(user)
-  end
-
   @doc """
   Sends a message to the user with information about the target user.
   """
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Command.Whois do
     [
       Message.new(%{
         source: :server,
-        command: :rpl_nouser,
+        command: :err_nosuchnick,
         params: [user.nick, target_nick],
         body: "No such nick"
       }),

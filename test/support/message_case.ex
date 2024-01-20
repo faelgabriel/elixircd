@@ -7,9 +7,10 @@ defmodule ElixIRCd.MessageCase do
 
   Use this with async: false since agent is global.
   """
-  alias ExUnit.AssertionError
 
   use ExUnit.CaseTemplate
+
+  alias ExUnit.AssertionError
 
   import Mimic
 
@@ -20,19 +21,24 @@ defmodule ElixIRCd.MessageCase do
   end
 
   setup do
-    {:ok, message_agent} = Agent.start_link(fn -> [] end, name: __MODULE__)
+    {:ok, _} = Agent.start_link(fn -> [] end, name: __MODULE__)
 
-    stub_send_messages()
-
-    on_exit(fn ->
-      if Process.alive?(message_agent) do
-        Agent.stop(message_agent)
-      end
+    :ranch_tcp
+    |> stub(:send, fn socket, msg ->
+      Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
     end)
 
-    {:ok, %{}}
+    :ranch_ssl
+    |> stub(:send, fn socket, msg ->
+      Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
+    end)
+
+    :ok
   end
 
+  @doc """
+  Asserts that the given messages were sent.
+  """
   @spec assert_sent_messages([{:inet.socket(), String.t()}]) :: :ok
   def assert_sent_messages(expected_messages) do
     sent_messages = Agent.get(__MODULE__, & &1)
@@ -59,17 +65,6 @@ defmodule ElixIRCd.MessageCase do
         else
           port1 < port2
         end
-    end)
-  end
-
-  @spec stub_send_messages() :: :ok
-  defp stub_send_messages do
-    stub(:ranch_tcp, :send, fn socket, msg ->
-      Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
-    end)
-
-    stub(:ranch_ssl, :send, fn socket, msg ->
-      Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
     end)
   end
 end

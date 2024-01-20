@@ -20,10 +20,24 @@ defmodule ElixIRCd.Command.Nick do
 
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  def handle(user, %{command: "NICK", params: [], body: nil}) do
+    user_reply = Helper.get_user_reply(user)
+
+    Message.new(%{
+      source: :server,
+      command: :err_needmoreparams,
+      params: [user_reply, "NICK"],
+      body: "Not enough parameters"
+    })
+    |> Server.send_message(user)
+  end
+
+  @impl true
   def handle(user, %{command: "NICK", params: [], body: nick}) do
     handle(user, %Message{command: "NICK", params: [nick]})
   end
 
+  @impl true
   def handle(user, %{command: "NICK", params: [nick]}) do
     if nick_in_use?(nick) do
       user_reply = Helper.get_user_reply(user)
@@ -38,19 +52,6 @@ defmodule ElixIRCd.Command.Nick do
     else
       handle_nick(user, nick)
     end
-  end
-
-  @impl true
-  def handle(user, %{command: "NICK"}) do
-    user_reply = Helper.get_user_reply(user)
-
-    Message.new(%{
-      source: :server,
-      command: :err_needmoreparams,
-      params: [user_reply, "NICK"],
-      body: "Not enough parameters"
-    })
-    |> Server.send_message(user)
   end
 
   @spec handle_nick(Schemas.User.t(), String.t()) :: :ok

@@ -49,7 +49,7 @@ defmodule ElixIRCd.Command.JoinTest do
       ])
     end
 
-    test "handles JOIN command with existing channel and user channel" do
+    test "handles JOIN command with existing channel and another user" do
       channel = insert(:channel)
       user_channel = insert(:user_channel, user: insert(:user), channel: channel)
 

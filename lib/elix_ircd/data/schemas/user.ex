@@ -25,7 +25,7 @@ defmodule ElixIRCd.Data.Schemas.User do
     field(:identity, :string)
     field(:modes, {:array, :any}, default: [])
 
-    has_many(:user_channels, UserChannel, foreign_key: :user_socket, on_delete: :delete_all)
+    has_many(:user_channels, UserChannel, foreign_key: :user_socket)
 
     timestamps(inserted_at: :created_at, updated_at: false, type: :utc_datetime_usec)
   end

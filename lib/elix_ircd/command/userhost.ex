@@ -16,23 +16,12 @@ defmodule ElixIRCd.Command.Userhost do
   @impl true
   @spec handle(Schemas.User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: @command}) do
-    Message.new(%{source: :server, command: :rpl_notregistered, params: ["*"], body: "You have not registered"})
+    Message.new(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
     |> Server.send_message(user)
   end
 
   @impl true
-  def handle(user, %{command: @command, params: target_nicks}) when target_nicks != [] do
-    userhost_detailed =
-      target_nicks
-      |> Enum.map_join(" ", fn nick -> fetch_userhost_info(nick) end)
-      |> String.trim()
-
-    Message.new(%{source: :server, command: :rpl_userhost, params: [user.nick], body: userhost_detailed})
-    |> Server.send_message(user)
-  end
-
-  @impl true
-  def handle(user, %{command: @command}) do
+  def handle(user, %{command: @command, params: []}) do
     user_reply = Helper.get_user_reply(user)
 
     Message.new(%{
@@ -41,6 +30,17 @@ defmodule ElixIRCd.Command.Userhost do
       params: [user_reply, @command],
       body: "Not enough parameters"
     })
+    |> Server.send_message(user)
+  end
+
+  @impl true
+  def handle(user, %{command: @command, params: target_nicks}) do
+    userhost_detailed =
+      target_nicks
+      |> Enum.map_join(" ", fn nick -> fetch_userhost_info(nick) end)
+      |> String.trim()
+
+    Message.new(%{source: :server, command: :rpl_userhost, params: [user.nick], body: userhost_detailed})
     |> Server.send_message(user)
   end
 
