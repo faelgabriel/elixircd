@@ -21,22 +21,16 @@ defmodule ElixIRCd.MessageCase do
   end
 
   setup do
-    {:ok, agent_pid} = Agent.start_link(fn -> [] end, name: __MODULE__)
+    Agent.start_link(fn -> [] end, name: __MODULE__)
 
     :ranch_tcp
     |> stub(:send, fn socket, msg ->
-      Agent.update(agent_pid, fn messages -> [{socket, msg} | messages] end)
+      Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
     end)
 
     :ranch_ssl
     |> stub(:send, fn socket, msg ->
-      Agent.update(agent_pid, fn messages -> [{socket, msg} | messages] end)
-    end)
-
-    on_exit(fn ->
-      if Process.alive?(agent_pid) do
-        Agent.stop(agent_pid)
-      end
+      Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
     end)
 
     :ok
