@@ -1,7 +1,5 @@
 defmodule ElixIRCd.MessageCaseTest do
-  @moduledoc """
-  This module tests the test/support/message_case.ex module.
-  """
+  @moduledoc false
 
   use ElixIRCd.MessageCase, async: false
 

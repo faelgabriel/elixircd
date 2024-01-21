@@ -11,7 +11,6 @@ defmodule ElixIRCd.Server do
   require Logger
 
   @behaviour :ranch_protocol
-  @reuseaddr Mix.env() in [:dev, :test]
 
   @doc """
   Starts a linked user connection process for the SSL server protocol.
@@ -49,10 +48,7 @@ defmodule ElixIRCd.Server do
   def init(ref, transport, _opts) do
     with {:ok, socket} <- :ranch.handshake(ref),
          {:ok, _new_user} <- handle_connect(socket, transport, self()) do
-      transport.setopts(socket, [
-        {:packet, :line},
-        {:reuseaddr, @reuseaddr}
-      ])
+      transport.setopts(socket, [{:packet, :line}])
 
       handle_connection(socket, transport)
     else

@@ -14,14 +14,14 @@ defmodule ElixIRCd.Client do
   Sends a message to the server.
   """
   @spec send(:inet.socket(), binary()) :: :ok
-  def send(socket, data) when is_port(socket), do: :gen_tcp.send(socket, data)
-  def send(socket, data), do: :ssl.send(socket, data)
+  def send(socket, data) when is_port(socket), do: :gen_tcp.send(socket, data <> "\r\n")
+  def send(socket, data), do: :ssl.send(socket, data <> "\r\n")
 
   @doc """
   Receives a message from the server.
   """
   @spec recv(:inet.socket(), pos_integer()) :: {:ok, binary()} | {:error, :closed} | {:error, :timeout}
-  def recv(socket, timeout \\ 100)
+  def recv(socket, timeout \\ 200)
   def recv(socket, timeout) when is_port(socket), do: :gen_tcp.recv(socket, 0, timeout)
   def recv(socket, timeout), do: :ssl.recv(socket, 0, timeout)
 end

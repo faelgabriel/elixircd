@@ -22,7 +22,7 @@ defmodule ElixIRCd.ServerTest do
     test "handles successful tcp connect" do
       :ranch_tcp
       |> expect(:setopts, 1, fn _socket, opts ->
-        assert opts == [{:packet, :line}, {:reuseaddr, true}]
+        assert opts == [{:packet, :line}]
         :ok
       end)
 
@@ -40,7 +40,7 @@ defmodule ElixIRCd.ServerTest do
     test "handles successful ssl connect" do
       :ranch_ssl
       |> expect(:setopts, 1, fn _socket, opts ->
-        assert opts == [{:packet, :line}, {:reuseaddr, true}]
+        assert opts == [{:packet, :line}]
         :ok
       end)
 
@@ -322,7 +322,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles successful disconnect by connection timeout" do
       original_timeout = Application.get_env(:elixircd, :client_timeout)
-      Application.put_env(:elixircd, :client_timeout, 110)
+      Application.put_env(:elixircd, :client_timeout, 220)
 
       :ranch_ssl
       |> expect(:close, 1, fn socket ->
