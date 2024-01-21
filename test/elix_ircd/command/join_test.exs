@@ -9,7 +9,6 @@ defmodule ElixIRCd.Command.JoinTest do
   alias ElixIRCd.Message
 
   import ElixIRCd.Factory
-  import Mimic
 
   describe "handle/2" do
     test "handles JOIN command with user not registered" do
@@ -17,7 +16,6 @@ defmodule ElixIRCd.Command.JoinTest do
       message = %Message{command: "JOIN", params: ["#anything"]}
 
       Join.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +27,6 @@ defmodule ElixIRCd.Command.JoinTest do
       message = %Message{command: "JOIN", params: []}
 
       Join.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 461 #{user.nick} JOIN :Not enough parameters\r\n"}
@@ -41,7 +38,6 @@ defmodule ElixIRCd.Command.JoinTest do
       message = %Message{command: "JOIN", params: ["#invalid.channel.name"]}
 
       Join.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket,
@@ -57,7 +53,6 @@ defmodule ElixIRCd.Command.JoinTest do
       message = %Message{command: "JOIN", params: [channel.name]}
 
       Join.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":#{user.identity} JOIN #{channel.name}\r\n"},
@@ -74,7 +69,6 @@ defmodule ElixIRCd.Command.JoinTest do
       message = %Message{command: "JOIN", params: ["#new_channel"]}
 
       Join.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":#{user.identity} JOIN #new_channel\r\n"},

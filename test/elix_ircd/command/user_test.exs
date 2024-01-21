@@ -24,8 +24,6 @@ defmodule ElixIRCd.Command.UserTest do
       message = %Message{command: "USER", params: ["username", "hostname"]}
       User.handle(user, message)
 
-      verify!()
-
       assert_sent_messages([
         {user.socket, ":server.example.com 461 * USER :Not enough parameters\r\n"},
         {user.socket, ":server.example.com 461 * USER :Not enough parameters\r\n"},
@@ -43,7 +41,6 @@ defmodule ElixIRCd.Command.UserTest do
       User.handle(user, message)
 
       User.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"},
@@ -59,7 +56,6 @@ defmodule ElixIRCd.Command.UserTest do
       message = %Message{command: "USER", params: ["username", "hostname", "servername"], body: "real name"}
 
       User.handle(user, message)
-      verify!()
 
       assert_sent_messages([])
     end

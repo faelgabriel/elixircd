@@ -8,7 +8,6 @@ defmodule ElixIRCd.Command.PartTest do
   alias ElixIRCd.Message
 
   import ElixIRCd.Factory
-  import Mimic
 
   describe "handle/2" do
     test "handles PART command with user not registered" do
@@ -16,7 +15,6 @@ defmodule ElixIRCd.Command.PartTest do
       message = %Message{command: "PART", params: ["#anything"]}
 
       Part.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +26,6 @@ defmodule ElixIRCd.Command.PartTest do
       message = %Message{command: "PART", params: []}
 
       Part.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 461 #{user.nick} PART :Not enough parameters\r\n"}
@@ -40,7 +37,6 @@ defmodule ElixIRCd.Command.PartTest do
       message = %Message{command: "PART", params: ["#new_channel"]}
 
       Part.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
@@ -54,7 +50,6 @@ defmodule ElixIRCd.Command.PartTest do
       message = %Message{command: "PART", params: [channel.name]}
 
       Part.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
@@ -72,7 +67,6 @@ defmodule ElixIRCd.Command.PartTest do
       message = %Message{command: "PART", params: [channel.name]}
 
       Part.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":#{user.identity} PART #{channel.name}\r\n"},

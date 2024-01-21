@@ -8,7 +8,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
   alias ElixIRCd.Message
 
   import ElixIRCd.Factory
-  import Mimic
 
   describe "handle/2" do
     test "handles PRIVMSG command with user not registered" do
@@ -16,7 +15,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
       message = %Message{command: "PRIVMSG", params: ["#anything"]}
 
       Privmsg.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -32,8 +30,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
       message = %Message{command: "PRIVMSG", params: ["test"], body: nil}
       Privmsg.handle(user, message)
 
-      verify!()
-
       assert_sent_messages([
         {user.socket, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
         {user.socket, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
@@ -45,7 +41,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
 
       message = %Message{command: "PRIVMSG", params: ["#new_channel"], body: "Hello"}
       Privmsg.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
@@ -58,7 +53,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
 
       message = %Message{command: "PRIVMSG", params: [channel.name], body: "Hello"}
       Privmsg.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
@@ -74,7 +68,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
 
       message = %Message{command: "PRIVMSG", params: [channel.name], body: "Hello"}
       Privmsg.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {another_user.socket, ":#{user.identity} PRIVMSG #{channel.name} :Hello\r\n"}
@@ -86,7 +79,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
 
       message = %Message{command: "PRIVMSG", params: ["another_user"], body: "Hello"}
       Privmsg.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 401 #{user.nick} another_user :No such nick\r\n"}
@@ -99,7 +91,6 @@ defmodule ElixIRCd.Command.PrivmsgTest do
 
       message = %Message{command: "PRIVMSG", params: [another_user.nick], body: "Hello"}
       Privmsg.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {another_user.socket, ":#{user.identity} PRIVMSG #{another_user.nick} :Hello\r\n"}

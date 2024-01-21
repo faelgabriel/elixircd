@@ -9,7 +9,6 @@ defmodule ElixIRCd.Command.PingTest do
   alias ElixIRCd.Message
 
   import ElixIRCd.Factory
-  import Mimic
 
   describe "handle/2" do
     test "handles PING command with not enough parameters" do
@@ -17,7 +16,6 @@ defmodule ElixIRCd.Command.PingTest do
       message = %Message{command: "PING", params: [], body: nil}
 
       Ping.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 461 #{user.nick} PING :Not enough parameters\r\n"}
@@ -29,7 +27,6 @@ defmodule ElixIRCd.Command.PingTest do
       message = %Message{command: "PING", params: [], body: "anything"}
 
       Ping.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com PONG :anything\r\n"}

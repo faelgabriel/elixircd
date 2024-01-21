@@ -9,7 +9,6 @@ defmodule ElixIRCd.Command.WhoisTest do
   alias ElixIRCd.Message
 
   import ElixIRCd.Factory
-  import Mimic
 
   describe "handle/2" do
     test "handles WHOIS command with user not registered" do
@@ -17,7 +16,6 @@ defmodule ElixIRCd.Command.WhoisTest do
       message = %Message{command: "WHOIS", params: ["#anything"]}
 
       Whois.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +27,6 @@ defmodule ElixIRCd.Command.WhoisTest do
       message = %Message{command: "WHOIS", params: []}
 
       Whois.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 461 #{user.nick} WHOIS :Not enough parameters\r\n"}
@@ -41,7 +38,6 @@ defmodule ElixIRCd.Command.WhoisTest do
       message = %Message{command: "WHOIS", params: ["invalid.nick"]}
 
       Whois.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 401 #{user.nick} invalid.nick :No such nick\r\n"},
@@ -55,7 +51,6 @@ defmodule ElixIRCd.Command.WhoisTest do
       message = %Message{command: "WHOIS", params: ["target_nick"]}
 
       Whois.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
@@ -72,7 +67,6 @@ defmodule ElixIRCd.Command.WhoisTest do
       message = %Message{command: "WHOIS", params: ["invalid.nick", "target_nick", "invalid.nick2"]}
 
       Whois.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},

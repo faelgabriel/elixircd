@@ -18,7 +18,6 @@ defmodule ElixIRCd.Command.NickTest do
       message = %Message{command: "NICK", params: []}
 
       Nick.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
@@ -30,7 +29,6 @@ defmodule ElixIRCd.Command.NickTest do
       message = %Message{command: "NICK", params: ["invalid.nick"]}
 
       Nick.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 432 * invalid.nick :Nickname is unavailable: Illegal characters\r\n"}
@@ -43,7 +41,6 @@ defmodule ElixIRCd.Command.NickTest do
       message = %Message{command: "NICK", params: ["existing"]}
 
       Nick.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
@@ -55,7 +52,6 @@ defmodule ElixIRCd.Command.NickTest do
       message = %Message{command: "NICK", params: ["new_nick"]}
 
       Nick.handle(user, message)
-      verify!()
 
       assert_sent_messages([{user.socket, ":#{user.identity} NICK new_nick\r\n"}])
     end
@@ -68,7 +64,6 @@ defmodule ElixIRCd.Command.NickTest do
       message = %Message{command: "NICK", params: ["new_nick"]}
 
       Nick.handle(user, message)
-      verify!()
 
       assert_sent_messages([])
     end
@@ -78,7 +73,6 @@ defmodule ElixIRCd.Command.NickTest do
       message = %Message{command: "NICK", params: [], body: "new_nick"}
 
       Nick.handle(user, message)
-      verify!()
 
       assert_sent_messages([{user.socket, ":#{user.identity} NICK new_nick\r\n"}])
     end

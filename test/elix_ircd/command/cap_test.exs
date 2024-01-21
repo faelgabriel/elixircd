@@ -17,7 +17,6 @@ defmodule ElixIRCd.Command.CapTest do
       message = %Message{command: "CAP", params: ["LS", "302"]}
 
       Cap.handle(user, message)
-      verify!()
 
       assert_sent_messages([
         {user.socket, ":server.example.com CAP * LS\r\n"}
