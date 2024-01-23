@@ -47,7 +47,8 @@ defmodule ElixIRCd.Command.JoinTest do
 
     test "handles JOIN command with existing channel and another user" do
       channel = insert(:channel)
-      user_channel = insert(:user_channel, user: insert(:user), channel: channel)
+      another_user = insert(:user)
+      insert(:user_channel, user: another_user, channel: channel)
 
       user = insert(:user)
       message = %Message{command: "JOIN", params: [channel.name]}
@@ -56,11 +57,10 @@ defmodule ElixIRCd.Command.JoinTest do
 
       assert_sent_messages([
         {user.socket, ":#{user.identity} JOIN #{channel.name}\r\n"},
-        {user_channel.user.socket, ":#{user.identity} JOIN #{channel.name}\r\n"},
         {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :#{channel.topic}\r\n"},
-        {user.socket,
-         ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick} #{user_channel.user.nick}\r\n"},
-        {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+        {user.socket, ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
+        {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
+        {another_user.socket, ":#{user.identity} JOIN #{channel.name}\r\n"}
       ])
     end
 
@@ -72,10 +72,10 @@ defmodule ElixIRCd.Command.JoinTest do
 
       assert_sent_messages([
         {user.socket, ":#{user.identity} JOIN #new_channel\r\n"},
+        {user.socket, ":server.example.com MODE #new_channel +o #{user.nick}\r\n"},
         {user.socket, ":server.example.com 332 #{user.nick} #new_channel :Welcome to #new_channel.\r\n"},
         {user.socket, ":server.example.com 353 = #{user.nick} #new_channel :#{user.nick}\r\n"},
-        {user.socket, ":server.example.com 366 #{user.nick} #new_channel :End of NAMES list.\r\n"},
-        {user.socket, ":server.example.com MODE #new_channel +o #{user.nick}\r\n"}
+        {user.socket, ":server.example.com 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
       ])
     end
   end

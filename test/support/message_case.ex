@@ -41,32 +41,40 @@ defmodule ElixIRCd.MessageCase do
   """
   @spec assert_sent_messages([{:inet.socket(), String.t()}]) :: :ok
   def assert_sent_messages(expected_messages) do
-    sent_messages = Agent.get(__MODULE__, & &1)
+    sent_messages = Agent.get(__MODULE__, &Enum.reverse(&1))
 
-    for {expected_socket, expected_msg} <- expected_messages do
-      unless Enum.any?(sent_messages, fn {socket, msg} -> socket == expected_socket and msg == expected_msg end) do
+    grouped_expected_messages = Enum.group_by(expected_messages, fn {socket, _} -> socket end, fn {_, msg} -> msg end)
+    grouped_sent_messages = Enum.group_by(sent_messages, fn {socket, _} -> socket end, fn {_, msg} -> msg end)
+
+    for {socket, expected_msgs} <- grouped_expected_messages do
+      sent_msgs = Map.get(grouped_sent_messages, socket, [])
+
+      if length(expected_msgs) > length(sent_msgs) do
         raise AssertionError, """
-        Assertion failed: expected message not sent.
-        Expected to send: #{inspect(sort_messages(expected_messages))}
-        Actual messages sent: #{inspect(sort_messages(sent_messages))}
+        Assertion failed: Number of expected messages exceeds the number of messages sent for socket #{inspect(socket)}.
+        Expected message sequence for socket: #{inspect(expected_msgs)}
+        Actual message sequence for socket: #{inspect(sent_msgs)}
         """
       end
+
+      Enum.zip(expected_msgs, sent_msgs)
+      |> Enum.with_index()
+      |> Enum.each(fn {{expected_msg, sent_msg}, index} ->
+        unless expected_msg == sent_msg do
+          raise AssertionError, """
+          Assertion failed: Message order or content does not match.
+          At position #{index + 1}:
+          Expected message: '{#{inspect(socket)}, #{expected_msg}}'
+          Sent message: '{#{inspect(socket)}, #{sent_msg}'
+          Full expected message sequence for socket: #{inspect(expected_msgs)}
+          Full actual message sequence for socket: #{inspect(sent_msgs)}
+          """
+        end
+      end)
     end
 
     Agent.stop(__MODULE__)
 
     :ok
-  end
-
-  @spec sort_messages([{:inet.socket(), String.t()}]) :: [{:inet.socket(), String.t()}]
-  defp sort_messages(messages) do
-    Enum.sort(messages, fn
-      {port1, msg1}, {port2, msg2} ->
-        if port1 == port2 do
-          msg1 < msg2
-        else
-          port1 < port2
-        end
-    end)
   end
 end

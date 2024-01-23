@@ -54,10 +54,10 @@ defmodule ElixIRCd.Command.WhoisTest do
 
       assert_sent_messages([
         {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
+        {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :\r\n"},
         {user.socket, ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon\r\n"},
         {user.socket, ":server.example.com 317 #{user.nick} #{target_user.nick} 0 :seconds idle, signon time\r\n"},
-        {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"},
-        {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :\r\n"}
+        {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
       ])
     end
 
@@ -69,14 +69,14 @@ defmodule ElixIRCd.Command.WhoisTest do
       Whois.handle(user, message)
 
       assert_sent_messages([
+        {user.socket, ":server.example.com 401 #{user.nick} invalid.nick :No such nick\r\n"},
+        {user.socket, ":server.example.com 318 #{user.nick} invalid.nick :End of /WHOIS list.\r\n"},
         {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
+        {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :\r\n"},
         {user.socket, ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon\r\n"},
         {user.socket, ":server.example.com 317 #{user.nick} #{target_user.nick} 0 :seconds idle, signon time\r\n"},
         {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"},
-        {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :\r\n"},
-        {user.socket, ":server.example.com 401 #{user.nick} invalid.nick :No such nick\r\n"},
         {user.socket, ":server.example.com 401 #{user.nick} invalid.nick2 :No such nick\r\n"},
-        {user.socket, ":server.example.com 318 #{user.nick} invalid.nick :End of /WHOIS list.\r\n"},
         {user.socket, ":server.example.com 318 #{user.nick} invalid.nick2 :End of /WHOIS list.\r\n"}
       ])
     end
