@@ -40,8 +40,6 @@ defmodule ElixIRCd.Command.UserTest do
       message = %Message{command: "USER", params: ["username", "hostname", "servername"], body: "real name"}
       User.handle(user, message)
 
-      User.handle(user, message)
-
       assert_sent_messages([
         {user.socket, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"},
         {user.socket, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"}

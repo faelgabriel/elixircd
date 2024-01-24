@@ -27,10 +27,52 @@ defmodule ElixIRCd.MessageCaseTest do
       assert_raise AssertionError, fn ->
         assert_sent_messages([
           {tcp_socket, "PING :test"},
-          {ssl_socket, "PING :test"},
+          {ssl_socket, "PING :test"}
+        ])
+      end
+    end
+
+    test "raises an error if more messages are sent than expected" do
+      {:ok, tcp_socket} = Client.connect(:tcp)
+      {:ok, ssl_socket} = Client.connect(:ssl)
+
+      :ranch_tcp.send(tcp_socket, "PING :test")
+      :ranch_tcp.send(tcp_socket, "PING :test")
+      :ranch_tcp.send(ssl_socket, "PING :test")
+      :ranch_tcp.send(ssl_socket, "PING :test")
+
+      assert_raise AssertionError, fn ->
+        assert_sent_messages([
           {tcp_socket, "PING :test"},
           {ssl_socket, "PING :test"}
         ])
+      end
+    end
+
+    test "raises an error if the order of messages on a socket is not correct" do
+      {:ok, tcp_socket} = Client.connect(:tcp)
+      {:ok, ssl_socket} = Client.connect(:ssl)
+
+      :ranch_tcp.send(tcp_socket, "PING :test1")
+      :ranch_tcp.send(tcp_socket, "PING :test2")
+      :ranch_ssl.send(ssl_socket, "PING :test1")
+      :ranch_ssl.send(ssl_socket, "PING :test2")
+
+      assert_raise AssertionError, fn ->
+        assert_sent_messages([
+          {tcp_socket, "PING :test1"},
+          {tcp_socket, "PING :test2"},
+          {ssl_socket, "PING :test2"},
+          {ssl_socket, "PING :test1"}
+        ])
+      end
+    end
+
+    test "raises an error if assert_sent_messages is called more than once in the same test" do
+      assert_sent_messages([])
+
+      assert_raise RuntimeError, fn ->
+        assert_sent_messages([])
       end
     end
   end
