@@ -21,7 +21,7 @@ defmodule ElixIRCd.Command.UserTest do
       message = %Message{command: "USER", params: ["username"]}
       User.handle(user, message)
 
-      message = %Message{command: "USER", params: ["username", "hostname"]}
+      message = %Message{command: "USER", params: ["username", "0"]}
       User.handle(user, message)
 
       assert_sent_messages([
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.UserTest do
       message = %Message{command: "USER", params: [], body: nil}
       User.handle(user, message)
 
-      message = %Message{command: "USER", params: ["username", "hostname", "servername"], body: "real name"}
+      message = %Message{command: "USER", params: ["username", "0", "*"], body: "real name"}
       User.handle(user, message)
 
       assert_sent_messages([
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Command.UserTest do
       |> expect(:handle, fn _user -> :ok end)
 
       user = insert(:user, identity: nil)
-      message = %Message{command: "USER", params: ["username", "hostname", "servername"], body: "real name"}
+      message = %Message{command: "USER", params: ["username", "0", "*"], body: "real name"}
 
       User.handle(user, message)
 
