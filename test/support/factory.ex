@@ -30,7 +30,7 @@ defmodule ElixIRCd.Factory do
       username: Map.get(attrs, :username, "username"),
       realname: Map.get(attrs, :realname, "realname"),
       identity: Map.get(attrs, :identity, "identity@#{random_string(50)}"),
-      created_at: Map.get(attrs, :created_at, :calendar.local_time())
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
 
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Factory do
       name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
       topic: Map.get(attrs, :topic, "topic"),
       modes: Map.get(attrs, :modes, []),
-      created_at: Map.get(attrs, :created_at, :calendar.local_time())
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
 
@@ -54,7 +54,7 @@ defmodule ElixIRCd.Factory do
       user_transport: Map.get(attrs, :user_transport, :ranch_tcp),
       channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
       modes: Map.get(attrs, :modes, []),
-      created_at: Map.get(attrs, :created_at, :calendar.local_time())
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
 

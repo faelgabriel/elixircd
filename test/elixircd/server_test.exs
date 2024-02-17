@@ -10,6 +10,7 @@ defmodule ElixIRCd.ServerTest do
   alias ElixIRCd.Client
   alias ElixIRCd.Command
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -366,6 +367,43 @@ defmodule ElixIRCd.ServerTest do
 
       assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
       assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+    end
+
+    @tag capture_log: true
+    test "handles successful quit notification" do
+      {:ok, socket1} = Client.connect(:ssl)
+      {:ok, socket2} = Client.connect(:ssl)
+      :timer.sleep(100)
+
+      [user1, user2] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      user1 = Memento.transaction!(fn -> Users.update(user1, %{identity: "any@identity"}) end)
+
+      channel = insert(:channel)
+      insert(:user_channel, %{user: user1, channel: channel})
+      insert(:user_channel, %{user: user2, channel: channel})
+
+      send(user1.pid, {:user_quit, user1.socket, "Quit message"})
+
+      received = Enum.sort([Client.recv(socket1), Client.recv(socket2)])
+      assert received == [{:error, :closed}, {:ok, ":any@identity QUIT :Quit message\r\n"}]
+    end
+
+    @tag capture_log: true
+    test "handles user not found error on disconnect" do
+      Client.connect(:ssl)
+      :timer.sleep(100)
+
+      [user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      Memento.transaction!(fn -> Users.delete(user) end)
+
+      log =
+        capture_log(fn ->
+          send(user.pid, {:ssl_closed, user.socket})
+          :timer.sleep(100)
+        end)
+
+      assert log =~ "Error handling disconnect: \"User port not found: #{inspect(user.port)}\""
     end
 
     # test "handling multiple connections" do
