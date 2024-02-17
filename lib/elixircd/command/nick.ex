@@ -20,20 +20,20 @@ defmodule ElixIRCd.Command.Nick do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(user, %{command: "NICK", params: [], body: nil}) do
+  def handle(user, %{command: "NICK", params: [], trailing: nil}) do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user_reply, "NICK"],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(user, %{command: "NICK", params: [], body: nick}) do
+  def handle(user, %{command: "NICK", params: [], trailing: nick}) do
     handle(user, %Message{command: "NICK", params: [nick]})
   end
 
@@ -47,10 +47,10 @@ defmodule ElixIRCd.Command.Nick do
         user_reply = Helper.get_user_reply(user)
 
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_erroneusnickname,
           params: [user_reply, nick],
-          body: "Nickname is unavailable: #{invalid_nick_error}"
+          trailing: "Nickname is unavailable: #{invalid_nick_error}"
         })
         |> Messaging.broadcast(user)
 
@@ -58,10 +58,10 @@ defmodule ElixIRCd.Command.Nick do
         user_reply = Helper.get_user_reply(user)
 
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_nicknameinuse,
           params: [user_reply, nick],
-          body: "Nickname is already in use"
+          trailing: "Nickname is already in use"
         })
         |> Messaging.broadcast(user)
     end
@@ -87,7 +87,7 @@ defmodule ElixIRCd.Command.Nick do
       |> Enum.group_by(& &1.user_port)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.build(%{source: old_identity, command: "NICK", params: [nick]})
+    Message.build(%{prefix: old_identity, command: "NICK", params: [nick]})
     |> Messaging.broadcast([updated_user | all_channel_users])
   end
 

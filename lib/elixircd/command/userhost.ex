@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.Userhost do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: @command}) do
-    Message.build(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
 
@@ -25,10 +25,10 @@ defmodule ElixIRCd.Command.Userhost do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user_reply, @command],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Command.Userhost do
       |> Enum.map_join(" ", fn nick -> fetch_userhost_info(nick) end)
       |> String.trim()
 
-    Message.build(%{source: :server, command: :rpl_userhost, params: [user.nick], body: userhost_detailed})
+    Message.build(%{prefix: :server, command: :rpl_userhost, params: [user.nick], trailing: userhost_detailed})
     |> Messaging.broadcast(user)
   end
 

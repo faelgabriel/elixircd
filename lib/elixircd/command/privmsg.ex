@@ -16,34 +16,34 @@ defmodule ElixIRCd.Command.Privmsg do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PRIVMSG"}) do
-    Message.build(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "PRIVMSG", params: []}) do
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "PRIVMSG"],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(user, %{command: "PRIVMSG", body: nil}) do
+  def handle(user, %{command: "PRIVMSG", trailing: nil}) do
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "PRIVMSG"],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(user, %{command: "PRIVMSG", params: [receiver], body: message}) do
+  def handle(user, %{command: "PRIVMSG", params: [receiver], trailing: message}) do
     if Helper.channel_name?(receiver),
       do: handle_channel_message(user, receiver, message),
       else: handle_user_message(user, receiver, message)
@@ -57,28 +57,28 @@ defmodule ElixIRCd.Command.Privmsg do
         |> Enum.reject(&(&1.user_port == user.port))
 
       Message.build(%{
-        source: user.identity,
+        prefix: user.identity,
         command: "PRIVMSG",
         params: [channel.name],
-        body: message
+        trailing: message
       })
       |> Messaging.broadcast(channel_users_without_user)
     else
       {:error, "UserChannel not found"} ->
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_cannotsendtochan,
           params: [user.nick, channel_name],
-          body: "Cannot send to channel"
+          trailing: "Cannot send to channel"
         })
         |> Messaging.broadcast(user)
 
       {:error, "Channel not found"} ->
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
-          body: "No such channel"
+          trailing: "No such channel"
         })
         |> Messaging.broadcast(user)
     end
@@ -88,19 +88,19 @@ defmodule ElixIRCd.Command.Privmsg do
     case Users.get_by_nick(receiver_nick) do
       {:ok, receiver_user} ->
         Message.build(%{
-          source: user.identity,
+          prefix: user.identity,
           command: "PRIVMSG",
           params: [receiver_nick],
-          body: message
+          trailing: message
         })
         |> Messaging.broadcast(receiver_user)
 
       {:error, _} ->
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_nosuchnick,
           params: [user.nick, receiver_nick],
-          body: "No such nick"
+          trailing: "No such nick"
         })
         |> Messaging.broadcast(user)
     end

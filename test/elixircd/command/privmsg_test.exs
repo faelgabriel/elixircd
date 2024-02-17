@@ -30,7 +30,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         message = %Message{command: "PRIVMSG", params: []}
         Privmsg.handle(user, message)
 
-        message = %Message{command: "PRIVMSG", params: ["test"], body: nil}
+        message = %Message{command: "PRIVMSG", params: ["test"], trailing: nil}
         Privmsg.handle(user, message)
 
         assert_sent_messages([
@@ -44,7 +44,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
       Memento.transaction(fn ->
         user = insert(:user)
 
-        message = %Message{command: "PRIVMSG", params: ["#new_channel"], body: "Hello"}
+        message = %Message{command: "PRIVMSG", params: ["#new_channel"], trailing: "Hello"}
         Privmsg.handle(user, message)
 
         assert_sent_messages([
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         user = insert(:user)
         channel = insert(:channel)
 
-        message = %Message{command: "PRIVMSG", params: [channel.name], body: "Hello"}
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
         Privmsg.handle(user, message)
 
         assert_sent_messages([
@@ -75,7 +75,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
-        message = %Message{command: "PRIVMSG", params: [channel.name], body: "Hello"}
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
         Privmsg.handle(user, message)
 
         assert_sent_messages([
@@ -88,7 +88,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
       Memento.transaction(fn ->
         user = insert(:user)
 
-        message = %Message{command: "PRIVMSG", params: ["another_user"], body: "Hello"}
+        message = %Message{command: "PRIVMSG", params: ["another_user"], trailing: "Hello"}
         Privmsg.handle(user, message)
 
         assert_sent_messages([
@@ -102,7 +102,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         user = insert(:user)
         another_user = insert(:user)
 
-        message = %Message{command: "PRIVMSG", params: [another_user.nick], body: "Hello"}
+        message = %Message{command: "PRIVMSG", params: [another_user.nick], trailing: "Hello"}
         Privmsg.handle(user, message)
 
         assert_sent_messages([

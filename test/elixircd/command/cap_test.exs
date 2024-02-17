@@ -30,10 +30,10 @@ defmodule ElixIRCd.Command.CapTest do
 
         incompatible_cap_commands = [
           %Message{command: "CAP", params: ["LS", "301"]},
-          %Message{command: "CAP", params: ["REQ"], body: "multi-prefix"},
-          %Message{command: "CAP", params: ["REQ"], body: "multi-prefix sasl"},
-          %Message{command: "CAP", params: ["REQ"], body: "-multi-prefix"},
-          %Message{command: "CAP", params: ["REQ"], body: "-multi-prefix -sasl"},
+          %Message{command: "CAP", params: ["REQ"], trailing: "multi-prefix"},
+          %Message{command: "CAP", params: ["REQ"], trailing: "multi-prefix sasl"},
+          %Message{command: "CAP", params: ["REQ"], trailing: "-multi-prefix"},
+          %Message{command: "CAP", params: ["REQ"], trailing: "-multi-prefix -sasl"},
           %Message{command: "CAP", params: ["END"]}
         ]
 

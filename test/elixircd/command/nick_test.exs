@@ -98,10 +98,10 @@ defmodule ElixIRCd.Command.NickTest do
       end)
     end
 
-    test "handles NICK command with valid nick passed in the body" do
+    test "handles NICK command with valid nick passed in the trailing" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        message = %Message{command: "NICK", params: [], body: "new_nick"}
+        message = %Message{command: "NICK", params: [], trailing: "new_nick"}
 
         Nick.handle(user, message)
 

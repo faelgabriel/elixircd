@@ -34,10 +34,10 @@ defmodule ElixIRCd.Command do
 
   def handle(user, %{command: command}) do
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_unknowncommand,
       params: [Helper.get_user_reply(user), command],
-      body: "Unknown command"
+      trailing: "Unknown command"
     })
     |> Messaging.broadcast(user)
   end

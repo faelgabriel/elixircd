@@ -37,10 +37,10 @@ defmodule ElixIRCd.Command.UserTest do
       Memento.transaction!(fn ->
         user = insert(:user)
 
-        message = %Message{command: "USER", params: [], body: nil}
+        message = %Message{command: "USER", params: [], trailing: nil}
         User.handle(user, message)
 
-        message = %Message{command: "USER", params: ["username", "0", "*"], body: "real name"}
+        message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
         User.handle(user, message)
 
         assert_sent_messages([
@@ -56,7 +56,7 @@ defmodule ElixIRCd.Command.UserTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
-        message = %Message{command: "USER", params: ["username", "0", "*"], body: "real name"}
+        message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
 
         User.handle(user, message)
 

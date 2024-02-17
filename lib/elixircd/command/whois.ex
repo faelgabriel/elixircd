@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Whois do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: @command}) do
-    Message.build(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
 
@@ -26,10 +26,10 @@ defmodule ElixIRCd.Command.Whois do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user_reply, @command],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
@@ -57,16 +57,16 @@ defmodule ElixIRCd.Command.Whois do
   def whois_message(user, target_nick, nil) do
     [
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :err_nosuchnick,
         params: [user.nick, target_nick],
-        body: "No such nick"
+        trailing: "No such nick"
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_endofwhois,
         params: [user.nick, target_nick],
-        body: "End of /WHOIS list."
+        trailing: "End of /WHOIS list."
       })
     ]
     |> Messaging.broadcast(user)
@@ -81,34 +81,34 @@ defmodule ElixIRCd.Command.Whois do
 
     [
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_whoisuser,
         params: [user.nick, target_user.nick, target_user.username, target_user.hostname, "*"],
-        body: target_user.realname
+        trailing: target_user.realname
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_whoischannels,
         params: [user.nick, target_user.nick],
-        body: target_user_channel_names |> Enum.join(" ")
+        trailing: target_user_channel_names |> Enum.join(" ")
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_whoisserver,
         params: [user.nick, target_user.nick, "ElixIRCd", "0.1.0"],
-        body: "Elixir IRC daemon"
+        trailing: "Elixir IRC daemon"
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_whoisidle,
         params: [user.nick, target_user.nick, "0"],
-        body: "seconds idle, signon time"
+        trailing: "seconds idle, signon time"
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_endofwhois,
         params: [user.nick, target_user.nick],
-        body: "End of /WHOIS list."
+        trailing: "End of /WHOIS list."
       })
     ]
     |> Messaging.broadcast(user)

@@ -41,25 +41,25 @@ defmodule ElixIRCd.Server.Handshake do
 
     [
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_welcome,
         params: [user.nick],
-        body: "Welcome to the #{server_name} Internet Relay Chat Network #{user.nick}"
+        trailing: "Welcome to the #{server_name} Internet Relay Chat Network #{user.nick}"
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_yourhost,
         params: [user.nick],
-        body: "Your host is #{server_name}, running version 0.1.0."
+        trailing: "Your host is #{server_name}, running version 0.1.0."
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_created,
         params: [user.nick],
-        body: "This server was created #{DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string()}"
+        trailing: "This server was created #{DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string()}"
       }),
-      Message.build(%{source: :server, command: :rpl_myinfo, params: [user.nick], body: "ElixIRCd 0.1.0 +i +int"}),
-      Message.build(%{source: :server, command: :rpl_endofmotd, params: [user.nick], body: "End of MOTD command"})
+      Message.build(%{prefix: :server, command: :rpl_myinfo, params: [user.nick], trailing: "ElixIRCd 0.1.0 +i +int"}),
+      Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of MOTD command"})
     ]
     |> Messaging.broadcast(user)
 

@@ -18,15 +18,15 @@ defmodule ElixIRCd.Command.User do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_alreadyregistered,
       params: [user_reply],
-      body: "You may not reregister"
+      trailing: "You may not reregister"
     })
     |> Messaging.broadcast(user)
   end
 
-  def handle(user, %{command: "USER", params: [username, _, _], body: realname}) do
+  def handle(user, %{command: "USER", params: [username, _, _], trailing: realname}) do
     updated_user = Users.update(user, %{username: username, realname: realname})
 
     Handshake.handle(updated_user)
@@ -37,10 +37,10 @@ defmodule ElixIRCd.Command.User do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user_reply, "USER"],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end

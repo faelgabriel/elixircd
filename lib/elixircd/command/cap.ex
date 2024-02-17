@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.Cap do
   defp handle_cap_command(user, ["LS", "302"]) do
     user_reply = Helper.get_user_reply(user)
 
-    Message.build(%{source: :server, command: "CAP", params: [user_reply, "LS"]})
+    Message.build(%{prefix: :server, command: "CAP", params: [user_reply, "LS"]})
     |> Messaging.broadcast(user)
   end
 

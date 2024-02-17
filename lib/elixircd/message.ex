@@ -3,16 +3,16 @@ defmodule ElixIRCd.Message do
   Represents a structured IRC message format for both incoming and outgoing messages.
 
   An IRC message consists of the following parts:
-  - `source`: The server or user source (optional)
+  - `prefix`: The server or user source (optional)
   - `command`: The IRC command or numeric reply code
   - `params`: A list of parameters for the command (optional)
-  - `body`: The trailing part of the message, typically the content of a PRIVMSG or NOTICE (optional)
+  - `trailing`: The trailing part of the message, typically the content of a PRIVMSG or NOTICE (optional)
   """
 
   @doc """
-  The `source` denotes the origin of the message. It's typically the server name or a user's nick!user@host.
+  The `prefix` denotes the origin of the message. It's typically the server name or a user's nick!user@host.
   If present, it starts with a colon `:` and ends before the first space.
-  For incoming messages, the source is always nil.
+  For incoming messages, the prefix is always nil.
 
   ## Examples (Outgoing)
   - ":irc.example.com" for messages from the server.
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Message do
 
   --------------------------------------------
 
-  The `params` are a list of parameters for the command. This list does not include the trailing `body` part of the message.
+  The `params` are a list of parameters for the command. This list does not include the trailing part of the message.
 
   ## Examples (Incoming)
   - ["#channel", "Hello there!"] for a PRIVMSG command.
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Message do
 
   --------------------------------------------
 
-  The `body` is the trailing part of the IRC message, which is optional and typically used for specifying the content of messages.
+  The `trailing` is the trailing part of the IRC message, which is optional and typically used for specifying the content of messages.
 
   If present, it starts with a colon `:` and continues to the end of the message.
 
@@ -54,27 +54,27 @@ defmodule ElixIRCd.Message do
   - "Welcome to the IRC server!" as the content of a welcome message.
   """
   @enforce_keys [:command, :params]
-  defstruct source: nil, command: nil, params: [], body: nil
+  defstruct prefix: nil, command: nil, params: [], trailing: nil
 
   @type t :: %__MODULE__{
-          source: String.t() | nil,
+          prefix: String.t() | nil,
           command: String.t(),
           params: [String.t()],
-          body: String.t() | nil
+          trailing: String.t() | nil
         }
 
   @doc """
   Builds a Message struct.
   """
   @spec build(%{
-          optional(:source) => :server | String.t() | nil,
+          optional(:prefix) => :server | String.t() | nil,
           :command => atom() | String.t(),
           :params => [String.t()],
-          optional(:body) => String.t() | nil
+          optional(:trailing) => String.t() | nil
         }) :: __MODULE__.t()
-  def build(%{source: :server} = args) do
+  def build(%{prefix: :server} = args) do
     args
-    |> Map.put(:source, Application.get_env(:elixircd, :server_hostname))
+    |> Map.put(:prefix, Application.get_env(:elixircd, :server_hostname))
     |> build()
   end
 
@@ -86,10 +86,10 @@ defmodule ElixIRCd.Message do
 
   def build(args) do
     %__MODULE__{
-      source: args[:source],
+      prefix: args[:prefix],
       command: args[:command],
       params: args[:params],
-      body: args[:body]
+      trailing: args[:trailing]
     }
   end
 
@@ -98,25 +98,28 @@ defmodule ElixIRCd.Message do
 
   ## Examples
   - For a message ":irc.example.com NOTICE user :Server restarting",
-  - the function parses it into `%Message{source: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`
+  - the function parses it into `%Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}`
 
   - For a message "JOIN #channel",
-  - the function parses it into `%Message{source: nil, command: "JOIN", params: ["#channel"], body: nil}`
+  - the function parses it into `%Message{prefix: nil, command: "JOIN", params: ["#channel"], trailing: nil}`
 
   - For a message ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user",
-  - the function parses it into `%Message{source: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`
+  - the function parses it into `%Message{prefix: "Freenode.net", command: "001", params: ["user"], trailing: "Welcome to the freenode Internet Relay Chat Network user"}`
   """
   @spec parse(String.t()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def parse(raw_message) do
-    {source, rest_raw_message} =
+    {prefix, rest_raw_message} =
       raw_message
       |> String.trim_trailing()
-      |> extract_source()
+      |> extract_prefix()
 
     parse_command_and_params(rest_raw_message)
     |> case do
-      {command, params, body} -> {:ok, %__MODULE__{source: source, command: command, params: params, body: body}}
-      {:error, error} -> {:error, error}
+      {command, params, trailing} ->
+        {:ok, %__MODULE__{prefix: prefix, command: command, params: params, trailing: trailing}}
+
+      {:error, error} ->
+        {:error, error}
     end
   end
 
@@ -137,27 +140,27 @@ defmodule ElixIRCd.Message do
   Unparses the Message struct into a raw IRC message string.
 
   ## Examples
-  - For `%Message{source: "irc.example.com", command: "NOTICE", params: ["user"], body: "Server restarting"}`,
+  - For `%Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}`,
   - the function unparses it into ":irc.example.com NOTICE user :Server restarting"
 
-  - For `%Message{source: nil, command: "JOIN", params: ["#channel"], body: nil}`,
+  - For `%Message{prefix: nil, command: "JOIN", params: ["#channel"], trailing: nil}`,
   - the function unparses it into "JOIN #channel"
 
-  - For `%Message{source: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`,
+  - For `%Message{prefix: "Freenode.net", command: "001", params: ["user"], trailing: "Welcome to the freenode Internet Relay Chat Network user"}`,
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
   def unparse(%__MODULE__{command: ""} = message),
     do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
 
-  def unparse(%__MODULE__{source: nil, command: command, params: params, body: body}) do
+  def unparse(%__MODULE__{prefix: nil, command: command, params: params, trailing: trailing}) do
     base = [command | params]
-    {:ok, unparse_message(base, body)}
+    {:ok, unparse_message(base, trailing)}
   end
 
-  def unparse(%__MODULE__{source: source, command: command, params: params, body: body}) do
-    base = [":" <> source, command | params]
-    {:ok, unparse_message(base, body)}
+  def unparse(%__MODULE__{prefix: prefix, command: command, params: params, trailing: trailing}) do
+    base = [":" <> prefix, command | params]
+    {:ok, unparse_message(base, trailing)}
   end
 
   @doc """
@@ -172,56 +175,56 @@ defmodule ElixIRCd.Message do
     end
   end
 
-  # Extracts the source from the message if present.
-  # It returns {source, message_without_source}.
-  @spec extract_source(String.t()) :: {String.t() | nil, String.t()}
-  defp extract_source(":" <> message) do
-    [source | rest] = String.split(message, " ", parts: 2)
-    {String.trim_leading(source, ":"), Enum.join(rest, " ")}
+  # Extracts the prefix from the message if present.
+  # It returns {prefix, message_without_prefix}.
+  @spec extract_prefix(String.t()) :: {String.t() | nil, String.t()}
+  defp extract_prefix(":" <> message) do
+    [prefix | rest] = String.split(message, " ", parts: 2)
+    {String.trim_leading(prefix, ":"), Enum.join(rest, " ")}
   end
 
-  defp extract_source(message), do: {nil, message}
+  defp extract_prefix(message), do: {nil, message}
 
   # Parses the command and parameters from the message.
-  # It returns {command, params, body} or {:error, error}.
+  # It returns {command, params, trailing} or {:error, error}.
   @spec parse_command_and_params(String.t()) :: {String.t(), [String.t()], String.t() | nil} | {:error, String.t()}
   defp parse_command_and_params(message) do
     parts = String.split(message, " ", trim: true)
 
     case parts do
-      [command | params_and_body] ->
-        {params, body} = extract_body(params_and_body)
-        {String.upcase(command), params, body}
+      [command | params_and_trailing] ->
+        {params, trailing} = extract_trailing(params_and_trailing)
+        {String.upcase(command), params, trailing}
 
       [] ->
         {:error, "Invalid IRC message format on parsing command and params: #{inspect(message)}"}
     end
   end
 
-  # Extracts the body from the parameters if present.
-  @spec extract_body([String.t()]) :: {[String.t()], String.t() | nil}
-  defp extract_body(parts) do
-    # Find the index of the part where the body begins (first part containing a ':')
-    body_index = Enum.find_index(parts, &String.contains?(&1, ":"))
+  # Extracts the trailing from the parameters if present.
+  @spec extract_trailing([String.t()]) :: {[String.t()], String.t() | nil}
+  defp extract_trailing(parts) do
+    # Find the index of the part where the trailing begins (first part containing a ':')
+    trailing_index = Enum.find_index(parts, &String.contains?(&1, ":"))
 
-    case body_index do
+    case trailing_index do
       nil ->
-        # No body part; all parts are parameters
+        # No trailing part; all parts are parameters
         {parts, nil}
 
       index ->
-        # Extract parameters and body
+        # Extract parameters and trailing
         params = Enum.take(parts, index)
-        body_parts = Enum.drop(parts, index)
-        body = body_parts |> Enum.join(" ") |> String.trim_leading(":")
-        {params, body}
+        trailing_parts = Enum.drop(parts, index)
+        trailing = trailing_parts |> Enum.join(" ") |> String.trim_leading(":")
+        {params, trailing}
     end
   end
 
-  # Joins the base and body parts into a single message.
+  # Joins the base and trailing parts into a single message.
   @spec unparse_message([String.t()], String.t() | nil) :: String.t()
   defp unparse_message(base, nil), do: Enum.join(base, " ")
-  defp unparse_message(base, body), do: Enum.join(base ++ [":" <> body], " ")
+  defp unparse_message(base, trailing), do: Enum.join(base ++ [":" <> trailing], " ")
 
   # Numeric IRC response codes
   @spec numeric_reply(atom()) :: String.t()

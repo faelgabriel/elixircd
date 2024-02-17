@@ -10,7 +10,7 @@ defmodule ElixIRCd.Command.Quit do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(user, %{command: "QUIT", body: quit_message}) do
+  def handle(user, %{command: "QUIT", trailing: quit_message}) do
     # Sends a quit message to the user socket process.
     send(user.pid, {:user_quit, user.socket, quit_message})
 

@@ -153,7 +153,7 @@ defmodule ElixIRCd.Server do
       |> Enum.group_by(& &1.user_port)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.build(%{source: user.identity, command: "QUIT", params: [], body: quit_message})
+    Message.build(%{prefix: user.identity, command: "QUIT", params: [], trailing: quit_message})
     |> Messaging.broadcast(all_channel_users)
 
     UserChannels.delete_by_user_port(user.port)

@@ -12,12 +12,13 @@ defmodule ElixIRCd.Command.Ping do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(user, %{command: "PING", body: body}) when not is_nil(body) do
-    Message.build(%{source: :server, command: "PONG", params: [], body: body})
+  def handle(user, %{command: "PING", trailing: trailing}) when not is_nil(trailing) do
+    Message.build(%{prefix: :server, command: "PONG", params: [], trailing: trailing})
     |> Messaging.broadcast(user)
   end
+
   def handle(user, %{command: "PING", params: params}) when params != [] do
-    Message.build(%{source: :server, command: "PONG", params: params})
+    Message.build(%{prefix: :server, command: "PONG", params: params})
     |> Messaging.broadcast(user)
   end
 
@@ -26,10 +27,10 @@ defmodule ElixIRCd.Command.Ping do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user_reply, "PING"],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end

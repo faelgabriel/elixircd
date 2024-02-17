@@ -16,23 +16,23 @@ defmodule ElixIRCd.Command.Part do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PART"}) do
-    Message.build(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "PART", params: []}) do
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "PART"],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(user, %{command: "PART", params: [channel_names], body: part_message}) do
+  def handle(user, %{command: "PART", params: [channel_names], trailing: part_message}) do
     channel_names
     |> String.split(",")
     |> Enum.map(&String.trim/1)
@@ -47,28 +47,28 @@ defmodule ElixIRCd.Command.Part do
       UserChannels.delete(user_channel)
 
       Message.build(%{
-        source: user.identity,
+        prefix: user.identity,
         command: "PART",
         params: [channel.name],
-        body: part_message
+        trailing: part_message
       })
       |> Messaging.broadcast(channel_users)
     else
       {:error, "UserChannel not found"} ->
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_notonchannel,
           params: [user.nick, channel_name],
-          body: "You're not on that channel"
+          trailing: "You're not on that channel"
         })
         |> Messaging.broadcast(user)
 
       {:error, "Channel not found"} ->
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
-          body: "No such channel"
+          trailing: "No such channel"
         })
         |> Messaging.broadcast(user)
     end

@@ -21,17 +21,17 @@ defmodule ElixIRCd.Command.Join do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "JOIN"}) do
-    Message.build(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "JOIN", params: []}) do
     Message.build(%{
-      source: :server,
+      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "JOIN"],
-      body: "Not enough parameters"
+      trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
@@ -61,10 +61,10 @@ defmodule ElixIRCd.Command.Join do
     else
       {:error, error} ->
         Message.build(%{
-          source: :server,
+          prefix: :server,
           command: :err_cannotjoinchannel,
           params: [user.nick, channel_name],
-          body: "Cannot join channel: #{error}"
+          trailing: "Cannot join channel: #{error}"
         })
         |> Messaging.broadcast(user)
     end
@@ -94,7 +94,7 @@ defmodule ElixIRCd.Command.Join do
     user_channels = UserChannels.get_by_channel_name(channel.name)
 
     Message.build(%{
-      source: user.identity,
+      prefix: user.identity,
       command: "JOIN",
       params: [channel.name]
     })
@@ -102,7 +102,7 @@ defmodule ElixIRCd.Command.Join do
 
     if Enum.find(user_channel.modes, fn {mode, _} -> mode == :operator end) do
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: "MODE",
         params: [channel.name, "+o", user.nick]
       })
@@ -110,18 +110,18 @@ defmodule ElixIRCd.Command.Join do
     end
 
     [
-      Message.build(%{source: :server, command: :rpl_topic, params: [user.nick, channel.name], body: channel.topic}),
+      Message.build(%{prefix: :server, command: :rpl_topic, params: [user.nick, channel.name], trailing: channel.topic}),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_namreply,
         params: ["=", user.nick, channel.name],
-        body: get_user_channels_nicks(user_channels)
+        trailing: get_user_channels_nicks(user_channels)
       }),
       Message.build(%{
-        source: :server,
+        prefix: :server,
         command: :rpl_endofnames,
         params: [user.nick, channel.name],
-        body: "End of NAMES list."
+        trailing: "End of NAMES list."
       })
     ]
     |> Messaging.broadcast(user)
