@@ -163,13 +163,12 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:tcp)
       {:error, :timeout} = Client.recv(socket)
-
       assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
       assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
-      send(user.pid, {:tcp_closed, user.socket})
+      Client.disconnect(socket)
       :timer.sleep(100)
 
       assert {:error, :closed} == Client.recv(socket)
@@ -192,7 +191,7 @@ defmodule ElixIRCd.ServerTest do
       insert(:user_channel, %{user: user, channel: insert(:channel)})
       assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
-      send(user.pid, {:ssl_closed, user.socket})
+      Client.disconnect(socket)
       :timer.sleep(100)
 
       assert {:error, :closed} == Client.recv(socket)
@@ -391,7 +390,7 @@ defmodule ElixIRCd.ServerTest do
 
     @tag capture_log: true
     test "handles user not found error on disconnect" do
-      Client.connect(:ssl)
+      {:ok, socket} = Client.connect(:ssl)
       :timer.sleep(100)
 
       [user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
@@ -399,7 +398,7 @@ defmodule ElixIRCd.ServerTest do
 
       log =
         capture_log(fn ->
-          send(user.pid, {:ssl_closed, user.socket})
+          Client.disconnect(socket)
           :timer.sleep(100)
         end)
 

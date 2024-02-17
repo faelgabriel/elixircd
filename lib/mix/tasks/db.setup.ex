@@ -53,6 +53,10 @@ defmodule Mix.Tasks.Db.Setup do
 
     Memento.wait(@memory_tables, 10_000)
     |> verbose_info("Mnesia wait tables", options)
+    |> case do
+      :ok -> :ok
+      reason -> Mix.raise("Failed to wait for Mnesia tables. Error:\n#{inspect(reason)}")
+    end
 
     if options[:recreate] do
       Mix.shell().info("Mnesia database recreated successfully.")

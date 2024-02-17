@@ -10,9 +10,9 @@ defmodule ElixIRCd.MessageCase do
 
   use ExUnit.CaseTemplate
 
-  alias ExUnit.AssertionError
-
   import Mimic
+
+  alias ExUnit.AssertionError
 
   using do
     quote do
