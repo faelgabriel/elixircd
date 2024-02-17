@@ -2,7 +2,6 @@ defmodule ElixIRCd.MessageTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
-  doctest ElixIRCd.Message
 
   alias ElixIRCd.Message
 
@@ -43,7 +42,7 @@ defmodule ElixIRCd.MessageTest do
         body: args.body
       }
 
-      assert Message.new(args) == expected
+      assert Message.build(args) == expected
     end
 
     test "creates a message with :server atom source" do
@@ -56,7 +55,7 @@ defmodule ElixIRCd.MessageTest do
         body: args.body
       }
 
-      assert Message.new(args) == expected
+      assert Message.build(args) == expected
     end
 
     test "creates a message with numeric reply atom command" do
@@ -71,7 +70,7 @@ defmodule ElixIRCd.MessageTest do
           body: args.body
         }
 
-        assert Message.new(args) == expected
+        assert Message.build(args) == expected
       end)
     end
   end
@@ -232,7 +231,7 @@ defmodule ElixIRCd.MessageTest do
                {:error, "Invalid IRC message format on parsing command and params: \"\""}
 
       assert Message.parse(":") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
-      assert Message.parse(" ") == {:error, "Invalid IRC message format on parsing command and params: \" \""}
+      assert Message.parse(" ") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
       assert Message.parse("") == {:error, "Invalid IRC message format on parsing command and params: \"\""}
     end
   end
@@ -261,7 +260,7 @@ defmodule ElixIRCd.MessageTest do
         Message.parse!(":")
       end
 
-      assert_raise ArgumentError, "Invalid IRC message format on parsing command and params: \" \"", fn ->
+      assert_raise ArgumentError, "Invalid IRC message format on parsing command and params: \"\"", fn ->
         Message.parse!(" ")
       end
 

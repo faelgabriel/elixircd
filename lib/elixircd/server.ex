@@ -3,14 +3,17 @@ defmodule ElixIRCd.Server do
   Module for the server protocol.
   """
 
-  alias ElixIRCd.Command
-  alias ElixIRCd.Data.Contexts
-  alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message
+  @behaviour :ranch_protocol
 
   require Logger
 
-  @behaviour :ranch_protocol
+  alias ElixIRCd.Command
+  alias ElixIRCd.Helper
+  alias ElixIRCd.Message
+  alias ElixIRCd.Repository.UserChannels
+  alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
 
   @doc """
   Starts a linked user connection process for the SSL server protocol.
@@ -46,56 +49,43 @@ defmodule ElixIRCd.Server do
   """
   @spec init(ref :: pid(), transport :: atom(), _opts :: keyword()) :: :ok | :error
   def init(ref, transport, _opts) do
-    with {:ok, socket} <- :ranch.handshake(ref),
-         {:ok, _new_user} <- handle_connect(socket, transport, self()) do
-      transport.setopts(socket, [{:packet, :line}])
+    Logger.debug("New connection: #{inspect(ref)} (#{inspect(transport)})")
 
-      handle_connection(socket, transport)
-    else
+    :ranch.handshake(ref)
+    |> case do
+      {:ok, socket} ->
+        handle_connect(socket, transport, self())
+        handle_listening(socket, transport)
+
       reason ->
-        Logger.error("Error initializing connection: #{inspect(reason)}")
+        Logger.critical("Error initializing connection: #{inspect(reason)}")
         :error
     end
   end
 
-  @doc """
-  Sends a message to the given user or users.
-  """
-  @spec send_message(Message.t(), Schemas.User.t() | [Schemas.User.t()]) :: :ok
-  def send_message(message, user_or_users), do: send_messages([message], user_or_users)
+  @spec handle_connect(socket :: :inet.socket(), transport :: atom(), pid :: pid()) :: :ok
+  defp handle_connect(socket, transport, pid) do
+    Logger.debug("Connection established: #{inspect(socket)}")
 
-  @doc """
-  Sends multiple messages to the given user or users.
-  """
-  @spec send_messages([Message.t()], Schemas.User.t() | [Schemas.User.t()]) :: :ok
-  def send_messages(messages, %Schemas.User{} = user), do: send_messages(messages, [user])
-
-  def send_messages(messages, users) do
-    Enum.each(messages, fn message ->
-      raw_message = Message.unparse!(message)
-
-      Enum.each(users, fn user ->
-        send_packet(user, raw_message)
-      end)
+    Memento.transaction!(fn ->
+      Users.create(%{port: Helper.get_socket_port(socket), socket: socket, transport: transport, pid: pid})
     end)
 
-    :ok
+    transport.setopts(socket, [{:packet, :line}])
   end
 
-  # Continuously processes incoming data on the server.
-  # This function is the main loop of the server, handling incoming data and managing the socket's state.
-  @spec handle_connection(:inet.socket(), atom()) :: :ok
-  defp handle_connection(socket, transport) do
+  @spec handle_listening(:inet.socket(), atom()) :: :ok
+  defp handle_listening(socket, transport) do
     transport.setopts(socket, active: :once)
 
     receive do
       {:tcp, ^socket, data} ->
         handle_packet(socket, data)
-        handle_connection(socket, transport)
+        handle_listening(socket, transport)
 
       {:ssl, ^socket, data} ->
         handle_packet(socket, data)
-        handle_connection(socket, transport)
+        handle_listening(socket, transport)
 
       {:tcp_closed, ^socket} ->
         handle_disconnect(socket, transport, "Connection Closed")
@@ -111,7 +101,7 @@ defmodule ElixIRCd.Server do
         Logger.warning("SSL connection error: #{inspect(reason)}")
         handle_disconnect(socket, transport, "Connection Error")
 
-      {:user_quit, ^socket, reason} ->
+      {:user_quit, ^socket, reason} when not is_nil(reason) ->
         handle_disconnect(socket, transport, reason)
     after
       Application.get_env(:elixircd, :client_timeout) ->
@@ -119,19 +109,9 @@ defmodule ElixIRCd.Server do
     end
   rescue
     exception ->
-      Logger.critical("Error handling connection: #{inspect(exception)}")
+      stacktrace = __STACKTRACE__ |> Exception.format_stacktrace()
+      Logger.critical("Error handling connection: #{inspect(exception)}\nStacktrace:\n#{stacktrace}")
       handle_disconnect(socket, transport, "Server Error")
-  end
-
-  @spec handle_connect(socket :: :inet.socket(), transport :: atom(), pid :: pid()) ::
-          {:ok, Schemas.User.t()} | {:error, String.t()}
-  defp handle_connect(socket, transport, pid) do
-    Logger.debug("New connection: #{inspect(socket)}")
-
-    case Contexts.User.create(%{socket: socket, transport: transport, pid: pid}) do
-      {:ok, user} -> {:ok, user}
-      {:error, changeset} -> {:error, "Error creating user: #{inspect(changeset)}"}
-    end
   end
 
   @spec handle_disconnect(socket :: :inet.socket(), transport :: atom(), reason :: String.t()) :: :ok
@@ -140,51 +120,44 @@ defmodule ElixIRCd.Server do
 
     transport.close(socket)
 
-    case Contexts.User.get_by_socket(socket) do
-      {:error, _} -> :ok
-      {:ok, user} -> handle_user_quit(user, reason)
-    end
+    Memento.transaction!(fn ->
+      Users.get_by_port(Helper.get_socket_port(socket))
+      |> case do
+        {:ok, user} -> quit_user(user, reason)
+        {:error, error} -> Logger.critical("Error handling disconnect: #{inspect(error)}")
+      end
+    end)
   end
 
   @spec handle_packet(socket :: :inet.socket(), data :: String.t()) :: :ok
   defp handle_packet(socket, data) do
-    message = String.trim_trailing(data)
-    Logger.debug("<- #{inspect(message)}")
+    Logger.debug("<- #{inspect(data)}")
 
-    with {:ok, user} <- Contexts.User.get_by_socket(socket),
-         {:ok, message} <- Message.parse(message),
-         :ok <- Command.handle(user, message) do
-      :ok
-    else
-      {:error, error} -> Logger.debug("Error handling message #{inspect(message)}: #{inspect(error)}")
-    end
+    Memento.transaction!(fn ->
+      with {:ok, user} <- Users.get_by_port(Helper.get_socket_port(socket)),
+           {:ok, message} <- Message.parse(data) do
+        Command.handle(user, message)
+      else
+        {:error, error} -> Logger.debug("Error handling packet #{inspect(data)}: #{inspect(error)}")
+      end
+    end)
   end
 
-  @spec send_packet(user :: Schemas.User.t(), message :: String.t()) :: :ok
-  defp send_packet(%{socket: socket, transport: transport}, message) do
-    Logger.debug("-> #{inspect(message)}")
-    transport.send(socket, message <> "\r\n")
-  end
-
-  @spec handle_user_quit(user :: Schemas.User.t(), quit_message :: String.t()) :: :ok
-  defp handle_user_quit(user, quit_message) do
-    user_channels = Contexts.UserChannel.get_by_user(user)
-
-    # All users in all channels the user is in
+  @spec quit_user(user :: User.t(), quit_message :: String.t()) :: :ok
+  defp quit_user(user, quit_message) do
     all_channel_users =
-      Enum.reduce(user_channels, [], fn %Schemas.UserChannel{} = user_channel, acc ->
-        channel_users = Contexts.UserChannel.get_by_channel(user_channel.channel) |> Enum.map(& &1.user)
-        acc ++ channel_users
-      end)
-      |> Enum.uniq()
-      |> Enum.reject(fn x -> x == user end)
+      UserChannels.get_by_user_port(user.port)
+      |> Enum.map(& &1.channel_name)
+      |> UserChannels.get_by_channel_names()
+      |> Enum.reject(fn user_channel -> user_channel.user_port == user.port end)
+      |> Enum.group_by(& &1.user_port)
+      |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.new(%{source: user.identity, command: "QUIT", params: [], body: quit_message})
-    |> send_message(all_channel_users)
+    Message.build(%{source: user.identity, command: "QUIT", params: [], body: quit_message})
+    |> Messaging.broadcast(all_channel_users)
 
-    # Delete the user and all its associated user channels
-    Contexts.UserChannel.delete_all(user_channels)
-    Contexts.User.delete(user)
+    UserChannels.delete_by_user_port(user.port)
+    Users.delete(user)
 
     :ok
   end

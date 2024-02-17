@@ -9,14 +9,6 @@ defmodule ElixIRCd.Message do
   - `body`: The trailing part of the message, typically the content of a PRIVMSG or NOTICE (optional)
   """
 
-  @type t :: %__MODULE__{
-          source: String.t() | nil,
-          command: String.t(),
-          params: [String.t()],
-          body: String.t() | nil
-        }
-  @enforce_keys [:command, :params]
-
   @doc """
   The `source` denotes the origin of the message. It's typically the server name or a user's nick!user@host.
   If present, it starts with a colon `:` and ends before the first space.
@@ -61,30 +53,38 @@ defmodule ElixIRCd.Message do
   ## Examples (Outgoing)
   - "Welcome to the IRC server!" as the content of a welcome message.
   """
+  @enforce_keys [:command, :params]
   defstruct source: nil, command: nil, params: [], body: nil
 
+  @type t :: %__MODULE__{
+          source: String.t() | nil,
+          command: String.t(),
+          params: [String.t()],
+          body: String.t() | nil
+        }
+
   @doc """
-  Creates a new Message struct.
+  Builds a Message struct.
   """
-  @spec new(%{
+  @spec build(%{
           optional(:source) => :server | String.t() | nil,
           :command => atom() | String.t(),
           :params => [String.t()],
           optional(:body) => String.t() | nil
         }) :: __MODULE__.t()
-  def new(%{source: :server} = args) do
+  def build(%{source: :server} = args) do
     args
     |> Map.put(:source, Application.get_env(:elixircd, :server_hostname))
-    |> new()
+    |> build()
   end
 
-  def new(%{command: command} = args) when is_atom(command) do
+  def build(%{command: command} = args) when is_atom(command) do
     args
     |> Map.put(:command, numeric_reply(command))
-    |> new()
+    |> build()
   end
 
-  def new(args) do
+  def build(args) do
     %__MODULE__{
       source: args[:source],
       command: args[:command],
@@ -107,10 +107,13 @@ defmodule ElixIRCd.Message do
   - the function parses it into `%Message{source: "Freenode.net", command: "001", params: ["user"], body: "Welcome to the freenode Internet Relay Chat Network user"}`
   """
   @spec parse(String.t()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
-  def parse(message) do
-    {source, message} = extract_source(message)
+  def parse(raw_message) do
+    {source, rest_raw_message} =
+      raw_message
+      |> String.trim_trailing()
+      |> extract_source()
 
-    parse_command_and_params(message)
+    parse_command_and_params(rest_raw_message)
     |> case do
       {command, params, body} -> {:ok, %__MODULE__{source: source, command: command, params: params, body: body}}
       {:error, error} -> {:error, error}
@@ -118,12 +121,13 @@ defmodule ElixIRCd.Message do
   end
 
   @doc """
-  Parses the Message struct into a raw IRC message string.
+  Parses a raw IRC message string into an Message struct.
+
   Raises an ArgumentError if the message cannot be unparsed.
   """
   @spec parse!(String.t()) :: __MODULE__.t()
-  def parse!(message) do
-    case parse(message) do
+  def parse!(raw_message) do
+    case parse(raw_message) do
       {:ok, parsed} -> parsed
       {:error, error} -> raise ArgumentError, error
     end

@@ -3,41 +3,43 @@ defmodule ElixIRCd.Command.Privmsg do
   This module defines the PRIVMSG command.
   """
 
-  alias ElixIRCd.Data.Contexts
-  alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Helper
-  alias ElixIRCd.Message
-  alias ElixIRCd.Server
-
   @behaviour ElixIRCd.Command
 
+  alias ElixIRCd.Helper
+  alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Channels
+  alias ElixIRCd.Repository.UserChannels
+  alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
+
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PRIVMSG"}) do
-    Message.new(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
-    |> Server.send_message(user)
+    Message.build(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    |> Messaging.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "PRIVMSG", params: []}) do
-    Message.new(%{
+    Message.build(%{
       source: :server,
       command: :err_needmoreparams,
       params: [user.nick, "PRIVMSG"],
       body: "Not enough parameters"
     })
-    |> Server.send_message(user)
+    |> Messaging.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "PRIVMSG", body: nil}) do
-    Message.new(%{
+    Message.build(%{
       source: :server,
       command: :err_needmoreparams,
       params: [user.nick, "PRIVMSG"],
       body: "Not enough parameters"
     })
-    |> Server.send_message(user)
+    |> Messaging.broadcast(user)
   end
 
   @impl true
@@ -48,58 +50,59 @@ defmodule ElixIRCd.Command.Privmsg do
   end
 
   defp handle_channel_message(user, channel_name, message) do
-    with {:ok, channel} <- Contexts.Channel.get_by_name(channel_name),
-         {:ok, _user_channel} <- Contexts.UserChannel.get_by_user_and_channel(user, channel) do
-      channel_users = Contexts.UserChannel.get_by_channel(channel) |> Enum.map(& &1.user)
-      channel_users_without_user = Enum.reject(channel_users, &(&1 == user))
+    with {:ok, channel} <- Channels.get_by_name(channel_name),
+         {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+      channel_users_without_user =
+        UserChannels.get_by_channel_name(channel.name)
+        |> Enum.reject(&(&1.user_port == user.port))
 
-      Message.new(%{
+      Message.build(%{
         source: user.identity,
         command: "PRIVMSG",
         params: [channel.name],
         body: message
       })
-      |> Server.send_message(channel_users_without_user)
+      |> Messaging.broadcast(channel_users_without_user)
     else
       {:error, "UserChannel not found"} ->
-        Message.new(%{
+        Message.build(%{
           source: :server,
           command: :err_cannotsendtochan,
           params: [user.nick, channel_name],
           body: "Cannot send to channel"
         })
-        |> Server.send_message(user)
+        |> Messaging.broadcast(user)
 
       {:error, "Channel not found"} ->
-        Message.new(%{
+        Message.build(%{
           source: :server,
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
           body: "No such channel"
         })
-        |> Server.send_message(user)
+        |> Messaging.broadcast(user)
     end
   end
 
   defp handle_user_message(user, receiver_nick, message) do
-    case Contexts.User.get_by_nick(receiver_nick) do
+    case Users.get_by_nick(receiver_nick) do
       {:ok, receiver_user} ->
-        Message.new(%{
+        Message.build(%{
           source: user.identity,
           command: "PRIVMSG",
           params: [receiver_nick],
           body: message
         })
-        |> Server.send_message(receiver_user)
+        |> Messaging.broadcast(receiver_user)
 
       {:error, _} ->
-        Message.new(%{
+        Message.build(%{
           source: :server,
           command: :err_nosuchnick,
           params: [user.nick, receiver_nick],
           body: "No such nick"
         })
-        |> Server.send_message(user)
+        |> Messaging.broadcast(user)
     end
   end
 end

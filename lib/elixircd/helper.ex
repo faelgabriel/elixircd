@@ -3,7 +3,7 @@ defmodule ElixIRCd.Helper do
   Module for helper functions.
   """
 
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Tables.User
 
   @doc """
   Determines if a target is a channel name.
@@ -30,7 +30,7 @@ defmodule ElixIRCd.Helper do
   @doc """
   Gets the reply for a user's identity.
   """
-  @spec get_user_reply(Schemas.User.t()) :: String.t()
+  @spec get_user_reply(User.t()) :: String.t()
   def get_user_reply(%{identity: nil}), do: "*"
   def get_user_reply(%{nick: nick}), do: nick
 

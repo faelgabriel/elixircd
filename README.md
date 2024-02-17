@@ -190,3 +190,8 @@ To start the ElixIRCd server in interactive mode, run the following command:
 ```bash
 iex -S mix
 ```
+
+Mnesia Setup:
+```bash
+mix ecto.create
+```

@@ -42,7 +42,7 @@ defmodule ElixIRCd.MixProject do
   def application do
     [
       mod: {ElixIRCd, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :memento]
     ]
   end
 
@@ -52,23 +52,19 @@ defmodule ElixIRCd.MixProject do
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:doctor, "~> 0.21.0", only: :dev},
-      # Ecto override until Etso is updated
-      {:ecto, "~> 3.11", override: true},
-      {:etso, "~> 1.1.0"},
       {:ex_doc, "~> 0.30", only: :dev, runtime: false},
-      {:ex_machina, "~> 2.7", only: [:dev, :test]},
       {:excoveralls, "~> 0.18", only: :test},
+      {:memento, "~> 0.3.2"},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.7", only: [:dev, :test]},
       {:ranch, "~> 2.1"},
-      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:typed_ecto_schema, "~> 0.4.1", runtime: false}
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
     ]
   end
 
   defp dialyzer do
     [
-      plt_add_apps: [:ex_unit],
+      plt_add_apps: [:ex_unit, :mix],
       plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
     ]
   end

@@ -6,30 +6,30 @@ defmodule ElixIRCd.Command.Nick do
   Future:: issue on changing nick twice
   """
 
-  alias Ecto.Changeset
-  alias ElixIRCd.Data.Contexts
-  alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Helper
-  alias ElixIRCd.Message
-  alias ElixIRCd.Server
-  alias ElixIRCd.Server.Handshake
+  @behaviour ElixIRCd.Command
 
   require Logger
 
-  @behaviour ElixIRCd.Command
+  alias ElixIRCd.Helper
+  alias ElixIRCd.Message
+  alias ElixIRCd.Repository.UserChannels
+  alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Server.Handshake
+  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
 
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "NICK", params: [], body: nil}) do
     user_reply = Helper.get_user_reply(user)
 
-    Message.new(%{
+    Message.build(%{
       source: :server,
       command: :err_needmoreparams,
       params: [user_reply, "NICK"],
       body: "Not enough parameters"
     })
-    |> Server.send_message(user)
+    |> Messaging.broadcast(user)
   end
 
   @impl true
@@ -39,63 +39,75 @@ defmodule ElixIRCd.Command.Nick do
 
   @impl true
   def handle(user, %{command: "NICK", params: [nick]}) do
-    if nick_in_use?(nick) do
-      user_reply = Helper.get_user_reply(user)
-
-      Message.new(%{
-        source: :server,
-        command: :err_nicknameinuse,
-        params: [user_reply, nick],
-        body: "Nickname is already in use"
-      })
-      |> Server.send_message(user)
+    with :ok <- validate_nick(nick),
+         {:nick_in_use?, false} <- {:nick_in_use?, nick_in_use?(nick)} do
+      change_nick(user, nick)
     else
-      handle_nick(user, nick)
-    end
-  end
+      {:error, invalid_nick_error} ->
+        user_reply = Helper.get_user_reply(user)
 
-  @spec handle_nick(Schemas.User.t(), String.t()) :: :ok
-  defp handle_nick(user, nick) do
-    case Contexts.User.update(user, %{nick: nick}) do
-      {:ok, user} -> handle_identity(user, nick)
-      {:error, %Changeset{errors: errors}} -> handle_error(user, nick, errors)
-    end
-  end
-
-  @spec handle_identity(Schemas.User.t(), String.t()) :: :ok
-  defp handle_identity(user, nick) do
-    case user.identity do
-      nil ->
-        Handshake.handle(user)
-
-      _ ->
-        Message.new(%{
-          source: user.identity,
-          command: "NICK",
-          params: [nick]
+        Message.build(%{
+          source: :server,
+          command: :err_erroneusnickname,
+          params: [user_reply, nick],
+          body: "Nickname is unavailable: #{invalid_nick_error}"
         })
-        |> Server.send_message(user)
+        |> Messaging.broadcast(user)
+
+      {:nick_in_use?, true} ->
+        user_reply = Helper.get_user_reply(user)
+
+        Message.build(%{
+          source: :server,
+          command: :err_nicknameinuse,
+          params: [user_reply, nick],
+          body: "Nickname is already in use"
+        })
+        |> Messaging.broadcast(user)
     end
   end
 
-  @spec handle_error(Schemas.User.t(), String.t(), list()) :: :ok
-  defp handle_error(user, nick, errors) do
-    error_message = Enum.map_join(errors, ", ", fn {_, {message, _}} -> message end)
+  @spec change_nick(User.t(), String.t()) :: :ok
+  defp change_nick(%{identity: nil} = user, nick) do
+    updated_user = Users.update(user, %{nick: nick})
+    Handshake.handle(updated_user)
+  end
 
-    Message.new(%{
-      source: :server,
-      command: :err_erroneusnickname,
-      params: ["*", nick],
-      body: "Nickname is unavailable: #{error_message}"
-    })
-    |> Server.send_message(user)
+  defp change_nick(user, nick) do
+    old_identity = user.identity
+    new_identity = Handshake.build_user_identity(nick, user.username, user.hostname)
+
+    updated_user = Users.update(user, %{nick: nick, identity: new_identity})
+
+    all_channel_users =
+      UserChannels.get_by_user_port(user.port)
+      |> Enum.map(& &1.channel_name)
+      |> UserChannels.get_by_channel_names()
+      |> Enum.reject(fn user_channel -> user_channel.user_port == updated_user.port end)
+      |> Enum.group_by(& &1.user_port)
+      |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
+
+    Message.build(%{source: old_identity, command: "NICK", params: [nick]})
+    |> Messaging.broadcast([updated_user | all_channel_users])
   end
 
   @spec nick_in_use?(String.t()) :: boolean()
   defp nick_in_use?(nick) do
-    case Contexts.User.get_by_nick(nick) do
+    case Users.get_by_nick(nick) do
       {:ok, _} -> true
       {:error, _} -> false
+    end
+  end
+
+  @spec validate_nick(String.t()) :: :ok | {:error, String.t()}
+  defp validate_nick(nick) do
+    max_nick_length = 30
+    nick_pattern = ~r/\A[a-zA-Z\`|\^_{}\[\]\\][a-zA-Z\d\`|\^_\-{}\[\]\\]*\z/
+
+    cond do
+      String.length(nick) > max_nick_length -> {:error, "Nickname too long"}
+      !Regex.match?(nick_pattern, nick) -> {:error, "Illegal characters"}
+      true -> :ok
     end
   end
 end

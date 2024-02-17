@@ -3,15 +3,15 @@ defmodule ElixIRCd.Command.Cap do
   This module defines the CAP command.
   """
 
-  alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Helper
-  alias ElixIRCd.Message
-  alias ElixIRCd.Server
-
   @behaviour ElixIRCd.Command
 
+  alias ElixIRCd.Helper
+  alias ElixIRCd.Message
+  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
+
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "CAP", params: params}) do
     handle_cap_command(user, params)
   end
@@ -19,8 +19,8 @@ defmodule ElixIRCd.Command.Cap do
   defp handle_cap_command(user, ["LS", "302"]) do
     user_reply = Helper.get_user_reply(user)
 
-    Message.new(%{source: :server, command: "CAP", params: [user_reply, "LS"]})
-    |> Server.send_message(user)
+    Message.build(%{source: :server, command: "CAP", params: [user_reply, "LS"]})
+    |> Messaging.broadcast(user)
   end
 
   defp handle_cap_command(_user, _params) do

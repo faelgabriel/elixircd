@@ -3,9 +3,9 @@ defmodule ElixIRCd.Server.Supervisor do
   Supervisor for the SSL server.
   """
 
-  require Logger
-
   use Supervisor
+
+  require Logger
 
   @doc """
   Starts the server supervisor.

@@ -1,15 +1,13 @@
 defmodule ElixIRCd.CommandTest do
   @moduledoc false
 
-  use ExUnit.Case, async: true
+  use ElixIRCd.MessageCase, async: true
   use Mimic
-  doctest ElixIRCd.Command
+
+  import ElixIRCd.Factory
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
-  alias ElixIRCd.Server
-
-  import ElixIRCd.Factory
 
   @supported_commands [
     {"CAP", Command.Cap},
@@ -48,19 +46,11 @@ defmodule ElixIRCd.CommandTest do
     test "handles unknown command", %{user: user} do
       message = %Message{command: "UNKNOWN", params: []}
 
-      Server
-      |> expect(:send_message, fn input_message, input_user ->
-        assert input_message == %Message{
-                 source: "server.example.com",
-                 command: "421",
-                 params: [user.nick, message.command],
-                 body: "Unknown command"
-               }
-
-        assert input_user == user
-      end)
-
       Command.handle(user, message)
+
+      assert_sent_messages([
+        {user.socket, ":server.example.com 421 #{user.nick} #{message.command} :Unknown command\r\n"}
+      ])
     end
   end
 end

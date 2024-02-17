@@ -4,21 +4,22 @@ defmodule ElixIRCd.Command do
   """
 
   alias ElixIRCd.Command
-  alias ElixIRCd.Data.Schemas
+  alias ElixIRCd.Helper
   alias ElixIRCd.Message
-  alias ElixIRCd.Server
+  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
 
   @doc """
   Handles the IRC message command.
 
   Modules that implement this behaviour should define their own logic for handling the IRC message command.
   """
-  @callback handle(user :: Schemas.User.t(), message :: Message.t()) :: :ok
+  @callback handle(user :: User.t(), message :: Message.t()) :: :ok
 
   @doc """
   Forwards the IRC message command to the proper module.
   """
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok | {:error, String.t()}
+  @spec handle(User.t(), Message.t()) :: :ok | {:error, String.t()}
   def handle(user, %{command: "CAP"} = message), do: Command.Cap.handle(user, message)
   def handle(user, %{command: "JOIN"} = message), do: Command.Join.handle(user, message)
   def handle(user, %{command: "MODE"} = message), do: Command.Mode.handle(user, message)
@@ -32,7 +33,12 @@ defmodule ElixIRCd.Command do
   def handle(user, %{command: "WHOIS"} = message), do: Command.Whois.handle(user, message)
 
   def handle(user, %{command: command}) do
-    Message.new(%{source: :server, command: :err_unknowncommand, params: [user.nick, command], body: "Unknown command"})
-    |> Server.send_message(user)
+    Message.build(%{
+      source: :server,
+      command: :err_unknowncommand,
+      params: [Helper.get_user_reply(user), command],
+      body: "Unknown command"
+    })
+    |> Messaging.broadcast(user)
   end
 end

@@ -3,31 +3,32 @@ defmodule ElixIRCd.Command.Part do
   This module defines the PART command.
   """
 
-  alias ElixIRCd.Data.Contexts
-  alias ElixIRCd.Data.Schemas
-  alias ElixIRCd.Message
-  alias ElixIRCd.Server
+  @behaviour ElixIRCd.Command
 
   require Logger
 
-  @behaviour ElixIRCd.Command
+  alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Channels
+  alias ElixIRCd.Repository.UserChannels
+  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
 
   @impl true
-  @spec handle(Schemas.User.t(), Message.t()) :: :ok
+  @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{identity: nil} = user, %{command: "PART"}) do
-    Message.new(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
-    |> Server.send_message(user)
+    Message.build(%{source: :server, command: :err_notregistered, params: ["*"], body: "You have not registered"})
+    |> Messaging.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "PART", params: []}) do
-    Message.new(%{
+    Message.build(%{
       source: :server,
       command: :err_needmoreparams,
       params: [user.nick, "PART"],
       body: "Not enough parameters"
     })
-    |> Server.send_message(user)
+    |> Messaging.broadcast(user)
   end
 
   @impl true
@@ -38,45 +39,40 @@ defmodule ElixIRCd.Command.Part do
     |> Enum.each(&handle_channel(user, &1, part_message))
   end
 
-  @spec handle_channel(Schemas.User.t(), String.t(), String.t()) :: :ok
+  @spec handle_channel(User.t(), String.t(), String.t()) :: :ok
   defp handle_channel(user, channel_name, part_message) do
-    with {:ok, channel} <- Contexts.Channel.get_by_name(channel_name),
-         {:ok, user_channel} <- Contexts.UserChannel.get_by_user_and_channel(user, channel) do
-      part_message(user_channel.user, user_channel.channel, part_message)
-      Contexts.UserChannel.delete(user_channel)
+    with {:ok, channel} <- Channels.get_by_name(channel_name),
+         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+      channel_users = UserChannels.get_by_channel_name(channel.name)
+      UserChannels.delete(user_channel)
+
+      Message.build(%{
+        source: user.identity,
+        command: "PART",
+        params: [channel.name],
+        body: part_message
+      })
+      |> Messaging.broadcast(channel_users)
     else
       {:error, "UserChannel not found"} ->
-        Message.new(%{
+        Message.build(%{
           source: :server,
           command: :err_notonchannel,
           params: [user.nick, channel_name],
           body: "You're not on that channel"
         })
-        |> Server.send_message(user)
+        |> Messaging.broadcast(user)
 
       {:error, "Channel not found"} ->
-        Message.new(%{
+        Message.build(%{
           source: :server,
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
           body: "No such channel"
         })
-        |> Server.send_message(user)
+        |> Messaging.broadcast(user)
     end
 
     :ok
-  end
-
-  @spec part_message(Schemas.User.t(), Schemas.Channel.t(), String.t()) :: :ok
-  defp part_message(user, channel, part_message) do
-    channel_users = Contexts.UserChannel.get_by_channel(channel) |> Enum.map(& &1.user)
-
-    Message.new(%{
-      source: user.identity,
-      command: "PART",
-      params: [channel.name],
-      body: part_message
-    })
-    |> Server.send_message(channel_users)
   end
 end

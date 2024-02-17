@@ -3,78 +3,129 @@ defmodule ElixIRCd.Command.NickTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
-  doctest ElixIRCd.Command.Nick
+
+  import ElixIRCd.Factory
+  import Mimic
 
   alias ElixIRCd.Command.Nick
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Handshake
 
-  import ElixIRCd.Factory
-  import Mimic
-
   describe "handle/2" do
     test "handles NICK command with not enough parameters" do
-      user = insert(:user)
-      message = %Message{command: "NICK", params: []}
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "NICK", params: []}
 
-      Nick.handle(user, message)
+        Nick.handle(user, message)
 
-      assert_sent_messages([
-        {user.socket, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
-      ])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
+        ])
+      end)
     end
 
-    test "handles NICK command with invalid nick" do
-      user = insert(:user)
-      message = %Message{command: "NICK", params: ["invalid.nick"]}
+    test "handles NICK command with invalid nick too long" do
+      nick = "nick.too.long.nick.too.long.nick.too.long"
 
-      Nick.handle(user, message)
+      Memento.transaction!(fn ->
+        user = insert(:user, identity: nil)
+        message = %Message{command: "NICK", params: [nick]}
 
-      assert_sent_messages([
-        {user.socket, ":server.example.com 432 * invalid.nick :Nickname is unavailable: Illegal characters\r\n"}
-      ])
+        Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NICK command with invalid nick with illegal characters" do
+      nick = "invalid.nick"
+
+      Memento.transaction!(fn ->
+        user = insert(:user, identity: nil)
+        message = %Message{command: "NICK", params: [nick]}
+
+        Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
+        ])
+      end)
     end
 
     test "handles NICK command with valid nick already in use" do
-      user = insert(:user)
-      insert(:user, nick: "existing")
-      message = %Message{command: "NICK", params: ["existing"]}
+      nick = "existing"
+      insert(:user, nick: nick)
 
-      Nick.handle(user, message)
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "NICK", params: [nick]}
 
-      assert_sent_messages([
-        {user.socket, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
-      ])
+        Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
+        ])
+      end)
     end
 
     test "handles NICK command with valid nick for user registered" do
-      user = insert(:user)
-      message = %Message{command: "NICK", params: ["new_nick"]}
+      nick = "new_nick"
 
-      Nick.handle(user, message)
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "NICK", params: [nick]}
 
-      assert_sent_messages([{user.socket, ":#{user.identity} NICK new_nick\r\n"}])
+        Nick.handle(user, message)
+
+        assert_sent_messages([{user.socket, ":#{user.identity} NICK #{nick}\r\n"}])
+      end)
     end
 
     test "handles NICK command with valid nick for user not registered" do
       Handshake
       |> expect(:handle, fn _user -> :ok end)
 
-      user = insert(:user, identity: nil)
-      message = %Message{command: "NICK", params: ["new_nick"]}
+      Memento.transaction!(fn ->
+        user = insert(:user, identity: nil)
+        message = %Message{command: "NICK", params: ["new_nick"]}
 
-      Nick.handle(user, message)
+        Nick.handle(user, message)
 
-      assert_sent_messages([])
+        assert_sent_messages([])
+      end)
     end
 
-    test "handles NICK command with nick passed as body" do
-      user = insert(:user)
-      message = %Message{command: "NICK", params: [], body: "new_nick"}
+    test "handles NICK command with valid nick passed in the body" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "NICK", params: [], body: "new_nick"}
 
-      Nick.handle(user, message)
+        Nick.handle(user, message)
 
-      assert_sent_messages([{user.socket, ":#{user.identity} NICK new_nick\r\n"}])
+        assert_sent_messages([{user.socket, ":#{user.identity} NICK new_nick\r\n"}])
+      end)
+    end
+
+    test "handles NICK command with valid nick with user in a channel with other users" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+        another_user = insert(:user)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NICK", params: ["new_nick"]}
+
+        Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{user.identity} NICK new_nick\r\n"},
+          {another_user.socket, ":#{user.identity} NICK new_nick\r\n"}
+        ])
+      end)
     end
   end
 end

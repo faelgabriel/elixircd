@@ -3,14 +3,13 @@ defmodule ElixIRCd do
   ElixIRCd is an IRC server written in Elixir.
   """
 
-  require Logger
-
   use Application
+
+  require Logger
 
   @impl true
   def start(_type, _args) do
     children = [
-      ElixIRCd.Data.Repo,
       ElixIRCd.Server.Supervisor
     ]
 

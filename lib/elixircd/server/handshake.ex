@@ -3,59 +3,65 @@ defmodule ElixIRCd.Server.Handshake do
   Module for handling IRC server handshake for users.
   """
 
-  alias ElixIRCd.Data.Contexts
-  alias ElixIRCd.Data.Schemas
+  require Logger
+
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
-  alias ElixIRCd.Server
-
-  require Logger
+  alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
 
   @doc """
   Handles the user handshake.
+
+  This should be called around a transaction.
+  The `user` should be loaded in the same transaction.
   """
-  @spec handle(Schemas.User.t()) :: :ok
+  @spec handle(User.t()) :: :ok
   def handle(user) when user.nick != nil and user.username != nil and user.realname != nil do
     with {:ok, hostname} <- resolve_hostname(user.socket),
-         user_identity <- build_user_identity(user, hostname),
-         {:ok, updated_user} <- Contexts.User.update(user, %{hostname: hostname, identity: user_identity}) do
+         user_identity <- build_user_identity(user.nick, user.username, hostname),
+         updated_user <- Users.update(user, %{hostname: hostname, identity: user_identity}) do
       handle_motd(updated_user)
     else
       {:error, error} ->
-        Logger.error("Error handling handshake for user #{inspect(user)}: #{inspect(error)}")
+        Logger.critical("Error handling handshake for user #{inspect(user)}: #{inspect(error)}")
         :ok
     end
   end
 
   def handle(_user), do: :ok
 
-  @spec handle_motd(Schemas.User.t()) :: :ok
+  @spec build_user_identity(String.t(), String.t(), String.t()) :: String.t()
+  def build_user_identity(nick, username, hostname), do: "#{nick}!#{String.slice(username, 0..7)}@#{hostname}"
+
+  @spec handle_motd(User.t()) :: :ok
   defp handle_motd(user) do
     server_name = Application.get_env(:elixircd, :server_name)
 
     [
-      Message.new(%{
+      Message.build(%{
         source: :server,
         command: :rpl_welcome,
         params: [user.nick],
         body: "Welcome to the #{server_name} Internet Relay Chat Network #{user.nick}"
       }),
-      Message.new(%{
+      Message.build(%{
         source: :server,
         command: :rpl_yourhost,
         params: [user.nick],
         body: "Your host is #{server_name}, running version 0.1.0."
       }),
-      Message.new(%{
+      Message.build(%{
         source: :server,
         command: :rpl_created,
         params: [user.nick],
         body: "This server was created #{DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string()}"
       }),
-      Message.new(%{source: :server, command: :rpl_myinfo, params: [user.nick], body: "ElixIRCd 0.1.0 +i +int"}),
-      Message.new(%{source: :server, command: :rpl_endofmotd, params: [user.nick], body: "End of MOTD command"})
+      Message.build(%{source: :server, command: :rpl_myinfo, params: [user.nick], body: "ElixIRCd 0.1.0 +i +int"}),
+      Message.build(%{source: :server, command: :rpl_endofmotd, params: [user.nick], body: "End of MOTD command"})
     ]
-    |> Server.send_messages(user)
+    |> Messaging.broadcast(user)
 
     :ok
   end
@@ -91,10 +97,5 @@ defmodule ElixIRCd.Server.Handshake do
       |> Enum.map_join(":", &Integer.to_string(&1, 16))
 
     Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
-  end
-
-  @spec build_user_identity(Schemas.User.t(), String.t()) :: String.t()
-  defp build_user_identity(user, hostname) do
-    "#{user.nick}!#{String.slice(user.username, 0..7)}@#{hostname}"
   end
 end

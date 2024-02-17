@@ -3,50 +3,57 @@ defmodule ElixIRCd.Command.ModeTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
-  doctest ElixIRCd.Command.Mode
+
+  import ElixIRCd.Factory
 
   alias ElixIRCd.Command.Mode
   alias ElixIRCd.Message
 
-  import ElixIRCd.Factory
-
   describe "handle/2" do
     test "handles MODE command with user not registered" do
-      user = insert(:user, identity: nil)
-      message = %Message{command: "MODE", params: ["#anything"]}
+      Memento.transaction(fn ->
+        user = insert(:user, identity: nil)
+        message = %Message{command: "MODE", params: ["#anything"]}
 
-      Mode.handle(user, message)
+        Mode.handle(user, message)
 
-      assert_sent_messages([
-        {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
-      ])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+        ])
+      end)
     end
 
     test "handles MODE command with not enough parameters" do
-      user = insert(:user)
-      message = %Message{command: "MODE", params: []}
+      Memento.transaction(fn ->
+        user = insert(:user)
+        message = %Message{command: "MODE", params: []}
 
-      Mode.handle(user, message)
+        Mode.handle(user, message)
 
-      assert_sent_messages([
-        {user.socket, ":server.example.com 461 #{user.nick} MODE :Not enough parameters\r\n"}
-      ])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 461 #{user.nick} MODE :Not enough parameters\r\n"}
+        ])
+      end)
     end
 
-    test "Future: handles MODE command for channel" do
-      channel = insert(:channel)
+    # test "Future: handles MODE command for channel" do
+    #   Memento.transaction(fn ->
+    #     channel = insert(:channel)
 
-      user = insert(:user)
-      message = %Message{command: "MODE", params: [channel.name]}
+    #     user = insert(:user)
+    #     message = %Message{command: "MODE", params: [channel.name]}
 
-      Mode.handle(user, message)
-    end
+    #     Mode.handle(user, message)
+    #   end)
+    # end
 
-    test "Future: handles MODE command for user" do
-      user = insert(:user)
-      message = %Message{command: "MODE", params: [user.nick]}
+    # test "Future: handles MODE command for user" do
+    #   Memento.transaction(fn ->
+    #     user = insert(:user)
+    #     message = %Message{command: "MODE", params: [user.nick]}
 
-      Mode.handle(user, message)
-    end
+    #     Mode.handle(user, message)
+    #   end)
+    # end
   end
 end

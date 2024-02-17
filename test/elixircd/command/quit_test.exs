@@ -2,12 +2,11 @@ defmodule ElixIRCd.Command.QuitTest do
   @moduledoc false
 
   use ElixIRCd.DataCase, async: false
-  doctest ElixIRCd.Command.Quit
+
+  import ElixIRCd.Factory
 
   alias ElixIRCd.Command.Quit
   alias ElixIRCd.Message
-
-  import ElixIRCd.Factory
 
   describe "handle/2" do
     test "handles QUIT command" do

@@ -32,5 +32,8 @@ elixircd-*.tar
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
 
+# Mnesia
+/priv/mnesia.*/
+
 # ElixirLS
 /.elixir_ls/
