@@ -32,6 +32,9 @@ defmodule ElixIRCd.Server.Handshake do
 
   def handle(_user), do: :ok
 
+  @doc """
+  Builds the user identity.
+  """
   @spec build_user_identity(String.t(), String.t(), String.t()) :: String.t()
   def build_user_identity(nick, username, hostname), do: "#{nick}!#{String.slice(username, 0..7)}@#{hostname}"
 

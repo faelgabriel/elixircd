@@ -15,10 +15,13 @@ defmodule Mix.Tasks.Db.Setup do
     UserChannel
   ]
 
-  # Setting up disk persistence in Mnesia has always been a bit weird. It involves stopping the application,
-  # creating schemas on disk, restarting the application and then creating the tables with certain options.
-  @shortdoc "Setups the Mnesia database"
+  @doc """
+  Runs the task to setup the Mnesia database.
+  """
+  @spec run(list) :: :ok
   def run(args) do
+    # Setting up disk persistence in Mnesia has always been a bit weird. It involves stopping the application,
+    # creating schemas on disk, restarting the application and then creating the tables with certain options.
     options = parse_args(args)
 
     Memento.stop()

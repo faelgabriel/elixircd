@@ -4,8 +4,6 @@ defmodule ElixIRCd.MessageCase do
 
   It is used to setup the message agent before running tests and to clear it after running tests,
   and to provide assertions for sent messages.
-
-  Use this with async: false since agent is global.
   """
 
   use ExUnit.CaseTemplate
@@ -34,13 +32,7 @@ defmodule ElixIRCd.MessageCase do
         :ok
       end
 
-      @doc """
-      Asserts that the given messages were sent.
-
-      It must be called only once per test since it asserts all sent and expected messages.
-      """
-      @spec assert_sent_messages([{:inet.socket(), String.t()}]) :: :ok
-      def assert_sent_messages(expected_messages) do
+      defp assert_sent_messages(expected_messages) do
         agent_pid = Process.whereis(__MODULE__)
 
         if not (agent_pid != nil && Process.alive?(agent_pid)) do

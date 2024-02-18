@@ -35,6 +35,9 @@ defmodule ElixIRCd.Tables.User do
           created_at: DateTime.t()
         }
 
+  @doc """
+  Create a new user.
+  """
   @spec new(map()) :: t()
   def new(attrs) do
     new_attrs =
@@ -45,6 +48,9 @@ defmodule ElixIRCd.Tables.User do
     struct!(__MODULE__, new_attrs)
   end
 
+  @doc """
+  Update a user.
+  """
   @spec update(t(), map()) :: t()
   def update(user, attrs) do
     struct!(user, attrs)

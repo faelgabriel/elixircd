@@ -7,15 +7,17 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
+  @doc """
+  Builds a struct with the given attributes.
+  """
+  @spec build(atom(), map()) :: term()
   def build(_type, attrs \\ %{})
 
-  @spec build(atom(), keyword()) :: term()
   def build(type, attrs) when is_list(attrs) do
     map_attrs = Enum.into(attrs, %{})
     build(type, map_attrs)
   end
 
-  @spec build(:user, map()) :: User.t()
   def build(:user, attrs) do
     port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
@@ -34,7 +36,6 @@ defmodule ElixIRCd.Factory do
     }
   end
 
-  @spec build(:channel, map()) :: Channel.t()
   def build(:channel, attrs) do
     %Channel{
       name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
@@ -44,7 +45,6 @@ defmodule ElixIRCd.Factory do
     }
   end
 
-  @spec build(:user_channel, map()) :: UserChannel.t()
   def build(:user_channel, attrs) do
     port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
@@ -58,15 +58,17 @@ defmodule ElixIRCd.Factory do
     }
   end
 
+  @doc """
+  Inserts a new struct with the given attributes into the database.
+  """
+  @spec insert(atom(), map()) :: term()
   def insert(_type, attrs \\ %{})
 
-  @spec insert(atom(), keyword()) :: term()
   def insert(type, attrs) when is_list(attrs) do
     map_attrs = Enum.into(attrs, %{})
     insert(type, map_attrs)
   end
 
-  @spec insert(:user, map()) :: User.t()
   def insert(:user, attrs) do
     Memento.transaction!(fn ->
       build(:user, attrs)
@@ -74,7 +76,6 @@ defmodule ElixIRCd.Factory do
     end)
   end
 
-  @spec insert(:channel, map()) :: Channel.t()
   def insert(:channel, attrs) do
     Memento.transaction!(fn ->
       build(:channel, attrs)
@@ -82,7 +83,6 @@ defmodule ElixIRCd.Factory do
     end)
   end
 
-  @spec insert(:user_channel, map()) :: UserChannel.t()
   def insert(:user_channel, attrs) do
     user =
       case Map.get(attrs, :user) do

@@ -21,6 +21,9 @@ defmodule ElixIRCd.Tables.Channel do
           created_at: DateTime.t()
         }
 
+  @doc """
+  Create a new channel.
+  """
   @spec new(map()) :: t()
   def new(attrs) do
     new_attrs =
@@ -31,6 +34,9 @@ defmodule ElixIRCd.Tables.Channel do
     struct!(__MODULE__, new_attrs)
   end
 
+  @doc """
+  Update a channel.
+  """
   @spec update(t(), map()) :: t()
   def update(channel, attrs) do
     struct!(channel, attrs)
