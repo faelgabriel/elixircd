@@ -1,13 +1,13 @@
 defmodule ElixIRCd.MessageCaseTest do
   @moduledoc false
 
-  use ElixIRCd.MessageCase, async: false
+  use ElixIRCd.DataCase, async: false
+  use ElixIRCd.MessageCase
 
   alias ElixIRCd.Client
   alias ExUnit.AssertionError
 
   describe "assert_sent_messages/1" do
-    @tag capture_log: true
     test "passes if messages are sent in the correct order" do
       {:ok, tcp_socket} = Client.connect(:tcp)
       {:ok, ssl_socket} = Client.connect(:ssl)
@@ -25,7 +25,6 @@ defmodule ElixIRCd.MessageCaseTest do
       ])
     end
 
-    @tag capture_log: true
     test "raises an error messages are not sent in the correct order" do
       {:ok, tcp_socket} = Client.connect(:tcp)
       {:ok, ssl_socket} = Client.connect(:ssl)
@@ -45,7 +44,6 @@ defmodule ElixIRCd.MessageCaseTest do
       end
     end
 
-    @tag capture_log: true
     test "raises an error if messages are not sent" do
       {:ok, tcp_socket} = Client.connect(:tcp)
       {:ok, ssl_socket} = Client.connect(:ssl)
@@ -58,7 +56,6 @@ defmodule ElixIRCd.MessageCaseTest do
       end
     end
 
-    @tag capture_log: true
     test "raises an error if more messages are sent than expected" do
       {:ok, tcp_socket} = Client.connect(:tcp)
       {:ok, ssl_socket} = Client.connect(:ssl)

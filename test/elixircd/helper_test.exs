@@ -22,13 +22,11 @@ defmodule ElixIRCd.HelperTest do
   end
 
   describe "socket_connected?/1" do
-    @tag capture_log: true
     test "returns true for connected tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       assert true == Helper.socket_connected?(socket)
     end
 
-    @tag capture_log: true
     test "returns true for connected ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       assert true == Helper.socket_connected?(socket)
@@ -89,13 +87,11 @@ defmodule ElixIRCd.HelperTest do
   end
 
   describe "get_socket_ip/1" do
-    @tag capture_log: true
     test "gets ip from tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
     end
 
-    @tag capture_log: true
     test "gets ip from ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
@@ -109,7 +105,6 @@ defmodule ElixIRCd.HelperTest do
   end
 
   describe "get_socket_port/1" do
-    @tag capture_log: true
     test "gets port from tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       extracted_socket_port = Helper.get_socket_port(socket)
@@ -118,7 +113,6 @@ defmodule ElixIRCd.HelperTest do
       assert is_port(extracted_socket_port)
     end
 
-    @tag capture_log: true
     test "gets port from ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       extracted_socket_port = Helper.get_socket_port(socket)
