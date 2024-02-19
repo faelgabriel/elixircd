@@ -58,7 +58,8 @@ defmodule ElixIRCd.MixProject do
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.7", only: [:dev, :test]},
       {:ranch, "~> 2.1"},
-      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
+      {:wait_for_it, "~> 2.1", only: [:dev, :test]}
     ]
   end
 

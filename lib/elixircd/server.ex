@@ -7,8 +7,9 @@ defmodule ElixIRCd.Server do
 
   require Logger
 
+  import ElixIRCd.Helper, only: [get_socket_port: 1]
+
   alias ElixIRCd.Command
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
@@ -68,7 +69,7 @@ defmodule ElixIRCd.Server do
     Logger.debug("Connection established: #{inspect(socket)}")
 
     Memento.transaction!(fn ->
-      Users.create(%{port: Helper.get_socket_port(socket), socket: socket, transport: transport, pid: pid})
+      Users.create(%{port: get_socket_port(socket), socket: socket, transport: transport, pid: pid})
     end)
 
     transport.setopts(socket, [{:packet, :line}])
@@ -121,7 +122,7 @@ defmodule ElixIRCd.Server do
     transport.close(socket)
 
     Memento.transaction!(fn ->
-      Users.get_by_port(Helper.get_socket_port(socket))
+      Users.get_by_port(get_socket_port(socket))
       |> case do
         {:ok, user} -> quit_user(user, reason)
         {:error, error} -> Logger.critical("Error handling disconnect: #{inspect(error)}")
@@ -134,7 +135,7 @@ defmodule ElixIRCd.Server do
     Logger.debug("<- #{inspect(data)}")
 
     Memento.transaction!(fn ->
-      with {:ok, user} <- Users.get_by_port(Helper.get_socket_port(socket)),
+      with {:ok, user} <- Users.get_by_port(get_socket_port(socket)),
            {:ok, message} <- Message.parse(data) do
         Command.handle(user, message)
       else

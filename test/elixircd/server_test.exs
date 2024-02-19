@@ -6,6 +6,7 @@ defmodule ElixIRCd.ServerTest do
   import ElixIRCd.Factory
   import ExUnit.CaptureLog
   import Mimic
+  import WaitForIt
 
   alias ElixIRCd.Client
   alias ElixIRCd.Command
@@ -13,6 +14,8 @@ defmodule ElixIRCd.ServerTest do
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+
+  @wait_keywords [frequency: 10, timeout: 200]
 
   describe "init/1 by client connection" do
     setup :set_mimic_global
@@ -163,18 +166,16 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:tcp)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
       Client.disconnect(socket)
-      :timer.sleep(100)
-
       assert {:error, :closed} == Client.recv(socket)
 
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
     end
 
     @tag capture_log: true
@@ -186,18 +187,16 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:ssl)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
       Client.disconnect(socket)
-      :timer.sleep(100)
-
       assert {:error, :closed} == Client.recv(socket)
 
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
     end
 
     @tag capture_log: true
@@ -209,22 +208,21 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:tcp)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
       log =
         capture_log(fn ->
           send(user.pid, {:tcp_error, user.socket, :any_error})
-          :timer.sleep(100)
+
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
         end)
 
       assert log =~ "TCP connection error: :any_error"
       assert {:error, :closed} == Client.recv(socket)
-
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
     end
 
     @tag capture_log: true
@@ -236,22 +234,21 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:ssl)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
       log =
         capture_log(fn ->
           send(user.pid, {:ssl_error, user.socket, :any_error})
-          :timer.sleep(100)
+
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
         end)
 
       assert log =~ "SSL connection error: :any_error"
       assert {:error, :closed} == Client.recv(socket)
-
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
     end
 
     @tag capture_log: true
@@ -268,22 +265,21 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:tcp)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
       log =
         capture_log(fn ->
           Client.send(socket, "COMMAND test\r\n")
-          :timer.sleep(100)
+
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
         end)
 
       assert log =~ "Error handling connection: %RuntimeError{message: \"An error has occurred\"}"
       assert {:error, :closed} == Client.recv(socket)
-
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
     end
 
     @tag capture_log: true
@@ -300,22 +296,21 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:ssl)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
       log =
         capture_log(fn ->
           Client.send(socket, "COMMAND test\r\n")
-          :timer.sleep(100)
+
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+          assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
         end)
 
-      assert {:error, :closed} == Client.recv(socket)
       assert log =~ "Error handling connection: %RuntimeError{message: \"An error has occurred\"}"
-
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      assert {:error, :closed} == Client.recv(socket)
     end
 
     @tag capture_log: true
@@ -330,17 +325,15 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:ssl)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
-      :timer.sleep(200)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
 
       assert {:error, :closed} == Client.recv(socket)
-
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       Application.put_env(:elixircd, :client_timeout, original_timeout)
     end
@@ -354,25 +347,24 @@ defmodule ElixIRCd.ServerTest do
 
       {:ok, socket} = Client.connect(:ssl)
       {:error, :timeout} = Client.recv(socket)
-      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
       insert(:user_channel, %{user: user, channel: insert(:channel)})
-      assert [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
 
       send(user.pid, {:user_quit, user.socket, "Quit message"})
-      :timer.sleep(100)
+
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
 
       assert {:error, :closed} == Client.recv(socket)
-
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
-      assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
     end
 
     @tag capture_log: true
     test "handles successful quit notification" do
       {:ok, socket1} = Client.connect(:ssl)
       {:ok, socket2} = Client.connect(:ssl)
-      :timer.sleep(100)
+      :timer.sleep(200)
 
       [user1, user2] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
@@ -391,7 +383,7 @@ defmodule ElixIRCd.ServerTest do
     @tag capture_log: true
     test "handles user not found error on disconnect" do
       {:ok, socket} = Client.connect(:ssl)
-      :timer.sleep(100)
+      :timer.sleep(200)
 
       [user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
       Memento.transaction!(fn -> Users.delete(user) end)
@@ -399,7 +391,7 @@ defmodule ElixIRCd.ServerTest do
       log =
         capture_log(fn ->
           Client.disconnect(socket)
-          :timer.sleep(100)
+          :timer.sleep(200)
         end)
 
       assert log =~ "Error handling disconnect: \"User port not found: #{inspect(user.port)}\""
