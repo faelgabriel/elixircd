@@ -29,12 +29,14 @@ defmodule ElixIRCd.Server.MessagingTest do
       |> expect(:send, fn socket, raw_message ->
         assert socket == user.socket
         assert raw_message == ":server.example.com PING target\r\n"
+        :ok
       end)
 
       :ranch_tcp
       |> expect(:send, fn socket, raw_message ->
         assert socket == user_channel.user_socket
         assert raw_message == ":server.example.com PING target\r\n"
+        :ok
       end)
 
       :ranch_tcp
@@ -53,12 +55,14 @@ defmodule ElixIRCd.Server.MessagingTest do
       |> expect(:send, fn socket, raw_message ->
         assert socket == user.socket
         assert raw_message == ":server.example.com PING target\r\n"
+        :ok
       end)
 
       :ranch_tcp
       |> expect(:send, fn socket, raw_message ->
         assert socket == user_channel.user_socket
         assert raw_message == ":server.example.com PING target\r\n"
+        :ok
       end)
 
       :ranch_tcp
@@ -76,12 +80,14 @@ defmodule ElixIRCd.Server.MessagingTest do
       |> expect(:send, 2, fn socket, raw_message ->
         assert socket == user.socket
         assert raw_message == ":server.example.com PING target\r\n"
+        :ok
       end)
 
       :ranch_tcp
       |> expect(:send, 2, fn socket, raw_message ->
         assert socket == user_channel.user_socket
         assert raw_message == ":server.example.com PING target\r\n"
+        :ok
       end)
 
       :ranch_tcp

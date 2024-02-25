@@ -1,6 +1,6 @@
 # ---- Base Stage ----
 # This stage sets up the base environment for both development and production stages.
-FROM elixir:1.15.7-otp-25-alpine AS base
+FROM elixir:1.16.1-otp-26-alpine AS base
 
 ENV LANG=C.UTF-8
 
