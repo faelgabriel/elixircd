@@ -30,7 +30,7 @@ defmodule ElixIRCd.Command.Mode do
 
   # @impl true
   # def handle(_user, %{command: "MODE", params: [_target], trailing: nil}) do
-  #   # Future: list modes
+  #   # Future
   #   :ok
   # end
 

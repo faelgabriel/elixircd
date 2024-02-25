@@ -1,9 +1,6 @@
 defmodule ElixIRCd.Command.Nick do
   @moduledoc """
   This module defines the NICK command.
-
-  Future:: broadcast nick change for other users
-  Future:: issue on changing nick twice
   """
 
   @behaviour ElixIRCd.Command
