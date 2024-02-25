@@ -72,7 +72,5 @@ defmodule ElixIRCd.Command.Part do
         })
         |> Messaging.broadcast(user)
     end
-
-    :ok
   end
 end

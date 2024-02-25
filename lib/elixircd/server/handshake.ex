@@ -65,8 +65,6 @@ defmodule ElixIRCd.Server.Handshake do
       Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of MOTD command"})
     ]
     |> Messaging.broadcast(user)
-
-    :ok
   end
 
   @spec resolve_hostname(socket :: :inet.socket()) :: {:ok, String.t()} | {:error, String.t()}

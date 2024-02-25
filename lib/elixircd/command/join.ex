@@ -68,8 +68,6 @@ defmodule ElixIRCd.Command.Join do
         })
         |> Messaging.broadcast(user)
     end
-
-    :ok
   end
 
   @spec get_or_create_channel(String.t()) :: {channel_states(), Channel.t()}
@@ -125,8 +123,6 @@ defmodule ElixIRCd.Command.Join do
       })
     ]
     |> Messaging.broadcast(user)
-
-    :ok
   end
 
   @spec validate_channel_name(String.t()) :: :ok | {:error, String.t()}

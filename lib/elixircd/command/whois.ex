@@ -46,8 +46,6 @@ defmodule ElixIRCd.Command.Whois do
 
       whois_message(user, target_nick, target_user)
     end)
-
-    :ok
   end
 
   @doc """
@@ -70,8 +68,6 @@ defmodule ElixIRCd.Command.Whois do
       })
     ]
     |> Messaging.broadcast(user)
-
-    :ok
   end
 
   def whois_message(user, _target_nick, target_user) do
@@ -112,7 +108,5 @@ defmodule ElixIRCd.Command.Whois do
       })
     ]
     |> Messaging.broadcast(user)
-
-    :ok
   end
 end

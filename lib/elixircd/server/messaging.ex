@@ -24,18 +24,15 @@ defmodule ElixIRCd.Server.Messaging do
   def broadcast(message, users) when not is_list(message) and is_list(users) do
     raw_message = Message.unparse!(message)
     users |> Enum.each(&send_packet(&1, raw_message))
-    :ok
   end
 
   def broadcast(messages, user) when is_list(messages) and not is_list(user) do
     messages |> Enum.each(&broadcast(&1, user))
-    :ok
   end
 
   def broadcast(message, user) when not is_list(message) and not is_list(user) do
     raw_message = Message.unparse!(message)
     send_packet(user, raw_message)
-    :ok
   end
 
   @spec send_packet(User.t() | UserChannel.t(), String.t()) :: :ok
