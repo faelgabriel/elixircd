@@ -21,7 +21,7 @@ defmodule ElixIRCd.MixProject do
         "coveralls.json": :test,
         "coveralls.github": :test
       ],
-      test_coverage: [tool: ExCoveralls],
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 
