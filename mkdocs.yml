@@ -1,0 +1,62 @@
+site_name: ElixIRCd
+site_url: https://elixirc.org/
+site_author: Rafael Gabriel
+site_description: >-
+  ElixIRCd is a modern, efficient, and extensible IRC daemon server written in Elixir.
+
+repo_name: faelgabriel/elixircd
+repo_url: http://github.com/faelgabriel/elixircd
+
+copyright: Copyright &copy; ElixIRCd
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: http://github.com/faelgabriel/elixircd
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/link
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/toggle-switch-off
+        name: Switch to system preference
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - search.highlight
+    - search.suggest
+    - toc.integrate
+
+nav:
+  - ElixIRCd: index.md
+  - Installation: installation.md
+  - Configuration: configuration.md
+  - Features: features.md
+  - Releases: releases.md
+  - Contributing: contributing.md
