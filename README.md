@@ -1,4 +1,4 @@
-<h1 align="center">ElixIRCd (Under Development)</h1>
+<h1 align="center">ElixIRCd</h1>
 
 <p align="center">
   <a href="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml"><img src="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml/badge.svg" alt="Elixir CI"></a>
@@ -9,24 +9,87 @@
 
 ## Introduction
 
-ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust, scalable, and highly concurrent IRCd server environment. Its implementation leverages the functional nature and concurrency model of Elixir to deliver an efficient and reliable platform for IRC operations.
+ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust, scalable, and highly concurrent IRC server environment. Its implementation leverages the functional nature and concurrency model of Elixir to deliver an efficient and reliable platform for IRC operations.
 
-## Contributing
+## Status
 
-Contributions to ElixIRCd are welcome! If you have an issue or feature request, please open an issue on the issue tracker. We warmly welcome your pull requests.
+ElixIRCd is currently under active development. It is not yet ready for production use. The project is being developed in the open, and we welcome contributions from the community.
 
-Please see the [contributing guidelines](https://github.com/faelgabriel/elixircd/blob/main/CONTRIBUTING.md) for details on how to contribute to this project.
+## Installation
 
-## License
+To run ElixIRCd server, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the server container by running:
 
-This project is licensed under the [AGPL License](https://github.com/faelgabriel/elixircd/blob/main/LICENSE).
+```bash
+docker build --target production --tag elixircd:production .
+docker run -p 6667:6667 -p 6697:6697 --name elixircd -d elixircd:production
+```
+
+> Once the ElixiRCd has a stable release, we will provide the Docker image on Docker Hub.
+
+### SSL
+
+To run the server using SSL, you'll need to have a valid certificate and private key files. By default, the server expects the following files:
+
+```
+Private key: priv/ssl/key.pem
+Certificate: priv/ssl/cert.crt
+```
+
+To customize, see the `ssl_keyfile` and `ssl_certfile` configurations.
+
+## Development
+
+### Environment
+
+To set up the development environment, you need to have [Docker](https://docker.com/) or [asdf](https://asdf-vm.com/) installed.
+
+#### Docker
+
+```bash
+docker build --target development --tag elixircd:development .
+docker run -it -p 6667:6667 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd_dev -d elixircd:development
+```
+
+#### asdf
+
+```bash
+asdf plugin-add erlang
+asdf plugin-add elixir
+asdf install
+```
+
+### SSL
+
+For development, you can create a self-signed certificate:
+
+```
+mkdir -p priv/ssl/
+openssl req -x509 -newkey rsa:4096 -keyout priv/ssl/key.pem -out priv/ssl/cert.crt -days 365 -nodes -subj "/CN=localhost"
+```
+
+### Usage
+
+To install dependencies and set up the database, run the following commands:
+
+```bash
+mix deps.get
+mix db.setup
+```
+
+To start the ElixIRCd server in interactive mode, run the following command:
+
+```bash
+iex -S mix
+```
 
 # Features
 
 ## Classic IRCd Features
+
 These features are based on traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol. Key RFCs include [RFC 1459](https://datatracker.ietf.org/doc/html/rfc1459) (Internet Relay Chat Protocol), [RFC 2810](https://datatracker.ietf.org/doc/html/rfc2810) (IRC: Architecture), [RFC 2811](https://datatracker.ietf.org/doc/html/rfc2811) (IRC: Channel Management), [RFC 2812](https://datatracker.ietf.org/doc/html/rfc2812) (IRC: Client Protocol), [RFC 2813](https://datatracker.ietf.org/doc/html/rfc2813) (IRC: Server Protocol), and [RFC 7194](https://datatracker.ietf.org/doc/html/rfc7194) (Default Port for IRC via TLS/SSL).
 
 ### Protocol Mechanics
+
 - **Message Formatting**: Standard IRC message format.
 - **Message Handling**: Routing and delivery of messages.
 - **Message Types**: Different types of messages, e.g., PRIVMSG, NOTICE.
@@ -88,9 +151,11 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **SQUIT**: Allow operators to disconnect a server from the network gracefully.
 
 ## IRCv3 Features
+
 These features are based on the IRCv3 specifications, providing modern capabilities. More information at [ircv3.net](https://ircv3.net/).
 
 ### Enhanced Commands and Extensions
+
 - **Capability Negotiation**: Capability negotiation mechanism between clients and servers.
 - **Message Tags**: Additional metadata in messages.
 - **Account Authentication and Registration**: Secure SASL authentication mechanism.
@@ -114,6 +179,7 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients.
 
 ### Server Commands
+
 - **CAP**: Negotiate client capabilities with the server.
 - **AUTHENTICATE**: Log in to a client account using SASL authentication.
 - **ACCOUNT**: Notify clients of friends' new logins.
@@ -126,72 +192,12 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway.
 - **WHO**: Extended to allow clients to request additional information.
 
-<!-- ElixIRCd is a full IRC server implementation written in Elixir, taking advantage of its powerful features.
+## Contributing
 
-## Installation
+Contributions to ElixIRCd are welcome! If you have an issue or feature request, please open an issue on the issue tracker. Additionally, feel free to pick up any open issues that haven't been assigned yet. We warmly welcome your pull requests.
 
-### asdf
+Please see the [contributing guidelines](https://github.com/faelgabriel/elixircd/blob/main/CONTRIBUTING.md) for details on how to contribute to this project.
 
-To install ElixIRCd, you'll need to have [asdf](https://asdf-vm.com/) installed. Once you have asdf installed, you can install the required Elixir version by running:
+## License
 
-```bash
-asdf install
-```
-
-After installing the correct Elixir version, you can install the dependencies by running:
-
-```bash
-mix deps.get
-```
-
-### Docker
-
-To install ElixIRCd, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the application container by running:
-
-Development:
-```bash
-docker build --target development --tag elixircd:development .
-docker run -it -p 6667:6667 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd_dev -d elixircd:development
-```
-
-Production:
-```bash
-docker build --target production --tag elixircd:production .
-docker run -p 6667:6667 --restart always --name elixircd_prod -d elixircd:production
-```
-
-## SSL
-
-To run the server using SSL, you'll need to have a valid certificate and private key files.
-
-Private key file: `priv/ssl/key.pem`
-Certificate file: `priv/ssl/cert.crt`
-
-To customize, see the `ssl_keyfile` and `ssl_certfile` configurations.
-
-For development, you can create a self-signed certificate:
-```
-mkdir -p priv/ssl/
-openssl req -x509 -newkey rsa:4096 -keyout priv/ssl/key.pem -out priv/ssl/cert.crt -days 365 -nodes -subj "/CN=localhost"
-```
-
-For production, you'll need to create a trusted certificate. More info: https://letsencrypt.org/.
-
-## Usage (Development mode)
-
-To start the ElixIRCd server, run the following command:
-
-```bash
-mix run --no-halt
-```
-
-To start the ElixIRCd server in interactive mode, run the following command:
-
-```bash
-iex -S mix
-```
-
-Mnesia Setup:
-```bash
-mix ecto.create
-```
+This project is licensed under the [AGPL License](https://github.com/faelgabriel/elixircd/blob/main/LICENSE).

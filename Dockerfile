@@ -43,7 +43,7 @@ RUN mix do compile, release
 
 # ---- Production Run Application Stage ----
 # This stage sets up the environment to run the built application in production with a minimal image size.
-FROM elixir:1.15.7-otp-25-alpine AS production
+FROM elixir:1.16.1-otp-26-alpine AS production
 
 EXPOSE 6667 6668 6697 6698
 

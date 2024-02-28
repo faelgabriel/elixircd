@@ -22,15 +22,6 @@ defmodule ElixIRCd.MixProject do
         "coveralls.github": :test
       ],
       test_coverage: [tool: ExCoveralls],
-
-      # Docs
-      name: "ElixIRCd",
-      source_url: "https://github.com/faelgabriel/elixircd",
-      homepage_url: "https://faelgabriel.github.io/elixircd",
-      docs: [
-        main: "ElixIRCd",
-        extras: ["README.md"]
-      ]
     ]
   end
 
@@ -52,7 +43,6 @@ defmodule ElixIRCd.MixProject do
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:doctor, "~> 0.21.0", only: :dev},
-      {:ex_doc, "~> 0.30", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:memento, "~> 0.3.2"},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},

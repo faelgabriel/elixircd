@@ -12,7 +12,7 @@ Pull requests are always welcome! Before submitting a pull request, please ensur
 
 - All existing tests pass
 - New code is accompanied by tests that cover all cases
-- The code is formatted according to the Elixir style guide
+- The code is formatted according to the Elixir style guide (see Code Conventions below)
 - The pull request contains a clear description of the changes made and why they are needed
 - Each pull request should be kept small and focused on a single change or feature.
 - Functions should be well-documented and follow the [Elixir documentation conventions](https://hexdocs.pm/elixir/writing-documentation.html).
@@ -25,7 +25,7 @@ Please follow the Elixir style guide for all code contributions. You can find th
 
 We aim to maintain a high level of test coverage for this project to ensure that it remains stable and bug-free. When submitting changes, please ensure that all tests pass and that any new code is covered by tests.
 
-Our current test coverage target is 90%, as measured by [Coveralls](https://coveralls.io/). To check the current test coverage status, visit our [Coveralls page](https://coveralls.io/github/faelgabriel/elixircd).
+Our current test coverage target is 100%, as measured by [Coveralls](https://coveralls.io/). To check the current test coverage status, visit our [Coveralls page](https://coveralls.io/github/faelgabriel/elixircd).
 
 To run tests locally and check your code's test coverage, run the following command:
 
