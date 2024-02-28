@@ -24,6 +24,7 @@ defmodule ElixIRCd.Command do
   def handle(user, %{command: "JOIN"} = message), do: Command.Join.handle(user, message)
   def handle(user, %{command: "MODE"} = message), do: Command.Mode.handle(user, message)
   def handle(user, %{command: "NICK"} = message), do: Command.Nick.handle(user, message)
+  def handle(user, %{command: "NOTICE"} = message), do: Command.Notice.handle(user, message)
   def handle(user, %{command: "PART"} = message), do: Command.Part.handle(user, message)
   def handle(user, %{command: "PING"} = message), do: Command.Ping.handle(user, message)
   def handle(user, %{command: "PRIVMSG"} = message), do: Command.Privmsg.handle(user, message)

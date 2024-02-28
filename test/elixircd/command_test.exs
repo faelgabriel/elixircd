@@ -13,6 +13,7 @@ defmodule ElixIRCd.CommandTest do
     {"CAP", Command.Cap},
     {"JOIN", Command.Join},
     {"MODE", Command.Mode},
+    {"NOTICE", Command.Notice},
     {"NICK", Command.Nick},
     {"PART", Command.Part},
     {"PING", Command.Ping},

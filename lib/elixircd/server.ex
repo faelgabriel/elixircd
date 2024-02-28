@@ -17,9 +17,9 @@ defmodule ElixIRCd.Server do
   alias ElixIRCd.Tables.User
 
   @doc """
-  Starts a linked user connection process for the SSL server protocol.
+  Starts a linked user connection process for the server protocol.
 
-  This function initializes the SSL server process and links it to the calling process.
+  This function initializes the server process and links it to the calling process.
 
   ## Parameters
   - `ref`: The reference to the Ranch listener.
@@ -35,9 +35,9 @@ defmodule ElixIRCd.Server do
   end
 
   @doc """
-  Initializes the SSL server after a connection is established.
+  Initializes the connection to the server.
 
-  This function is called after a successful connection is established to initialize the server.
+  This function is called after a successful connection is established.
 
   ## Parameters
   - `ref`: The reference to the Ranch listener.
