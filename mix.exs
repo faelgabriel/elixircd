@@ -12,6 +12,7 @@ defmodule ElixIRCd.MixProject do
       aliases: aliases(),
       dialyzer: dialyzer(),
       elixirc_paths: elixirc_paths(Mix.env()),
+      releases: releases(),
 
       # Coveralls
       preferred_cli_env: [
@@ -40,6 +41,7 @@ defmodule ElixIRCd.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:burrito, "~> 1.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:doctor, "~> 0.21.0", only: :dev},
@@ -50,6 +52,25 @@ defmodule ElixIRCd.MixProject do
       {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:wait_for_it, "~> 2.1", only: [:dev, :test]}
+    ]
+  end
+
+  # Run "mix help releases" to learn about releases.
+  def releases do
+    [
+      example_cli_app: [
+        steps: [:assemble, &Burrito.wrap/1],
+        burrito: [
+          targets: [
+            macos: [os: :darwin, cpu: :x86_64],
+            macos_m1: [os: :darwin, cpu: :aarch64],
+            linux: [os: :linux, cpu: :x86_64],
+            linux_aarch64: [os: :linux, cpu: :aarch64],
+            windows: [os: :windows, cpu: :x86_64]
+          ],
+          debug: Mix.env() != :prod
+        ]
+      ]
     ]
   end
 
