@@ -16,6 +16,7 @@ defmodule ElixIRCd.Command.Cap do
     handle_cap_command(user, params)
   end
 
+  @spec handle_cap_command(User.t(), [String.t()]) :: :ok
   defp handle_cap_command(user, ["LS", "302"]) do
     user_reply = Helper.get_user_reply(user)
 
