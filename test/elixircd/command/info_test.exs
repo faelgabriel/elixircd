@@ -22,5 +22,27 @@ defmodule ElixIRCd.Command.InfoTest do
         ])
       end)
     end
+
+    test "handles INFO command with server parameter" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "INFO", params: ["server.example.com"]}
+
+        Info.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles INFO command without server parameter" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "INFO", params: []}
+
+        Info.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

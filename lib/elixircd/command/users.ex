@@ -17,10 +17,11 @@ defmodule ElixIRCd.Command.Users do
   end
 
   @impl true
-  def handle(user, %{command: "USERS"}) do
+  def handle(_user, %{command: "USERS"}) do
     # Scenario: User requests a list of users logged into the server
     # 1. Respond with RPL_USERSSTART (392) to indicate the start of the user list
     # 2. For each user, send RPL_USERS (393) with details about the user
     # 3. Respond with RPL_ENDOFUSERS (394) to indicate the end of the user list
+    :ok
   end
 end

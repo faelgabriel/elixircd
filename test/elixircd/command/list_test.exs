@@ -22,5 +22,27 @@ defmodule ElixIRCd.Command.ListTest do
         ])
       end)
     end
+
+    test "handles LIST command without channel patterns" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "LIST", params: []}
+
+        List.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles LIST command with channel patterns" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "LIST", params: ["#anything"]}
+
+        List.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

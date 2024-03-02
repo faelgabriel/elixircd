@@ -22,5 +22,29 @@ defmodule ElixIRCd.Command.WallopsTest do
         ])
       end)
     end
+
+    test "handles WALLOPS command with not enough parameters" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "WALLOPS", params: []}
+
+        Wallops.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 461 #{user.nick} WALLOPS :Not enough parameters\r\n"}
+        ])
+      end)
+    end
+
+    test "handles WALLOPS command with message" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "WALLOPS", params: [], trailing: "message"}
+
+        Wallops.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

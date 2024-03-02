@@ -22,5 +22,16 @@ defmodule ElixIRCd.Command.RehashTest do
         ])
       end)
     end
+
+    test "handles REHASH command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "REHASH", params: []}
+
+        Rehash.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

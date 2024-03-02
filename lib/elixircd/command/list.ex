@@ -17,14 +17,16 @@ defmodule ElixIRCd.Command.List do
   end
 
   @impl true
-  def handle(user, %{command: "LIST", params: []}) do
+  def handle(_user, %{command: "LIST", params: []}) do
     # If the user is registered and requests the list without any specific channel
     # 321 to start the list and 322 for each channel, 323 to end the list
+    :ok
   end
 
   @impl true
-  def handle(user, %{command: "LIST", params: [channel_patterns | _rest]}) do
+  def handle(_user, %{command: "LIST", params: [_channel_patterns | _rest]}) do
     # If the user requests the list with a specific channels or patterns
     # 321 to start the list and 322 for each matching channel, 323 to end the list
+    :ok
   end
 end

@@ -31,8 +31,9 @@ defmodule ElixIRCd.Command.Who do
   end
 
   @impl true
-  def handle(user, %{command: "WHO", params: [target | _rest]}) do
+  def handle(_user, %{command: "WHO", params: [_target | _rest]}) do
     # Scenario: WHO request with a specific channel or user pattern
     # Respond with a series of RPL_WHOREPLY (352) messages for matching users and end with RPL_ENDOFWHO (315)
+    :ok
   end
 end

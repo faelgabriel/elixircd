@@ -22,5 +22,29 @@ defmodule ElixIRCd.Command.StatsTest do
         ])
       end)
     end
+
+    test "handles STATS command with not enough parameters" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "STATS", params: []}
+
+        Stats.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 461 #{user.nick} STATS :Not enough parameters\r\n"}
+        ])
+      end)
+    end
+
+    test "handles STATS command with query flag" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "STATS", params: ["a"]}
+
+        Stats.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

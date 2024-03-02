@@ -22,5 +22,16 @@ defmodule ElixIRCd.Command.VersionTest do
         ])
       end)
     end
+
+    test "handles VERSION command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "VERSION", params: []}
+
+        Version.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

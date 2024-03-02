@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Pass do
 
     Message.build(%{
       prefix: :server,
-      command: :err_alreadyregistred,
+      command: :err_alreadyregistered,
       params: [user_reply],
       trailing: "Unauthorized command (already registered)"
     })
@@ -25,7 +25,7 @@ defmodule ElixIRCd.Command.Pass do
   end
 
   @impl true
-  def handle(user, %{command: "PASS"}, params: []) do
+  def handle(user, %{command: "PASS", params: []}) do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{
@@ -38,7 +38,7 @@ defmodule ElixIRCd.Command.Pass do
   end
 
   @impl true
-  def handle(user, %{command: "PASS", params: [password | _rest]}) do
+  def handle(_user, %{command: "PASS", params: [_password | _rest]}) do
     # Scenario: User attempts to authenticate with a password
     # 1. Validate the provided password against the server's list of authorized users.
     # 2. If authentication fails, respond with ERR_PASSWDMISMATCH (464).
@@ -47,5 +47,6 @@ defmodule ElixIRCd.Command.Pass do
     # 4. Respond with RPL_WELCOME (001) to acknowledge successful authentication.
     # Note: Implementing proper security measures for user authentication is crucial,
     #       including secure storage and handling of passwords.
+    :ok
   end
 end

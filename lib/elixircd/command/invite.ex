@@ -31,7 +31,7 @@ defmodule ElixIRCd.Command.Invite do
   end
 
   @impl true
-  def handle(user, %{command: "INVITE", params: [target_nick, channel_name | _rest]}) do
+  def handle(_user, %{command: "INVITE", params: [_target_nick, _channel_name | _rest]}) do
     # Scenarios to handle when both target nickname and channel name are provided:
     # 1. Target user does not exist: ERR_NOSUCHNICK (401)
     # 2. Inviting user not on the channel: ERR_NOTONCHANNEL (442)
@@ -39,5 +39,6 @@ defmodule ElixIRCd.Command.Invite do
     # 4. Inviting user lacks privileges to invite: ERR_CHANOPRIVSNEEDED (482)
     # 5. Successful invite: Send RPL_INVITING (341) and handle possible RPL_AWAY (301)
     # Each condition leads to a specific IRC numeric response or action.
+    :ok
   end
 end

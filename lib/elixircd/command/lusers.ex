@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Lusers do
   end
 
   @impl true
-  def handle(user, %{command: "LUSERS"}) do
+  def handle(_user, %{command: "LUSERS"}) do
     # Scenario: Client queries for network statistics
     # Any parameters provided with the LUSERS command are typically ignored.
     # Collect and respond with a series of statistics about the network:
@@ -38,5 +38,6 @@ defmodule ElixIRCd.Command.Lusers do
     # - Optionally, include RPL_LUSERSCONN (250) for the highest connection count with details.
     #   Example: "Highest connection count: <total> (<clients> clients) (<connections> connections received)"
     # The response provides a snapshot of the network's current state and capacity.
+    :ok
   end
 end

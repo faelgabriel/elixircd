@@ -17,16 +17,17 @@ defmodule ElixIRCd.Command.Trace do
   end
 
   @impl true
-  def handle(user, %{command: "TRACE"}, params: []) do
+  def handle(_user, %{command: "TRACE", params: []}) do
     # Scenario: TRACE command issued without any parameters
     # The server should initiate a trace of the route to itself, providing details about each hop (server) in the path.
     # Respond with a series of TRACE replies, each indicating a part of the path within the network.
     # This might include RPL_TRACELINK, RPL_TRACECONNECTING, RPL_TRACEHANDSHAKE, RPL_TRACEUNKNOWN,
     # RPL_TRACEOPERATOR, RPL_TRACEUSER, RPL_TRACESERVER, and ends with RPL_TRACEEND.
+    :ok
   end
 
   @impl true
-  def handle(user, %{command: "TRACE"}, params: [target | _rest]) do
+  def handle(_user, %{command: "TRACE", params: [_target | _rest]}) do
     # Scenario: TRACE command issued with a target parameter
     # The server should initiate a trace towards the specified target, which could be a server or a user.
     # The response should detail each hop in the path to the target, similar to the no-parameter scenario.
@@ -35,5 +36,6 @@ defmodule ElixIRCd.Command.Trace do
     # The trace report concludes with RPL_TRACEEND to indicate the end of the trace.
     # Note: If the target is not found or the trace cannot be completed, the server should still respond with RPL_TRACEEND,
     # possibly including an error message or indication that the target could not be reached.
+    :ok
   end
 end

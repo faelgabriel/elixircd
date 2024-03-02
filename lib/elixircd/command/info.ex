@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Info do
   end
 
   @impl true
-  def handle(user, %{command: "INFO"}, params: [server | _rest]) do
+  def handle(_user, %{command: "INFO", params: [_server | _rest]}) do
     # Scenario: Client queries for server and network information
     # Ignore any parameters provided with the INFO command as they are not typically used.
     # Respond with a series of replies to provide detailed information about the server:
@@ -27,10 +27,11 @@ defmodule ElixIRCd.Command.Info do
     # - RPL_ENDOFINFO (374): Indicate the end of the INFO response.
     #   Example: ":server.name 374 your_nick :End of /INFO list"
     # This sequence provides the client with detailed insights into the server and its network's background and policies.
+    :ok
   end
 
   @impl true
-  def handle(user, %{command: "INFO"}) do
+  def handle(_user, %{command: "INFO"}) do
     # Scenario: Client queries for server and network information
     # Ignore any parameters provided with the INFO command as they are not typically used.
     # Respond with a series of replies to provide detailed information about the server:
@@ -40,5 +41,6 @@ defmodule ElixIRCd.Command.Info do
     # - RPL_ENDOFINFO (374): Indicate the end of the INFO response.
     #   Example: ":server.name 374 your_nick :End of /INFO list"
     # This sequence provides the client with detailed insights into the server and its network's background and policies.
+    :ok
   end
 end

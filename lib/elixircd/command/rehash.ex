@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Rehash do
   end
 
   @impl true
-  def handle(user, %{command: "REHASH"}) do
+  def handle(_user, %{command: "REHASH"}) do
     # Scenario: Operator issues REHASH command
     # 1. Verify that the issuing user has operator privileges to use REHASH.
     #    If not, respond with ERR_NOPRIVILEGES (481).
@@ -28,5 +28,6 @@ defmodule ElixIRCd.Command.Rehash do
     #    Example: ":server.name 382 your_nick config.conf :Rehashing"
     # Note: The REHASH command is a critical operation and should be used with caution. It may
     # temporarily affect the server's performance or behavior as the new configuration is applied.
+    :ok
   end
 end

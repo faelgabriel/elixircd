@@ -22,5 +22,27 @@ defmodule ElixIRCd.Command.TraceTest do
         ])
       end)
     end
+
+    test "handles TRACE command with target parameter" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "TRACE", params: ["target"]}
+
+        Trace.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles TRACE command without target parameter" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "TRACE", params: []}
+
+        Trace.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

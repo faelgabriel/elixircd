@@ -31,7 +31,7 @@ defmodule ElixIRCd.Command.Oper do
   end
 
   @impl true
-  def handle(user, %{command: "OPER", params: [username, password | _rest]}) do
+  def handle(_user, %{command: "OPER", params: [_username, _password | _rest]}) do
     # Scenario: User attempts to authenticate as an operator
     # 1. Validate the provided username and password against the server's list of authorized operators.
     # 2. If authentication fails, respond with ERR_PASSWDMISMATCH (464).
@@ -40,5 +40,6 @@ defmodule ElixIRCd.Command.Oper do
     # 4. Respond with RPL_YOUREOPER (381) to acknowledge successful operator authentication.
     # Note: Implementing proper security measures for operator authentication is crucial,
     #       including secure storage and handling of passwords.
+    :ok
   end
 end

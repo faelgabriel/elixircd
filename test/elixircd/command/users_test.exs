@@ -22,6 +22,16 @@ defmodule ElixIRCd.Command.UsersTest do
         ])
       end)
     end
-  end
 
+    test "handles USERS command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "USERS", params: []}
+
+        Users.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+  end
 end

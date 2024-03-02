@@ -22,5 +22,16 @@ defmodule ElixIRCd.Command.TimeTest do
         ])
       end)
     end
+
+    test "handles TIME command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "TIME", params: []}
+
+        Time.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

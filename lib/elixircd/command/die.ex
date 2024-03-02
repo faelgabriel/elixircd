@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Die do
   end
 
   @impl true
-  def handle(user, %{command: "DIE"}) do
+  def handle(_user, %{command: "DIE"}) do
     # Scenario: Operator issues DIE command
     # 1. Verify that the issuing user has operator privileges to use DIE.
     #    If not, respond with ERR_NOPRIVILEGES (481).
@@ -27,5 +27,6 @@ defmodule ElixIRCd.Command.Die do
     #    Example: ":server.name 384 your_nick :Shutting down"
     # Note: The DIE command is a critical operation and should be used with caution. It may
     # temporarily affect the server's performance or behavior as the server is shutdown.
+    :ok
   end
 end

@@ -22,5 +22,27 @@ defmodule ElixIRCd.Command.AwayTest do
         ])
       end)
     end
+
+    test "handles AWAY command with no message" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "AWAY", params: []}
+
+        Away.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles AWAY command with message" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "AWAY", params: [], trailing: "I'm away"}
+
+        Away.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

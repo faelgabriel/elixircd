@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Motd do
   end
 
   @impl true
-  def handle(user, %{command: "MOTD"}) do
+  def handle(_user, %{command: "MOTD"}) do
     # Scenario: Client requests the Message of the Day
     # 1. Check if the MOTD file exists and is accessible.
     #    If not, respond with ERR_NOMOTD (422) indicating the MOTD is not available.
@@ -28,5 +28,6 @@ defmodule ElixIRCd.Command.Motd do
     #    ":server.name 372 your_nick :- Welcome to our IRC network!"
     #    ":server.name 376 your_nick :End of /MOTD command"
     # Note: The MOTD is often used to communicate important information and policies to users, so it should be kept up-to-date.
+    :ok
   end
 end

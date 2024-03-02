@@ -31,12 +31,13 @@ defmodule ElixIRCd.Command.Summon do
   end
 
   @impl true
-  def handle(user, %{command: "SUMMON", params: [target_nick | _rest]}) do
+  def handle(_user, %{command: "SUMMON", params: [_target_nick | _rest]}) do
     # Scenarios to handle when target nickname is provided:
     # 1. Target user does not exist: ERR_NOSUCHNICK (401)
     # 2. Target user is not logged in: ERR_USERSDONTMATCH (502)
     # 3. Target user is already summoned: ERR_SUMMONDISABLED (445)
     # 4. Successful summon: Send RPL_SUMMONING (342) and handle possible RPL_AWAY (301)
     # Each condition leads to a specific IRC numeric response or action.
+    :ok
   end
 end

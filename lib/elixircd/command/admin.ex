@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Admin do
   end
 
   @impl true
-  def handle(user, %{command: "ADMIN"}, params: [server | _rest]) do
+  def handle(_user, %{command: "ADMIN", params: [_server | _rest]}) do
     # Scenario: Client queries for server administrative information
     # Ignore any parameters provided with the ADMIN command as they are not typically used.
     # Respond with a series of replies to provide administrative contact information:
@@ -30,10 +30,11 @@ defmodule ElixIRCd.Command.Admin do
     # - RPL_ADMINEMAIL (259): The administrator's contact email.
     #   Example: ":server.name 259 your_nick :admin@example.com"
     # This provides the client with the necessary contact information for server administration.
+    :ok
   end
 
   @impl true
-  def handle(user, %{command: "ADMIN"}) do
+  def handle(_user, %{command: "ADMIN"}) do
     # Scenario: Client queries for server administrative information
     # Ignore any parameters provided with the ADMIN command as they are not typically used.
     # Respond with a series of replies to provide administrative contact information:
@@ -46,5 +47,6 @@ defmodule ElixIRCd.Command.Admin do
     # - RPL_ADMINEMAIL (259): The administrator's contact email.
     #   Example: ":server.name 259 your_nick :admin@example.com"
     # This provides the client with the necessary contact information for server administration.
+    :ok
   end
 end

@@ -31,7 +31,7 @@ defmodule ElixIRCd.Command.Stats do
   end
 
   @impl true
-  def handle(user, %{command: "STATS"}, params: [query_flag | _rest]) do
+  def handle(_user, %{command: "STATS", params: [_query_flag | _rest]}) do
     # Scenario: Client queries for specific statistics with a query flag
     # Depending on the query flag, collect and respond with the requested statistics.
     # Example flags and their associated responses:
@@ -43,5 +43,6 @@ defmodule ElixIRCd.Command.Stats do
     # and potentially ends with RPL_ENDOFSTATS (219) to indicate the end of the STATS report.
     # Note: Ensure to check if the user has the necessary privileges to view the requested statistics,
     # especially for sensitive information. Respond with ERR_NOPRIVILEGES (481) if not authorized.
+    :ok
   end
 end

@@ -31,11 +31,12 @@ defmodule ElixIRCd.Command.Kick do
   end
 
   @impl true
-  def handle(user, %{command: "KICK", params: [channel_name, target_nick | _rest], trailing: reason}) do
+  def handle(_user, %{command: "KICK", params: [_channel_name, _target_nick | _rest], trailing: _reason}) do
     # 403 Nickname #channel :No such channel (If the channel doesn't exist)
     # 442 Nickname #channel :You're not on that channel (If the user trying to kick is not on the channel)
     # 482 Nickname #channel :You're not channel operator (If the user is not an operator of the channel)
     # Kick message to channel: :Nickname!Username@Host KICK #channel TargetUser :Reason
     # Note: The actual removal of the target user from the channel and broadcasting the kick message to all channel members would be implemented here.
+    :ok
   end
 end

@@ -31,11 +31,12 @@ defmodule ElixIRCd.Command.Kill do
   end
 
   @impl true
-  def handle(user, %{command: "KICK", params: [target_nick | _rest], trailing: reason}) do
+  def handle(_user, %{command: "KILL", params: [_target_nick | _rest], trailing: _reason}) do
     # Scenarios to handle when a target nickname and reason are provided:
     # 1. Target user does not exist: ERR_NOSUCHNICK (401)
     # 2. Target user is the same as the user issuing the KILL command: ERR_CANTKILLSERVER (483)
     # 3. Successful KILL: Send RPL_KILL (349) and disconnect the target user
     # Each condition leads to a specific IRC numeric response or action.
+    :ok
   end
 end

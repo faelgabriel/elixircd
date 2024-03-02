@@ -17,11 +17,12 @@ defmodule ElixIRCd.Command.Version do
   end
 
   @impl true
-  def handle(user, %{command: "VERSION"}) do
+  def handle(_user, %{command: "VERSION"}) do
     # Scenario: Client queries for server version
     # Respond with RPL_VERSION (351), providing the version of the IRCd,
     # the server's name, and optionally, a comment field with additional information.
     # The format for RPL_VERSION is "<version>.<debuglevel> <server> :<comments>"
     # Example response might be "ElixIRCd-1.0.0 0 irc.example.com :Elixir based IRCd"
+    :ok
   end
 end

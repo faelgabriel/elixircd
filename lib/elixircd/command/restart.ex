@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.Restart do
   end
 
   @impl true
-  def handle(user, %{command: "RESTART"}) do
+  def handle(_user, %{command: "RESTART"}) do
     # Scenario: Operator issues RESTART command
     # 1. Verify that the issuing user has operator privileges to use RESTART.
     #    If not, respond with ERR_NOPRIVILEGES (481).
@@ -27,5 +27,6 @@ defmodule ElixIRCd.Command.Restart do
     #    Example: ":server.name 384 your_nick :Restarting"
     # Note: The RESTART command is a critical operation and should be used with caution. It may
     # temporarily affect the server's performance or behavior as the server is restarted.
+    :ok
   end
 end

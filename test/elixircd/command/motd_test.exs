@@ -22,5 +22,16 @@ defmodule ElixIRCd.Command.MotdTest do
         ])
       end)
     end
+
+    test "handles MOTD command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "MOTD", params: []}
+
+        Motd.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

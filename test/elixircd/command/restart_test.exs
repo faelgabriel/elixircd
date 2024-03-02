@@ -22,5 +22,16 @@ defmodule ElixIRCd.Command.RestartTest do
         ])
       end)
     end
+
+    test "handles RESTART command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "RESTART", params: []}
+
+        Restart.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

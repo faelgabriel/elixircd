@@ -31,7 +31,7 @@ defmodule ElixIRCd.Command.Ison do
   end
 
   @impl true
-  def handle(user, %{command: "ISON", params: target_nicks}) do
+  def handle(_user, %{command: "ISON", params: _target_nicks}) do
     # Scenario: Checking the online status of specified nicknames
     # The command may include multiple nicknames separated by spaces in the params.
     # 1. Split the nicknames from the params.
@@ -39,5 +39,6 @@ defmodule ElixIRCd.Command.Ison do
     # 3. Collect the nicknames that are currently online.
     # 4. Respond with RPL_ISON (303) listing all online nicknames from the queried list.
     # Note: If no nicknames are specified, the server might respond with RPL_ISON with an empty list.
+    :ok
   end
 end

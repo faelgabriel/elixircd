@@ -22,5 +22,29 @@ defmodule ElixIRCd.Command.WhoTest do
         ])
       end)
     end
+
+    test "handles WHO command with not enough parameters" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "WHO", params: []}
+
+        Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 461 #{user.nick} WHO :Not enough parameters\r\n"}
+        ])
+      end)
+    end
+
+    test "handles WHO command with target" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "WHO", params: ["target"]}
+
+        Who.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

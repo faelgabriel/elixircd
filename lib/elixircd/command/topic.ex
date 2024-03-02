@@ -31,18 +31,20 @@ defmodule ElixIRCd.Command.Topic do
   end
 
   @impl true
-  def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: nil}) do
+  def handle(_user, %{command: "TOPIC", params: [_channel_name | _rest], trailing: nil}) do
     # If a topic is set: 332 Nickname #channel :Current channel topic
     # If no topic is set: 331 Nickname #channel :No topic is set
+    :ok
   end
 
   @impl true
-  def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: topic}) do
+  def handle(_user, %{command: "TOPIC", params: [_channel_name | _rest], trailing: _topic}) do
     # 482 Nickname #channel :You're not channel operator (If the channel is set to +t mode, and a non-operator user attempts to change the topic.)
     # 403 Nickname #channel :No such channel
     # 442 #channel :You're not on that channel
 
     # :Nickname!Username@Host TOPIC #channel :New topic here
     # Broadcast the new topic to all users in the channel
+    :ok
   end
 end

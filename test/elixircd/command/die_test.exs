@@ -22,5 +22,16 @@ defmodule ElixIRCd.Command.DieTest do
         ])
       end)
     end
+
+    test "handles DIE command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "DIE", params: []}
+
+        Die.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end

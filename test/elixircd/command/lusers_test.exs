@@ -22,5 +22,16 @@ defmodule ElixIRCd.Command.LusersTest do
         ])
       end)
     end
+
+    test "handles LUSERS command" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "LUSERS", params: []}
+
+        Lusers.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end
