@@ -10,18 +10,43 @@ defmodule ElixIRCd.CommandTest do
   alias ElixIRCd.Message
 
   @supported_commands [
+    {"ADMIN", Command.Admin},
+    {"AWAY", Command.Away},
     {"CAP", Command.Cap},
+    {"DIE", Command.Die},
+    {"INFO", Command.Info},
+    {"INVITE", Command.Invite},
+    {"ISON", Command.Ison},
     {"JOIN", Command.Join},
+    {"KICK", Command.Kick},
+    {"KILL", Command.Kill},
+    {"LIST", Command.List},
+    {"LUSERS", Command.Lusers},
     {"MODE", Command.Mode},
+    {"MOTD", Command.Motd},
     {"NOTICE", Command.Notice},
     {"NICK", Command.Nick},
+    {"OPER", Command.Oper},
     {"PART", Command.Part},
+    {"PASS", Command.Pass},
     {"PING", Command.Ping},
     {"PRIVMSG", Command.Privmsg},
     {"QUIT", Command.Quit},
+    {"REHASH", Command.Rehash},
+    {"RESTART", Command.Restart},
+    {"STATS", Command.Stats},
+    {"SUMMON", Command.Summon},
+    {"TOPIC", Command.Topic},
+    {"TRACE", Command.Trace},
+    {"TIME", Command.Time},
     {"USER", Command.User},
+    {"USERS", Command.Users},
     {"USERHOST", Command.Userhost},
-    {"WHOIS", Command.Whois}
+    {"VERSION", Command.Version},
+    {"WALLOPS", Command.Wallops},
+    {"WHO", Command.Who},
+    {"WHOIS", Command.Whois},
+    {"WHOWAS", Command.Whowas}
   ]
 
   describe "handle/2" do
@@ -54,4 +79,6 @@ defmodule ElixIRCd.CommandTest do
       ])
     end
   end
+
+  # TODO: create a test that try to handles the messages in all possible eays (1 parameter, 2, 3..., nil trailing or not, etc.)
 end

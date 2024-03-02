@@ -36,60 +36,69 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **Message Types**: Different types of messages, e.g., PRIVMSG, NOTICE. ✅
 - **Channel Control**: Creating, joining, and leaving channels. ✅
 - **Channel Types and Modes**: Public, private, secret channels, and various modes. ✴️
-- **Channel Topics**: Managing and displaying channel topics. ❌
-- **Channel Lists**: Retrieving lists of available channels. ❌
-- **Nicknames**: Rules for nickname registration and uniqueness. ❌
+- **Channel Topics**: Managing and displaying channel topics. ✴️
+- **Channel Lists**: Retrieving lists of available channels. ✴️
+- **Nicknames**: Rules for nickname registration and uniqueness. ✴️
 - **User Modes**: Different modes for users like invisible, operator, etc. ✴️
 - **User Lists**: Obtaining lists of users in channels. ✅
-- **Bans and Kicks**: Rules for user removal from channels. ❌
-- **Privileges**: Granting operator and user privileges. ❌
-- **CTCP (Client-to-Client Protocol)**: Custom commands and queries. ❌
+- **Bans and Kicks**: Rules for user removal from channels. ✴️
+- **Privileges**: Granting operator and user privileges. ✴️
+- **CTCP (Client-to-Client Protocol)**: Custom commands and queries. ✅
 - **Idle Time Tracking**: Monitoring user activity and idle times. ✴️
 - **Connection Management**: Using PING/PONG for connection stability. ✅
 - **Error Handling**: How errors and exceptional conditions are managed. ✅
 - **Motd (Message of the Day)**: Customization of server-wide announcements and informational messages. ✴️
-- **Server Statistics**: Gathering and reporting network and server statistics. ❌
-- **Oper Commands**: Special commands for server operators (IRCops). ❌
+- **Server Statistics**: Gathering and reporting network and server statistics. ✴️
+- **Oper Commands**: Special commands for server operators (IRCops). ✴️
 - **TLS Protocol**: For secure, encrypted connections. ✅
 
 ### Server Commands
 
+- **PASS**: Set a password for the connection. ✴️
 - **NICK**: Set or change a user's nickname. ✅
 - **USER**: Specify username, hostname, servername, and real name. ✅
 - **JOIN**: Join a channel or create one if it doesn't exist. ✅
 - **PART**: Leave a channel. ✅
 - **MODE**: Set or unset user or channel modes. ✴️
-- **TOPIC**: Set or get the topic of a channel. ❌
+- **TOPIC**: Set or get the topic of a channel. ✴️
 - **NAMES**: List all visible nicknames on a channel. ✅
-- **LIST**: List channels and their topics. ❌
-- **INVITE**: Invite a user to a channel. ❌
-- **KICK**: Eject a user from a channel. ❌
+- **LIST**: List channels and their topics. ✴️
+- **INVITE**: Invite a user to a channel. ✴️
+- **SUMMON**: Summon a user to the IRC network. ✴️
+- **KICK**: Eject a user from a channel. ✴️
 - **PRIVMSG**: Send private messages between users or to a channel. ✅
 - **NOTICE**: Send a message to a user or channel without automatic reply. ✅
 - **MOTD**: Request the Message of the Day from the server. ✴️
-- **LUSERS**: Get statistics about the size of the network. ❌
+- **LUSERS**: Get statistics about the size of the network. ✴️
 - **WHOIS**: Get information about a user. ✅
-- **WHO**: Get information about users on a server. ❌
-- **WHOWAS**: Get information about a user who has left. ❌
-- **AWAY**: Set an away message. ❌
+- **WHO**: Get information about users on a server. ✅
+- **WHOWAS**: Get information about a user who has left. ✴️
+- **USERS**: List users logged into the server. ✴️
+- **AWAY**: Set an away message. ✴️
 - **PING/PONG**: Test the presence of an active connection. ✅
 - **QUIT**: Disconnect from the server.
-- **WALLOPS**: Distribute messages to users with 'wallop' privileges. ❌
+- **WALLOPS**: Distribute messages to users with 'wallop' privileges. ✴️
 - **USERHOST**: Provide information about a list of nicknames. ✅
-- **ISON**: Check if specified users are online. ❌
-- **VERSION**: Respond to queries about the server's version. ❌
-- **STATS**: Provide server statistics. ❌
+- **ISON**: Check if specified users are online. ✴️
+- **VERSION**: Respond to queries about the server's version. ✴️
+- **STATS**: Provide server statistics. ✴️
+- **TIME**: Provide the server's local time. ✴️
+- **TRACE**: Trace routes to a specific server or user. ✴️
+- **ADMIN**: Provide information about the server administrator. ✴️
+- **INFO**: Provide information about the server. ✴️
+- **OPER**: Allow operators to gain elevated privileges on the server. ✴️
+- **KILL**: Allow operators to disconnect a user from the network. ️✴️
+- **REHASH**: Enable operators to reload the server's configuration. ✴️
+- **RESTART**: Allow operators to restart the server. ✴️
+- **DIE**: Allow operators to shut down the server. ✴️
+- **SERVICE**: Allow operators to register services on the network. ❌
+- **SERVLIST**: List services currently connected to the network. ❌
 - **LINKS**: List all server links in the IRC network. ❌
-- **TIME**: Provide the server's local time. ❌
-- **TRACE**: Trace routes to a specific server or user. ❌
-- **ADMIN**: Provide information about the server administrator. ❌
-- **INFO**: Provide information about the server. ❌
-- **KILL**: Allow operators to disconnect a user from the network. ❌
-- **REHASH**: Enable operators to reload the server's configuration. ❌
-- **RESTART**: Allow operators to restart the server. ❌
-- **SERVICE**: Handle registration of new services. ❌
-- **OPER**: Allow operators to gain elevated privileges on the server. ❌
+- **CONNECT**: Allow operators to connect a server to the network. ❌
 - **SQUIT**: Allow operators to disconnect a server from the network gracefully. ❌
+- **SQUERY**: Allow servers to send queries to other servers. ❌
+- **ERROR**: Allow servers to report errors to other servers. Also used before ending client connections. ❌
+- **SERVER**: Allow servers to know the other connection is another server. Also, used to send data over the network. ❌
 
 ## IRCv3 Features
 
