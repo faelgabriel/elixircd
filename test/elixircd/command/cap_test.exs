@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.CapTest do
 
   describe "handle/2" do
     test "handles CAP command for listing supported capabilities for IRCv3.2" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "CAP", params: ["LS", "302"]}
 
@@ -25,7 +25,7 @@ defmodule ElixIRCd.Command.CapTest do
     end
 
     test "handles incompatible CAP commands" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
 
         incompatible_cap_commands = [

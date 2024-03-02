@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.WallopsTest do
 
   describe "handle/2" do
     test "handles WALLOPS command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "WALLOPS", params: ["#anything"]}
 

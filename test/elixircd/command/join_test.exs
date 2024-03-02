@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.JoinTest do
 
   describe "handle/2" do
     test "handles JOIN command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "JOIN", params: ["#anything"]}
 
@@ -24,7 +24,7 @@ defmodule ElixIRCd.Command.JoinTest do
     end
 
     test "handles JOIN command with not enough parameters" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "JOIN", params: []}
 
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.JoinTest do
     end
 
     test "handles JOIN command with invalid channel name" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "JOIN", params: ["#invalid.channel.name"]}
 
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Command.JoinTest do
     end
 
     test "handles JOIN command with existing channel and another user" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         channel = insert(:channel)
         another_user = insert(:user)
         insert(:user_channel, user: another_user, channel: channel)
@@ -73,7 +73,7 @@ defmodule ElixIRCd.Command.JoinTest do
     end
 
     test "handles JOIN command with non-existing channel" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "JOIN", params: ["#new_channel"]}
 

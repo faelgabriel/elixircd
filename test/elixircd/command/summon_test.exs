@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.SummonTest do
 
   describe "handle/2" do
     test "handles SUMMON command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "SUMMON", params: ["#anything"]}
 

@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.WhoisTest do
 
   describe "handle/2" do
     test "handles WHOIS command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "WHOIS", params: ["#anything"]}
 
@@ -24,7 +24,7 @@ defmodule ElixIRCd.Command.WhoisTest do
     end
 
     test "handles WHOIS command with not enough parameters" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "WHOIS", params: []}
 
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.WhoisTest do
     end
 
     test "handles WHOIS command with invalid nick" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "WHOIS", params: ["invalid.nick"]}
 
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Command.WhoisTest do
     end
 
     test "handles WHOIS command with valid nick" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick")
         message = %Message{command: "WHOIS", params: ["target_nick"]}
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Command.WhoisTest do
     end
 
     test "handles WHOIS command with multiple valid and invalid nicks" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick")
         message = %Message{command: "WHOIS", params: ["invalid.nick", "target_nick", "invalid.nick2"]}

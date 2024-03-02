@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.ModeTest do
 
   describe "handle/2" do
     test "handles MODE command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "MODE", params: ["#anything"]}
 
@@ -24,7 +24,7 @@ defmodule ElixIRCd.Command.ModeTest do
     end
 
     test "handles MODE command with not enough parameters" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "MODE", params: []}
 
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.ModeTest do
     end
 
     # test "Future: handles MODE command for channel" do
-    #   Memento.transaction(fn ->
+    #   Memento.transaction!(fn ->
     #     channel = insert(:channel)
 
     #     user = insert(:user)
@@ -48,7 +48,7 @@ defmodule ElixIRCd.Command.ModeTest do
     # end
 
     # test "Future: handles MODE command for user" do
-    #   Memento.transaction(fn ->
+    #   Memento.transaction!(fn ->
     #     user = insert(:user)
     #     message = %Message{command: "MODE", params: [user.nick]}
 

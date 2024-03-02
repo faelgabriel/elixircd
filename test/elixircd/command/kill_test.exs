@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.KillTest do
 
   describe "handle/2" do
     test "handles KILL command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "KILL", params: ["#anything"]}
 

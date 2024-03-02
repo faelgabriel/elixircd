@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.NoticeTest do
 
   describe "handle/2" do
     test "handles NOTICE command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "NOTICE", params: ["#anything"]}
 
@@ -24,7 +24,7 @@ defmodule ElixIRCd.Command.NoticeTest do
     end
 
     test "handles NOTICE command with not enough parameters" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
 
         message = %Message{command: "NOTICE", params: []}
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Command.NoticeTest do
     end
 
     test "handles NOTICE command for channel with non-existing channel" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
 
         message = %Message{command: "NOTICE", params: ["#new_channel"], trailing: "Hello"}
@@ -54,7 +54,7 @@ defmodule ElixIRCd.Command.NoticeTest do
     end
 
     test "handles NOTICE command for channel with existing channel and user is not in the channel" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel)
 
@@ -68,7 +68,7 @@ defmodule ElixIRCd.Command.NoticeTest do
     end
 
     test "handles NOTICE command for channel with existing channel and user is in the channel with another user" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
         channel = insert(:channel)
@@ -85,7 +85,7 @@ defmodule ElixIRCd.Command.NoticeTest do
     end
 
     test "handles NOTICE command for user with non-existing user" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
 
         message = %Message{command: "NOTICE", params: ["another_user"], trailing: "Hello"}
@@ -98,7 +98,7 @@ defmodule ElixIRCd.Command.NoticeTest do
     end
 
     test "handles NOTICE command for user with existing user" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
 

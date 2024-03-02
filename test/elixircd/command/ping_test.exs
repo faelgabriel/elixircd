@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.PingTest do
 
   describe "handle/2" do
     test "handles PING command with not enough parameters" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "PING", params: [], trailing: nil}
 
@@ -24,7 +24,7 @@ defmodule ElixIRCd.Command.PingTest do
     end
 
     test "handles PING command with trailing" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "PING", params: [], trailing: "anything"}
 
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.PingTest do
     end
 
     test "handles PING command with params" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "PING", params: ["anything"]}
 

@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.PartTest do
 
   describe "handle/2" do
     test "handles PART command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "PART", params: ["#anything"]}
 
@@ -24,7 +24,7 @@ defmodule ElixIRCd.Command.PartTest do
     end
 
     test "handles PART command with not enough parameters" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "PART", params: []}
 
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.PartTest do
     end
 
     test "handles PART command with non-existing channel" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "PART", params: ["#new_channel"]}
 
@@ -50,7 +50,7 @@ defmodule ElixIRCd.Command.PartTest do
     end
 
     test "handles PART command with existing channel and user is not in the channel" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel)
 
@@ -65,7 +65,7 @@ defmodule ElixIRCd.Command.PartTest do
     end
 
     test "handles PART command with existing channel and user is in the channel with another user" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
         channel = ElixIRCd.Factory.insert(:channel)

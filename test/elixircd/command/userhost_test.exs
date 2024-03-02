@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.UserhostTest do
 
   describe "handle/2" do
     test "handles USERHOST command with user not registered" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user, identity: nil)
         message = %Message{command: "USERHOST", params: ["#anything"]}
 
@@ -24,7 +24,7 @@ defmodule ElixIRCd.Command.UserhostTest do
     end
 
     test "handles USERHOST command with not enough parameters" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "USERHOST", params: []}
 
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.UserhostTest do
     end
 
     test "handles USERHOST command with invalid nick" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "USERHOST", params: ["invalid.nick"]}
 
@@ -48,7 +48,7 @@ defmodule ElixIRCd.Command.UserhostTest do
     end
 
     test "handles USERHOST command with valid nick" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick")
         message = %Message{command: "USERHOST", params: ["target_nick"]}
@@ -62,7 +62,7 @@ defmodule ElixIRCd.Command.UserhostTest do
     end
 
     test "handles USERHOST command with multiple valid and invalid nicks" do
-      Memento.transaction(fn ->
+      Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick")
         target_user2 = insert(:user, nick: "target_nick2")
