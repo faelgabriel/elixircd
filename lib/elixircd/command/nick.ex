@@ -72,7 +72,7 @@ defmodule ElixIRCd.Command.Nick do
 
   defp change_nick(user, nick) do
     old_identity = user.identity
-    new_identity = Helper.build_user_identity(nick, user.username, user.hostname)
+    new_identity = Helper.build_user_identity(nick, user.username, user.hostname, user.ident)
 
     updated_user = Users.update(user, %{nick: nick, identity: new_identity})
 

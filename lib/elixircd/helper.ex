@@ -86,7 +86,8 @@ defmodule ElixIRCd.Helper do
 
   @doc """
   Builds the user identity.
+  @ TODO: ident
   """
-  @spec build_user_identity(String.t(), String.t(), String.t()) :: String.t()
-  def build_user_identity(nick, username, hostname), do: "#{nick}!~#{String.slice(username, 0..8)}@#{hostname}"
+  @spec build_user_identity(String.t(), String.t(), String.t(), String.t()) :: String.t()
+  def build_user_identity(nick, username, hostname, _ident), do: "#{nick}!~#{String.slice(username, 0..8)}@#{hostname}"
 end

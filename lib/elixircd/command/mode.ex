@@ -28,11 +28,11 @@ defmodule ElixIRCd.Command.Mode do
     |> Messaging.broadcast(user)
   end
 
-  # @impl true
-  # def handle(_user, %{command: "MODE", params: [_target], trailing: nil}) do
-  #   # Future
-  #   :ok
-  # end
+  @impl true
+  def handle(_user, %{command: "MODE", params: [_target | _rest]}) do
+    # TODO
+    :ok
+  end
 
   # @impl true
   # def handle(user, %{command: "MODE", params: [target, mode_string], trailing: nil}) do

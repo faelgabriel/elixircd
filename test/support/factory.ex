@@ -28,6 +28,7 @@ defmodule ElixIRCd.Factory do
       pid: Map.get(attrs, :pid, self()),
       nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
       modes: Map.get(attrs, :modes, []),
+      ident: Map.get(attrs, :ident, nil),
       hostname: Map.get(attrs, :hostname, "hostname"),
       username: Map.get(attrs, :username, "username"),
       realname: Map.get(attrs, :realname, "realname"),
