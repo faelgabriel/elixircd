@@ -15,6 +15,15 @@ defmodule ElixIRCd.Repository.Channels do
   end
 
   @doc """
+  Update a channel and write it to the database.
+  """
+  @spec update(Channel.t(), map()) :: Channel.t()
+  def update(channel, attrs) do
+    Channel.update(channel, attrs)
+    |> Memento.Query.write()
+  end
+
+  @doc """
   Get a channel by the name.
   """
   @spec get_by_name(String.t()) :: {:ok, Channel.t()} | {:error, String.t()}

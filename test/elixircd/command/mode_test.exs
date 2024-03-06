@@ -36,24 +36,84 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    # test "Future: handles MODE command for channel" do
-    #   Memento.transaction!(fn ->
-    #     channel = insert(:channel)
+    test "handles MODE command with non-existing channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
 
-    #     user = insert(:user)
-    #     message = %Message{command: "MODE", params: [channel.name]}
+        message = %Message{command: "MODE", params: ["#channel"]}
+        Mode.handle(user, message)
 
-    #     Mode.handle(user, message)
-    #   end)
-    # end
+        message = %Message{command: "MODE", params: ["#channel", "+t"]}
+        Mode.handle(user, message)
 
-    # test "Future: handles MODE command for user" do
-    #   Memento.transaction!(fn ->
-    #     user = insert(:user)
-    #     message = %Message{command: "MODE", params: [user.nick]}
+        assert_sent_messages([
+          {user.socket, ":server.example.com 403 #{user.nick} #channel :No such channel\r\n"},
+          {user.socket, ":server.example.com 403 #{user.nick} #channel :No such channel\r\n"}
+        ])
+      end)
+    end
 
-    #     Mode.handle(user, message)
-    #   end)
-    # end
+    test "handles MODE command with existing channel and user is not in the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+
+        message = %Message{command: "MODE", params: [channel.name]}
+        Mode.handle(user, message)
+
+        message = %Message{command: "MODE", params: [channel.name, "+t"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"},
+          {user.socket, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command with channel and without mode parameter" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["t", "n", {"l", "10"}])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{user.identity} MODE #{channel.name} +tnl 10\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command with channel and with add modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["n", {"l", "10"}])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name, "+t+s"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{user.identity} MODE #{channel.name} +ts\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command with channel and with remove modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["n", "t", "s", {"l", "10"}])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name, "-t-s"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{user.identity} MODE #{channel.name} -ts\r\n"}
+        ])
+      end)
+    end
   end
 end
