@@ -10,12 +10,10 @@ defmodule ElixIRCd.Command.QuitTest do
 
   describe "handle/2" do
     test "handles QUIT command" do
-      %{socket: user_socket} = user = insert(:user)
+      user = insert(:user)
       message = %Message{command: "QUIT", params: [], trailing: "Bye!"}
 
-      Quit.handle(user, message)
-
-      assert_received {:user_quit, ^user_socket, "Bye!"}
+      assert {:quit, "Bye!"} == Quit.handle(user, message)
     end
   end
 end

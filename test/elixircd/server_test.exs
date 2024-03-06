@@ -38,6 +38,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} == Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      Client.disconnect(socket)
     end
 
     test "handles successful ssl connect" do
@@ -57,6 +59,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} == Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      Client.disconnect(socket)
     end
 
     test "handles ranch handshake error on tcp connect" do
@@ -107,6 +111,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      Client.disconnect(socket)
     end
 
     test "handles valid ssl packet" do
@@ -121,6 +127,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      Client.disconnect(socket)
     end
 
     test "handles invalid tcp packet" do
@@ -134,6 +142,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      Client.disconnect(socket)
     end
 
     test "handles invalid ssl packet" do
@@ -147,6 +157,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      Client.disconnect(socket)
     end
 
     test "handles successful tcp disconnect by tcp close" do
@@ -323,24 +335,19 @@ defmodule ElixIRCd.ServerTest do
       Application.put_env(:elixircd, :client_timeout, original_timeout)
     end
 
-    test "handles successful disconnect by user quit" do
-      :ranch_ssl
-      |> expect(:close, 1, fn socket ->
-        :ranch_ssl.close(socket)
+    test "handles sucessful disconnect by command quit result" do
+      Command
+      |> expect(:handle, 1, fn _user, _message ->
+        {:quit, "Bye!"}
       end)
 
-      {:ok, socket} = Client.connect(:ssl)
+      {:ok, socket} = Client.connect(:tcp)
       {:error, :timeout} = Client.recv(socket)
-      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
 
-      insert(:user_channel, %{user: user, channel: insert(:channel)})
-      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+      Client.send(socket, "COMMAND test\r\n")
 
-      send(user.pid, {:user_quit, user.socket, "Quit message"})
-
-      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
       assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
-
       assert {:error, :closed} == Client.recv(socket)
     end
 
@@ -353,20 +360,20 @@ defmodule ElixIRCd.ServerTest do
           [_, _] = expected_users -> expected_users
         end
 
-      user1 = Memento.transaction!(fn -> Users.update(user1, %{identity: "any@identity"}) end)
-
       channel = insert(:channel)
       insert(:user_channel, %{user: user1, channel: channel})
       insert(:user_channel, %{user: user2, channel: channel})
 
-      send(user1.pid, {:user_quit, user1.socket, "Quit message"})
+      Client.send(socket1, "QUIT :Quit message\r\n")
 
-      received = Enum.sort([Client.recv(socket1), Client.recv(socket2)])
-      assert received == [{:error, :closed}, {:ok, ":any@identity QUIT :Quit message\r\n"}]
+      assert {:error, :closed} = Client.recv(socket1)
+      assert {:ok, _quit_reason} = Client.recv(socket2)
+
+      Client.disconnect(socket2)
     end
 
     test "handles user not found error on disconnect" do
-      Client.connect(:ssl)
+      {:ok, socket} = Client.connect(:ssl)
 
       [user] =
         case_wait(Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords) do
@@ -377,7 +384,8 @@ defmodule ElixIRCd.ServerTest do
 
       log =
         capture_log(fn ->
-          send(user.pid, {:user_quit, user.socket, "User not found testing"})
+          Client.disconnect(socket)
+          assert {:error, :closed} == Client.recv(socket)
           :timer.sleep(50)
         end)
 

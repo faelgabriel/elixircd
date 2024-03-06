@@ -83,4 +83,10 @@ defmodule ElixIRCd.Helper do
   @spec get_socket_port(:inet.socket()) :: port()
   def get_socket_port(socket) when is_port(socket), do: socket
   def get_socket_port({:sslsocket, {:gen_tcp, socket, :tls_connection, _}, _}), do: socket
+
+  @doc """
+  Builds the user identity.
+  """
+  @spec build_user_identity(String.t(), String.t(), String.t()) :: String.t()
+  def build_user_identity(nick, username, hostname), do: "#{nick}!~#{String.slice(username, 0..8)}@#{hostname}"
 end

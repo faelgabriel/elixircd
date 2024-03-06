@@ -14,7 +14,7 @@ defmodule ElixIRCd.Command do
 
   Modules that implement this behaviour should define their own logic for handling the IRC message command.
   """
-  @callback handle(user :: User.t(), message :: Message.t()) :: :ok
+  @callback handle(user :: User.t(), message :: Message.t()) :: :ok | {:quit, String.t()}
 
   @doc """
   Forwards the IRC message command to the proper module.

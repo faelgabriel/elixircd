@@ -16,6 +16,7 @@ defmodule ElixIRCd.Tables.User do
       :realname,
       :identity,
       :modes,
+      :password,
       :created_at
     ],
     index: [:nick],
@@ -32,6 +33,7 @@ defmodule ElixIRCd.Tables.User do
           realname: String.t() | nil,
           identity: String.t() | nil,
           modes: [tuple()],
+          password: String.t() | nil,
           created_at: DateTime.t()
         }
 

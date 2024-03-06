@@ -25,11 +25,13 @@ defmodule ElixIRCd.HelperTest do
     test "returns true for connected tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       assert true == Helper.socket_connected?(socket)
+      Client.disconnect(socket)
     end
 
     test "returns true for connected ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       assert true == Helper.socket_connected?(socket)
+      Client.disconnect(socket)
     end
 
     test "returns false for disconnected tcp socket" do
@@ -90,11 +92,27 @@ defmodule ElixIRCd.HelperTest do
     test "gets ip from tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
+      Client.disconnect(socket)
     end
 
     test "gets ip from ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
+      Client.disconnect(socket)
+    end
+
+    test "returns error for tcp socket disconnected" do
+      {:ok, socket} = Client.connect(:tcp)
+      Client.disconnect(socket)
+      assert {:error, error} = Helper.get_socket_ip(socket)
+      assert error =~ "Unable to get IP for"
+    end
+
+    test "returns error for ssl socket disconnected" do
+      {:ok, socket} = Client.connect(:ssl)
+      Client.disconnect(socket)
+      assert {:error, error} = Helper.get_socket_ip(socket)
+      assert error =~ "Unable to get IP for"
     end
 
     test "returns error for invalid socket" do
@@ -107,6 +125,7 @@ defmodule ElixIRCd.HelperTest do
   describe "get_socket_port/1" do
     test "gets port from tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
+      Client.disconnect(socket)
       extracted_socket_port = Helper.get_socket_port(socket)
 
       assert is_port(socket)
@@ -115,6 +134,7 @@ defmodule ElixIRCd.HelperTest do
 
     test "gets port from ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
+      Client.disconnect(socket)
       extracted_socket_port = Helper.get_socket_port(socket)
 
       refute is_port(socket)

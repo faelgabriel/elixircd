@@ -5,6 +5,7 @@ defmodule ElixIRCd.Server.Handshake do
 
   require Logger
 
+  alias ElixIRCd.Command.Motd
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
@@ -19,70 +20,55 @@ defmodule ElixIRCd.Server.Handshake do
   """
   @spec handle(User.t()) :: :ok
   def handle(user) when user.nick != nil and user.username != nil and user.realname != nil do
-    with {:ok, hostname} <- resolve_hostname(user.socket),
-         user_identity <- build_user_identity(user.nick, user.username, hostname),
+    with :ok <- check_server_password(user),
+         {:ok, hostname} <- resolve_hostname(user.socket),
+         user_identity <- Helper.build_user_identity(user.nick, user.username, hostname),
          updated_user <- Users.update(user, %{hostname: hostname, identity: user_identity}) do
-      handle_motd(updated_user)
+      Motd.send_motd(updated_user)
     else
+      {:error, :bad_password} ->
+        Message.build(%{prefix: :server, command: :err_passwdmismatch, params: ["*"], trailing: "Bad Password"})
+        |> Messaging.broadcast(user)
+
+        {:quit, "Bad Password"}
+
       {:error, error} ->
-        Logger.critical("Error handling handshake for user #{inspect(user)}: #{inspect(error)}")
-        :ok
+        Logger.debug("User handshake failed for #{inspect(user)}: #{error}")
+        {:quit, "Handshake Failed"}
     end
   end
 
   def handle(_user), do: :ok
 
-  @doc """
-  Builds the user identity.
-  """
-  @spec build_user_identity(String.t(), String.t(), String.t()) :: String.t()
-  def build_user_identity(nick, username, hostname), do: "#{nick}!#{String.slice(username, 0..7)}@#{hostname}"
-
-  @spec handle_motd(User.t()) :: :ok
-  defp handle_motd(user) do
-    server_name = Application.get_env(:elixircd, :server_name)
-
-    [
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_welcome,
-        params: [user.nick],
-        trailing: "Welcome to the #{server_name} Internet Relay Chat Network #{user.nick}"
-      }),
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_yourhost,
-        params: [user.nick],
-        trailing: "Your host is #{server_name}, running version 0.1.0."
-      }),
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_created,
-        params: [user.nick],
-        trailing: "This server was created #{DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string()}"
-      }),
-      Message.build(%{prefix: :server, command: :rpl_myinfo, params: [user.nick], trailing: "ElixIRCd 0.1.0 +i +int"}),
-      Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of MOTD command"})
-    ]
-    |> Messaging.broadcast(user)
+  @spec check_server_password(User.t()) :: :ok | {:error, :bad_password}
+  defp check_server_password(%User{password: password}) do
+    case Application.get_env(:elixircd, :server_password) do
+      nil -> :ok
+      server_password when server_password != password -> {:error, :bad_password}
+      _ -> :ok
+    end
   end
 
   @spec resolve_hostname(socket :: :inet.socket()) :: {:ok, String.t()} | {:error, String.t()}
   defp resolve_hostname(socket) do
     case Helper.get_socket_ip(socket) do
-      {:ok, ip} ->
-        case Helper.get_socket_hostname(ip) do
-          {:ok, hostname} ->
-            {:ok, hostname}
+      {:ok, ip} -> {:ok, resolve_hostname_from_ip(ip)}
+      {:error, _} = error -> error
+    end
+  end
 
-          _ ->
-            formatted_ip = format_ip_address(ip)
-            Logger.debug("Could not resolve hostname for #{formatted_ip}. Using IP instead.")
-            {:ok, formatted_ip}
-        end
+  @spec resolve_hostname_from_ip(ip :: tuple()) :: String.t()
+  defp resolve_hostname_from_ip(ip) do
+    formatted_ip = format_ip_address(ip)
 
-      {:error, error} ->
-        {:error, error}
+    case Helper.get_socket_hostname(ip) do
+      {:ok, hostname} ->
+        Logger.debug("Resolved hostname for #{formatted_ip}: #{hostname}")
+        hostname
+
+      _ ->
+        Logger.debug("Could not resolve hostname for #{formatted_ip}")
+        formatted_ip
     end
   end
 

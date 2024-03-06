@@ -6,6 +6,7 @@ defmodule ElixIRCd.Command.PassTest do
 
   alias ElixIRCd.Command.Pass
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
 
   import ElixIRCd.Factory
 
@@ -18,7 +19,7 @@ defmodule ElixIRCd.Command.PassTest do
         Pass.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 462 #{user.nick} :Unauthorized command (already registered)\r\n"}
+          {user.socket, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"}
         ])
       end)
     end
@@ -44,6 +45,9 @@ defmodule ElixIRCd.Command.PassTest do
         Pass.handle(user, message)
 
         assert_sent_messages([])
+
+        {:ok, updated_user} = Users.get_by_port(user.port)
+        assert updated_user.password == "password"
       end)
     end
   end

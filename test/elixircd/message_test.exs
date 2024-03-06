@@ -28,6 +28,7 @@ defmodule ElixIRCd.MessageTest do
     {:err_notonchannel, "442"},
     {:err_notregistered, "451"},
     {:err_needmoreparams, "461"},
+    {:err_passwdmismatch, "464"},
     {:err_cannotjoinchannel, "473"}
   ]
 

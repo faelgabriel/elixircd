@@ -35,7 +35,7 @@ defmodule ElixIRCd.Command.Nick do
   end
 
   @impl true
-  def handle(user, %{command: "NICK", params: [nick]}) do
+  def handle(user, %{command: "NICK", params: [nick | _rest]}) do
     with :ok <- validate_nick(nick),
          {:nick_in_use?, false} <- {:nick_in_use?, nick_in_use?(nick)} do
       change_nick(user, nick)
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Command.Nick do
 
   defp change_nick(user, nick) do
     old_identity = user.identity
-    new_identity = Handshake.build_user_identity(nick, user.username, user.hostname)
+    new_identity = Helper.build_user_identity(nick, user.username, user.hostname)
 
     updated_user = Users.update(user, %{nick: nick, identity: new_identity})
 

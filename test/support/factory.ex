@@ -32,6 +32,7 @@ defmodule ElixIRCd.Factory do
       username: Map.get(attrs, :username, "username"),
       realname: Map.get(attrs, :realname, "realname"),
       identity: Map.get(attrs, :identity, "identity@#{random_string(50)}"),
+      password: Map.get(attrs, :password, nil),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end

@@ -14,7 +14,6 @@ defmodule ElixIRCd.Server do
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
-  alias ElixIRCd.Tables.User
 
   @doc """
   Starts a linked user connection process for the server protocol.
@@ -82,11 +81,11 @@ defmodule ElixIRCd.Server do
     receive do
       {:tcp, ^socket, data} ->
         handle_packet(socket, data)
-        handle_listening(socket, transport)
+        |> handle_packet_result(socket, transport)
 
       {:ssl, ^socket, data} ->
         handle_packet(socket, data)
-        handle_listening(socket, transport)
+        |> handle_packet_result(socket, transport)
 
       {:tcp_closed, ^socket} ->
         handle_disconnect(socket, transport, "Connection Closed")
@@ -101,9 +100,6 @@ defmodule ElixIRCd.Server do
       {:ssl_error, ^socket, reason} ->
         Logger.warning("SSL connection error: #{inspect(reason)}")
         handle_disconnect(socket, transport, "Connection Error")
-
-      {:user_quit, ^socket, reason} when not is_nil(reason) ->
-        handle_disconnect(socket, transport, reason)
     after
       Application.get_env(:elixircd, :client_timeout) ->
         handle_disconnect(socket, transport, "Connection Timeout")
@@ -115,6 +111,23 @@ defmodule ElixIRCd.Server do
       handle_disconnect(socket, transport, "Server Error")
   end
 
+  @spec handle_packet(socket :: :inet.socket(), data :: String.t()) :: :ok | {:quit, String.t()}
+  defp handle_packet(socket, data) do
+    Logger.debug("<- #{inspect(data)}")
+
+    Memento.transaction!(fn ->
+      with {:ok, user} <- Users.get_by_port(get_socket_port(socket)),
+           {:ok, message} <- Message.parse(data) do
+        Command.handle(user, message)
+      else
+        {:error, error} -> Logger.debug("Failed to handle packet #{inspect(data)}: #{error}")
+      end
+    end)
+  end
+
+  defp handle_packet_result(:ok, socket, transport), do: handle_listening(socket, transport)
+  defp handle_packet_result({:quit, reason}, socket, transport), do: handle_disconnect(socket, transport, reason)
+
   @spec handle_disconnect(socket :: :inet.socket(), transport :: atom(), reason :: String.t()) :: :ok
   defp handle_disconnect(socket, transport, reason) do
     Logger.debug("Connection #{inspect(socket)} terminated: #{inspect(reason)}")
@@ -124,28 +137,14 @@ defmodule ElixIRCd.Server do
     Memento.transaction!(fn ->
       Users.get_by_port(get_socket_port(socket))
       |> case do
-        {:ok, user} -> quit_user(user, reason)
+        {:ok, user} -> handle_quit(user, reason)
         {:error, error} -> Logger.critical("Error handling disconnect: #{inspect(error)}")
       end
     end)
   end
 
-  @spec handle_packet(socket :: :inet.socket(), data :: String.t()) :: :ok
-  defp handle_packet(socket, data) do
-    Logger.debug("<- #{inspect(data)}")
-
-    Memento.transaction!(fn ->
-      with {:ok, user} <- Users.get_by_port(get_socket_port(socket)),
-           {:ok, message} <- Message.parse(data) do
-        Command.handle(user, message)
-      else
-        {:error, error} -> Logger.debug("Error handling packet #{inspect(data)}: #{inspect(error)}")
-      end
-    end)
-  end
-
-  @spec quit_user(user :: User.t(), quit_message :: String.t()) :: :ok
-  defp quit_user(user, quit_message) do
+  @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
+  def handle_quit(user, quit_message) do
     all_channel_users =
       UserChannels.get_by_user_port(user.port)
       |> Enum.map(& &1.channel_name)

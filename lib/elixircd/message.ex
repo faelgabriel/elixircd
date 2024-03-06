@@ -253,5 +253,6 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_notregistered), do: "451"
   defp numeric_reply(:err_needmoreparams), do: "461"
   defp numeric_reply(:err_alreadyregistered), do: "462"
+  defp numeric_reply(:err_passwdmismatch), do: "464"
   defp numeric_reply(:err_cannotjoinchannel), do: "473"
 end

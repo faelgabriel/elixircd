@@ -23,6 +23,9 @@ defmodule ElixIRCd.MessageCaseTest do
         {ssl_socket, "PING :test1"},
         {ssl_socket, "PING :test2"}
       ])
+
+      Client.disconnect(tcp_socket)
+      Client.disconnect(ssl_socket)
     end
 
     test "raises an error messages are not sent in the correct order" do
@@ -42,6 +45,9 @@ defmodule ElixIRCd.MessageCaseTest do
           {ssl_socket, "PING :test1"}
         ])
       end
+
+      Client.disconnect(tcp_socket)
+      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if messages are not sent" do
@@ -54,6 +60,9 @@ defmodule ElixIRCd.MessageCaseTest do
           {ssl_socket, "PING :test"}
         ])
       end
+
+      Client.disconnect(tcp_socket)
+      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if more messages are sent than expected" do
@@ -71,6 +80,9 @@ defmodule ElixIRCd.MessageCaseTest do
           {ssl_socket, "PING :test"}
         ])
       end
+
+      Client.disconnect(tcp_socket)
+      Client.disconnect(ssl_socket)
     end
   end
 end
