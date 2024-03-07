@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.NickTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
   import Mimic
 
   alias ElixIRCd.Command.Nick
@@ -29,7 +30,7 @@ defmodule ElixIRCd.Command.NickTest do
       nick = "nick.too.long.nick.too.long.nick.too.long"
 
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "NICK", params: [nick]}
 
         Nick.handle(user, message)
@@ -44,7 +45,7 @@ defmodule ElixIRCd.Command.NickTest do
       nick = "invalid.nick"
 
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "NICK", params: [nick]}
 
         Nick.handle(user, message)
@@ -80,7 +81,7 @@ defmodule ElixIRCd.Command.NickTest do
 
         Nick.handle(user, message)
 
-        assert_sent_messages([{user.socket, ":#{user.identity} NICK #{nick}\r\n"}])
+        assert_sent_messages([{user.socket, ":#{build_user_mask(user)} NICK #{nick}\r\n"}])
       end)
     end
 
@@ -89,7 +90,7 @@ defmodule ElixIRCd.Command.NickTest do
       |> expect(:handle, fn _user -> :ok end)
 
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "NICK", params: ["new_nick"]}
 
         Nick.handle(user, message)
@@ -105,7 +106,7 @@ defmodule ElixIRCd.Command.NickTest do
 
         Nick.handle(user, message)
 
-        assert_sent_messages([{user.socket, ":#{user.identity} NICK new_nick\r\n"}])
+        assert_sent_messages([{user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"}])
       end)
     end
 
@@ -122,8 +123,8 @@ defmodule ElixIRCd.Command.NickTest do
         Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{user.identity} NICK new_nick\r\n"},
-          {another_user.socket, ":#{user.identity} NICK new_nick\r\n"}
+          {user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"},
+          {another_user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"}
         ])
       end)
     end

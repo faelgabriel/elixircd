@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.VersionTest do
   describe "handle/2" do
     test "handles VERSION command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "VERSION", params: ["#anything"]}
 
         Version.handle(user, message)

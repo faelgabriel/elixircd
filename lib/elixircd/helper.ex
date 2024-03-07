@@ -28,10 +28,10 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
-  Gets the reply for a user's identity.
+  TODO
   """
   @spec get_user_reply(User.t()) :: String.t()
-  def get_user_reply(%{identity: nil}), do: "*"
+  def get_user_reply(%{registered: false}), do: "*"
   def get_user_reply(%{nick: nick}), do: nick
 
   @doc """
@@ -85,8 +85,10 @@ defmodule ElixIRCd.Helper do
   def get_socket_port({:sslsocket, {:gen_tcp, socket, :tls_connection, _}, _}), do: socket
 
   @doc """
-  Builds the user identity.
+  Builds the user mask.
   """
-  @spec build_user_identity(String.t(), String.t(), String.t()) :: String.t()
-  def build_user_identity(nick, username, hostname), do: "#{nick}!~#{String.slice(username, 0..8)}@#{hostname}"
+  @spec build_user_mask(User.t()) :: String.t()
+  def build_user_mask(user) when user.nick != nil and user.username != nil and user.hostname != nil do
+    "#{user.nick}!~#{String.slice(user.username, 0..8)}@#{user.hostname}"
+  end
 end

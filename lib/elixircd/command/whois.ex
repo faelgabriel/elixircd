@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.Whois do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: @command}) do
+  def handle(%{registered: false} = user, %{command: @command}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end

@@ -13,7 +13,7 @@ defmodule ElixIRCd.Command.Pass do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: identity} = user, %{command: "PASS"}) when identity != nil do
+  def handle(%{registered: true} = user, %{command: "PASS"}) do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{

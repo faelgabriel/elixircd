@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.ModeTest do
   describe "handle/2" do
     test "handles MODE command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "MODE", params: ["#anything"]}
 
         Mode.handle(user, message)

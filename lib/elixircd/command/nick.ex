@@ -7,7 +7,8 @@ defmodule ElixIRCd.Command.Nick do
 
   require Logger
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Helper, only: [build_user_mask: 1, get_user_reply: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
@@ -18,12 +19,10 @@ defmodule ElixIRCd.Command.Nick do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "NICK", params: [], trailing: nil}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "NICK"],
+      params: [get_user_reply(user), "NICK"],
       trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
@@ -41,7 +40,7 @@ defmodule ElixIRCd.Command.Nick do
       change_nick(user, nick)
     else
       {:error, invalid_nick_error} ->
-        user_reply = Helper.get_user_reply(user)
+        user_reply = get_user_reply(user)
 
         Message.build(%{
           prefix: :server,
@@ -52,7 +51,7 @@ defmodule ElixIRCd.Command.Nick do
         |> Messaging.broadcast(user)
 
       {:nick_in_use?, true} ->
-        user_reply = Helper.get_user_reply(user)
+        user_reply = get_user_reply(user)
 
         Message.build(%{
           prefix: :server,
@@ -65,16 +64,14 @@ defmodule ElixIRCd.Command.Nick do
   end
 
   @spec change_nick(User.t(), String.t()) :: :ok
-  defp change_nick(%{identity: nil} = user, nick) do
+  defp change_nick(%{registered: false} = user, nick) do
     updated_user = Users.update(user, %{nick: nick})
     Handshake.handle(updated_user)
   end
 
   defp change_nick(user, nick) do
-    old_identity = user.identity
-    new_identity = Helper.build_user_identity(nick, user.username, user.hostname)
-
-    updated_user = Users.update(user, %{nick: nick, identity: new_identity})
+    old_user_mask = build_user_mask(user)
+    updated_user = Users.update(user, %{nick: nick})
 
     all_channel_users =
       UserChannels.get_by_user_port(user.port)
@@ -84,7 +81,7 @@ defmodule ElixIRCd.Command.Nick do
       |> Enum.group_by(& &1.user_port)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.build(%{prefix: old_identity, command: "NICK", params: [nick]})
+    Message.build(%{prefix: old_user_mask, command: "NICK", params: [nick]})
     |> Messaging.broadcast([updated_user | all_channel_users])
   end
 

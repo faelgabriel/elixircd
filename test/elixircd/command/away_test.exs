@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.AwayTest do
   describe "handle/2" do
     test "handles AWAY command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "AWAY", params: ["#anything"]}
 
         Away.handle(user, message)

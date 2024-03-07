@@ -5,7 +5,8 @@ defmodule ElixIRCd.Command.Userhost do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Helper, only: [build_user_mask: 1, get_user_reply: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
@@ -15,14 +16,14 @@ defmodule ElixIRCd.Command.Userhost do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: @command}) do
+  def handle(%{registered: false} = user, %{command: @command}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: @command, params: []}) do
-    user_reply = Helper.get_user_reply(user)
+    user_reply = get_user_reply(user)
 
     Message.build(%{
       prefix: :server,
@@ -47,7 +48,7 @@ defmodule ElixIRCd.Command.Userhost do
   @spec fetch_userhost_info(String.t()) :: String.t()
   defp fetch_userhost_info(nick) do
     case Users.get_by_nick(nick) do
-      {:ok, user} -> "#{user.nick}=#{user.identity}"
+      {:ok, user} -> "#{user.nick}=#{build_user_mask(user)}"
       {:error, _} -> ""
     end
   end

@@ -4,15 +4,16 @@ defmodule ElixIRCd.Command.PartTest do
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
 
+  import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
+
   alias ElixIRCd.Command.Part
   alias ElixIRCd.Message
-
-  import ElixIRCd.Factory
 
   describe "handle/2" do
     test "handles PART command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "PART", params: ["#anything"]}
 
         Part.handle(user, message)
@@ -78,8 +79,8 @@ defmodule ElixIRCd.Command.PartTest do
         Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{user.identity} PART #{channel.name}\r\n"},
-          {another_user.socket, ":#{user.identity} PART #{channel.name}\r\n"}
+          {user.socket, ":#{build_user_mask(user)} PART #{channel.name}\r\n"},
+          {another_user.socket, ":#{build_user_mask(user)} PART #{channel.name}\r\n"}
         ])
       end)
     end

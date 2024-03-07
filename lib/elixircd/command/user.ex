@@ -14,7 +14,7 @@ defmodule ElixIRCd.Command.User do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: identity} = user, %{command: "USER"}) when not is_nil(identity) do
+  def handle(%{registered: true} = user, %{command: "USER"}) do
     user_reply = Helper.get_user_reply(user)
 
     Message.build(%{

@@ -7,6 +7,8 @@ defmodule ElixIRCd.Command.Join do
 
   require Logger
 
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
@@ -20,7 +22,7 @@ defmodule ElixIRCd.Command.Join do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "JOIN"}) do
+  def handle(%{registered: false} = user, %{command: "JOIN"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
@@ -93,7 +95,7 @@ defmodule ElixIRCd.Command.Join do
     user_channels = UserChannels.get_by_channel_name(channel.name)
 
     Message.build(%{
-      prefix: user.identity,
+      prefix: build_user_mask(user),
       command: "JOIN",
       params: [channel.name]
     })

@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.Kill do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "KILL"}) do
+  def handle(%{registered: false} = user, %{command: "KILL"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end

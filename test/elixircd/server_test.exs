@@ -353,12 +353,38 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles successful quit notification" do
       {:ok, socket1} = Client.connect(:ssl)
+      assert wait(1 == length(Memento.transaction!(fn -> Memento.Query.all(User) end)), @wait_keywords)
       {:ok, socket2} = Client.connect(:ssl)
 
       [user1, user2] =
         case_wait(Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords) do
           [_, _] = expected_users -> expected_users
         end
+        |> Enum.sort(&(&1.created_at <= &2.created_at))
+
+      user1 =
+        Memento.transaction!(fn ->
+          Memento.Query.write(%User{
+            user1
+            | registered: true,
+              nick: "nick1",
+              hostname: "hostname1",
+              username: "username1",
+              realname: "realname1"
+          })
+        end)
+
+      user2 =
+        Memento.transaction!(fn ->
+          Memento.Query.write(%User{
+            user2
+            | registered: true,
+              nick: "nick2",
+              hostname: "hostname2",
+              username: "username2",
+              realname: "realname2"
+          })
+        end)
 
       channel = insert(:channel)
       insert(:user_channel, %{user: user1, channel: channel})
@@ -367,7 +393,7 @@ defmodule ElixIRCd.ServerTest do
       Client.send(socket1, "QUIT :Quit message\r\n")
 
       assert {:error, :closed} = Client.recv(socket1)
-      assert {:ok, _quit_reason} = Client.recv(socket2)
+      assert {:ok, ":nick1!~username1@hostname1 QUIT :Quit message\r\n"} = Client.recv(socket2)
 
       Client.disconnect(socket2)
     end

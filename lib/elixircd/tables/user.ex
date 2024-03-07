@@ -3,7 +3,7 @@ defmodule ElixIRCd.Tables.User do
   Module for the User table.
   """
 
-  @enforce_keys [:port, :socket, :transport, :pid, :modes, :created_at]
+  @enforce_keys [:port, :socket, :transport, :pid, :registered, :modes, :created_at]
   use Memento.Table,
     attributes: [
       :port,
@@ -14,7 +14,7 @@ defmodule ElixIRCd.Tables.User do
       :hostname,
       :username,
       :realname,
-      :identity,
+      :registered,
       :modes,
       :password,
       :created_at
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Tables.User do
           hostname: String.t() | nil,
           username: String.t() | nil,
           realname: String.t() | nil,
-          identity: String.t() | nil,
+          registered: boolean(),
           modes: [tuple()],
           password: String.t() | nil,
           created_at: DateTime.t()
@@ -44,6 +44,7 @@ defmodule ElixIRCd.Tables.User do
   def new(attrs) do
     new_attrs =
       attrs
+      |> Map.put_new(:registered, false)
       |> Map.put_new(:modes, [])
       |> Map.put_new(:created_at, DateTime.utc_now())
 

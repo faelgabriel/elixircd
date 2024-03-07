@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.Kick do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "KICK"}) do
+  def handle(%{registered: false} = user, %{command: "KICK"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end

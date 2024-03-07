@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.Away do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "AWAY"}) do
+  def handle(%{registered: false} = user, %{command: "AWAY"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end

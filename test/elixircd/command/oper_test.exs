@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.OperTest do
   describe "handle/2" do
     test "handles OPER command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "OPER", params: ["#anything"]}
 
         Oper.handle(user, message)

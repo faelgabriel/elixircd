@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.Version do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "VERSION"}) do
+  def handle(%{registered: false} = user, %{command: "VERSION"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end

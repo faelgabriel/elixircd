@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.DieTest do
   describe "handle/2" do
     test "handles DIE command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "DIE", params: ["#anything"]}
 
         Die.handle(user, message)
