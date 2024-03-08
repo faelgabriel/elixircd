@@ -30,12 +30,18 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
     end
   end
 
+  describe "update/2" do
+    test "updates a user channel" do
+      user_channel = insert(:user_channel)
+      user_channel = Memento.transaction!(fn -> UserChannels.update(user_channel, %{modes: ["o"]}) end)
+      assert user_channel.modes == ["o"]
+    end
+  end
+
   describe "delete/1" do
     test "deletes a user channel" do
       user_channel = insert(:user_channel)
-
       Memento.transaction!(fn -> UserChannels.delete(user_channel) end)
-
       assert nil == Memento.transaction!(fn -> Memento.Query.read(UserChannel, user_channel.user_port) end)
     end
   end

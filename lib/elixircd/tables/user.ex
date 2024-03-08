@@ -32,7 +32,7 @@ defmodule ElixIRCd.Tables.User do
           username: String.t() | nil,
           realname: String.t() | nil,
           registered: boolean(),
-          modes: [tuple()],
+          modes: [String.t()],
           password: String.t() | nil,
           created_at: DateTime.t()
         }

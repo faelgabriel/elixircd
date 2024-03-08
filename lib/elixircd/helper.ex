@@ -88,7 +88,8 @@ defmodule ElixIRCd.Helper do
   Builds the user mask.
   """
   @spec build_user_mask(User.t()) :: String.t()
-  def build_user_mask(user) when user.nick != nil and user.username != nil and user.hostname != nil do
+  def build_user_mask(%{registered: true} = user)
+      when user.nick != nil and user.username != nil and user.hostname != nil do
     "#{user.nick}!~#{String.slice(user.username, 0..8)}@#{user.hostname}"
   end
 end

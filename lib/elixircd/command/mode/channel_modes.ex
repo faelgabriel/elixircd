@@ -3,12 +3,18 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   This module includes the channel modes handler.
   """
 
+  alias ElixIRCd.Repository.Channels
+  alias ElixIRCd.Repository.UserChannels
+  alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Tables.Channel
+
   @modes ["n", "t", "s", "i", "m", "p", "k", "l", "b", "o", "v"]
   @modes_with_value_to_add ["k", "l", "b", "o", "v"]
   @modes_with_value_to_replace ["k", "l"]
   @modes_with_value_to_remove ["b", "o", "v"]
   @modes_without_value_to_remove ["k", "l"]
-  @modes_list_separated ["b"]
+  @modes_for_user_channel ["o", "v"]
+  @modes_not_listed ["b"]
 
   @type mode :: String.t() | {String.t(), String.t()}
   @type mode_change :: {:add, mode()} | {:remove, mode()}
@@ -20,8 +26,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   def display_modes(modes) do
     {flags, args} =
       Enum.reduce(modes, {[], []}, fn
-        {mode, arg}, {flags, args} when mode not in @modes_list_separated -> {[mode | flags], [arg | args]}
-        mode, {flags, args} when is_binary(mode) and mode not in @modes_list_separated -> {[mode | flags], args}
+        {mode, arg}, {flags, args} when mode not in @modes_not_listed -> {[mode | flags], [arg | args]}
+        mode, {flags, args} when is_binary(mode) and mode not in @modes_not_listed -> {[mode | flags], args}
         _, acc -> acc
       end)
 
@@ -60,18 +66,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   @doc """
   Parses the mode changes for a channel.
   """
-  @spec parse_mode_changes([mode()], String.t(), [String.t()]) :: {[mode()], [mode_change()], [String.t()]}
-  def parse_mode_changes(current_modes, mode_string, values) do
-    changed_modes =
-      handle_changed_modes(mode_string, values)
-
-    {validated_modes, invalid_modes} =
-      filter_invalid_modes(changed_modes)
-
-    {applied_modes, new_modes} =
-      filter_applied_modes(current_modes, validated_modes)
-
-    {new_modes, applied_modes, invalid_modes}
+  @spec parse_mode_changes(String.t(), [String.t()]) :: {[mode_change()], [String.t()]}
+  def parse_mode_changes(mode_string, values) do
+    handle_changed_modes(mode_string, values)
+    |> filter_invalid_modes()
   end
 
   @spec handle_changed_modes(String.t(), [String.t()]) :: [mode_change()]
@@ -115,53 +113,104 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     |> then(fn {valid_modes, invalid_modes} -> {Enum.reverse(valid_modes), Enum.reverse(invalid_modes)} end)
   end
 
-  @spec filter_applied_modes([mode()], [mode_change()]) :: {[mode_change()], [mode()]}
-  defp filter_applied_modes(current_modes, changed_modes) do
-    Enum.reduce(changed_modes, {[], current_modes}, fn {action, mode}, acc ->
-      apply_mode_change({action, mode}, acc)
-    end)
-    |> then(fn {applied_changes, new_modes} ->
-      {Enum.reverse(applied_changes), Enum.reverse(new_modes)}
-    end)
+  @spec apply_mode_changes(Channel.t(), [mode_change()]) :: {[mode_change()], Channel.t()}
+  def apply_mode_changes(channel, validated_modes) do
+    {applied_changes, new_modes} =
+      Enum.reduce(validated_modes, {[], channel.modes}, fn {action, mode}, acc ->
+        apply_mode_change(channel, {action, mode}, acc)
+      end)
+      |> then(fn {applied_changes, new_modes} ->
+        {Enum.reverse(applied_changes), Enum.reverse(new_modes)}
+      end)
+
+    updated_channel = Channels.update(channel, %{modes: new_modes})
+
+    {applied_changes, updated_channel}
   end
 
-  @spec apply_mode_change(mode_change(), {[mode_change()], [mode()]}) :: {[mode_change()], [mode()]}
-  defp apply_mode_change({:add, mode}, {applied_changes, new_modes}) do
+  @spec apply_mode_change(Channel.t(), mode_change(), {[mode_change()], [mode()]}) :: {[mode_change()], [mode()]}
+  defp apply_mode_change(channel, {:add, mode} = mode_change, {applied_changes, new_modes}) do
     mode_flag = extract_mode_flag(mode)
 
     cond do
+      # ignore if the mode requires a value and the value is not provided
       not is_tuple(mode) and mode in @modes_with_value_to_add ->
         {applied_changes, new_modes}
+
+      mode_flag in @modes_for_user_channel and @modes_with_value_to_add ->
+        user_channel_mode_applied?(mode_change, channel.name)
+        |> case do
+          true -> {[{:add, mode} | applied_changes], new_modes}
+          false -> {applied_changes, new_modes}
+        end
 
       mode_flag in @modes_with_value_to_replace ->
         handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
         {[{:add, mode} | applied_changes], [mode | handled_new_modes]}
 
+      # ignore if the mode is already set
+      Enum.member?(new_modes, mode) ->
+        {applied_changes, new_modes}
+
       true ->
-        if Enum.member?(new_modes, mode) do
-          {applied_changes, new_modes}
-        else
-          {[{:add, mode} | applied_changes], [mode | new_modes]}
-        end
+        {[{:add, mode} | applied_changes], [mode | new_modes]}
     end
   end
 
-  defp apply_mode_change({:remove, mode}, {applied_changes, new_modes}) do
+  defp apply_mode_change(channel, {:remove, mode} = mode_change, {applied_changes, new_modes}) do
     mode_flag = extract_mode_flag(mode)
 
-    if mode_flag in @modes_without_value_to_remove do
-      handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
-      {[{:remove, mode} | applied_changes], handled_new_modes}
-    else
-      if Enum.member?(new_modes, mode) do
+    cond do
+      mode_flag in @modes_for_user_channel and @modes_with_value_to_remove ->
+        user_channel_mode_applied?(mode_change, channel.name)
+        |> case do
+          true -> {[{:remove, mode} | applied_changes], new_modes}
+          false -> {applied_changes, new_modes}
+        end
+
+      mode_flag in @modes_without_value_to_remove ->
+        handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
+        {[{:remove, mode} | applied_changes], handled_new_modes}
+
+      Enum.member?(new_modes, mode) ->
         {[{:remove, mode} | applied_changes], List.delete(new_modes, mode)}
-      else
+
+      # ignore if the mode is not set
+      true ->
         {applied_changes, new_modes}
-      end
     end
   end
 
   @spec extract_mode_flag(mode()) :: String.t()
   defp extract_mode_flag({mode, _val}), do: mode
   defp extract_mode_flag(mode), do: mode
+
+  @spec user_channel_mode_applied?(mode_change(), String.t()) :: boolean()
+  defp user_channel_mode_applied?({_action, {_mode_flag, mode_value}} = mode_change, channel_name) do
+    with {:ok, user} <- Users.get_by_nick(mode_value),
+         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel_name) do
+      user_channel_mode_changed?(mode_change, user_channel)
+    else
+      _ -> false
+    end
+  end
+
+  @spec user_channel_mode_changed?(mode_change(), UserChannels.t()) :: boolean()
+  defp user_channel_mode_changed?({:add, {mode_flag, _mode_value}}, user_channel) do
+    if Enum.member?(user_channel.modes, mode_flag) do
+      false
+    else
+      UserChannels.update(user_channel, %{modes: [mode_flag | user_channel.modes]})
+      true
+    end
+  end
+
+  defp user_channel_mode_changed?({:remove, {mode_flag, _mode_value}}, user_channel) do
+    if Enum.member?(user_channel.modes, mode_flag) do
+      UserChannels.update(user_channel, %{modes: List.delete(user_channel.modes, mode_flag)})
+      true
+    else
+      false
+    end
+  end
 end

@@ -21,7 +21,7 @@ defmodule ElixIRCd.Tables.UserChannel do
           user_socket: :inet.socket(),
           user_transport: :ranch_tcp | :ranch_ssl,
           channel_name: String.t(),
-          modes: [tuple()],
+          modes: [String.t()],
           created_at: DateTime.t()
         }
 

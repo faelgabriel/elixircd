@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.ModeTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
 
   alias ElixIRCd.Command.Mode
   alias ElixIRCd.Message
@@ -81,7 +82,7 @@ defmodule ElixIRCd.Command.ModeTest do
         Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{user.identity} MODE #{channel.name} +tnl 10\r\n"}
+          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +tnl 10\r\n"}
         ])
       end)
     end
@@ -96,7 +97,7 @@ defmodule ElixIRCd.Command.ModeTest do
         Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{user.identity} MODE #{channel.name} +ts\r\n"}
+          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +ts\r\n"}
         ])
       end)
     end
@@ -111,7 +112,7 @@ defmodule ElixIRCd.Command.ModeTest do
         Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{user.identity} MODE #{channel.name} -ts\r\n"}
+          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -ts\r\n"}
         ])
       end)
     end

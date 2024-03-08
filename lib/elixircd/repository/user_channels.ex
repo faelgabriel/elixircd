@@ -15,6 +15,15 @@ defmodule ElixIRCd.Repository.UserChannels do
   end
 
   @doc """
+  Update a user channel and write it to the database.
+  """
+  @spec update(UserChannel.t(), map()) :: UserChannel.t()
+  def update(user_channel, attrs) do
+    UserChannel.update(user_channel, attrs)
+    |> Memento.Query.write()
+  end
+
+  @doc """
   Delete a user channel from the database.
   """
   @spec delete(UserChannel.t()) :: :ok
