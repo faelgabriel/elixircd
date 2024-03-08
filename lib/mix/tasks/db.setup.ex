@@ -6,11 +6,13 @@ defmodule Mix.Tasks.Db.Setup do
   use Mix.Task
 
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
   @memory_tables [
     Channel,
+    ChannelBan,
     User,
     UserChannel
   ]

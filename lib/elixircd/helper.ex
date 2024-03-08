@@ -28,7 +28,7 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
-  TODO
+  Gets the user's reply to a message.
   """
   @spec get_user_reply(User.t()) :: String.t()
   def get_user_reply(%{registered: false}), do: "*"

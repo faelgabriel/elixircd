@@ -48,8 +48,8 @@ defmodule ElixIRCd.Repository.UserChannels do
 
     Memento.Query.select(UserChannel, conditions, limit: 1)
     |> case do
-      [] -> {:error, "UserChannel not found"}
       [user_channel] -> {:ok, user_channel}
+      [] -> {:error, "UserChannel not found"}
     end
   end
 

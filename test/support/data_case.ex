@@ -8,11 +8,13 @@ defmodule ElixIRCd.DataCase do
   import ExUnit.CaptureLog
 
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
   @tables [
     Channel,
+    ChannelBan,
     User,
     UserChannel
   ]

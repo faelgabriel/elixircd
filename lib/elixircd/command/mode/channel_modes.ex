@@ -3,10 +3,12 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   This module includes the channel modes handler.
   """
 
+  alias ElixIRCd.Repository.ChannelBans
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.ChannelBan
 
   @modes ["n", "t", "s", "i", "m", "p", "k", "l", "b", "o", "v"]
   @modes_with_value_to_add ["k", "l", "b", "o", "v"]
@@ -14,7 +16,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   @modes_with_value_to_remove ["b", "o", "v"]
   @modes_without_value_to_remove ["k", "l"]
   @modes_for_user_channel ["o", "v"]
-  @modes_not_listed ["b"]
+  @modes_for_channel_ban ["b"]
 
   @type mode :: String.t() | {String.t(), String.t()}
   @type mode_change :: {:add, mode()} | {:remove, mode()}
@@ -26,8 +28,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   def display_modes(modes) do
     {flags, args} =
       Enum.reduce(modes, {[], []}, fn
-        {mode, arg}, {flags, args} when mode not in @modes_not_listed -> {[mode | flags], [arg | args]}
-        mode, {flags, args} when is_binary(mode) and mode not in @modes_not_listed -> {[mode | flags], args}
+        {mode, arg}, {flags, args} -> {[mode | flags], [arg | args]}
+        mode, {flags, args} -> {[mode | flags], args}
         _, acc -> acc
       end)
 
@@ -67,11 +69,13 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   Parses the mode changes for a channel.
   """
   @spec parse_mode_changes(String.t(), [String.t()]) :: {[mode_change()], [String.t()]}
+  # TODO: return the modes that are missing values and that's required
   def parse_mode_changes(mode_string, values) do
     handle_changed_modes(mode_string, values)
     |> filter_invalid_modes()
   end
 
+  # TODO: without a "+" at the beginning, force it by concating it to the mode_string
   @spec handle_changed_modes(String.t(), [String.t()]) :: [mode_change()]
   defp handle_changed_modes(mode_string, values) do
     mode_string
@@ -133,12 +137,15 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     mode_flag = extract_mode_flag(mode)
 
     cond do
-      # ignore if the mode requires a value and the value is not provided
-      not is_tuple(mode) and mode in @modes_with_value_to_add ->
-        {applied_changes, new_modes}
-
-      mode_flag in @modes_for_user_channel and @modes_with_value_to_add ->
+      mode_flag in @modes_for_user_channel ->
         user_channel_mode_applied?(mode_change, channel.name)
+        |> case do
+          true -> {[{:add, mode} | applied_changes], new_modes}
+          false -> {applied_changes, new_modes}
+        end
+
+      mode_flag in @modes_for_channel_ban ->
+        channel_ban_mode_applied?(mode_change, channel.name)
         |> case do
           true -> {[{:add, mode} | applied_changes], new_modes}
           false -> {applied_changes, new_modes}
@@ -163,6 +170,13 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     cond do
       mode_flag in @modes_for_user_channel and @modes_with_value_to_remove ->
         user_channel_mode_applied?(mode_change, channel.name)
+        |> case do
+          true -> {[{:remove, mode} | applied_changes], new_modes}
+          false -> {applied_changes, new_modes}
+        end
+
+      mode_flag in @modes_for_channel_ban and @modes_with_value_to_remove ->
+        channel_ban_mode_applied?(mode_change, channel.name)
         |> case do
           true -> {[{:remove, mode} | applied_changes], new_modes}
           false -> {applied_changes, new_modes}
@@ -212,5 +226,28 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     else
       false
     end
+  end
+
+  @spec channel_ban_mode_applied?(mode_change(), String.t()) :: boolean()
+  defp channel_ban_mode_applied?({_action, {_mode_flag, mode_value}} = mode_change, channel_name) do
+    ChannelBans.get_by_channel_name_and_mask(channel_name, mode_value)
+    |> case do
+      {:ok, channel_ban} -> channel_ban_mode_changed?(mode_change, channel_ban, channel_name)
+      _ -> channel_ban_mode_changed?(mode_change, nil, channel_name)
+    end
+  end
+
+  @spec channel_ban_mode_changed?(mode_change(), ChannelBan.t(), String.t()) :: boolean()
+  defp channel_ban_mode_changed?({:add, {_mode_flag, mode_value}}, nil, channel_name) do
+    ChannelBans.create(%{channel_name: channel_name, mask: mode_value, setter: "TODO"})
+    true
+  end
+
+  defp channel_ban_mode_changed?({:add, _mode}, _channel_ban, _channel_name), do: false
+  defp channel_ban_mode_changed?({:remove, _mode}, nil, _channel_name), do: false
+
+  defp channel_ban_mode_changed?({:remove, _mode}, channel_ban, _channel_name) do
+    ChannelBans.delete(channel_ban)
+    true
   end
 end

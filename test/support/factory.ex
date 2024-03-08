@@ -3,6 +3,7 @@ defmodule ElixIRCd.Factory do
   This module defines the factories for the schemas.
   """
 
+  alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -59,6 +60,15 @@ defmodule ElixIRCd.Factory do
     }
   end
 
+  def build(:channel_ban, attrs) do
+    %ChannelBan{
+      channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
+      mask: Map.get(attrs, :mask, "mask"),
+      setter: Map.get(attrs, :setter, "setter"),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
   @doc """
   Inserts a new struct with the given attributes into the database.
   """
@@ -106,6 +116,23 @@ defmodule ElixIRCd.Factory do
 
     Memento.transaction!(fn ->
       build(:user_channel, updated_attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:channel_ban, attrs) do
+    channel =
+      case Map.get(attrs, :channel) do
+        nil -> insert(:channel)
+        channel -> channel
+      end
+
+    updated_attrs =
+      attrs
+      |> Map.put(:channel_name, channel.name)
+
+    Memento.transaction!(fn ->
+      build(:channel_ban, updated_attrs)
       |> Memento.Query.write()
     end)
   end

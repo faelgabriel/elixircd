@@ -5,6 +5,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Repository.ChannelBans
+  alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Command.Mode.ChannelModes
 
   describe "display_modes/1" do
@@ -21,21 +23,15 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
     end
 
     test "handles modes with value" do
-      modes = [{"l", "10"}, {"k", "password"}, {"b", "user!@mask"}]
+      modes = [{"l", "10"}, {"k", "password"}]
 
       assert "+lk 10 password" == ChannelModes.display_modes(modes)
     end
 
     test "handles modes with and without value" do
-      modes = [{"l", "10"}, "n", "t", "s", "i", "m", "p", {"k", "password"}, {"b", "user!@mask"}]
+      modes = [{"l", "10"}, "n", "t", "s", "i", "m", "p", {"k", "password"}]
 
       assert "+lntsimpk 10 password" == ChannelModes.display_modes(modes)
-    end
-
-    test "handles modes not displayed" do
-      modes = [{"b", "user!@mask"}]
-
-      assert "" == ChannelModes.display_modes(modes)
     end
   end
 
@@ -424,14 +420,18 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                "i",
                "m",
                "p",
-               {"k", "password"},
-               {"b", "user!@mask"}
+               {"k", "password"}
              ]
+
+      assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
+      assert channel_ban.mask == "user!@mask"
+      assert channel_ban.setter == "TODO"
+      assert channel_ban.created_at != nil
     end
 
     test "handles remove modes" do
-      channel =
-        insert(:channel, modes: [{"l", "10"}, "n", "t", "s", "i", "m", "p", {"k", "password"}, {"b", "user!@mask"}])
+      channel = insert(:channel, modes: [{"l", "10"}, "n", "t", "s", "i", "m", "p", {"k", "password"}])
+      insert(:channel_ban, channel: channel, mask: "user!@mask")
 
       validated_modes = [
         {:remove, "l"},
@@ -461,6 +461,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
              ]
 
       assert updated_channel.modes == []
+
+      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
     end
 
     test "handles add and remove same modes" do
@@ -512,6 +514,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
              ]
 
       assert updated_channel.modes == []
+
+      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
     end
 
     test "handles add modes with value" do
@@ -542,9 +546,22 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       assert updated_channel.modes == [
                {"l", "20"},
-               {"k", "newpassword"},
-               {"b", "user!@mask"}
+               {"k", "newpassword"}
              ]
+
+      {{:ok, user_channel_operator}, {:ok, user_channel_voice}} =
+        Memento.transaction!(fn ->
+          {UserChannels.get_by_user_port_and_channel_name(user_operator.port, channel.name),
+           UserChannels.get_by_user_port_and_channel_name(user_voice.port, channel.name)}
+        end)
+
+      assert user_channel_operator.modes == ["o"]
+      assert user_channel_voice.modes == ["v"]
+
+      assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
+      assert channel_ban.mask == "user!@mask"
+      assert channel_ban.setter == "TODO"
+      assert channel_ban.created_at != nil
     end
 
     test "handles replace modes with value" do
@@ -559,15 +576,12 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
     end
 
     test "handles remove modes with value" do
-      channel =
-        insert(:channel,
-          modes: [{"l", "10"}, {"k", "password"}, {"b", "user!@mask"}]
-        )
-
+      channel = insert(:channel, modes: [{"l", "10"}, {"k", "password"}])
       user_operator = insert(:user, nick: "nick_operator")
       user_voice = insert(:user, nick: "nick_voice")
       insert(:user_channel, user: user_operator, channel: channel, modes: ["o"])
       insert(:user_channel, user: user_voice, channel: channel, modes: ["v"])
+      insert(:channel_ban, channel: channel, mask: "user!@mask")
 
       validated_modes = [
         {:remove, "l"},
@@ -589,6 +603,17 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
              ]
 
       assert updated_channel.modes == []
+
+      {{:ok, user_channel_operator}, {:ok, user_channel_voice}} =
+        Memento.transaction!(fn ->
+          {UserChannels.get_by_user_port_and_channel_name(user_operator.port, channel.name),
+           UserChannels.get_by_user_port_and_channel_name(user_voice.port, channel.name)}
+        end)
+
+      assert user_channel_operator.modes == []
+      assert user_channel_voice.modes == []
+
+      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
     end
   end
 end
