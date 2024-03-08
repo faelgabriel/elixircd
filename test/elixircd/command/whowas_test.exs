@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.WhowasTest do
   describe "handle/2" do
     test "handles WHOWAS command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "WHOWAS", params: ["#anything"]}
 
         Whowas.handle(user, message)

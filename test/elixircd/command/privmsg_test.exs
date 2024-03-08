@@ -4,15 +4,16 @@ defmodule ElixIRCd.Command.PrivmsgTest do
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
 
+  import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
+
   alias ElixIRCd.Command.Privmsg
   alias ElixIRCd.Message
-
-  import ElixIRCd.Factory
 
   describe "handle/2" do
     test "handles PRIVMSG command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "PRIVMSG", params: ["#anything"]}
 
         Privmsg.handle(user, message)
@@ -79,7 +80,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{user.identity} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.socket, ":#{build_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -106,7 +107,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{user.identity} PRIVMSG #{another_user.nick} :Hello\r\n"}
+          {another_user.socket, ":#{build_user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n"}
         ])
       end)
     end

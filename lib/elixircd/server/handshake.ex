@@ -22,8 +22,7 @@ defmodule ElixIRCd.Server.Handshake do
   def handle(user) when user.nick != nil and user.username != nil and user.realname != nil do
     with :ok <- check_server_password(user),
          {:ok, hostname} <- resolve_hostname(user.socket),
-         user_identity <- Helper.build_user_identity(user.nick, user.username, hostname),
-         updated_user <- Users.update(user, %{hostname: hostname, identity: user_identity}) do
+         updated_user <- Users.update(user, %{registered: true, hostname: hostname}) do
       Motd.send_motd(updated_user)
     else
       {:error, :bad_password} ->

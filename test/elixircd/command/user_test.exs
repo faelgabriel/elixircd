@@ -14,7 +14,7 @@ defmodule ElixIRCd.Command.UserTest do
   describe "handle/2" do
     test "handles USER command with not enough parameters for user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
 
         message = %Message{command: "USER", params: []}
         User.handle(user, message)
@@ -55,7 +55,7 @@ defmodule ElixIRCd.Command.UserTest do
       |> expect(:handle, fn _user -> :ok end)
 
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
 
         User.handle(user, message)

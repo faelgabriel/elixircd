@@ -13,7 +13,7 @@ defmodule ElixIRCd.Command.CapTest do
   describe "handle/2" do
     test "handles CAP command for listing supported capabilities for IRCv3.2" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "CAP", params: ["LS", "302"]}
 
         Cap.handle(user, message)

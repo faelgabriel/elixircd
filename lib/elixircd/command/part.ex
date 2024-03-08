@@ -7,6 +7,8 @@ defmodule ElixIRCd.Command.Part do
 
   require Logger
 
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
@@ -15,7 +17,7 @@ defmodule ElixIRCd.Command.Part do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "PART"}) do
+  def handle(%{registered: false} = user, %{command: "PART"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
@@ -47,7 +49,7 @@ defmodule ElixIRCd.Command.Part do
       UserChannels.delete(user_channel)
 
       Message.build(%{
-        prefix: user.identity,
+        prefix: build_user_mask(user),
         command: "PART",
         params: [channel.name],
         trailing: part_message

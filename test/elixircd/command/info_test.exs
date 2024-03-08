@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.InfoTest do
   describe "handle/2" do
     test "handles INFO command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "INFO", params: ["#anything"]}
 
         Info.handle(user, message)

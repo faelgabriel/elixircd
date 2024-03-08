@@ -11,7 +11,7 @@ defmodule ElixIRCd.Command.Time do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "TIME"}) do
+  def handle(%{registered: false} = user, %{command: "TIME"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end

@@ -66,7 +66,7 @@ defmodule ElixIRCd.Command.Mode do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "MODE"}) do
+  def handle(%{registered: false} = user, %{command: "MODE"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end

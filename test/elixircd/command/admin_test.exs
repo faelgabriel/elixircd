@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.AdminTest do
   describe "handle/2" do
     test "handles ADMIN command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "ADMIN", params: ["#anything"]}
 
         Admin.handle(user, message)

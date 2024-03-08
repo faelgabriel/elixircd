@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.IsonTest do
   describe "handle/2" do
     test "handles ISON command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "ISON", params: ["#anything"]}
 
         Ison.handle(user, message)

@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.TopicTest do
   describe "handle/2" do
     test "handles TOPIC command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "TOPIC", params: ["#anything"]}
 
         Topic.handle(user, message)

@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.UserhostTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
 
   alias ElixIRCd.Command.Userhost
   alias ElixIRCd.Message
@@ -12,7 +13,7 @@ defmodule ElixIRCd.Command.UserhostTest do
   describe "handle/2" do
     test "handles USERHOST command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "USERHOST", params: ["#anything"]}
 
         Userhost.handle(user, message)
@@ -56,7 +57,7 @@ defmodule ElixIRCd.Command.UserhostTest do
         Userhost.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 302 #{user.nick} :#{target_user.nick}=#{target_user.identity}\r\n"}
+          {user.socket, ":server.example.com 302 #{user.nick} :#{target_user.nick}=#{build_user_mask(target_user)}\r\n"}
         ])
       end)
     end
@@ -72,7 +73,7 @@ defmodule ElixIRCd.Command.UserhostTest do
 
         assert_sent_messages([
           {user.socket,
-           ":server.example.com 302 #{user.nick} :#{target_user.nick}=#{target_user.identity} #{target_user2.nick}=#{target_user2.identity}\r\n"}
+           ":server.example.com 302 #{user.nick} :#{target_user.nick}=#{build_user_mask(target_user)} #{target_user2.nick}=#{build_user_mask(target_user2)}\r\n"}
         ])
       end)
     end

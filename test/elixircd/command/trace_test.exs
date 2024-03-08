@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.TraceTest do
   describe "handle/2" do
     test "handles TRACE command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "TRACE", params: ["#anything"]}
 
         Trace.handle(user, message)

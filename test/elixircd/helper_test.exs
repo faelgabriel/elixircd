@@ -49,7 +49,7 @@ defmodule ElixIRCd.HelperTest do
     end
 
     test "gets reply for unregistered user" do
-      user = build(:user, %{identity: nil})
+      user = build(:user, %{registered: false})
       reply = Helper.get_user_reply(user)
 
       assert reply == "*"

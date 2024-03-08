@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.RehashTest do
   describe "handle/2" do
     test "handles REHASH command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "REHASH", params: ["#anything"]}
 
         Rehash.handle(user, message)

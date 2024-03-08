@@ -5,7 +5,8 @@ defmodule ElixIRCd.Command.Privmsg do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_name?: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
@@ -15,7 +16,7 @@ defmodule ElixIRCd.Command.Privmsg do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{identity: nil} = user, %{command: "PRIVMSG"}) do
+  def handle(%{registered: false} = user, %{command: "PRIVMSG"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
     |> Messaging.broadcast(user)
   end
@@ -44,7 +45,7 @@ defmodule ElixIRCd.Command.Privmsg do
 
   @impl true
   def handle(user, %{command: "PRIVMSG", params: [receiver], trailing: message}) do
-    if Helper.channel_name?(receiver),
+    if channel_name?(receiver),
       do: handle_channel_message(user, receiver, message),
       else: handle_user_message(user, receiver, message)
   end
@@ -57,7 +58,7 @@ defmodule ElixIRCd.Command.Privmsg do
         |> Enum.reject(&(&1.user_port == user.port))
 
       Message.build(%{
-        prefix: user.identity,
+        prefix: build_user_mask(user),
         command: "PRIVMSG",
         params: [channel.name],
         trailing: message
@@ -88,7 +89,7 @@ defmodule ElixIRCd.Command.Privmsg do
     case Users.get_by_nick(receiver_nick) do
       {:ok, receiver_user} ->
         Message.build(%{
-          prefix: user.identity,
+          prefix: build_user_mask(user),
           command: "PRIVMSG",
           params: [receiver_nick],
           trailing: message

@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.InviteTest do
   describe "handle/2" do
     test "handles INVITE command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "INVITE", params: ["#anything"]}
 
         Invite.handle(user, message)

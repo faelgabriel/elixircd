@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.JoinTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
 
   alias ElixIRCd.Command.Join
   alias ElixIRCd.Message
@@ -12,7 +13,7 @@ defmodule ElixIRCd.Command.JoinTest do
   describe "handle/2" do
     test "handles JOIN command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "JOIN", params: ["#anything"]}
 
         Join.handle(user, message)
@@ -62,12 +63,12 @@ defmodule ElixIRCd.Command.JoinTest do
         Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{user.identity} JOIN #{channel.name}\r\n"},
+          {user.socket, ":#{build_user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :#{channel.topic}\r\n"},
           {user.socket,
            ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
           {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
-          {another_user.socket, ":#{user.identity} JOIN #{channel.name}\r\n"}
+          {another_user.socket, ":#{build_user_mask(user)} JOIN #{channel.name}\r\n"}
         ])
       end)
     end
@@ -80,7 +81,7 @@ defmodule ElixIRCd.Command.JoinTest do
         Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{user.identity} JOIN #new_channel\r\n"},
+          {user.socket, ":#{build_user_mask(user)} JOIN #new_channel\r\n"},
           {user.socket, ":server.example.com MODE #new_channel +o #{user.nick}\r\n"},
           {user.socket, ":server.example.com 332 #{user.nick} #new_channel :Welcome to #new_channel.\r\n"},
           {user.socket, ":server.example.com 353 = #{user.nick} #new_channel :#{user.nick}\r\n"},

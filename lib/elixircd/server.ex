@@ -7,7 +7,7 @@ defmodule ElixIRCd.Server do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [get_socket_port: 1]
+  import ElixIRCd.Helper, only: [build_user_mask: 1, get_socket_port: 1]
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
@@ -144,7 +144,7 @@ defmodule ElixIRCd.Server do
   end
 
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
-  def handle_quit(user, quit_message) do
+  def handle_quit(%{registered: true} = user, quit_message) do
     all_channel_users =
       UserChannels.get_by_user_port(user.port)
       |> Enum.map(& &1.channel_name)
@@ -156,7 +156,12 @@ defmodule ElixIRCd.Server do
     UserChannels.delete_by_user_port(user.port)
     Users.delete(user)
 
-    Message.build(%{prefix: user.identity, command: "QUIT", params: [], trailing: quit_message})
+    Message.build(%{prefix: build_user_mask(user), command: "QUIT", params: [], trailing: quit_message})
     |> Messaging.broadcast(all_channel_users)
+  end
+
+  def handle_quit(user, _quit_message) do
+    UserChannels.delete_by_user_port(user.port)
+    Users.delete(user)
   end
 end

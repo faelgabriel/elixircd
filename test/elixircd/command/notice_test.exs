@@ -4,15 +4,16 @@ defmodule ElixIRCd.Command.NoticeTest do
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
 
+  import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
+
   alias ElixIRCd.Command.Notice
   alias ElixIRCd.Message
-
-  import ElixIRCd.Factory
 
   describe "handle/2" do
     test "handles NOTICE command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "NOTICE", params: ["#anything"]}
 
         Notice.handle(user, message)
@@ -79,7 +80,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{user.identity} NOTICE #{channel.name} :Hello\r\n"}
+          {another_user.socket, ":#{build_user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -106,7 +107,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{user.identity} NOTICE #{another_user.nick} :Hello\r\n"}
+          {another_user.socket, ":#{build_user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
         ])
       end)
     end

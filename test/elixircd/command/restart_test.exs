@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.RestartTest do
   describe "handle/2" do
     test "handles RESTART command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "RESTART", params: ["#anything"]}
 
         Restart.handle(user, message)

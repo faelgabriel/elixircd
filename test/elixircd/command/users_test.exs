@@ -12,7 +12,7 @@ defmodule ElixIRCd.Command.UsersTest do
   describe "handle/2" do
     test "handles USERS command with user not registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "USERS", params: ["#anything"]}
 
         Users.handle(user, message)

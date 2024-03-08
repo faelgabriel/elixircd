@@ -13,7 +13,7 @@ defmodule ElixIRCd.Command.PassTest do
   describe "handle/2" do
     test "handles PASS command with user registered" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: "identity")
+        user = insert(:user, registered: true)
         message = %Message{command: "PASS", params: ["password"]}
 
         Pass.handle(user, message)
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Command.PassTest do
 
     test "handles PASS command with not enough parameters" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "PASS", params: []}
 
         Pass.handle(user, message)
@@ -39,7 +39,7 @@ defmodule ElixIRCd.Command.PassTest do
 
     test "handles PASS command with valid password" do
       Memento.transaction!(fn ->
-        user = insert(:user, identity: nil)
+        user = insert(:user, registered: false)
         message = %Message{command: "PASS", params: ["password"]}
 
         Pass.handle(user, message)
