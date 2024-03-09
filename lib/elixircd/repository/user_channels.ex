@@ -19,6 +19,8 @@ defmodule ElixIRCd.Repository.UserChannels do
   """
   @spec update(UserChannel.t(), map()) :: UserChannel.t()
   def update(user_channel, attrs) do
+    delete(user_channel)
+
     UserChannel.update(user_channel, attrs)
     |> Memento.Query.write()
   end

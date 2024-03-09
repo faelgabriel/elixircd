@@ -415,7 +415,7 @@ defmodule ElixIRCd.ServerTest do
           :timer.sleep(50)
         end)
 
-      assert log =~ "Error handling disconnect: \"User port not found: #{inspect(user.port)}\""
+      assert log =~ "Error handling disconnect: \"User not found\""
     end
 
     # test "handling multiple connections" do

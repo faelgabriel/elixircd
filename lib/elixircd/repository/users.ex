@@ -38,7 +38,7 @@ defmodule ElixIRCd.Repository.Users do
   def get_by_port(port) do
     Memento.Query.read(User, port)
     |> case do
-      nil -> {:error, "User port not found: #{inspect(port)}"}
+      nil -> {:error, "User not found"}
       user -> {:ok, user}
     end
   end
@@ -50,7 +50,7 @@ defmodule ElixIRCd.Repository.Users do
   def get_by_nick(nick) do
     Memento.Query.select(User, {:==, :nick, nick}, limit: 1)
     |> case do
-      [] -> {:error, "User nick not found: #{inspect(nick)}"}
+      [] -> {:error, "User not found"}
       [user] -> {:ok, user}
     end
   end

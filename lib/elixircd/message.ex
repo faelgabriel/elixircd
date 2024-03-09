@@ -249,6 +249,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_unknowncommand), do: "421"
   defp numeric_reply(:err_erroneusnickname), do: "432"
   defp numeric_reply(:err_nicknameinuse), do: "433"
+  defp numeric_reply(:err_usernotinchannel), do: "441"
   defp numeric_reply(:err_notonchannel), do: "442"
   defp numeric_reply(:err_notregistered), do: "451"
   defp numeric_reply(:err_needmoreparams), do: "461"
