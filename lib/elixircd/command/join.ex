@@ -80,8 +80,7 @@ defmodule ElixIRCd.Command.Join do
         {:existing, channel}
 
       _ ->
-        # TODO: create without topic set, or put it in a config;
-        channel = Channels.create(%{name: channel_name, topic: "Welcome to #{channel_name}."})
+        channel = Channels.create(%{name: channel_name, topic: nil})
         {:created, channel}
     end
   end
@@ -110,9 +109,19 @@ defmodule ElixIRCd.Command.Join do
       |> Messaging.broadcast(user_channels)
     end
 
-    # TODO: if topic is nil, then the command code should be 331, otherwise 332
+    {topic_reply, topic_trailing} =
+      case channel.topic do
+        nil -> {:rpl_notopic, "No topic is set"}
+        topic -> {:rpl_topic, topic}
+      end
+
     [
-      Message.build(%{prefix: :server, command: :rpl_topic, params: [user.nick, channel.name], trailing: channel.topic}),
+      Message.build(%{
+        prefix: :server,
+        command: topic_reply,
+        params: [user.nick, channel.name],
+        trailing: topic_trailing
+      }),
       Message.build(%{
         prefix: :server,
         command: :rpl_namreply,

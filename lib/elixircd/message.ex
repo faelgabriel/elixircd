@@ -238,6 +238,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_whoisidle), do: "317"
   defp numeric_reply(:rpl_endofwhois), do: "318"
   defp numeric_reply(:rpl_whoischannels), do: "319"
+  defp numeric_reply(:rpl_notopic), do: "331"
   defp numeric_reply(:rpl_topic), do: "332"
   defp numeric_reply(:rpl_namreply), do: "353"
   defp numeric_reply(:rpl_endofnames), do: "366"
