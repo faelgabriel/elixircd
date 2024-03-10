@@ -142,6 +142,39 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
+  describe "user_mask_match/2" do
+    test "matches user mask" do
+      user = build(:user, nick: "nick", username: "user", hostname: "host")
+
+      assert true == Helper.user_mask_match?(user, "nick!~user@host")
+      assert true == Helper.user_mask_match?(user, "nick!~user@*")
+      assert true == Helper.user_mask_match?(user, "nick!*@host")
+      assert true == Helper.user_mask_match?(user, "nick!*@*")
+      assert true == Helper.user_mask_match?(user, "*!~user@host")
+      assert true == Helper.user_mask_match?(user, "*!~user@*")
+      assert true == Helper.user_mask_match?(user, "*!*@host")
+      assert true == Helper.user_mask_match?(user, "*!*@*")
+      assert true == Helper.user_mask_match?(user, "n*!*@*")
+      assert true == Helper.user_mask_match?(user, "*!~u*@host")
+      assert true == Helper.user_mask_match?(user, "*!~user@h*")
+      assert true == Helper.user_mask_match?(user, "*k!*@*")
+      assert true == Helper.user_mask_match?(user, "*!~*r@host")
+      assert true == Helper.user_mask_match?(user, "*!~user@*t")
+    end
+
+    test "does not match user mask" do
+      user = build(:user, nick: "nick", username: "user", hostname: "host")
+
+      assert false == Helper.user_mask_match?(user, "difnick!~user@host")
+      assert false == Helper.user_mask_match?(user, "difnick!~user@*")
+      assert false == Helper.user_mask_match?(user, "difnick!*@host")
+      assert false == Helper.user_mask_match?(user, "difnick!*@*")
+      assert false == Helper.user_mask_match?(user, "*!~difuser@host")
+      assert false == Helper.user_mask_match?(user, "*!~difuser@*")
+      assert false == Helper.user_mask_match?(user, "*!*@difhost")
+    end
+  end
+
   describe "normalize_mask/1" do
     test "normalizes user mask" do
       assert "nick!user@host" == Helper.normalize_mask("nick!user@host")
@@ -158,25 +191,6 @@ defmodule ElixIRCd.HelperTest do
       assert "*!*@*" == Helper.normalize_mask("!")
       assert "*!*@*" == Helper.normalize_mask("@")
       assert "*!*@*" == Helper.normalize_mask("*!@*")
-    end
-  end
-
-  describe "mask_matches/2" do
-    test "matches user mask" do
-      user = build(:user)
-
-      assert true == Helper.mask_matches?("nick!user@host", user)
-      assert true == Helper.mask_matches?("nick!user@*", user)
-      assert true == Helper.mask_matches?("nick!*@host", user)
-      assert true == Helper.mask_matches?("nick!*@*", user)
-      assert true == Helper.mask_matches?("*!user@host", user)
-      assert true == Helper.mask_matches?("*!user@*", user)
-      assert true == Helper.mask_matches?("*!*@host", user)
-      assert true == Helper.mask_matches?("*!*@*", user)
-    end
-
-    test "does not match user mask" do
-      # TODO
     end
   end
 end

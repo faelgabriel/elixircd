@@ -79,6 +79,4 @@ defmodule ElixIRCd.CommandTest do
       ])
     end
   end
-
-  # TODO: create a test that try to handles the messages in all possible eays (1 parameter, 2, 3..., nil trailing or not, etc.)
 end

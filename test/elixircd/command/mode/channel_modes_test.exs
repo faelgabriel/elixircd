@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
 
   alias ElixIRCd.Command.Mode.ChannelModes
   alias ElixIRCd.Repository.ChannelBans
@@ -516,7 +517,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
       assert channel_ban.mask == "nick!*@mask"
-      assert channel_ban.setter == "TODO"
+      assert channel_ban.setter == build_user_mask(user)
       assert channel_ban.created_at != nil
     end
 
@@ -654,7 +655,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
       assert channel_ban.mask == "nick!*@mask"
-      assert channel_ban.setter == "TODO"
+      assert channel_ban.setter == build_user_mask(user)
       assert channel_ban.created_at != nil
     end
 

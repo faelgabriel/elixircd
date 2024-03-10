@@ -94,6 +94,20 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
+  Determines if a user mask matches a user.
+  """
+  @spec user_mask_match?(User.t(), String.t()) :: boolean()
+  def user_mask_match?(user, mask) do
+    mask
+    |> String.replace(".", "\\.")
+    |> String.replace("@", "\\@")
+    |> String.replace("!", "\\!")
+    |> String.replace("*", ".*")
+    |> Regex.compile!()
+    |> Regex.match?(build_user_mask(user))
+  end
+
+  @doc """
   Normalizes a mask to the *!*@* IRC format.
   """
   @spec normalize_mask(String.t()) :: String.t()
@@ -123,14 +137,4 @@ defmodule ElixIRCd.Helper do
   @spec empty_mask_part_to_wildcard(String.t()) :: String.t()
   defp empty_mask_part_to_wildcard(""), do: "*"
   defp empty_mask_part_to_wildcard(mask), do: mask
-
-  @doc """
-  Determines if a user mask matches a user.
-  """
-  @spec mask_matches?(String.t(), User.t()) :: boolean()
-  def mask_matches?(_mask, user) do
-    _user_mask = build_user_mask(user)
-    # TODO
-    true
-  end
 end
