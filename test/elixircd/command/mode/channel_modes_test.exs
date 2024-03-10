@@ -71,10 +71,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:add, "m"},
         {:add, "p"},
         {:add, {"k", "password"}},
-        {:add, {"b", "user!@mask"}}
+        {:add, {"b", "nick!*@mask"}}
       ]
 
-      assert "+lntsimpkb 10 password user!@mask" == ChannelModes.display_mode_changes(mode_changes)
+      assert "+lntsimpkb 10 password nick!*@mask" == ChannelModes.display_mode_changes(mode_changes)
     end
 
     test "handles remove multiple modes" do
@@ -87,10 +87,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:remove, "m"},
         {:remove, "p"},
         {:remove, "k"},
-        {:remove, {"b", "user!@mask"}}
+        {:remove, {"b", "nick!*@mask"}}
       ]
 
-      assert "-lntsimpkb user!@mask" == ChannelModes.display_mode_changes(mode_changes)
+      assert "-lntsimpkb nick!*@mask" == ChannelModes.display_mode_changes(mode_changes)
     end
 
     test "handles add and remove same modes" do
@@ -103,7 +103,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:add, "m"},
         {:add, "p"},
         {:add, {"k", "password"}},
-        {:add, {"b", "user!@mask"}},
+        {:add, {"b", "nick!*@mask"}},
         {:remove, "l"},
         {:remove, "n"},
         {:remove, "t"},
@@ -112,10 +112,11 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:remove, "m"},
         {:remove, "p"},
         {:remove, "k"},
-        {:remove, {"b", "user!@mask"}}
+        {:remove, {"b", "nick!*@mask"}}
       ]
 
-      assert "+lntsimpkb-lntsimpkb 10 password user!@mask user!@mask" == ChannelModes.display_mode_changes(mode_changes)
+      assert "+lntsimpkb-lntsimpkb 10 password nick!*@mask nick!*@mask" ==
+               ChannelModes.display_mode_changes(mode_changes)
     end
 
     test "handles add and remove modes shuffled" do
@@ -127,10 +128,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:add, "i"},
         {:remove, "p"},
         {:add, {"k", "pass"}},
-        {:remove, {"b", "user!@mask"}}
+        {:remove, {"b", "nick!*@mask"}}
       ]
 
-      assert "-n+lt-s+i-p+k-b 10 pass user!@mask" == ChannelModes.display_mode_changes(mode_changes)
+      assert "-n+lt-s+i-p+k-b 10 pass nick!*@mask" == ChannelModes.display_mode_changes(mode_changes)
     end
   end
 
@@ -187,7 +188,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
     test "handles add multiple modes with single plus sign" do
       mode_string = "+lntsimpkb"
-      values = ["10", "password", "user!@mask"]
+      values = ["10", "password", "nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -200,7 +201,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:add, "m"},
                {:add, "p"},
                {:add, {"k", "password"}},
-               {:add, {"b", "user!@mask"}}
+               {:add, {"b", "nick!*@mask"}}
              ]
 
       assert invalid_modes == []
@@ -208,7 +209,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
     test "handles add multiple modes with multiple plus signs" do
       mode_string = "+l+n+t+s+i+m+p+k+b"
-      values = ["10", "password", "user!@mask"]
+      values = ["10", "password", "nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -221,7 +222,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:add, "m"},
                {:add, "p"},
                {:add, {"k", "password"}},
-               {:add, {"b", "user!@mask"}}
+               {:add, {"b", "nick!*@mask"}}
              ]
 
       assert invalid_modes == []
@@ -229,7 +230,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
     test "handles remove multiple modes with single minus sign" do
       mode_string = "-lntsimpkb"
-      values = ["user!@mask"]
+      values = ["nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -242,7 +243,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:remove, "m"},
                {:remove, "p"},
                {:remove, "k"},
-               {:remove, {"b", "user!@mask"}}
+               {:remove, {"b", "nick!*@mask"}}
              ]
 
       assert invalid_modes == []
@@ -250,7 +251,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
     test "handles remove multiple modes with multiple minus signs" do
       mode_string = "-l-n-t-s-i-m-p-k-b"
-      values = ["user!@mask"]
+      values = ["nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -263,7 +264,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:remove, "m"},
                {:remove, "p"},
                {:remove, "k"},
-               {:remove, {"b", "user!@mask"}}
+               {:remove, {"b", "nick!*@mask"}}
              ]
 
       assert invalid_modes == []
@@ -271,7 +272,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
     test "handles add and remove same modes" do
       mode_string = "+lntsimpkb-lntsimpkb"
-      values = ["10", "password", "user!@mask", "user!@mask"]
+      values = ["10", "password", "nick!*@mask", "nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -284,7 +285,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:add, "m"},
                {:add, "p"},
                {:add, {"k", "password"}},
-               {:add, {"b", "user!@mask"}},
+               {:add, {"b", "nick!*@mask"}},
                {:remove, "l"},
                {:remove, "n"},
                {:remove, "t"},
@@ -293,7 +294,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:remove, "m"},
                {:remove, "p"},
                {:remove, "k"},
-               {:remove, {"b", "user!@mask"}}
+               {:remove, {"b", "nick!*@mask"}}
              ]
 
       assert invalid_modes == []
@@ -301,14 +302,14 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
     test "handles add modes with value" do
       mode_string = "+lkbov"
-      values = ["20", "newpassword", "user!@mask", "nick_operator", "nick_voice"]
+      values = ["20", "newpassword", "nick!*@mask", "nick_operator", "nick_voice"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
       assert validated_modes == [
                {:add, {"l", "20"}},
                {:add, {"k", "newpassword"}},
-               {:add, {"b", "user!@mask"}},
+               {:add, {"b", "nick!*@mask"}},
                {:add, {"o", "nick_operator"}},
                {:add, {"v", "nick_voice"}}
              ]
@@ -328,14 +329,14 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
     test "handles remove modes with value" do
       mode_string = "-lkbov"
-      values = ["user!@mask", "nick_operator", "nick_voice"]
+      values = ["nick!*@mask", "nick_operator", "nick_voice"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
       assert validated_modes == [
                {:remove, "l"},
                {:remove, "k"},
-               {:remove, {"b", "user!@mask"}},
+               {:remove, {"b", "nick!*@mask"}},
                {:remove, {"o", "nick_operator"}},
                {:remove, {"v", "nick_voice"}}
              ]
@@ -460,11 +461,11 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
     end
 
     test "handles modes with value and listing modes" do
-      mode_changes = [add: {"l", "10"}, add: "n", add: "b", add: "t", add: {"b", "user!@mask"}]
+      mode_changes = [add: {"l", "10"}, add: "n", add: "b", add: "t", add: {"b", "nick!*@mask"}]
 
       {filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(mode_changes)
 
-      assert filtered_modes == [{:add, {"l", "10"}}, {:add, "n"}, {:add, "t"}, {:add, {"b", "user!@mask"}}]
+      assert filtered_modes == [{:add, {"l", "10"}}, {:add, "n"}, {:add, "t"}, {:add, {"b", "nick!*@mask"}}]
       assert listing_modes == ["b"]
       assert missing_value_modes == []
     end
@@ -484,7 +485,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:add, "m"},
         {:add, "p"},
         {:add, {"k", "password"}},
-        {:add, {"b", "user!@mask"}}
+        {:add, {"b", "nick!*@mask"}}
       ]
 
       {updated_channel, applied_changes} =
@@ -499,7 +500,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:add, "m"},
                {:add, "p"},
                {:add, {"k", "password"}},
-               {:add, {"b", "user!@mask"}}
+               {:add, {"b", "nick!*@mask"}}
              ]
 
       assert updated_channel.modes == [
@@ -514,7 +515,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
              ]
 
       assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
-      assert channel_ban.mask == "user!@mask"
+      assert channel_ban.mask == "nick!*@mask"
       assert channel_ban.setter == "TODO"
       assert channel_ban.created_at != nil
     end
@@ -522,7 +523,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
     test "handles remove modes" do
       user = insert(:user)
       channel = insert(:channel, modes: [{"l", "10"}, "n", "t", "s", "i", "m", "p", {"k", "password"}])
-      insert(:channel_ban, channel: channel, mask: "user!@mask")
+      insert(:channel_ban, channel: channel, mask: "nick!*@mask")
 
       validated_modes = [
         {:remove, "l"},
@@ -533,7 +534,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:remove, "m"},
         {:remove, "p"},
         {:remove, "k"},
-        {:remove, {"b", "user!@mask"}}
+        {:remove, {"b", "nick!*@mask"}}
       ]
 
       {updated_channel, applied_changes} =
@@ -548,7 +549,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:remove, "m"},
                {:remove, "p"},
                {:remove, "k"},
-               {:remove, {"b", "user!@mask"}}
+               {:remove, {"b", "nick!*@mask"}}
              ]
 
       assert updated_channel.modes == []
@@ -569,7 +570,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:add, "m"},
         {:add, "p"},
         {:add, {"k", "password"}},
-        {:add, {"b", "user!@mask"}},
+        {:add, {"b", "nick!*@mask"}},
         {:remove, "l"},
         {:remove, "n"},
         {:remove, "t"},
@@ -578,7 +579,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
         {:remove, "m"},
         {:remove, "p"},
         {:remove, "k"},
-        {:remove, {"b", "user!@mask"}}
+        {:remove, {"b", "nick!*@mask"}}
       ]
 
       {updated_channel, applied_changes} =
@@ -593,7 +594,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:add, "m"},
                {:add, "p"},
                {:add, {"k", "password"}},
-               {:add, {"b", "user!@mask"}},
+               {:add, {"b", "nick!*@mask"}},
                {:remove, "l"},
                {:remove, "n"},
                {:remove, "t"},
@@ -602,7 +603,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
                {:remove, "m"},
                {:remove, "p"},
                {:remove, "k"},
-               {:remove, {"b", "user!@mask"}}
+               {:remove, {"b", "nick!*@mask"}}
              ]
 
       assert updated_channel.modes == []
@@ -621,7 +622,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       validated_modes = [
         {:add, {"l", "20"}},
         {:add, {"k", "newpassword"}},
-        {:add, {"b", "user!@mask"}},
+        {:add, {"b", "nick!*@mask"}},
         {:add, {"o", "nick_operator"}},
         {:add, {"v", "nick_voice"}}
       ]
@@ -632,7 +633,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert applied_changes == [
                {:add, {"l", "20"}},
                {:add, {"k", "newpassword"}},
-               {:add, {"b", "user!@mask"}},
+               {:add, {"b", "nick!*@mask"}},
                {:add, {"o", "nick_operator"}},
                {:add, {"v", "nick_voice"}}
              ]
@@ -652,7 +653,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert user_channel_voice.modes == ["v"]
 
       assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
-      assert channel_ban.mask == "user!@mask"
+      assert channel_ban.mask == "nick!*@mask"
       assert channel_ban.setter == "TODO"
       assert channel_ban.created_at != nil
     end
@@ -676,12 +677,12 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       user_voice = insert(:user, nick: "nick_voice")
       insert(:user_channel, user: user_operator, channel: channel, modes: ["o"])
       insert(:user_channel, user: user_voice, channel: channel, modes: ["v"])
-      insert(:channel_ban, channel: channel, mask: "user!@mask")
+      insert(:channel_ban, channel: channel, mask: "nick!*@mask")
 
       validated_modes = [
         {:remove, "l"},
         {:remove, "k"},
-        {:remove, {"b", "user!@mask"}},
+        {:remove, {"b", "nick!*@mask"}},
         {:remove, {"o", "nick_operator"}},
         {:remove, {"v", "nick_voice"}}
       ]
@@ -692,7 +693,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert applied_changes == [
                {:remove, "l"},
                {:remove, "k"},
-               {:remove, {"b", "user!@mask"}},
+               {:remove, {"b", "nick!*@mask"}},
                {:remove, {"o", "nick_operator"}},
                {:remove, {"v", "nick_voice"}}
              ]
@@ -746,6 +747,19 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert_sent_messages([
         {user.socket, ":server.example.com 401 #{user.nick} #{channel.name} nonexistent :No such nick\r\n"}
       ])
+    end
+
+    test "handles mask normalization for channel ban mode changes" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+      insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+      validated_modes = [{:add, {"b", "mask"}}, {:remove, {"b", "mask"}}]
+
+      {_updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert applied_changes == [{:add, {"b", "mask!*@*"}}, {:remove, {"b", "mask!*@*"}}]
     end
   end
 end

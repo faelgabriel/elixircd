@@ -92,4 +92,45 @@ defmodule ElixIRCd.Helper do
       when user.nick != nil and user.username != nil and user.hostname != nil do
     "#{user.nick}!~#{String.slice(user.username, 0..8)}@#{user.hostname}"
   end
+
+  @doc """
+  Normalizes a mask to the *!*@* IRC format.
+  """
+  @spec normalize_mask(String.t()) :: String.t()
+  def normalize_mask(mask) do
+    {nick_user, host} =
+      case String.split(mask, "@", parts: 2) do
+        [nick_user, host] -> {nick_user, host}
+        [nick_user] -> {nick_user, "*"}
+      end
+
+    {nick, user} =
+      case String.split(nick_user, "!", parts: 2) do
+        [nick, user] ->
+          {nick, user}
+
+        [nick_or_user] ->
+          if String.contains?(mask, "@") do
+            {"*", nick_or_user}
+          else
+            {nick_or_user, "*"}
+          end
+      end
+
+    "#{empty_mask_part_to_wildcard(nick)}!#{empty_mask_part_to_wildcard(user)}@#{empty_mask_part_to_wildcard(host)}"
+  end
+
+  @spec empty_mask_part_to_wildcard(String.t()) :: String.t()
+  defp empty_mask_part_to_wildcard(""), do: "*"
+  defp empty_mask_part_to_wildcard(mask), do: mask
+
+  @doc """
+  Determines if a user mask matches a user.
+  """
+  @spec mask_matches?(String.t(), User.t()) :: boolean()
+  def mask_matches?(_mask, user) do
+    _user_mask = build_user_mask(user)
+    # TODO
+    true
+  end
 end

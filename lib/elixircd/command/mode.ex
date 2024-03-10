@@ -61,6 +61,7 @@ defmodule ElixIRCd.Command.Mode do
   alias ElixIRCd.Command.Mode.ChannelModes
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.ChannelBans
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Server.Messaging
@@ -114,6 +115,7 @@ defmodule ElixIRCd.Command.Mode do
           params: [user.nick, "MODE"],
           trailing: "Not enough parameters"
         })
+        |> Messaging.broadcast(user)
       else
         {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
 
@@ -129,7 +131,29 @@ defmodule ElixIRCd.Command.Mode do
         end
 
         if "b" in listing_modes do
-          # TODO: list bans
+          ChannelBans.get_by_channel_name(updated_channel.name)
+          |> Enum.each(fn channel_ban ->
+            Message.build(%{
+              prefix: :server,
+              command: :rpl_banlist,
+              params: [
+                user.nick,
+                updated_channel.name,
+                channel_ban.mask,
+                channel_ban.setter,
+                DateTime.to_unix(channel_ban.created_at)
+              ]
+            })
+            |> Messaging.broadcast(user)
+          end)
+
+          Message.build(%{
+            prefix: :server,
+            command: :rpl_endofbanlist,
+            params: [user.nick, updated_channel.name],
+            trailing: "End of channel ban list"
+          })
+          |> Messaging.broadcast(user)
         end
 
         invalid_modes

@@ -141,4 +141,42 @@ defmodule ElixIRCd.HelperTest do
       assert is_port(extracted_socket_port)
     end
   end
+
+  describe "normalize_mask/1" do
+    test "normalizes user mask" do
+      assert "nick!user@host" == Helper.normalize_mask("nick!user@host")
+      assert "nick!user@*" == Helper.normalize_mask("nick!user")
+      assert "nick!*@*" == Helper.normalize_mask("nick")
+      assert "nick!*@host" == Helper.normalize_mask("nick!@host")
+      assert "*!user@host" == Helper.normalize_mask("user@host")
+      assert "*!*@host" == Helper.normalize_mask("!@host")
+      assert "*!*@host" == Helper.normalize_mask("@host")
+      assert "*!*@@" == Helper.normalize_mask("@@")
+      assert "*!!@*" == Helper.normalize_mask("!!")
+      assert "**!*@*" == Helper.normalize_mask("**")
+      assert "*!*@*" == Helper.normalize_mask("*")
+      assert "*!*@*" == Helper.normalize_mask("!")
+      assert "*!*@*" == Helper.normalize_mask("@")
+      assert "*!*@*" == Helper.normalize_mask("*!@*")
+    end
+  end
+
+  describe "mask_matches/2" do
+    test "matches user mask" do
+      user = build(:user)
+
+      assert true == Helper.mask_matches?("nick!user@host", user)
+      assert true == Helper.mask_matches?("nick!user@*", user)
+      assert true == Helper.mask_matches?("nick!*@host", user)
+      assert true == Helper.mask_matches?("nick!*@*", user)
+      assert true == Helper.mask_matches?("*!user@host", user)
+      assert true == Helper.mask_matches?("*!user@*", user)
+      assert true == Helper.mask_matches?("*!*@host", user)
+      assert true == Helper.mask_matches?("*!*@*", user)
+    end
+
+    test "does not match user mask" do
+      # TODO
+    end
+  end
 end

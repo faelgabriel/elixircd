@@ -3,6 +3,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   This module includes the channel modes handler.
   """
 
+  alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
   alias ElixIRCd.Repository.Channels
@@ -202,8 +203,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
         |> update_mode_changes(mode_change, applied_changes, new_modes)
 
       mode_flag in @modes_for_channel_ban ->
-        channel_ban_mode_applied?(mode_change, channel.name)
-        |> update_mode_changes(mode_change, applied_changes, new_modes)
+        updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
+
+        channel_ban_mode_applied?(updated_mode_change, channel.name)
+        |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
 
       mode_flag in @modes_with_value_to_replace ->
         handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
@@ -227,8 +230,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
         |> update_mode_changes(mode_change, applied_changes, new_modes)
 
       mode_flag in @modes_for_channel_ban ->
-        channel_ban_mode_applied?(mode_change, channel.name)
-        |> update_mode_changes(mode_change, applied_changes, new_modes)
+        updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
+
+        channel_ban_mode_applied?(updated_mode_change, channel.name)
+        |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
 
       mode_flag in @modes_without_value_to_remove ->
         handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
@@ -298,11 +303,14 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
 
   @spec channel_ban_mode_applied?(mode_change(), String.t()) :: boolean()
   defp channel_ban_mode_applied?({_action, {_mode_flag, mode_value}} = mode_change, channel_name) do
-    ChannelBans.get_by_channel_name_and_mask(channel_name, mode_value)
-    |> case do
-      {:ok, channel_ban} -> channel_ban_mode_changed?(mode_change, channel_ban, channel_name)
-      _ -> channel_ban_mode_changed?(mode_change, nil, channel_name)
-    end
+    channel_ban =
+      ChannelBans.get_by_channel_name_and_mask(channel_name, mode_value)
+      |> case do
+        {:ok, channel_ban} -> channel_ban
+        {:error, "ChannelBan not found"} -> nil
+      end
+
+    channel_ban_mode_changed?(mode_change, channel_ban, channel_name)
   end
 
   @spec channel_ban_mode_changed?(mode_change(), ChannelBan.t(), String.t()) :: boolean()
@@ -325,4 +333,9 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   end
 
   defp update_mode_changes(false, _mode_change, applied_changes, new_modes), do: {applied_changes, new_modes}
+
+  @spec normalize_mode_change_for_channel_ban(mode_change()) :: mode_change()
+  defp normalize_mode_change_for_channel_ban({action, {mode_flag, mode_value}}) do
+    {action, {mode_flag, Helper.normalize_mask(mode_value)}}
+  end
 end

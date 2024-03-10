@@ -248,11 +248,11 @@ defmodule ElixIRCd.Command.ModeTest do
         channel = insert(:channel, modes: [])
         insert(:user_channel, user: user, channel: channel)
 
-        message = %Message{command: "MODE", params: [channel.name, "+b", "user!@mask"]}
+        message = %Message{command: "MODE", params: [channel.name, "+b", "nick!user@host"]}
         Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +b user!@mask\r\n"}
+          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +b nick!user@host\r\n"}
         ])
       end)
     end
@@ -262,31 +262,90 @@ defmodule ElixIRCd.Command.ModeTest do
         user = insert(:user)
         channel = insert(:channel, modes: [])
         insert(:user_channel, user: user, channel: channel)
-        insert(:channel_ban, channel: channel, mask: "user!@mask")
+        insert(:channel_ban, channel: channel, mask: "nick!user@host")
 
-        message = %Message{command: "MODE", params: [channel.name, "-b", "user!@mask"]}
+        message = %Message{command: "MODE", params: [channel.name, "-b", "nick!user@host"]}
         Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -b user!@mask\r\n"}
+          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -b nick!user@host\r\n"}
         ])
       end)
     end
 
     test "handles MODE command with channel to remove modes for channel ban that does not exist" do
-      # TODO
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name, "-b", "inexistent!@mask"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([])
+      end)
     end
 
     test "handles MODE command with channel to list bans" do
-      # TODO
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+        channel_ban = insert(:channel_ban, channel: channel, mask: "nick!user@host")
+
+        message = %Message{command: "MODE", params: [channel.name, "+b"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket,
+           ":server.example.com 367 #{user.nick} #{channel.name} #{channel_ban.mask} #{channel_ban.setter} #{DateTime.to_unix(channel_ban.created_at)}\r\n"},
+          {user.socket, ":server.example.com 368 #{user.nick} #{channel.name} :End of channel ban list\r\n"}
+        ])
+      end)
     end
 
     test "handles MODE command with channel when invalid modes sent" do
-      # TODO
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name, "+wz"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 472 #{user.nick} w :is unknown mode char to me\r\n"},
+          {user.socket, ":server.example.com 472 #{user.nick} z :is unknown mode char to me\r\n"}
+        ])
+      end)
     end
 
     test "handles MODE command with channel when no modes changed" do
-      # TODO
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["t"])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name, "-t"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles MODE command with channel when mode changes are missing values" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name, "+l"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 461 #{user.nick} MODE :Not enough parameters\r\n"}
+        ])
+      end)
     end
   end
 end

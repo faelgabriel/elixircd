@@ -241,6 +241,8 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_topic), do: "332"
   defp numeric_reply(:rpl_namreply), do: "353"
   defp numeric_reply(:rpl_endofnames), do: "366"
+  defp numeric_reply(:rpl_banlist), do: "367"
+  defp numeric_reply(:rpl_endofbanlist), do: "368"
   defp numeric_reply(:rpl_endofmotd), do: "376"
 
   defp numeric_reply(:err_nosuchnick), do: "401"

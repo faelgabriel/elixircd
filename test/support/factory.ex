@@ -63,7 +63,7 @@ defmodule ElixIRCd.Factory do
   def build(:channel_ban, attrs) do
     %ChannelBan{
       channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
-      mask: Map.get(attrs, :mask, "mask"),
+      mask: Map.get(attrs, :mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
