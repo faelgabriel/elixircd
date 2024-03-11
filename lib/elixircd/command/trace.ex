@@ -32,10 +32,10 @@ defmodule ElixIRCd.Command.Trace do
     # The server should initiate a trace towards the specified target, which could be a server or a user.
     # The response should detail each hop in the path to the target, similar to the no-parameter scenario.
     # The series of TRACE replies might vary depending on the target's location within the network
-    # and the server's ability to trace the route to the target.
+    #  and the server's ability to trace the route to the target.
     # The trace report concludes with RPL_TRACEEND to indicate the end of the trace.
-    # Note: If the target is not found or the trace cannot be completed, the server should still respond with RPL_TRACEEND,
-    # possibly including an error message or indication that the target could not be reached.
+    # Note: If the target is not found or the trace cannot be completed, the server should still respond with
+    #  RPL_TRACEEND, possibly including an error message or indication that the target could not be reached.
     :ok
   end
 end

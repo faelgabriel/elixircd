@@ -64,7 +64,7 @@ defmodule ElixIRCd.Repository.UsersTest do
     test "returns an error when the user is not found" do
       port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
-      assert {:error, "User not found"} == Memento.transaction!(fn -> Users.get_by_port(port) end)
+      assert {:error, :user_not_found} == Memento.transaction!(fn -> Users.get_by_port(port) end)
     end
   end
 
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Repository.UsersTest do
     end
 
     test "returns an error when the user is not found" do
-      assert {:error, "User not found"} == Memento.transaction!(fn -> Users.get_by_nick("testnick") end)
+      assert {:error, :user_not_found} == Memento.transaction!(fn -> Users.get_by_nick("testnick") end)
     end
   end
 

@@ -26,11 +26,11 @@ defmodule ElixIRCd.Repository.Channels do
   @doc """
   Get a channel by the name.
   """
-  @spec get_by_name(String.t()) :: {:ok, Channel.t()} | {:error, String.t()}
+  @spec get_by_name(String.t()) :: {:ok, Channel.t()} | {:error, atom()}
   def get_by_name(name) do
     Memento.Query.read(Channel, name)
     |> case do
-      nil -> {:error, "Channel not found"}
+      nil -> {:error, :channel_not_found}
       channel -> {:ok, channel}
     end
   end

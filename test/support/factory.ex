@@ -3,8 +3,8 @@ defmodule ElixIRCd.Factory do
   This module defines the factories for the schemas.
   """
 
-  alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 

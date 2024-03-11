@@ -65,6 +65,7 @@ defmodule ElixIRCd.Command.Mode do
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -130,45 +131,11 @@ defmodule ElixIRCd.Command.Mode do
           |> Messaging.broadcast(channel_users)
         end
 
-        if "b" in listing_modes do
-          ChannelBans.get_by_channel_name(updated_channel.name)
-          |> Enum.each(fn channel_ban ->
-            Message.build(%{
-              prefix: :server,
-              command: :rpl_banlist,
-              params: [
-                user.nick,
-                updated_channel.name,
-                channel_ban.mask,
-                channel_ban.setter,
-                DateTime.to_unix(channel_ban.created_at)
-              ]
-            })
-            |> Messaging.broadcast(user)
-          end)
-
-          Message.build(%{
-            prefix: :server,
-            command: :rpl_endofbanlist,
-            params: [user.nick, updated_channel.name],
-            trailing: "End of channel ban list"
-          })
-          |> Messaging.broadcast(user)
-        end
-
-        invalid_modes
-        |> Enum.each(fn mode ->
-          Message.build(%{
-            prefix: :server,
-            command: :err_unknownmode,
-            params: [user.nick, mode],
-            trailing: "is unknown mode char to me"
-          })
-          |> Messaging.broadcast(user)
-        end)
+        send_channel_mode_listing(listing_modes, user, updated_channel)
+        send_channel_invalid_modes(invalid_modes, user)
       end
     else
-      {:error, "UserChannel not found"} ->
+      {:error, :user_channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_notonchannel,
@@ -177,7 +144,7 @@ defmodule ElixIRCd.Command.Mode do
         })
         |> Messaging.broadcast(user)
 
-      {:error, "Channel not found"} ->
+      {:error, :channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_nosuchchannel,
@@ -199,7 +166,7 @@ defmodule ElixIRCd.Command.Mode do
       })
       |> Messaging.broadcast(user)
     else
-      {:error, "UserChannel not found"} ->
+      {:error, :user_channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_notonchannel,
@@ -208,7 +175,7 @@ defmodule ElixIRCd.Command.Mode do
         })
         |> Messaging.broadcast(user)
 
-      {:error, "Channel not found"} ->
+      {:error, :channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_nosuchchannel,
@@ -217,6 +184,56 @@ defmodule ElixIRCd.Command.Mode do
         })
         |> Messaging.broadcast(user)
     end
+  end
+
+  @spec send_channel_mode_listing(list(String.t()), User.t(), Channel.t()) :: :ok
+  defp send_channel_mode_listing([], _user, _channel), do: :ok
+
+  defp send_channel_mode_listing(["b"], user, channel) do
+    created_timestamp =
+      channel.created_at
+      |> DateTime.to_unix()
+      |> Integer.to_string()
+
+    ChannelBans.get_by_channel_name(channel.name)
+    |> Enum.each(fn channel_ban ->
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_banlist,
+        params: [
+          user.nick,
+          channel.name,
+          channel_ban.mask,
+          channel_ban.setter,
+          created_timestamp
+        ]
+      })
+      |> Messaging.broadcast(user)
+    end)
+
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_endofbanlist,
+      params: [user.nick, channel.name],
+      trailing: "End of channel ban list"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  @spec send_channel_invalid_modes(list(String.t()), User.t()) :: :ok
+  defp send_channel_invalid_modes([], _user), do: :ok
+
+  defp send_channel_invalid_modes(invalid_modes, user) do
+    invalid_modes
+    |> Enum.each(fn mode ->
+      Message.build(%{
+        prefix: :server,
+        command: :err_unknownmode,
+        params: [user.nick, mode],
+        trailing: "is unknown mode char to me"
+      })
+      |> Messaging.broadcast(user)
+    end)
   end
 
   defp handle_user_mode(_user, _receiver_nick, _mode_string) do

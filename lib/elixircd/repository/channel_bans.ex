@@ -33,14 +33,14 @@ defmodule ElixIRCd.Repository.ChannelBans do
   @doc """
   Get a channel ban by the channel name and ban mask.
   """
-  @spec get_by_channel_name_and_mask(String.t(), String.t()) :: {:ok, ChannelBan.t()} | {:error, String.t()}
+  @spec get_by_channel_name_and_mask(String.t(), String.t()) :: {:ok, ChannelBan.t()} | {:error, atom()}
   def get_by_channel_name_and_mask(channel_name, mask) do
     conditions = [{:==, :channel_name, channel_name}, {:==, :mask, mask}]
 
     Memento.Query.select(ChannelBan, conditions, limit: 1)
     |> case do
       [channel_ban] -> {:ok, channel_ban}
-      [] -> {:error, "ChannelBan not found"}
+      [] -> {:error, :channel_ban_not_found}
     end
   end
 end

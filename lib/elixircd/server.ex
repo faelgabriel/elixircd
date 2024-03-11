@@ -14,6 +14,7 @@ defmodule ElixIRCd.Server do
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.User
 
   @doc """
   Starts a linked user connection process for the server protocol.
@@ -144,7 +145,7 @@ defmodule ElixIRCd.Server do
   end
 
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
-  def handle_quit(%{registered: true} = user, quit_message) do
+  defp handle_quit(%{registered: true} = user, quit_message) do
     all_channel_users =
       UserChannels.get_by_user_port(user.port)
       |> Enum.map(& &1.channel_name)
@@ -160,7 +161,7 @@ defmodule ElixIRCd.Server do
     |> Messaging.broadcast(all_channel_users)
   end
 
-  def handle_quit(user, _quit_message) do
+  defp handle_quit(user, _quit_message) do
     UserChannels.delete_by_user_port(user.port)
     Users.delete(user)
   end

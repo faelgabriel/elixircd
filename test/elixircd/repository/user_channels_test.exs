@@ -74,7 +74,7 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
     test "returns an error when the user channel is not found" do
       user = insert(:user)
 
-      assert {:error, "UserChannel not found"} ==
+      assert {:error, :user_channel_not_found} ==
                Memento.transaction!(fn ->
                  UserChannels.get_by_user_port_and_channel_name(user.port, "#elixir")
                end)

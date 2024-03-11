@@ -26,7 +26,8 @@ defmodule ElixIRCd.Command.Info do
     #   Example: ":server.name 371 your_nick :IRCd version x.y, developed by..."
     # - RPL_ENDOFINFO (374): Indicate the end of the INFO response.
     #   Example: ":server.name 374 your_nick :End of /INFO list"
-    # This sequence provides the client with detailed insights into the server and its network's background and policies.
+    # This sequence provides the client with detailed insights into the server and its network's background
+    #  and policies.
     :ok
   end
 
@@ -40,7 +41,8 @@ defmodule ElixIRCd.Command.Info do
     #   Example: ":server.name 371 your_nick :IRCd version x.y, developed by..."
     # - RPL_ENDOFINFO (374): Indicate the end of the INFO response.
     #   Example: ":server.name 374 your_nick :End of /INFO list"
-    # This sequence provides the client with detailed insights into the server and its network's background and policies.
+    # This sequence provides the client with detailed insights into the server and its network's background
+    #  and policies.
     :ok
   end
 end

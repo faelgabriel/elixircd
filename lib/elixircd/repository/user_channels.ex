@@ -44,14 +44,14 @@ defmodule ElixIRCd.Repository.UserChannels do
   @doc """
   Get a user channel by the user port and channel name.
   """
-  @spec get_by_user_port_and_channel_name(port(), String.t()) :: {:ok, UserChannel.t()} | {:error, String.t()}
+  @spec get_by_user_port_and_channel_name(port(), String.t()) :: {:ok, UserChannel.t()} | {:error, atom()}
   def get_by_user_port_and_channel_name(user_port, channel_name) do
     conditions = [{:==, :user_port, user_port}, {:==, :channel_name, channel_name}]
 
     Memento.Query.select(UserChannel, conditions, limit: 1)
     |> case do
       [user_channel] -> {:ok, user_channel}
-      [] -> {:error, "UserChannel not found"}
+      [] -> {:error, :user_channel_not_found}
     end
   end
 

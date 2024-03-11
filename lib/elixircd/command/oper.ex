@@ -36,7 +36,8 @@ defmodule ElixIRCd.Command.Oper do
     # 1. Validate the provided username and password against the server's list of authorized operators.
     # 2. If authentication fails, respond with ERR_PASSWDMISMATCH (464).
     # 3. If the username and password are correct, grant the user operator privileges.
-    #    This involves setting appropriate user modes and possibly updating internal state to recognize the user as an oper.
+    #    This involves setting appropriate user modes and possibly updating internal state to recognize the user
+    #    as an oper.
     # 4. Respond with RPL_YOUREOPER (381) to acknowledge successful operator authentication.
     # Note: Implementing proper security measures for operator authentication is crucial,
     #       including secure storage and handling of passwords.

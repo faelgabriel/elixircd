@@ -34,11 +34,11 @@ defmodule ElixIRCd.Repository.Users do
   @doc """
   Get a user by the port.
   """
-  @spec get_by_port(port()) :: {:ok, User.t()} | {:error, String.t()}
+  @spec get_by_port(port()) :: {:ok, User.t()} | {:error, atom()}
   def get_by_port(port) do
     Memento.Query.read(User, port)
     |> case do
-      nil -> {:error, "User not found"}
+      nil -> {:error, :user_not_found}
       user -> {:ok, user}
     end
   end
@@ -46,11 +46,11 @@ defmodule ElixIRCd.Repository.Users do
   @doc """
   Get a user by the nick.
   """
-  @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, String.t()}
+  @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, atom()}
   def get_by_nick(nick) do
     Memento.Query.select(User, {:==, :nick, nick}, limit: 1)
     |> case do
-      [] -> {:error, "User not found"}
+      [] -> {:error, :user_not_found}
       [user] -> {:ok, user}
     end
   end

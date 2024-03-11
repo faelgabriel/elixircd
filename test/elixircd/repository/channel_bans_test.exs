@@ -50,7 +50,7 @@ defmodule ElixIRCd.Repository.ChannelBansTest do
     end
 
     test "returns an error when the channel ban is not found" do
-      assert {:error, "ChannelBan not found"} =
+      assert {:error, :channel_ban_not_found} =
                Memento.transaction!(fn ->
                  ChannelBans.get_by_channel_name_and_mask("#elixircd", "user!user@host")
                end)

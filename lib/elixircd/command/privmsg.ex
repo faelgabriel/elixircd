@@ -65,7 +65,7 @@ defmodule ElixIRCd.Command.Privmsg do
       })
       |> Messaging.broadcast(channel_users_without_user)
     else
-      {:error, "UserChannel not found"} ->
+      {:error, :user_channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_cannotsendtochan,
@@ -74,7 +74,7 @@ defmodule ElixIRCd.Command.Privmsg do
         })
         |> Messaging.broadcast(user)
 
-      {:error, "Channel not found"} ->
+      {:error, :channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_nosuchchannel,

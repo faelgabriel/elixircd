@@ -14,6 +14,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserChannel
 
   @modes ["n", "t", "s", "i", "m", "p", "k", "l", "b", "o", "v"]
   @modes_with_value_to_add ["k", "l", "b", "o", "v"]
@@ -259,7 +260,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
          {:ok, target_user_channel} <- UserChannels.get_by_user_port_and_channel_name(target_user.port, channel_name) do
       user_channel_mode_changed?(mode_change, target_user_channel)
     else
-      {:error, "UserChannel not found"} ->
+      {:error, :user_channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_usernotinchannel,
@@ -270,7 +271,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
 
         false
 
-      {:error, "User not found"} ->
+      {:error, :user_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_nosuchnick,
@@ -283,7 +284,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     end
   end
 
-  @spec user_channel_mode_changed?(mode_change(), UserChannels.t()) :: boolean()
+  @spec user_channel_mode_changed?(mode_change(), UserChannel.t()) :: boolean()
   defp user_channel_mode_changed?({:add, {mode_flag, _mode_value}}, user_channel) do
     if Enum.member?(user_channel.modes, mode_flag) do
       false
@@ -308,7 +309,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
       ChannelBans.get_by_channel_name_and_mask(channel_name, mode_value)
       |> case do
         {:ok, channel_ban} -> channel_ban
-        {:error, "ChannelBan not found"} -> nil
+        {:error, :channel_ban_not_found} -> nil
       end
 
     channel_ban_mode_changed?(user, mode_change, channel_ban, channel_name)

@@ -39,7 +39,8 @@ defmodule ElixIRCd.Command.Topic do
 
   @impl true
   def handle(_user, %{command: "TOPIC", params: [_channel_name | _rest], trailing: _topic}) do
-    # 482 Nickname #channel :You're not channel operator (If the channel is set to +t mode, and a non-operator user attempts to change the topic.)
+    # 482 Nickname #channel :You're not channel operator (If the channel is set to +t mode, and a non-operator
+    #  user attempts to change the topic.)
     # 403 Nickname #channel :No such channel
     # 442 #channel :You're not on that channel
 

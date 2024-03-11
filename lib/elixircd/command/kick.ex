@@ -36,7 +36,8 @@ defmodule ElixIRCd.Command.Kick do
     # 442 Nickname #channel :You're not on that channel (If the user trying to kick is not on the channel)
     # 482 Nickname #channel :You're not channel operator (If the user is not an operator of the channel)
     # Kick message to channel: :Nickname!Username@Host KICK #channel TargetUser :Reason
-    # Note: The actual removal of the target user from the channel and broadcasting the kick message to all channel members would be implemented here.
+    # Note: The actual removal of the target user from the channel and broadcasting the kick message to all channel
+    #  members would be implemented here.
     :ok
   end
 end
