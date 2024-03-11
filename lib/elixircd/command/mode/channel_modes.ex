@@ -37,7 +37,6 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
       Enum.reduce(modes, {[], []}, fn
         {mode, arg}, {flags, args} -> {[mode | flags], [arg | args]}
         mode, {flags, args} -> {[mode | flags], args}
-        _, acc -> acc
       end)
 
     flags = Enum.reverse(flags) |> Enum.join()
@@ -121,7 +120,6 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
         case mode do
           {mode_flag, _val} when mode_flag in @modes -> {[{action, mode} | valid_modes], invalid_modes}
           mode_flag when mode_flag in @modes -> {[{action, mode} | valid_modes], invalid_modes}
-          {mode_flag, _val} -> {valid_modes, [mode_flag | invalid_modes]}
           mode_flag -> {valid_modes, [mode_flag | invalid_modes]}
         end
     end)
@@ -286,12 +284,11 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
 
   @spec user_channel_mode_changed?(mode_change(), UserChannel.t()) :: boolean()
   defp user_channel_mode_changed?({:add, {mode_flag, _mode_value}}, user_channel) do
-    if Enum.member?(user_channel.modes, mode_flag) do
-      false
-    else
+    if not Enum.member?(user_channel.modes, mode_flag) do
       UserChannels.update(user_channel, %{modes: [mode_flag | user_channel.modes]})
-      true
     end
+
+    true
   end
 
   defp user_channel_mode_changed?({:remove, {mode_flag, _mode_value}}, user_channel) do

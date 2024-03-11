@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with non-existing channel" do
+    test "handles MODE command for non-existing channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
 
@@ -54,7 +54,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and user is not in the channel" do
+    test "handles MODE command for channel and user is not in the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel)
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and without mode parameter" do
+    test "handles MODE command for channel and without mode parameter" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t", "n", {"l", "10"}])
@@ -87,7 +87,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and add modes" do
+    test "handles MODE command for channel and add modes" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["n", {"l", "10"}])
@@ -102,7 +102,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and remove modes" do
+    test "handles MODE command for channel and remove modes" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["n", "t", "s", {"l", "10"}])
@@ -117,7 +117,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and add modes with value" do
+    test "handles MODE command for channel and add modes with value" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["n", {"l", "10"}])
@@ -132,7 +132,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and remove modes with value" do
+    test "handles MODE command for channel and remove modes with value" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t", {"l", "20"}, {"k", "password"}])
@@ -147,7 +147,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and remove modes with value that do not need value to be removed" do
+    test "handles MODE command for channel and remove modes with value that do not need value to be removed" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t", {"l", "20"}, {"k", "password"}])
@@ -162,7 +162,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and add modes for user channel" do
+    test "handles MODE command for channel and add modes for user channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
         user_operator = insert(:user, nick: "nick_operator")
@@ -186,7 +186,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and remove modes for user channel" do
+    test "handles MODE command for channel and remove modes for user channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
         user_operator = insert(:user, nick: "nick_operator")
@@ -210,7 +210,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and add modes for user that is not in the channel" do
+    test "handles MODE command for channel and add modes for user that is not in the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
         user_operator = insert(:user, nick: "nick_operator")
@@ -227,7 +227,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and add modes for user that is not in the server" do
+    test "handles MODE command for channel and add modes for user that is not in the server" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -242,7 +242,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and add modes for channel ban" do
+    test "handles MODE command for channel and add modes for channel ban" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -257,7 +257,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel and remove modes for channel ban" do
+    test "handles MODE command for channel and remove modes for channel ban" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -273,7 +273,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel to remove modes for channel ban that does not exist" do
+    test "handles MODE command for channel to remove modes for channel ban that does not exist" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -286,7 +286,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel to list bans" do
+    test "handles MODE command for channel to list bans" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -304,7 +304,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel when invalid modes sent" do
+    test "handles MODE command for channel when invalid modes sent" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -320,7 +320,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel when no modes changed" do
+    test "handles MODE command for channel when no modes changed" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t"])
@@ -333,7 +333,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command with channel when mode changes are missing values" do
+    test "handles MODE command for channel when mode changes are missing values" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -345,6 +345,47 @@ defmodule ElixIRCd.Command.ModeTest do
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} MODE :Not enough parameters\r\n"}
         ])
+      end)
+    end
+
+    test "handles MODE command for user and list modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        message = %Message{command: "MODE", params: [user.nick]}
+        Mode.handle(user, message)
+        # Future
+      end)
+    end
+
+    test "handles MODE command for user and change another user modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+
+        message = %Message{command: "MODE", params: [another_user.nick, "+i"]}
+        Mode.handle(user, message)
+        # Future
+      end)
+    end
+
+    test "handles MODE command for user and add modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        message = %Message{command: "MODE", params: [user.nick, "+i", user.nick]}
+        Mode.handle(user, message)
+        # Future
+      end)
+    end
+
+    test "handles MODE command for user and remove modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        message = %Message{command: "MODE", params: [user.nick, "-i", user.nick]}
+        Mode.handle(user, message)
+        # Future
       end)
     end
   end

@@ -135,23 +135,7 @@ defmodule ElixIRCd.Command.Mode do
         send_channel_invalid_modes(invalid_modes, user)
       end
     else
-      {:error, :user_channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_notonchannel,
-          params: [user.nick, channel_name],
-          trailing: "You're not on that channel"
-        })
-        |> Messaging.broadcast(user)
-
-      {:error, :channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        })
-        |> Messaging.broadcast(user)
+      not_found_result -> send_not_found_result(not_found_result, user, channel_name)
     end
   end
 
@@ -166,23 +150,7 @@ defmodule ElixIRCd.Command.Mode do
       })
       |> Messaging.broadcast(user)
     else
-      {:error, :user_channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_notonchannel,
-          params: [user.nick, channel_name],
-          trailing: "You're not on that channel"
-        })
-        |> Messaging.broadcast(user)
-
-      {:error, :channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        })
-        |> Messaging.broadcast(user)
+      not_found_result -> send_not_found_result(not_found_result, user, channel_name)
     end
   end
 
@@ -234,6 +202,27 @@ defmodule ElixIRCd.Command.Mode do
       })
       |> Messaging.broadcast(user)
     end)
+  end
+
+  @spec send_not_found_result({:error, :user_channel_not_found | :channel_not_found}, User.t(), String.t()) :: :ok
+  defp send_not_found_result({:error, :user_channel_not_found}, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_notonchannel,
+      params: [user.nick, channel_name],
+      trailing: "You're not on that channel"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_not_found_result({:error, :channel_not_found}, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_nosuchchannel,
+      params: [user.nick, channel_name],
+      trailing: "No such channel"
+    })
+    |> Messaging.broadcast(user)
   end
 
   defp handle_user_mode(_user, _receiver_nick, _mode_string) do
