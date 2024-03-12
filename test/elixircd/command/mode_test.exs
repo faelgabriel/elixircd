@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t", "n", {"l", "10"}])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name]}
         Mode.handle(user, message)
@@ -91,7 +91,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["n", {"l", "10"}])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+t+s"]}
         Mode.handle(user, message)
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["n", "t", "s", {"l", "10"}])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-t-s"]}
         Mode.handle(user, message)
@@ -121,7 +121,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["n", {"l", "10"}])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+t+l+k", "20", "password"]}
         Mode.handle(user, message)
@@ -136,7 +136,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t", {"l", "20"}, {"k", "password"}])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-l-k"]}
         Mode.handle(user, message)
@@ -151,7 +151,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t", {"l", "20"}, {"k", "password"}])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-t-l-k"]}
         Mode.handle(user, message)
@@ -246,7 +246,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+b", "nick!user@host"]}
         Mode.handle(user, message)
@@ -261,7 +261,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
         insert(:channel_ban, channel: channel, mask: "nick!user@host")
 
         message = %Message{command: "MODE", params: [channel.name, "-b", "nick!user@host"]}
@@ -277,7 +277,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-b", "inexistent!@mask"]}
         Mode.handle(user, message)
@@ -290,7 +290,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
         channel_ban = insert(:channel_ban, channel: channel, mask: "nick!user@host")
 
         message = %Message{command: "MODE", params: [channel.name, "+b"]}
@@ -308,7 +308,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+wz"]}
         Mode.handle(user, message)
@@ -324,7 +324,7 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: ["t"])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-t"]}
         Mode.handle(user, message)
@@ -337,13 +337,28 @@ defmodule ElixIRCd.Command.ModeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
-        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+l"]}
         Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} MODE :Not enough parameters\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for user that is not an operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "MODE", params: [channel.name, "+t"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 482 #{user.nick} #{channel.name} :You're not a channel operator\r\n"}
         ])
       end)
     end

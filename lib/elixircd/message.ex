@@ -261,4 +261,5 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_unknownmode), do: "472"
   defp numeric_reply(:err_cannotjoinchannel), do: "473"
   defp numeric_reply(:err_bannedfromchan), do: "474"
+  defp numeric_reply(:err_chanoprivsneeded), do: "482"
 end

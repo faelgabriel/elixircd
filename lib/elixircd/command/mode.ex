@@ -56,7 +56,7 @@ defmodule ElixIRCd.Command.Mode do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_operator?: 1]
 
   alias ElixIRCd.Command.Mode.ChannelModes
   alias ElixIRCd.Helper
@@ -67,6 +67,9 @@ defmodule ElixIRCd.Command.Mode do
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserChannel
+
+  @type channel_mode_errors :: :user_channel_not_found | :channel_not_found | :user_has_not_permission
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -105,7 +108,8 @@ defmodule ElixIRCd.Command.Mode do
   @spec handle_channel_mode(User.t(), String.t(), String.t(), list(String.t())) :: :ok
   defp handle_channel_mode(user, channel_name, mode_string, values) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         :ok <- check_if_user_has_permission(user_channel) do
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
 
@@ -135,7 +139,7 @@ defmodule ElixIRCd.Command.Mode do
         send_channel_invalid_modes(invalid_modes, user)
       end
     else
-      not_found_result -> send_not_found_result(not_found_result, user, channel_name)
+      {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
     end
   end
 
@@ -150,7 +154,15 @@ defmodule ElixIRCd.Command.Mode do
       })
       |> Messaging.broadcast(user)
     else
-      not_found_result -> send_not_found_result(not_found_result, user, channel_name)
+      {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
+    end
+  end
+
+  @spec check_if_user_has_permission(UserChannel.t()) :: :ok | {:error, :user_has_not_permission}
+  defp check_if_user_has_permission(user_channel) do
+    case channel_operator?(user_channel) do
+      true -> :ok
+      false -> {:error, :user_has_not_permission}
     end
   end
 
@@ -204,8 +216,8 @@ defmodule ElixIRCd.Command.Mode do
     end)
   end
 
-  @spec send_not_found_result({:error, :user_channel_not_found | :channel_not_found}, User.t(), String.t()) :: :ok
-  defp send_not_found_result({:error, :user_channel_not_found}, user, channel_name) do
+  @spec send_channel_mode_error(channel_mode_errors(), User.t(), String.t()) :: :ok
+  defp send_channel_mode_error(:user_channel_not_found, user, channel_name) do
     Message.build(%{
       prefix: :server,
       command: :err_notonchannel,
@@ -215,12 +227,22 @@ defmodule ElixIRCd.Command.Mode do
     |> Messaging.broadcast(user)
   end
 
-  defp send_not_found_result({:error, :channel_not_found}, user, channel_name) do
+  defp send_channel_mode_error(:channel_not_found, user, channel_name) do
     Message.build(%{
       prefix: :server,
       command: :err_nosuchchannel,
       params: [user.nick, channel_name],
       trailing: "No such channel"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_channel_mode_error(:user_has_not_permission, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_chanoprivsneeded,
+      params: [user.nick, channel_name],
+      trailing: "You're not a channel operator"
     })
     |> Messaging.broadcast(user)
   end

@@ -51,7 +51,7 @@ defmodule ElixIRCd.Command.Join do
   defp handle_channel(user, channel_name) do
     with :ok <- validate_channel_name(channel_name),
          {channel_state, channel} <- get_or_create_channel(channel_name),
-         :ok <- check_if_user_is_banned({channel_state, channel}, user) do
+         :ok <- check_if_user_is_banned(user, channel_state, channel) do
       user_channel =
         UserChannels.create(%{
           user_port: user.port,
@@ -160,10 +160,10 @@ defmodule ElixIRCd.Command.Join do
     end
   end
 
-  @spec check_if_user_is_banned({channel_states(), Channel.t()}, User.t()) :: :ok | {:error, :user_banned_from_channel}
-  defp check_if_user_is_banned({:created, _channel}, _user), do: :ok
+  @spec check_if_user_is_banned(User.t(), channel_states(), Channel.t()) :: :ok | {:error, :user_banned_from_channel}
+  defp check_if_user_is_banned(_user, :created, _channel), do: :ok
 
-  defp check_if_user_is_banned({:existing, channel}, user) do
+  defp check_if_user_is_banned(user, :existing, channel) do
     ChannelBans.get_by_channel_name(channel.name)
     |> Enum.any?(&user_mask_match?(user, &1.mask))
     |> case do
