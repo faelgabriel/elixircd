@@ -25,10 +25,19 @@ defmodule ElixIRCd.Tables.UserChannel do
           created_at: DateTime.t()
         }
 
+  @type t_attrs :: %{
+          optional(:user_port) => port(),
+          optional(:user_socket) => :inet.socket(),
+          optional(:user_transport) => :ranch_tcp | :ranch_ssl,
+          optional(:channel_name) => String.t(),
+          optional(:modes) => [String.t()],
+          optional(:created_at) => DateTime.t()
+        }
+
   @doc """
   Create a new user channel.
   """
-  @spec new(map()) :: t()
+  @spec new(t_attrs()) :: t()
   def new(attrs) do
     new_attrs =
       attrs
@@ -41,7 +50,7 @@ defmodule ElixIRCd.Tables.UserChannel do
   @doc """
   Update a user channel.
   """
-  @spec update(t(), map()) :: t()
+  @spec update(t(), t_attrs()) :: t()
   def update(user_channel, attrs) do
     struct!(user_channel, attrs)
   end

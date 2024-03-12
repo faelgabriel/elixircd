@@ -89,5 +89,21 @@ defmodule ElixIRCd.Command.JoinTest do
         ])
       end)
     end
+
+    test "handles JOIN command with a user banned from the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+        insert(:channel_ban, channel: channel, mask: "#{user.nick}!*@*")
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket,
+           ":server.example.com 474 #{user.nick} #{channel.name} :Cannot join channel (+b) - you are banned\r\n"}
+        ])
+      end)
+    end
   end
 end

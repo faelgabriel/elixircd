@@ -40,6 +40,75 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
+  describe "irc_operator?/1" do
+    test "returns true for irc operator" do
+      user = build(:user, %{modes: ["o"]})
+      assert true == Helper.irc_operator?(user)
+    end
+
+    test "returns false for non-irc operator" do
+      user = build(:user, %{modes: []})
+      assert false == Helper.irc_operator?(user)
+    end
+  end
+
+  describe "channel_operator?/1" do
+    test "returns true for channel operator" do
+      user = build(:user_channel, %{modes: ["o"]})
+      assert true == Helper.channel_operator?(user)
+    end
+
+    test "returns false for non-channel operator" do
+      user = build(:user_channel, %{modes: []})
+      assert false == Helper.channel_operator?(user)
+    end
+  end
+
+  describe "channel_voice?/1" do
+    test "returns true for channel voice" do
+      user = build(:user_channel, %{modes: ["v"]})
+      assert true == Helper.channel_voice?(user)
+    end
+
+    test "returns false for non-channel voice" do
+      user = build(:user_channel, %{modes: []})
+      assert false == Helper.channel_voice?(user)
+    end
+  end
+
+  describe "user_mask_match?/2" do
+    test "matches user mask" do
+      user = build(:user, nick: "nick", username: "user", hostname: "host")
+
+      assert true == Helper.user_mask_match?(user, "nick!~user@host")
+      assert true == Helper.user_mask_match?(user, "nick!~user@*")
+      assert true == Helper.user_mask_match?(user, "nick!*@host")
+      assert true == Helper.user_mask_match?(user, "nick!*@*")
+      assert true == Helper.user_mask_match?(user, "*!~user@host")
+      assert true == Helper.user_mask_match?(user, "*!~user@*")
+      assert true == Helper.user_mask_match?(user, "*!*@host")
+      assert true == Helper.user_mask_match?(user, "*!*@*")
+      assert true == Helper.user_mask_match?(user, "n*!*@*")
+      assert true == Helper.user_mask_match?(user, "*!~u*@host")
+      assert true == Helper.user_mask_match?(user, "*!~user@h*")
+      assert true == Helper.user_mask_match?(user, "*k!*@*")
+      assert true == Helper.user_mask_match?(user, "*!~*r@host")
+      assert true == Helper.user_mask_match?(user, "*!~user@*t")
+    end
+
+    test "does not match user mask" do
+      user = build(:user, nick: "nick", username: "user", hostname: "host")
+
+      assert false == Helper.user_mask_match?(user, "difnick!~user@host")
+      assert false == Helper.user_mask_match?(user, "difnick!~user@*")
+      assert false == Helper.user_mask_match?(user, "difnick!*@host")
+      assert false == Helper.user_mask_match?(user, "difnick!*@*")
+      assert false == Helper.user_mask_match?(user, "*!~difuser@host")
+      assert false == Helper.user_mask_match?(user, "*!~difuser@*")
+      assert false == Helper.user_mask_match?(user, "*!*@difhost")
+    end
+  end
+
   describe "get_user_reply/1" do
     test "gets reply for registered user" do
       user = build(:user)
@@ -139,39 +208,6 @@ defmodule ElixIRCd.HelperTest do
 
       refute is_port(socket)
       assert is_port(extracted_socket_port)
-    end
-  end
-
-  describe "user_mask_match/2" do
-    test "matches user mask" do
-      user = build(:user, nick: "nick", username: "user", hostname: "host")
-
-      assert true == Helper.user_mask_match?(user, "nick!~user@host")
-      assert true == Helper.user_mask_match?(user, "nick!~user@*")
-      assert true == Helper.user_mask_match?(user, "nick!*@host")
-      assert true == Helper.user_mask_match?(user, "nick!*@*")
-      assert true == Helper.user_mask_match?(user, "*!~user@host")
-      assert true == Helper.user_mask_match?(user, "*!~user@*")
-      assert true == Helper.user_mask_match?(user, "*!*@host")
-      assert true == Helper.user_mask_match?(user, "*!*@*")
-      assert true == Helper.user_mask_match?(user, "n*!*@*")
-      assert true == Helper.user_mask_match?(user, "*!~u*@host")
-      assert true == Helper.user_mask_match?(user, "*!~user@h*")
-      assert true == Helper.user_mask_match?(user, "*k!*@*")
-      assert true == Helper.user_mask_match?(user, "*!~*r@host")
-      assert true == Helper.user_mask_match?(user, "*!~user@*t")
-    end
-
-    test "does not match user mask" do
-      user = build(:user, nick: "nick", username: "user", hostname: "host")
-
-      assert false == Helper.user_mask_match?(user, "difnick!~user@host")
-      assert false == Helper.user_mask_match?(user, "difnick!~user@*")
-      assert false == Helper.user_mask_match?(user, "difnick!*@host")
-      assert false == Helper.user_mask_match?(user, "difnick!*@*")
-      assert false == Helper.user_mask_match?(user, "*!~difuser@host")
-      assert false == Helper.user_mask_match?(user, "*!~difuser@*")
-      assert false == Helper.user_mask_match?(user, "*!*@difhost")
     end
   end
 

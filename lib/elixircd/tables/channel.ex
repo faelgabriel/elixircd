@@ -21,10 +21,17 @@ defmodule ElixIRCd.Tables.Channel do
           created_at: DateTime.t()
         }
 
+  @type t_attrs :: %{
+          optional(:name) => String.t(),
+          optional(:topic) => String.t() | nil,
+          optional(:modes) => [tuple()],
+          optional(:created_at) => DateTime.t()
+        }
+
   @doc """
   Create a new channel.
   """
-  @spec new(map()) :: t()
+  @spec new(t_attrs()) :: t()
   def new(attrs) do
     new_attrs =
       attrs
@@ -37,7 +44,7 @@ defmodule ElixIRCd.Tables.Channel do
   @doc """
   Update a channel.
   """
-  @spec update(t(), map()) :: t()
+  @spec update(t(), t_attrs()) :: t()
   def update(channel, attrs) do
     struct!(channel, attrs)
   end

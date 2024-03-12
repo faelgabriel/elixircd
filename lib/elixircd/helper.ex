@@ -4,6 +4,7 @@ defmodule ElixIRCd.Helper do
   """
 
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserChannel
 
   @doc """
   Determines if a target is a channel name.
@@ -25,6 +26,38 @@ defmodule ElixIRCd.Helper do
       {:ok, _peer} -> true
       {:error, _} -> false
     end
+  end
+
+  @doc """
+  Checks if a user is an IRC operator.
+  """
+  @spec irc_operator?(User.t()) :: boolean()
+  def irc_operator?(user), do: "o" in user.modes
+
+  @doc """
+  Checks if a user is a channel operator.
+  """
+  @spec channel_operator?(UserChannel.t()) :: boolean()
+  def channel_operator?(user_channel), do: "o" in user_channel.modes
+
+  @doc """
+  Checks if a user is a channel voice.
+  """
+  @spec channel_voice?(UserChannel.t()) :: boolean()
+  def channel_voice?(user_channel), do: "v" in user_channel.modes
+
+  @doc """
+  Determines if a user mask matches a user.
+  """
+  @spec user_mask_match?(User.t(), String.t()) :: boolean()
+  def user_mask_match?(user, mask) do
+    mask
+    |> String.replace(".", "\\.")
+    |> String.replace("@", "\\@")
+    |> String.replace("!", "\\!")
+    |> String.replace("*", ".*")
+    |> Regex.compile!()
+    |> Regex.match?(build_user_mask(user))
   end
 
   @doc """
@@ -91,20 +124,6 @@ defmodule ElixIRCd.Helper do
   def build_user_mask(%{registered: true} = user)
       when user.nick != nil and user.username != nil and user.hostname != nil do
     "#{user.nick}!~#{String.slice(user.username, 0..8)}@#{user.hostname}"
-  end
-
-  @doc """
-  Determines if a user mask matches a user.
-  """
-  @spec user_mask_match?(User.t(), String.t()) :: boolean()
-  def user_mask_match?(user, mask) do
-    mask
-    |> String.replace(".", "\\.")
-    |> String.replace("@", "\\@")
-    |> String.replace("!", "\\!")
-    |> String.replace("*", ".*")
-    |> Regex.compile!()
-    |> Regex.match?(build_user_mask(user))
   end
 
   @doc """

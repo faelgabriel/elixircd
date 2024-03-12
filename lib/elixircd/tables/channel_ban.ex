@@ -21,10 +21,17 @@ defmodule ElixIRCd.Tables.ChannelBan do
           created_at: DateTime.t()
         }
 
+  @type t_attrs :: %{
+          optional(:channel_name) => String.t(),
+          optional(:mask) => String.t(),
+          optional(:setter) => String.t(),
+          optional(:created_at) => DateTime.t()
+        }
+
   @doc """
   Create a new channel ban.
   """
-  @spec new(map()) :: t()
+  @spec new(t_attrs()) :: t()
   def new(attrs) do
     new_attrs =
       attrs

@@ -7,9 +7,10 @@ defmodule ElixIRCd.Command.Join do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_operator?: 1, user_mask_match?: 2]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.ChannelBans
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
@@ -49,7 +50,8 @@ defmodule ElixIRCd.Command.Join do
   @spec handle_channel(User.t(), String.t()) :: :ok
   defp handle_channel(user, channel_name) do
     with :ok <- validate_channel_name(channel_name),
-         {channel_state, channel} <- get_or_create_channel(channel_name) do
+         {channel_state, channel} <- get_or_create_channel(channel_name),
+         :ok <- check_if_user_is_banned({channel_state, channel}, user) do
       user_channel =
         UserChannels.create(%{
           user_port: user.port,
@@ -61,6 +63,15 @@ defmodule ElixIRCd.Command.Join do
 
       join_channel(user, channel, user_channel)
     else
+      {:error, :user_banned_from_channel} ->
+        Message.build(%{
+          prefix: :server,
+          command: :err_bannedfromchan,
+          params: [user.nick, channel_name],
+          trailing: "Cannot join channel (+b) - you are banned"
+        })
+        |> Messaging.broadcast(user)
+
       {:error, error} ->
         Message.build(%{
           prefix: :server,
@@ -85,9 +96,9 @@ defmodule ElixIRCd.Command.Join do
     end
   end
 
-  @spec determine_user_channel_modes(channel_states()) :: [tuple()]
-  defp determine_user_channel_modes(:created), do: [{:operator, true}]
-  defp determine_user_channel_modes(_), do: []
+  @spec determine_user_channel_modes(channel_states()) :: [String.t()]
+  defp determine_user_channel_modes(:created), do: ["o"]
+  defp determine_user_channel_modes(:existing), do: []
 
   @spec join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
   defp join_channel(user, channel, user_channel) do
@@ -100,7 +111,7 @@ defmodule ElixIRCd.Command.Join do
     })
     |> Messaging.broadcast(user_channels)
 
-    if Enum.find(user_channel.modes, fn {mode, _} -> mode == :operator end) do
+    if channel_operator?(user_channel) do
       Message.build(%{
         prefix: :server,
         command: "MODE",
@@ -146,6 +157,18 @@ defmodule ElixIRCd.Command.Join do
       !String.starts_with?(channel_name, "#") -> {:error, "Channel name must start with a hash mark (#)"}
       !Regex.match?(name_pattern, channel_name) -> {:error, "Invalid channel name format"}
       true -> :ok
+    end
+  end
+
+  @spec check_if_user_is_banned({channel_states(), Channel.t()}, User.t()) :: :ok | {:error, :user_banned_from_channel}
+  defp check_if_user_is_banned({:created, _channel}, _user), do: :ok
+
+  defp check_if_user_is_banned({:existing, channel}, user) do
+    ChannelBans.get_by_channel_name(channel.name)
+    |> Enum.any?(&user_mask_match?(user, &1.mask))
+    |> case do
+      true -> {:error, :user_banned_from_channel}
+      false -> :ok
     end
   end
 
