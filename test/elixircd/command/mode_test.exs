@@ -10,7 +10,7 @@ defmodule ElixIRCd.Command.ModeTest do
   alias ElixIRCd.Command.Mode
   alias ElixIRCd.Message
 
-  describe "handle/2" do
+  describe "handle/2 for channel" do
     test "handles MODE command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -326,7 +326,7 @@ defmodule ElixIRCd.Command.ModeTest do
         channel = insert(:channel, modes: ["t"])
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
-        message = %Message{command: "MODE", params: [channel.name, "-t"]}
+        message = %Message{command: "MODE", params: [channel.name, "+t"]}
         Mode.handle(user, message)
 
         assert_sent_messages([])
@@ -348,7 +348,7 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command for user that is not an operator" do
+    test "handles MODE command for channel when user is not an operator" do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
@@ -362,45 +362,73 @@ defmodule ElixIRCd.Command.ModeTest do
         ])
       end)
     end
+  end
 
-    test "handles MODE command for user and list modes" do
+  describe "handle/2 for user" do
+    test "handles MODE command for user that list its modes" do
       Memento.transaction!(fn ->
-        user = insert(:user)
+        user = insert(:user, modes: ["i", "w", "o", "Z"])
 
         message = %Message{command: "MODE", params: [user.nick]}
         Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 221 #{user.nick} +iwoZ\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for user that list another user modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user, modes: ["i", "w", "o", "Z"])
+
+        message = %Message{command: "MODE", params: [another_user.nick]}
+        Mode.handle(user, message)
+
         # Future
       end)
     end
 
-    test "handles MODE command for user and change another user modes" do
+    test "handles MODE command for user that change another user modes" do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
 
         message = %Message{command: "MODE", params: [another_user.nick, "+i"]}
         Mode.handle(user, message)
-        # Future
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 481 #{user.nick} :Cannot change mode for other users\r\n"}
+        ])
       end)
     end
 
-    test "handles MODE command for user and add modes" do
+    test "handles MODE command for user that change its modes" do
       Memento.transaction!(fn ->
-        user = insert(:user)
+        user = insert(:user, modes: [])
 
-        message = %Message{command: "MODE", params: [user.nick, "+i", user.nick]}
+        message = %Message{command: "MODE", params: [user.nick, "+iw"]}
         Mode.handle(user, message)
-        # Future
+
+        assert_sent_messages([
+          {user.socket, ":#{build_user_mask(user)} MODE #{user.nick} +iw\r\n"}
+        ])
       end)
     end
 
-    test "handles MODE command for user and remove modes" do
+    test "handles MODE command for user that change its modes with invalid modes" do
       Memento.transaction!(fn ->
-        user = insert(:user)
+        user = insert(:user, modes: [])
 
-        message = %Message{command: "MODE", params: [user.nick, "-i", user.nick]}
+        message = %Message{command: "MODE", params: [user.nick, "+iywz"]}
         Mode.handle(user, message)
-        # Future
+
+        assert_sent_messages([
+          {user.socket, ":#{build_user_mask(user)} MODE #{user.nick} +iw\r\n"},
+          {user.socket, ":server.example.com 472 #{user.nick} y :is unknown mode char to me\r\n"},
+          {user.socket, ":server.example.com 472 #{user.nick} z :is unknown mode char to me\r\n"}
+        ])
       end)
     end
   end

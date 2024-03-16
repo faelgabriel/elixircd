@@ -748,6 +748,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
     test "handles remove modes that are not set" do
       user = insert(:user)
       channel = insert(:channel, modes: [])
+      user_operator = insert(:user, nick: "nick_operator")
+      user_voice = insert(:user, nick: "nick_voice")
+      insert(:user_channel, user: user_operator, channel: channel)
+      insert(:user_channel, user: user_voice, channel: channel)
 
       validated_modes = [
         {:remove, "t"},

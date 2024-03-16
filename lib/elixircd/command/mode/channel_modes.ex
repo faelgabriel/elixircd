@@ -32,6 +32,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   Returns the string representation of the modes.
   """
   @spec display_modes([mode()]) :: String.t()
+  def display_modes([]), do: ""
+
   def display_modes(modes) do
     {flags, args} =
       Enum.reduce(modes, {[], []}, fn
@@ -42,8 +44,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     flags = Enum.reverse(flags) |> Enum.join()
     args = Enum.reverse(args) |> Enum.join(" ")
 
-    mode_string = if flags == "", do: "#{args}", else: "+#{flags} #{args}"
-    String.trim(mode_string)
+    String.trim("+#{flags} #{args}")
   end
 
   @doc """

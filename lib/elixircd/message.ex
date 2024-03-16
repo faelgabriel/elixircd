@@ -232,6 +232,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_yourhost), do: "002"
   defp numeric_reply(:rpl_created), do: "003"
   defp numeric_reply(:rpl_myinfo), do: "004"
+  defp numeric_reply(:rpl_umodeis), do: "221"
   defp numeric_reply(:rpl_userhost), do: "302"
   defp numeric_reply(:rpl_whoisuser), do: "311"
   defp numeric_reply(:rpl_whoisserver), do: "312"
@@ -261,5 +262,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_unknownmode), do: "472"
   defp numeric_reply(:err_cannotjoinchannel), do: "473"
   defp numeric_reply(:err_bannedfromchan), do: "474"
+  defp numeric_reply(:err_noprivileges), do: "481"
   defp numeric_reply(:err_chanoprivsneeded), do: "482"
+  defp numeric_reply(:err_usersdontmatch), do: "502"
 end

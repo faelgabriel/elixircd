@@ -45,7 +45,7 @@ defmodule ElixIRCd.Command.Motd do
         prefix: :server,
         command: :rpl_created,
         params: [user.nick],
-        trailing: "This server was created #{DateTime.utc_now() |> DateTime.to_unix() |> Integer.to_string()}"
+        trailing: "This server was created ..."
       }),
       Message.build(%{prefix: :server, command: :rpl_myinfo, params: [user.nick], trailing: "ElixIRCd 0.1.0 +i +int"}),
       Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of MOTD command"})

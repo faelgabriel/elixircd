@@ -84,5 +84,19 @@ defmodule ElixIRCd.MessageCaseTest do
       Client.disconnect(tcp_socket)
       Client.disconnect(ssl_socket)
     end
+
+    test "raises an error if more messages are sent than expected (2)" do
+      {:ok, tcp_socket} = Client.connect(:tcp)
+      {:ok, ssl_socket} = Client.connect(:ssl)
+
+      :ranch_tcp.send(tcp_socket, "PING :test")
+
+      assert_raise AssertionError, fn ->
+        assert_sent_messages([])
+      end
+
+      Client.disconnect(tcp_socket)
+      Client.disconnect(ssl_socket)
+    end
   end
 end

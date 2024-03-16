@@ -30,7 +30,15 @@ defmodule ElixIRCd.Command.MotdTest do
 
         Motd.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket,
+           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+          {user.socket,
+           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version 0.1.0.\r\n"},
+          {user.socket, ":server.example.com 003 #{user.nick} :This server was created ...\r\n"},
+          {user.socket, ":server.example.com 004 #{user.nick} :ElixIRCd 0.1.0 +i +int\r\n"},
+          {user.socket, ":server.example.com 376 #{user.nick} :End of MOTD command\r\n"}
+        ])
       end)
     end
   end

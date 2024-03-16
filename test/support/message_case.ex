@@ -84,6 +84,14 @@ defmodule ElixIRCd.MessageCase do
           end)
         end
 
+        if length(sent_messages) > length(expected_messages) do
+          raise AssertionError, """
+          Assertion failed: Number of expected messages is less than the number of messages sent.
+          Expected message: #{inspect(expected_messages)}
+          Actual message: #{inspect(sent_messages)}
+          """
+        end
+
         :ok
       end
     end

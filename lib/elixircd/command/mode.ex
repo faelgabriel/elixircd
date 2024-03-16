@@ -1,57 +1,6 @@
 defmodule ElixIRCd.Command.Mode do
   @moduledoc """
   This module defines the Mode command.
-
-
-  User Modes:
-  i - Invisible mode. The user does not appear in the channel lists of channels they are in.
-    Set: MODE <nick> +i
-    Unset: MODE <nick> -i
-  w - Wallops. Allows the user to receive "wallops" messages (global messages from IRC operators).
-    Set: MODE <nick> +w
-    Unset: MODE <nick> -w
-  o - IRC operator. Indicates that the user is a server operator.
-    Granted by the server to IRC operators and cannot be set by users themselves.
-  Z - Secure connection. Indicates the user is connected via SSL.
-    Granted by the server to users connected via SSL and cannot be set by users themselves.
-
-  User Channel Modes:
-  o - Operator. The user has operator privileges in the channel.
-    Set: MODE <channel> +o <nick>
-    Unset: MODE <channel> -o <nick>
-  v - Voice. The user can speak in moderated channels.
-    Set: MODE <channel> +v <nick>
-    Unset: MODE <channel> -v <nick>
-
-  Channel Modes:
-  n - No external messages. Prevents users who are not in the channel from sending messages to it.
-    Set: MODE <channel> +n
-    Unset: MODE <channel> -n
-  t - Topic settable by channel operator only. Restricts the ability to change the channel topic to operators.
-    Set: MODE <channel> +t
-    Unset: MODE <channel> -t
-  s - Secret. The channel won't appear in the channel listing.
-    Set: MODE <channel> +s
-    Unset: MODE <channel> -s
-  i - Invite only. Users must be invited to join the channel.
-    Set: MODE <channel> +i
-    Unset: MODE <channel> -i
-  m - Moderated channel. Only users with voice or higher privileges can speak.
-    Set: MODE <channel> +m
-    Unset: MODE <channel> -m
-  p - Private. Similar to secret but may appear differently in different IRC implementations.
-    Set: MODE <channel> +p
-    Unset: MODE <channel> -p
-  k - Key (password) protected. Users must enter the correct key to join.
-    Set: MODE <channel> +k <key>
-    Unset: MODE <channel> -k
-  l - User limit. Sets a limit on the number of users who can join the channel.
-    Set: MODE <channel> +l <limit>
-    Unset: MODE <channel> -l
-  b - Ban mask. Prevents users matching the mask from joining.
-    List: MODE <channel> +b
-    Set: MODE <channel> +b <mask>
-    Unset: MODE <channel> -b <mask>
   """
 
   @behaviour ElixIRCd.Command
@@ -59,6 +8,7 @@ defmodule ElixIRCd.Command.Mode do
   import ElixIRCd.Helper, only: [build_user_mask: 1, channel_operator?: 1]
 
   alias ElixIRCd.Command.Mode.ChannelModes
+  alias ElixIRCd.Command.Mode.UserModes
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
@@ -69,7 +19,7 @@ defmodule ElixIRCd.Command.Mode do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @type channel_mode_errors :: :user_channel_not_found | :channel_not_found | :user_has_not_permission
+  @type channel_mode_errors :: :channel_not_found | :user_channel_not_found | :user_is_not_operator
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -90,26 +40,38 @@ defmodule ElixIRCd.Command.Mode do
   end
 
   @impl true
-  def handle(user, %{command: "MODE", params: [target, mode_string | values]}) do
+  def handle(user, %{command: "MODE", params: [target | rest]}) do
+    [mode_string, values] =
+      case rest do
+        [] -> [nil, nil]
+        [mode_string | values] -> [mode_string, values]
+      end
+
     case Helper.channel_name?(target) do
       true -> handle_channel_mode(user, target, mode_string, values)
       false -> handle_user_mode(user, target, mode_string)
     end
   end
 
-  @impl true
-  def handle(user, %{command: "MODE", params: [target]}) do
-    case Helper.channel_name?(target) do
-      true -> handle_channel_mode(user, target)
-      false -> handle_user_mode(user, target)
+  @spec handle_channel_mode(User.t(), String.t(), String.t() | nil, list(String.t()) | nil) :: :ok
+  defp handle_channel_mode(user, channel_name, nil, nil) do
+    with {:ok, channel} <- Channels.get_by_name(channel_name),
+         {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+      Message.build(%{
+        prefix: build_user_mask(user),
+        command: "MODE",
+        params: [channel.name, ChannelModes.display_modes(channel.modes)]
+      })
+      |> Messaging.broadcast(user)
+    else
+      {:error, error} -> send_channel_mode_error(error, user, channel_name)
     end
   end
 
-  @spec handle_channel_mode(User.t(), String.t(), String.t(), list(String.t())) :: :ok
   defp handle_channel_mode(user, channel_name, mode_string, values) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
-         :ok <- check_if_user_has_permission(user_channel) do
+         :ok <- check_if_user_is_operator(user_channel) do
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
 
@@ -136,33 +98,18 @@ defmodule ElixIRCd.Command.Mode do
         end
 
         send_channel_mode_listing(listing_modes, user, updated_channel)
-        send_channel_invalid_modes(invalid_modes, user)
+        send_invalid_modes(invalid_modes, user)
       end
     else
       {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
     end
   end
 
-  @spec handle_channel_mode(User.t(), String.t()) :: :ok
-  defp handle_channel_mode(user, channel_name) do
-    with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
-      Message.build(%{
-        prefix: build_user_mask(user),
-        command: "MODE",
-        params: [channel.name, ChannelModes.display_modes(channel.modes)]
-      })
-      |> Messaging.broadcast(user)
-    else
-      {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
-    end
-  end
-
-  @spec check_if_user_has_permission(UserChannel.t()) :: :ok | {:error, :user_has_not_permission}
-  defp check_if_user_has_permission(user_channel) do
+  @spec check_if_user_is_operator(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
+  defp check_if_user_is_operator(user_channel) do
     case channel_operator?(user_channel) do
       true -> :ok
-      false -> {:error, :user_has_not_permission}
+      false -> {:error, :user_is_not_operator}
     end
   end
 
@@ -200,22 +147,6 @@ defmodule ElixIRCd.Command.Mode do
     |> Messaging.broadcast(user)
   end
 
-  @spec send_channel_invalid_modes(list(String.t()), User.t()) :: :ok
-  defp send_channel_invalid_modes([], _user), do: :ok
-
-  defp send_channel_invalid_modes(invalid_modes, user) do
-    invalid_modes
-    |> Enum.each(fn mode ->
-      Message.build(%{
-        prefix: :server,
-        command: :err_unknownmode,
-        params: [user.nick, mode],
-        trailing: "is unknown mode char to me"
-      })
-      |> Messaging.broadcast(user)
-    end)
-  end
-
   @spec send_channel_mode_error(channel_mode_errors(), User.t(), String.t()) :: :ok
   defp send_channel_mode_error(:user_channel_not_found, user, channel_name) do
     Message.build(%{
@@ -237,7 +168,7 @@ defmodule ElixIRCd.Command.Mode do
     |> Messaging.broadcast(user)
   end
 
-  defp send_channel_mode_error(:user_has_not_permission, user, channel_name) do
+  defp send_channel_mode_error(:user_is_not_operator, user, channel_name) do
     Message.build(%{
       prefix: :server,
       command: :err_chanoprivsneeded,
@@ -247,13 +178,60 @@ defmodule ElixIRCd.Command.Mode do
     |> Messaging.broadcast(user)
   end
 
-  defp handle_user_mode(_user, _receiver_nick, _mode_string) do
+  @spec handle_user_mode(User.t(), String.t(), String.t() | nil) :: :ok
+  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick == receiver_nick do
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_umodeis,
+      params: [user.nick, UserModes.display_modes(user.modes)]
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp handle_user_mode(_user, _receiver_nick, nil) do
     # Future
     :ok
   end
 
-  defp handle_user_mode(_user, _receiver_nick) do
-    # Future
-    :ok
+  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, _mode_string) when user_nick != receiver_nick do
+    Message.build(%{
+      prefix: :server,
+      command: :err_noprivileges,
+      params: [user.nick],
+      trailing: "Cannot change mode for other users"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp handle_user_mode(user, _receiver_nick, mode_string) do
+    {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
+    {updated_user, applied_changes} = UserModes.apply_mode_changes(user, validated_modes)
+
+    if length(applied_changes) > 0 do
+      Message.build(%{
+        prefix: build_user_mask(user),
+        command: "MODE",
+        params: [updated_user.nick, UserModes.display_mode_changes(applied_changes)]
+      })
+      |> Messaging.broadcast(updated_user)
+    end
+
+    send_invalid_modes(invalid_modes, updated_user)
+  end
+
+  @spec send_invalid_modes(list(String.t()), User.t()) :: :ok
+  defp send_invalid_modes([], _user), do: :ok
+
+  defp send_invalid_modes(invalid_modes, user) do
+    invalid_modes
+    |> Enum.each(fn mode ->
+      Message.build(%{
+        prefix: :server,
+        command: :err_unknownmode,
+        params: [user.nick, mode],
+        trailing: "is unknown mode char to me"
+      })
+      |> Messaging.broadcast(user)
+    end)
   end
 end
