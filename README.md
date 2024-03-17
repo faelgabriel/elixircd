@@ -60,7 +60,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **JOIN**: Join a channel or create one if it doesn't exist. ✅
 - **PART**: Leave a channel. ✅
 - **MODE**: Set or unset user or channel modes. ✴️
-- **TOPIC**: Set or get the topic of a channel. ✴️
+- **TOPIC**: Set or get the topic of a channel. ✅
 - **NAMES**: List all visible nicknames on a channel. ✅
 - **LIST**: List channels and their topics. ✴️
 - **INVITE**: Invite a user to a channel. ✴️

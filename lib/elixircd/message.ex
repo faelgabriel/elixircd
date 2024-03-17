@@ -241,6 +241,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_whoischannels), do: "319"
   defp numeric_reply(:rpl_notopic), do: "331"
   defp numeric_reply(:rpl_topic), do: "332"
+  defp numeric_reply(:rpl_topicwhotime), do: "333"
   defp numeric_reply(:rpl_namreply), do: "353"
   defp numeric_reply(:rpl_endofnames), do: "366"
   defp numeric_reply(:rpl_banlist), do: "367"
@@ -262,7 +263,6 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_unknownmode), do: "472"
   defp numeric_reply(:err_cannotjoinchannel), do: "473"
   defp numeric_reply(:err_bannedfromchan), do: "474"
-  defp numeric_reply(:err_noprivileges), do: "481"
   defp numeric_reply(:err_chanoprivsneeded), do: "482"
   defp numeric_reply(:err_usersdontmatch), do: "502"
 end

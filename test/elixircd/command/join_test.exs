@@ -64,7 +64,7 @@ defmodule ElixIRCd.Command.JoinTest do
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} JOIN #{channel.name}\r\n"},
-          {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :#{channel.topic}\r\n"},
+          {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
           {user.socket,
            ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
           {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},

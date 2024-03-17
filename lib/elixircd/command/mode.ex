@@ -148,22 +148,22 @@ defmodule ElixIRCd.Command.Mode do
   end
 
   @spec send_channel_mode_error(channel_mode_errors(), User.t(), String.t()) :: :ok
-  defp send_channel_mode_error(:user_channel_not_found, user, channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_notonchannel,
-      params: [user.nick, channel_name],
-      trailing: "You're not on that channel"
-    })
-    |> Messaging.broadcast(user)
-  end
-
   defp send_channel_mode_error(:channel_not_found, user, channel_name) do
     Message.build(%{
       prefix: :server,
       command: :err_nosuchchannel,
       params: [user.nick, channel_name],
       trailing: "No such channel"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_channel_mode_error(:user_channel_not_found, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_notonchannel,
+      params: [user.nick, channel_name],
+      trailing: "You're not on that channel"
     })
     |> Messaging.broadcast(user)
   end
@@ -188,15 +188,10 @@ defmodule ElixIRCd.Command.Mode do
     |> Messaging.broadcast(user)
   end
 
-  defp handle_user_mode(_user, _receiver_nick, nil) do
-    # Future
-    :ok
-  end
-
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, _mode_string) when user_nick != receiver_nick do
     Message.build(%{
       prefix: :server,
-      command: :err_noprivileges,
+      command: :err_usersdontmatch,
       params: [user.nick],
       trailing: "Cannot change mode for other users"
     })

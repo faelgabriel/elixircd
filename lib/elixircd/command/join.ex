@@ -123,7 +123,7 @@ defmodule ElixIRCd.Command.Join do
     {topic_reply, topic_trailing} =
       case channel.topic do
         nil -> {:rpl_notopic, "No topic is set"}
-        topic -> {:rpl_topic, topic}
+        %{text: topic_text} -> {:rpl_topic, topic_text}
       end
 
     [

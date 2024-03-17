@@ -390,20 +390,6 @@ defmodule ElixIRCd.Command.ModeTest do
       end)
     end
 
-    test "handles MODE command for user that change another user modes" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-        another_user = insert(:user)
-
-        message = %Message{command: "MODE", params: [another_user.nick, "+i"]}
-        Mode.handle(user, message)
-
-        assert_sent_messages([
-          {user.socket, ":server.example.com 481 #{user.nick} :Cannot change mode for other users\r\n"}
-        ])
-      end)
-    end
-
     test "handles MODE command for user that change its modes" do
       Memento.transaction!(fn ->
         user = insert(:user, modes: [])
@@ -428,6 +414,34 @@ defmodule ElixIRCd.Command.ModeTest do
           {user.socket, ":#{build_user_mask(user)} MODE #{user.nick} +iw\r\n"},
           {user.socket, ":server.example.com 472 #{user.nick} y :is unknown mode char to me\r\n"},
           {user.socket, ":server.example.com 472 #{user.nick} z :is unknown mode char to me\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for user that change another user modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+
+        message = %Message{command: "MODE", params: [another_user.nick, "+i"]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 502 #{user.nick} :Cannot change mode for other users\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for user that view another user modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+
+        message = %Message{command: "MODE", params: [another_user.nick]}
+        Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 502 #{user.nick} :Cannot change mode for other users\r\n"}
         ])
       end)
     end

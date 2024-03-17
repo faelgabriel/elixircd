@@ -54,25 +54,25 @@ defmodule ElixIRCd.HelperTest do
 
   describe "channel_operator?/1" do
     test "returns true for channel operator" do
-      user = build(:user_channel, %{modes: ["o"]})
-      assert true == Helper.channel_operator?(user)
+      user_channel = build(:user_channel, %{modes: ["o"]})
+      assert true == Helper.channel_operator?(user_channel)
     end
 
     test "returns false for non-channel operator" do
-      user = build(:user_channel, %{modes: []})
-      assert false == Helper.channel_operator?(user)
+      user_channel = build(:user_channel, %{modes: []})
+      assert false == Helper.channel_operator?(user_channel)
     end
   end
 
   describe "channel_voice?/1" do
     test "returns true for channel voice" do
-      user = build(:user_channel, %{modes: ["v"]})
-      assert true == Helper.channel_voice?(user)
+      user_channel = build(:user_channel, %{modes: ["v"]})
+      assert true == Helper.channel_voice?(user_channel)
     end
 
     test "returns false for non-channel voice" do
-      user = build(:user_channel, %{modes: []})
-      assert false == Helper.channel_voice?(user)
+      user_channel = build(:user_channel, %{modes: []})
+      assert false == Helper.channel_voice?(user_channel)
     end
   end
 

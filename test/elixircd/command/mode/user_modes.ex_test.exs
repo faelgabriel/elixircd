@@ -1,7 +1,9 @@
 defmodule ElixIRCd.Command.Mode.UserModesTest do
   @moduledoc false
 
-  use ExUnit.Case, async: true
+  use ElixIRCd.DataCase, async: false
+
+  import ElixIRCd.Factory
 
   alias ElixIRCd.Command.Mode.UserModes
 
@@ -125,6 +127,74 @@ defmodule ElixIRCd.Command.Mode.UserModesTest do
 
       assert validated_modes == [add: "i", add: "w", remove: "i", remove: "w", add: "w"]
       assert invalid_modes == ["x", "y", "z", "x", "y"]
+    end
+  end
+
+  describe "apply_mode_changes/2" do
+    test "handles add modes" do
+      user = insert(:user, modes: [])
+      validated_modes = [{:add, "i"}, {:add, "w"}]
+
+      {updated_user, applied_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == ["i", "w"]
+      assert applied_modes == [{:add, "i"}, {:add, "w"}]
+    end
+
+    test "handles remove modes" do
+      user = insert(:user, modes: ["i", "w"])
+      validated_modes = [{:remove, "i"}, {:remove, "w"}]
+
+      {updated_user, applied_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == [{:remove, "i"}, {:remove, "w"}]
+    end
+
+    test "handles add and remove same modes" do
+      user = insert(:user, modes: [])
+      validated_modes = [{:add, "i"}, {:add, "w"}, {:remove, "i"}, {:remove, "w"}]
+
+      {updated_user, applied_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == [{:add, "i"}, {:add, "w"}, {:remove, "i"}, {:remove, "w"}]
+    end
+
+    test "handles add and remove modes shuffled" do
+      user = insert(:user, modes: ["i", "w"])
+      validated_modes = [{:remove, "i"}, {:add, "w"}, {:remove, "w"}, {:add, "i"}]
+
+      {updated_user, applied_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == ["i"]
+      assert applied_modes == [{:remove, "i"}, {:remove, "w"}, {:add, "i"}]
+    end
+
+    test "handles add modes handled by the server to add" do
+      user = insert(:user, modes: [])
+      validated_modes = [{:add, "o"}, {:add, "Z"}]
+
+      {updated_user, applied_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == []
+    end
+
+    test "handles remove modes handled by the server to remove" do
+      user = insert(:user, modes: ["Z"])
+      validated_modes = [{:remove, "Z"}]
+
+      {updated_user, applied_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == ["Z"]
+      assert applied_modes == []
     end
   end
 end
