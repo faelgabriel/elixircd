@@ -20,6 +20,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   @modes_with_value_to_add ["k", "l", "b", "o", "v"]
   @modes_with_value_to_replace ["k", "l"]
   @modes_with_value_to_remove ["b", "o", "v"]
+  @modes_with_value_as_integer ["l"]
   @modes_without_value_to_remove ["k", "l"]
   @modes_for_user_channel ["o", "v"]
   @modes_for_channel_ban ["b"]
@@ -210,6 +211,10 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
         channel_ban_mode_applied?(user, updated_mode_change, channel.name)
         |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
 
+      # ignore if the mode flag requires an integer value and the value is not an integer
+      mode_flag in @modes_with_value_as_integer and not valid_integer_mode_value?(mode) ->
+        {applied_changes, new_modes}
+
       mode_flag in @modes_with_value_to_replace ->
         handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
         {[{:add, mode} | applied_changes], [mode | handled_new_modes]}
@@ -338,5 +343,13 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   @spec normalize_mode_change_for_channel_ban(mode_change()) :: mode_change()
   defp normalize_mode_change_for_channel_ban({action, {mode_flag, mode_value}}) do
     {action, {mode_flag, normalize_mask(mode_value)}}
+  end
+
+  @spec valid_integer_mode_value?(mode()) :: boolean()
+  defp valid_integer_mode_value?({_mode_flag, mode_value}) do
+    case Integer.parse(mode_value) do
+      {_value, ""} -> true
+      _ -> false
+    end
   end
 end

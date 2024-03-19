@@ -7,7 +7,7 @@ defmodule ElixIRCd.Command.Join do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_operator?: 1, user_mask_match?: 2]
+  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_name?: 1, channel_operator?: 1, user_mask_match?: 2]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
@@ -192,12 +192,9 @@ defmodule ElixIRCd.Command.Join do
 
   @spec validate_channel_name(String.t()) :: :ok | {:error, String.t()}
   defp validate_channel_name(channel_name) do
-    name_pattern = ~r/^#[a-zA-Z0-9_\-]{1,49}$/
-
     cond do
-      # Future: support other channel start name formats
-      !String.starts_with?(channel_name, "#") -> {:error, "channel name must start with a hash mark (#)"}
-      !Regex.match?(name_pattern, channel_name) -> {:error, "invalid channel name format"}
+      !channel_name?(channel_name) -> {:error, "channel name must start with a hash mark (#)"}
+      !Regex.match?(~r/^#[a-zA-Z0-9_\-]{1,49}$/, channel_name) -> {:error, "invalid channel name format"}
       true -> :ok
     end
   end

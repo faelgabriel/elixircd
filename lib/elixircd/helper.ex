@@ -10,12 +10,7 @@ defmodule ElixIRCd.Helper do
   Determines if a target is a channel name.
   """
   @spec channel_name?(String.t()) :: boolean()
-  def channel_name?(target) do
-    String.starts_with?(target, "#") ||
-      String.starts_with?(target, "&") ||
-      String.starts_with?(target, "+") ||
-      String.starts_with?(target, "!")
-  end
+  def channel_name?(target), do: String.starts_with?(target, "#")
 
   @doc """
   Checks if a socket is connected.

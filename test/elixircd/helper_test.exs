@@ -11,9 +11,6 @@ defmodule ElixIRCd.HelperTest do
   describe "channel_name?/1" do
     test "returns true for channel names" do
       assert true == Helper.channel_name?("#elixir")
-      assert true == Helper.channel_name?("&elixir")
-      assert true == Helper.channel_name?("+elixir")
-      assert true == Helper.channel_name?("!elixir")
     end
 
     test "returns false for non-channel names" do

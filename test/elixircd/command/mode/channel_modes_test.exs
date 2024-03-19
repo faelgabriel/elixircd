@@ -659,6 +659,18 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert channel_ban.created_at != nil
     end
 
+    test "handles add modes with value that requires to be an integer but is not" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+      validated_modes = [{:add, {"l", "invalid"}}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == []
+    end
+
     test "handles replace modes with value" do
       user = insert(:user)
       channel = insert(:channel, modes: [{"l", "10"}, {"k", "password"}])
