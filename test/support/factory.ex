@@ -3,8 +3,11 @@ defmodule ElixIRCd.Factory do
   This module defines the factories for the schemas.
   """
 
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
+
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
+  alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -64,6 +67,15 @@ defmodule ElixIRCd.Factory do
     %ChannelBan{
       channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
       mask: Map.get(attrs, :mask, "nick!user@host"),
+      setter: Map.get(attrs, :setter, "setter"),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:channel_invite, attrs) do
+    %ChannelInvite{
+      channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
+      user_mask: Map.get(attrs, :user_mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
@@ -133,6 +145,30 @@ defmodule ElixIRCd.Factory do
 
     Memento.transaction!(fn ->
       build(:channel_ban, updated_attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:channel_invite, attrs) do
+    channel =
+      case Map.get(attrs, :channel) do
+        nil -> insert(:channel)
+        channel -> channel
+      end
+
+    user =
+      case Map.get(attrs, :user) do
+        nil -> insert(:user)
+        user -> user
+      end
+
+    updated_attrs =
+      attrs
+      |> Map.put(:channel_name, channel.name)
+      |> Map.put(:user_mask, build_user_mask(user))
+
+    Memento.transaction!(fn ->
+      build(:channel_invite, updated_attrs)
       |> Memento.Query.write()
     end)
   end

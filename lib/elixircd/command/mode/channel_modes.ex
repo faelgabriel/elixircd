@@ -193,6 +193,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     {updated_channel, applied_changes}
   end
 
+  # Future: checks if +l receives a valid integer
   @spec apply_mode_change(User.t(), Channel.t(), mode_change(), {[mode_change()], [mode()]}) ::
           {[mode_change()], [mode()]}
   defp apply_mode_change(user, channel, {:add, mode} = mode_change, {applied_changes, new_modes}) do

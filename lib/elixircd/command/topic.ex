@@ -60,7 +60,7 @@ defmodule ElixIRCd.Command.Topic do
   def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: new_topic_text}) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
-         :ok <- check_if_user_has_permission(channel, user_channel) do
+         :ok <- check_user_permission(channel, user_channel) do
       updated_channel = Channels.update(channel, %{topic: normalize_topic(new_topic_text, user)})
       user_channels = UserChannels.get_by_channel_name(channel.name)
 
@@ -70,8 +70,8 @@ defmodule ElixIRCd.Command.Topic do
     end
   end
 
-  @spec check_if_user_has_permission(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
-  defp check_if_user_has_permission(channel, user_channel) do
+  @spec check_user_permission(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
+  defp check_user_permission(channel, user_channel) do
     if "t" in channel.modes and "o" not in user_channel.modes do
       {:error, :user_is_not_operator}
     else

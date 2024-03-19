@@ -260,9 +260,12 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_needmoreparams), do: "461"
   defp numeric_reply(:err_alreadyregistered), do: "462"
   defp numeric_reply(:err_passwdmismatch), do: "464"
+  defp numeric_reply(:err_channelisfull), do: "471"
   defp numeric_reply(:err_unknownmode), do: "472"
-  defp numeric_reply(:err_cannotjoinchannel), do: "473"
+  defp numeric_reply(:err_inviteonlychan), do: "473"
   defp numeric_reply(:err_bannedfromchan), do: "474"
+  defp numeric_reply(:err_badchannelkey), do: "475"
+  defp numeric_reply(:err_badchanmask), do: "476"
   defp numeric_reply(:err_chanoprivsneeded), do: "482"
   defp numeric_reply(:err_usersdontmatch), do: "502"
 end

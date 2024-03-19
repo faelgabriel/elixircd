@@ -71,7 +71,7 @@ defmodule ElixIRCd.Command.Mode do
   defp handle_channel_mode(user, channel_name, mode_string, values) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
-         :ok <- check_if_user_is_operator(user_channel) do
+         :ok <- check_user_operator(user_channel) do
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
 
@@ -105,8 +105,8 @@ defmodule ElixIRCd.Command.Mode do
     end
   end
 
-  @spec check_if_user_is_operator(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
-  defp check_if_user_is_operator(user_channel) do
+  @spec check_user_operator(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
+  defp check_user_operator(user_channel) do
     case channel_operator?(user_channel) do
       true -> :ok
       false -> {:error, :user_is_not_operator}

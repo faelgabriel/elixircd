@@ -11,6 +11,7 @@ defmodule ElixIRCd.Command.Join do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
+  alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
@@ -20,6 +21,7 @@ defmodule ElixIRCd.Command.Join do
   alias ElixIRCd.Tables.UserChannel
 
   @type channel_states :: :created | :existing
+  @type mode_error :: :channel_key_invalid | :channel_limit_reached | :user_banned | :user_not_invited
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -40,18 +42,22 @@ defmodule ElixIRCd.Command.Join do
   end
 
   @impl true
-  def handle(user, %{command: "JOIN", params: [channel_names]}) do
+  def handle(user, %{command: "JOIN", params: [channel_names | values]}) do
     channel_names
     |> String.split(",")
     |> Enum.map(&String.trim/1)
-    |> Enum.each(&handle_channel(user, &1))
+    |> Enum.with_index()
+    |> Enum.each(fn {channel_name, index} ->
+      join_value = Enum.at(values, index, nil)
+      handle_join_channel(user, channel_name, join_value)
+    end)
   end
 
-  @spec handle_channel(User.t(), String.t()) :: :ok
-  defp handle_channel(user, channel_name) do
+  @spec handle_join_channel(User.t(), String.t(), String.t() | nil) :: :ok
+  defp handle_join_channel(user, channel_name, join_value) do
     with :ok <- validate_channel_name(channel_name),
          {channel_state, channel} <- get_or_create_channel(channel_name),
-         :ok <- check_if_user_is_banned(user, channel_state, channel) do
+         :ok <- check_modes(channel_state, channel, user, join_value) do
       user_channel =
         UserChannels.create(%{
           user_port: user.port,
@@ -61,25 +67,9 @@ defmodule ElixIRCd.Command.Join do
           modes: determine_user_channel_modes(channel_state)
         })
 
-      join_channel(user, channel, user_channel)
+      send_join_channel(user, channel, user_channel)
     else
-      {:error, :user_banned_from_channel} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_bannedfromchan,
-          params: [user.nick, channel_name],
-          trailing: "Cannot join channel (+b) - you are banned"
-        })
-        |> Messaging.broadcast(user)
-
-      {:error, error} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_cannotjoinchannel,
-          params: [user.nick, channel_name],
-          trailing: "Cannot join channel: #{error}"
-        })
-        |> Messaging.broadcast(user)
+      {:error, error} -> send_join_channel_error(error, user, channel_name)
     end
   end
 
@@ -100,8 +90,8 @@ defmodule ElixIRCd.Command.Join do
   defp determine_user_channel_modes(:created), do: ["o"]
   defp determine_user_channel_modes(:existing), do: []
 
-  @spec join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
-  defp join_channel(user, channel, user_channel) do
+  @spec send_join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
+  defp send_join_channel(user, channel, user_channel) do
     user_channels = UserChannels.get_by_channel_name(channel.name)
 
     Message.build(%{
@@ -149,26 +139,136 @@ defmodule ElixIRCd.Command.Join do
     |> Messaging.broadcast(user)
   end
 
+  @spec send_join_channel_error(mode_error() | String.t(), User.t(), String.t()) :: :ok
+  defp send_join_channel_error(:channel_key_invalid, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_badchannelkey,
+      params: [user.nick, channel_name],
+      trailing: "Cannot join channel (+k) - bad key"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_join_channel_error(:channel_limit_reached, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_channelisfull,
+      params: [user.nick, channel_name],
+      trailing: "Cannot join channel (+l) - channel is full"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_join_channel_error(:user_banned, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_bannedfromchan,
+      params: [user.nick, channel_name],
+      trailing: "Cannot join channel (+b) - you are banned"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_join_channel_error(:user_not_invited, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_inviteonlychan,
+      params: [user.nick, channel_name],
+      trailing: "Cannot join channel (+i) - you are not invited"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_join_channel_error(error, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_badchanmask,
+      params: [user.nick, channel_name],
+      trailing: "Cannot join channel - #{error}"
+    })
+    |> Messaging.broadcast(user)
+  end
+
   @spec validate_channel_name(String.t()) :: :ok | {:error, String.t()}
   defp validate_channel_name(channel_name) do
     name_pattern = ~r/^#[a-zA-Z0-9_\-]{1,49}$/
 
     cond do
-      !String.starts_with?(channel_name, "#") -> {:error, "Channel name must start with a hash mark (#)"}
-      !Regex.match?(name_pattern, channel_name) -> {:error, "Invalid channel name format"}
+      # Future: support other channel start name formats
+      !String.starts_with?(channel_name, "#") -> {:error, "channel name must start with a hash mark (#)"}
+      !Regex.match?(name_pattern, channel_name) -> {:error, "invalid channel name format"}
       true -> :ok
     end
   end
 
-  @spec check_if_user_is_banned(User.t(), channel_states(), Channel.t()) :: :ok | {:error, :user_banned_from_channel}
-  defp check_if_user_is_banned(_user, :created, _channel), do: :ok
+  @spec check_modes(channel_states(), Channel.t(), User.t(), String.t() | nil) :: :ok | {:error, mode_error()}
+  defp check_modes(:created, _channel, _user, _join_value), do: :ok
 
-  defp check_if_user_is_banned(user, :existing, channel) do
+  defp check_modes(:existing, channel, user, join_value) do
+    with :ok <- check_user_banned(channel, user),
+         :ok <- check_user_invited(channel, user),
+         :ok <- check_channel_key(channel, user, join_value) do
+      check_channel_limit(channel, user)
+    end
+  end
+
+  @spec check_user_banned(Channel.t(), User.t()) :: :ok | {:error, :user_banned}
+  defp check_user_banned(channel, user) do
     ChannelBans.get_by_channel_name(channel.name)
     |> Enum.any?(&user_mask_match?(user, &1.mask))
     |> case do
-      true -> {:error, :user_banned_from_channel}
+      true -> {:error, :user_banned}
       false -> :ok
+    end
+  end
+
+  @spec check_user_invited(Channel.t(), User.t()) :: :ok | {:error, :user_not_invited}
+  defp check_user_invited(channel, user) do
+    if "i" in channel.modes do
+      ChannelInvites.get_by_channel_name_and_user_mask(channel.name, build_user_mask(user))
+      |> case do
+        {:ok, _channel_invite} -> :ok
+        {:error, :channel_invite_not_found} -> {:error, :user_not_invited}
+      end
+    else
+      :ok
+    end
+  end
+
+  @spec check_channel_key(Channel.t(), User.t(), String.t()) :: :ok | {:error, :channel_key_invalid}
+  defp check_channel_key(channel, _user, key) do
+    channel.modes
+    |> Enum.find_value(fn
+      {"k", value} -> value
+      _ -> nil
+    end)
+    |> case do
+      nil -> :ok
+      channel_key when channel_key == key -> :ok
+      _ -> {:error, :channel_key_invalid}
+    end
+  end
+
+  @spec check_channel_limit(Channel.t(), User.t()) :: :ok | {:error, :channel_limit_reached}
+  defp check_channel_limit(channel, _user) do
+    channel.modes
+    |> Enum.find_value(fn
+      {"l", value} -> String.to_integer(value)
+      _ -> nil
+    end)
+    |> case do
+      nil ->
+        :ok
+
+      channel_limit ->
+        # Future: Use a Mnesia fold to count the number of users in the channel
+        UserChannels.get_by_channel_name(channel.name)
+        |> Enum.count()
+        |> case do
+          channel_count when channel_count >= channel_limit -> {:error, :channel_limit_reached}
+          _ -> :ok
+        end
     end
   end
 
@@ -177,6 +277,7 @@ defmodule ElixIRCd.Command.Join do
     users = user_channels |> Enum.map(& &1.user_port) |> Users.get_by_ports()
     users_by_port = Map.new(users, fn user -> {user.port, user} end)
 
+    # Future: Use a Mnesia fold to get the nicks of the users in the channel
     user_channels
     |> Enum.map(fn user_channel ->
       user = Map.get(users_by_port, user_channel.user_port)

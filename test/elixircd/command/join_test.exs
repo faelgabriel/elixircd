@@ -46,7 +46,117 @@ defmodule ElixIRCd.Command.JoinTest do
 
         assert_sent_messages([
           {user.socket,
-           ":server.example.com 473 #{user.nick} #invalid.channel.name :Cannot join channel: Invalid channel name format\r\n"}
+           ":server.example.com 476 #{user.nick} #invalid.channel.name :Cannot join channel - invalid channel name format\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with non-existing channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "JOIN", params: ["#new_channel"]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{build_user_mask(user)} JOIN #new_channel\r\n"},
+          {user.socket, ":server.example.com MODE #new_channel +o #{user.nick}\r\n"},
+          {user.socket, ":server.example.com 331 #{user.nick} #new_channel :No topic is set\r\n"},
+          {user.socket, ":server.example.com 353 = #{user.nick} #new_channel :#{user.nick}\r\n"},
+          {user.socket, ":server.example.com 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with empty channel key" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [{"k", "password"}])
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with wrong channel key" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [{"k", "password"}])
+        message = %Message{command: "JOIN", params: [channel.name, "wrong_password"]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with channel limit reached" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [{"l", "1"}])
+        insert(:user_channel, channel: channel)
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket,
+           ":server.example.com 471 #{user.nick} #{channel.name} :Cannot join channel (+l) - channel is full\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with a user banned from the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+        insert(:channel_ban, channel: channel, mask: "#{user.nick}!*@*")
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket,
+           ":server.example.com 474 #{user.nick} #{channel.name} :Cannot join channel (+b) - you are banned\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with a user not invited to the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["i"])
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket,
+           ":server.example.com 473 #{user.nick} #{channel.name} :Cannot join channel (+i) - you are not invited\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with correct channel key, available limit, no bans and with user invited" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [{"k", "password"}, {"l", "1"}, "i"])
+        insert(:channel_invite, channel: channel, user: user)
+        message = %Message{command: "JOIN", params: [channel.name, "password"]}
+
+        Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{build_user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.socket, ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
     end
@@ -69,39 +179,6 @@ defmodule ElixIRCd.Command.JoinTest do
            ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
           {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
           {another_user.socket, ":#{build_user_mask(user)} JOIN #{channel.name}\r\n"}
-        ])
-      end)
-    end
-
-    test "handles JOIN command with non-existing channel" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-        message = %Message{command: "JOIN", params: ["#new_channel"]}
-
-        Join.handle(user, message)
-
-        assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} JOIN #new_channel\r\n"},
-          {user.socket, ":server.example.com MODE #new_channel +o #{user.nick}\r\n"},
-          {user.socket, ":server.example.com 331 #{user.nick} #new_channel :No topic is set\r\n"},
-          {user.socket, ":server.example.com 353 = #{user.nick} #new_channel :#{user.nick}\r\n"},
-          {user.socket, ":server.example.com 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
-        ])
-      end)
-    end
-
-    test "handles JOIN command with a user banned from the channel" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-        channel = insert(:channel)
-        insert(:channel_ban, channel: channel, mask: "#{user.nick}!*@*")
-        message = %Message{command: "JOIN", params: [channel.name]}
-
-        Join.handle(user, message)
-
-        assert_sent_messages([
-          {user.socket,
-           ":server.example.com 474 #{user.nick} #{channel.name} :Cannot join channel (+b) - you are banned\r\n"}
         ])
       end)
     end

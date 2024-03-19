@@ -19,14 +19,14 @@ defmodule ElixIRCd.Tables.Channel do
   @type t :: %__MODULE__{
           name: String.t(),
           topic: Channel.Topic.t() | nil,
-          modes: [tuple()],
+          modes: [String.t() | {String.t(), String.t()}],
           created_at: DateTime.t()
         }
 
   @type t_attrs :: %{
           optional(:name) => String.t(),
           optional(:topic) => Channel.Topic.t() | nil,
-          optional(:modes) => [tuple()],
+          optional(:modes) => [String.t() | {String.t(), String.t()}],
           optional(:created_at) => DateTime.t()
         }
 
