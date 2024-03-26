@@ -312,8 +312,9 @@ defmodule ElixIRCd.ServerTest do
     end
 
     test "handles successful disconnect by connection timeout" do
-      original_timeout = Application.get_env(:elixircd, :client_timeout)
-      Application.put_env(:elixircd, :client_timeout, 220)
+      original_config = Application.get_env(:elixircd, :user)
+      Application.put_env(:elixircd, :user, original_config |> Keyword.put(:timeout, 220))
+      on_exit(fn -> Application.put_env(:elixircd, :user, original_config) end)
 
       :ranch_ssl
       |> expect(:close, 1, fn socket ->
@@ -331,8 +332,6 @@ defmodule ElixIRCd.ServerTest do
       assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
 
       assert {:error, :closed} == Client.recv(socket)
-
-      Application.put_env(:elixircd, :client_timeout, original_timeout)
     end
 
     test "handles sucessful disconnect by command quit result" do

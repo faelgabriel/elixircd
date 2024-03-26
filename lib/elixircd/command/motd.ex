@@ -26,7 +26,7 @@ defmodule ElixIRCd.Command.Motd do
   """
   @spec send_motd(User.t()) :: :ok
   def send_motd(user) do
-    server_name = Application.get_env(:elixircd, :server_name)
+    server_name = Application.get_env(:elixircd, :server)[:name]
 
     [
       Message.build(%{

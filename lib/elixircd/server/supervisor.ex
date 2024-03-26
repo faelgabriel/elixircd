@@ -12,7 +12,7 @@ defmodule ElixIRCd.Server.Supervisor do
   """
   @spec start_link(keyword()) :: Supervisor.on_start()
   def start_link(_supervisor_opts) do
-    server_listeners = Application.get_env(:elixircd, :server_listeners)
+    server_listeners = Application.get_env(:elixircd, :server)[:listeners]
     Supervisor.start_link(__MODULE__, server_listeners, name: __MODULE__)
   end
 

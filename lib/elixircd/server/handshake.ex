@@ -43,7 +43,7 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec check_server_password(User.t()) :: :ok | {:error, :bad_password}
   defp check_server_password(%User{password: password}) do
-    case Application.get_env(:elixircd, :server_password) do
+    case Application.get_env(:elixircd, :server)[:password] do
       nil -> :ok
       server_password when server_password != password -> {:error, :bad_password}
       _ -> :ok
@@ -65,7 +65,7 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec check_ident(User.t()) :: String.t() | nil
   defp check_ident(user) do
-    with true <- Application.get_env(:elixircd, :ident_protocol_enabled),
+    with true <- Application.get_env(:elixircd, :ident_service)[:enabled],
          {:ok, ip} <- get_socket_ip(user.socket),
          {:ok, port_connected} <- get_socket_port_connected(user.socket) do
       request_ident(user, ip, port_connected)

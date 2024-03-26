@@ -111,7 +111,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
     end
 
     test "handles a user handshake successfully with ident protocol disabled" do
-      Application.put_env(:elixircd, :ident_protocol_enabled, false)
+      original_config = Application.get_env(:elixircd, :ident_service)
+      Application.put_env(:elixircd, :ident_service, original_config |> Keyword.put(:enabled, false))
+      on_exit(fn -> Application.put_env(:elixircd, :ident_service, original_config) end)
 
       Helper
       |> expect(:get_socket_ip, 2, fn _socket -> {:ok, {127, 0, 0, 1}} end)
@@ -134,12 +136,12 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert updated_user.hostname == "localhost"
       assert updated_user.identity == nil
       assert updated_user.registered == true
-
-      Application.put_env(:elixircd, :ident_protocol_enabled, true)
     end
 
     test "handles a user handshake successfully when server has a password set and it matches user's password" do
-      Application.put_env(:elixircd, :server_password, "password")
+      original_config = Application.get_env(:elixircd, :server)
+      Application.put_env(:elixircd, :server, original_config |> Keyword.put(:password, "password"))
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_config) end)
 
       Helper
       |> expect(:get_socket_ip, 2, fn _socket -> {:ok, {127, 0, 0, 1}} end)
@@ -160,8 +162,6 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.registered == true
       assert updated_user.hostname == "localhost"
-
-      Application.put_env(:elixircd, :server_password, nil)
     end
 
     test "handles a user handshake error with get socket ip error" do
@@ -173,7 +173,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
     end
 
     test "handles a user handleshake error when server has a password set and it does not match user's password" do
-      Application.put_env(:elixircd, :server_password, "password")
+      original_config = Application.get_env(:elixircd, :server)
+      Application.put_env(:elixircd, :server, original_config |> Keyword.put(:password, "password"))
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_config) end)
 
       user = insert(:user, registered: false, hostname: nil, password: "wrongpassword")
       assert {:quit, "Bad Password"} = Memento.transaction!(fn -> Handshake.handle(user) end)
@@ -181,8 +183,6 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert_sent_messages([
         {user.socket, ":server.example.com 464 * :Bad Password\r\n"}
       ])
-
-      Application.put_env(:elixircd, :server_password, nil)
     end
   end
 end

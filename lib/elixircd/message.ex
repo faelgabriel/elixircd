@@ -74,7 +74,7 @@ defmodule ElixIRCd.Message do
         }) :: __MODULE__.t()
   def build(%{prefix: :server} = args) do
     args
-    |> Map.put(:prefix, Application.get_env(:elixircd, :server_hostname))
+    |> Map.put(:prefix, Application.get_env(:elixircd, :server)[:hostname])
     |> build()
   end
 

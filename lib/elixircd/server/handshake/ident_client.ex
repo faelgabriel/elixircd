@@ -12,7 +12,7 @@ defmodule ElixIRCd.Server.Handshake.IdentClient do
   """
   @spec fetch_user_id(tuple(), integer()) :: {:ok, String.t()} | {:error, String.t()}
   def fetch_user_id(ip, server_port_query) do
-    timeout = Application.get_env(:elixircd, :ident_timeout, 5000)
+    timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
 
     with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}]),
          :ok <- :gen_tcp.send(socket, "#{server_port_query}, 113\r\n"),
