@@ -71,6 +71,9 @@ defmodule ElixIRCd.Command.Whois do
   end
 
   def whois_message(user, _target_nick, target_user) do
+    target_user_identity =
+      target_user.identity || target_user.username
+
     target_user_channel_names =
       UserChannels.get_by_user_port(target_user.port)
       |> Enum.map(& &1.channel_name)
@@ -79,7 +82,7 @@ defmodule ElixIRCd.Command.Whois do
       Message.build(%{
         prefix: :server,
         command: :rpl_whoisuser,
-        params: [user.nick, target_user.nick, target_user.username, target_user.hostname, "*"],
+        params: [user.nick, target_user.nick, target_user_identity, target_user.hostname, "*"],
         trailing: target_user.realname
       }),
       Message.build(%{

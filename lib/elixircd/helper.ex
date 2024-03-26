@@ -95,13 +95,24 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
-  Gets the IP address for a socket.
+  Gets the IP address for a socket connection.
   """
   @spec get_socket_ip(socket :: :inet.socket()) :: {:ok, tuple()} | {:error, String.t()}
   def get_socket_ip(socket) do
     case :inet.peername(get_socket_port(socket)) do
       {:ok, {ip, _port}} -> {:ok, ip}
       {:error, error} -> {:error, "Unable to get IP for #{inspect(socket)}: #{inspect(error)}"}
+    end
+  end
+
+  @doc """
+  Gets the port that a socket is connected to.
+  """
+  @spec get_socket_port_connected(:inet.socket()) :: {:ok, integer()} | {:error, String.t()}
+  def get_socket_port_connected(socket) do
+    case :inet.sockname(get_socket_port(socket)) do
+      {:ok, {_, port}} -> {:ok, port}
+      {:error, error} -> {:error, "Unable to get port for #{inspect(socket)}: #{inspect(error)}"}
     end
   end
 
@@ -116,6 +127,11 @@ defmodule ElixIRCd.Helper do
   Builds the user mask.
   """
   @spec build_user_mask(User.t()) :: String.t()
+  def build_user_mask(%{registered: true} = user)
+      when user.nick != nil and user.identity != nil and user.hostname != nil do
+    "#{user.nick}!#{String.slice(user.identity, 0..8)}@#{user.hostname}"
+  end
+
   def build_user_mask(%{registered: true} = user)
       when user.nick != nil and user.username != nil and user.hostname != nil do
     "#{user.nick}!~#{String.slice(user.username, 0..8)}@#{user.hostname}"

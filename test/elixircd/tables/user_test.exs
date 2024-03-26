@@ -26,6 +26,7 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.hostname == nil
       assert user.username == nil
       assert user.realname == nil
+      assert user.identity == nil
       assert user.registered == false
       assert user.modes == []
       assert DateTime.diff(DateTime.utc_now(), user.created_at) < 1000
@@ -44,6 +45,7 @@ defmodule ElixIRCd.Tables.UserTest do
         hostname: "test",
         username: "test",
         realname: "test",
+        identity: "test",
         registered: true,
         modes: [],
         created_at: utc_now
@@ -59,6 +61,7 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.hostname == "test"
       assert user.username == "test"
       assert user.realname == "test"
+      assert user.identity == "test"
       assert user.registered == true
       assert user.modes == []
       assert user.created_at == utc_now
@@ -76,6 +79,7 @@ defmodule ElixIRCd.Tables.UserTest do
           hostname: "test",
           username: "test",
           realname: "test",
+          identity: "test",
           registered: true,
           modes: [{:a, "test"}]
         })
@@ -88,6 +92,7 @@ defmodule ElixIRCd.Tables.UserTest do
       assert updated_user.hostname == "test"
       assert updated_user.username == "test"
       assert updated_user.realname == "test"
+      assert updated_user.identity == "test"
       assert updated_user.registered == true
       assert updated_user.modes == [{:a, "test"}]
       assert updated_user.created_at == user.created_at

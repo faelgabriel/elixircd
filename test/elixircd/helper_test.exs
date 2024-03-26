@@ -188,6 +188,27 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
+  describe "get_socket_port_connected/1" do
+    test "gets port connected from a tcp socket" do
+      {:ok, socket} = Client.connect(:tcp)
+      assert {:ok, _} = Helper.get_socket_port_connected(socket)
+      Client.disconnect(socket)
+    end
+
+    test "gets port connected from an ssl socket" do
+      {:ok, socket} = Client.connect(:ssl)
+      assert {:ok, _} = Helper.get_socket_port_connected(socket)
+      Client.disconnect(socket)
+    end
+
+    test "returns error for tcp socket disconnected" do
+      {:ok, socket} = Client.connect(:tcp)
+      Client.disconnect(socket)
+      assert {:error, error} = Helper.get_socket_port_connected(socket)
+      assert error =~ "Unable to get port for"
+    end
+  end
+
   describe "get_socket_port/1" do
     test "gets port from tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
@@ -205,6 +226,23 @@ defmodule ElixIRCd.HelperTest do
 
       refute is_port(socket)
       assert is_port(extracted_socket_port)
+    end
+  end
+
+  describe "build_user_mask/1" do
+    test "builds user mask with username" do
+      user = build(:user, nick: "nick", username: "username", hostname: "host", registered: true)
+      assert "nick!~username@host" == Helper.build_user_mask(user)
+    end
+
+    test "builds user mask with identity" do
+      user = build(:user, nick: "nick", identity: "identity", hostname: "host", registered: true)
+      assert "nick!identity@host" == Helper.build_user_mask(user)
+    end
+
+    test "builds a user mask and truncates username" do
+      user = build(:user, nick: "nick", username: "usernameusername", hostname: "host", registered: true)
+      assert "nick!~usernameu@host" == Helper.build_user_mask(user)
     end
   end
 

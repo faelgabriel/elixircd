@@ -417,39 +417,5 @@ defmodule ElixIRCd.ServerTest do
 
       assert log =~ "Error handling disconnect: :user_not_found"
     end
-
-    # test "handling multiple connections" do
-    #   max_connections = 15
-    #   allowed_time = 5_000
-
-    #   start_time = :erlang.monotonic_time(:millisecond)
-
-    #   tasks =
-    #     1..max_connections
-    #     |> Enum.map(fn i ->
-    #       Task.async(fn ->
-    #         assert {:ok, socket} = Client.connect(:tcp)
-    #         IO.puts("Connected #{i}")
-    #         # create random nick
-    #         nick =
-    #           Client.send(socket, "NICK test#{i}\r\n")
-
-    #         Client.send(socket, "USER test#{i} 0 * :Test#{i} User\r\n")
-    #         Client.recv(socket) == ""
-    #         Client.recv(socket)
-    #         Client.disconnect(socket)
-    #         IO.puts("Disconnected #{i}")
-    #       end)
-    #     end)
-
-    #   Enum.each(tasks, fn task ->
-    #     Task.await(task, 60_000)
-    #   end)
-
-    #   end_time = :erlang.monotonic_time(:millisecond)
-    #   duration = end_time - start_time
-
-    #   assert duration <= allowed_time, "The operations took longer than allowed. Duration: #{duration}ms"
-    # end
   end
 end

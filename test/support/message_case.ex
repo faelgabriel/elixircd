@@ -32,7 +32,16 @@ defmodule ElixIRCd.MessageCase do
         :ok
       end
 
-      defp assert_sent_messages(expected_messages) do
+      @spec assert_sent_messages_amount(:inet.socket(), integer()) :: :ok
+      defp assert_sent_messages_amount(socket, amount) do
+        sent_messages = Agent.get(__MODULE__, &Enum.reverse(&1))
+        sent_messages_for_socket = Enum.filter(sent_messages, fn {s, _} -> s == socket end)
+        assert length(sent_messages_for_socket) == amount
+      end
+
+      @spec assert_sent_messages([tuple()], opts :: [validate_order?: boolean()]) :: :ok
+      defp assert_sent_messages(expected_messages, opts \\ []) do
+        validate_order? = Keyword.get(opts, :validate_order?, true)
         agent_pid = Process.whereis(__MODULE__)
 
         if not (agent_pid != nil && Process.alive?(agent_pid)) do
@@ -68,20 +77,7 @@ defmodule ElixIRCd.MessageCase do
             """
           end
 
-          Enum.zip(expected_msgs, sent_msgs)
-          |> Enum.with_index()
-          |> Enum.each(fn {{expected_msg, sent_msg}, index} ->
-            unless expected_msg == sent_msg do
-              raise AssertionError, """
-              Assertion failed: Message order or content does not match.
-              At position #{index + 1}:
-              Expected message: '{#{inspect(socket)}, #{expected_msg}}'
-              Sent message: '{#{inspect(socket)}, #{sent_msg}'
-              Full expected message sequence for socket: #{inspect(expected_msgs)}
-              Full actual message sequence for socket: #{inspect(sent_msgs)}
-              """
-            end
-          end)
+          assert_messages_content(socket, expected_msgs, sent_msgs, validate_order?)
         end
 
         if length(sent_messages) > length(expected_messages) do
@@ -93,6 +89,34 @@ defmodule ElixIRCd.MessageCase do
         end
 
         :ok
+      end
+
+      @spec assert_messages_content(:inet.socket(), [tuple()], [tuple()], validate_order? :: boolean()) :: :ok
+      defp assert_messages_content(socket, expected_msgs, sent_msgs, true) do
+        Enum.zip(expected_msgs, sent_msgs)
+        |> Enum.with_index()
+        |> Enum.each(fn {{expected_msg, sent_msg}, index} ->
+          unless expected_msg == sent_msg do
+            raise AssertionError, """
+            Assertion failed: Message order or content does not match.
+            At position #{index + 1}:
+            Expected message: '{#{inspect(socket)}, #{expected_msg}}'
+            Sent message: '{#{inspect(socket)}, #{sent_msg}'
+            Full expected message sequence for socket: #{inspect(expected_msgs)}
+            Full actual message sequence for socket: #{inspect(sent_msgs)}
+            """
+          end
+        end)
+      end
+
+      defp assert_messages_content(_socket, expected_msgs, sent_msgs, false) do
+        unless Enum.sort(expected_msgs) == Enum.sort(sent_msgs) do
+          raise AssertionError, """
+          Assertion failed: Message content does not match.
+          Expected message sequence for socket: #{inspect(expected_msgs)}
+          Actual message sequence for socket: #{inspect(sent_msgs)}
+          """
+        end
       end
     end
   end
