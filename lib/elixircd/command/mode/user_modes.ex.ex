@@ -6,7 +6,7 @@ defmodule ElixIRCd.Command.Mode.UserModes do
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Tables.User
 
-  @modes ["i", "w", "o", "Z"]
+  @modes ["i", "o", "w", "Z"]
   @modes_handled_by_server_to_add ["o", "Z"]
   @modes_handled_by_server_to_remove ["Z"]
 
@@ -18,10 +18,7 @@ defmodule ElixIRCd.Command.Mode.UserModes do
   """
   @spec display_modes([mode()]) :: String.t()
   def display_modes([]), do: ""
-
-  def display_modes(modes) do
-    "+" <> Enum.join(modes, "")
-  end
+  def display_modes(modes), do: "+" <> Enum.join(modes, "")
 
   @doc """
   Returns the string representation of the mode changes.

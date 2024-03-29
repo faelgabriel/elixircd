@@ -226,28 +226,34 @@ defmodule ElixIRCd.Message do
   defp unparse_message(base, nil), do: Enum.join(base, " ")
   defp unparse_message(base, trailing), do: Enum.join(base ++ [":" <> trailing], " ")
 
-  # Numeric IRC response codes
+  # Numeric IRC reply codes
   @spec numeric_reply(atom()) :: String.t()
   defp numeric_reply(:rpl_welcome), do: "001"
   defp numeric_reply(:rpl_yourhost), do: "002"
   defp numeric_reply(:rpl_created), do: "003"
   defp numeric_reply(:rpl_myinfo), do: "004"
   defp numeric_reply(:rpl_umodeis), do: "221"
+  defp numeric_reply(:rpl_away), do: "301"
   defp numeric_reply(:rpl_userhost), do: "302"
   defp numeric_reply(:rpl_whoisuser), do: "311"
   defp numeric_reply(:rpl_whoisserver), do: "312"
+  defp numeric_reply(:rpl_whoisoperator), do: "313"
+  defp numeric_reply(:rpl_endofwho), do: "315"
+  defp numeric_reply(:rpl_whoischanop), do: "316"
   defp numeric_reply(:rpl_whoisidle), do: "317"
   defp numeric_reply(:rpl_endofwhois), do: "318"
   defp numeric_reply(:rpl_whoischannels), do: "319"
+  defp numeric_reply(:rpl_whoisaccount), do: "330"
   defp numeric_reply(:rpl_notopic), do: "331"
   defp numeric_reply(:rpl_topic), do: "332"
   defp numeric_reply(:rpl_topicwhotime), do: "333"
+  defp numeric_reply(:rpl_whoreply), do: "352"
   defp numeric_reply(:rpl_namreply), do: "353"
   defp numeric_reply(:rpl_endofnames), do: "366"
   defp numeric_reply(:rpl_banlist), do: "367"
   defp numeric_reply(:rpl_endofbanlist), do: "368"
   defp numeric_reply(:rpl_endofmotd), do: "376"
-
+  # Error replies
   defp numeric_reply(:err_nosuchnick), do: "401"
   defp numeric_reply(:err_nosuchchannel), do: "403"
   defp numeric_reply(:err_cannotsendtochan), do: "404"

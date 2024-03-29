@@ -52,9 +52,9 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **Oper Commands**: Special commands for server operators (IRCops). ✴️
 - **TLS Protocol**: For secure, encrypted connections. ✅
 
-### Server Commands
+### Server Commands (Client-to-Server)
 
-- **PASS**: Set a password for the connection. ✴️
+- **PASS**: Set a password for the connection. ✅
 - **NICK**: Set or change a user's nickname. ✅
 - **USER**: Specify username, hostname, servername, and real name. ✅
 - **JOIN**: Join a channel or create one if it doesn't exist. ✅
@@ -92,17 +92,22 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **RESTART**: Allow operators to restart the server. ✴️
 - **DIE**: Allow operators to shut down the server. ✴️
 - **SERVICE**: Allow operators to register services on the network. ❌
+
+### Server Commands (Server-to-Server)
+
 - **SERVLIST**: List services currently connected to the network. ❌
 - **LINKS**: List all server links in the IRC network. ❌
 - **CONNECT**: Allow operators to connect a server to the network. ❌
 - **SQUIT**: Allow operators to disconnect a server from the network gracefully. ❌
 - **SQUERY**: Allow servers to send queries to other servers. ❌
 - **ERROR**: Allow servers to report errors to other servers. Also used before ending client connections. ❌
-- **SERVER**: Allow servers to know the other connection is another server. Also, used to send data over the network. ❌
+- **SERVER**: Allow servers to introduce themselves to other servers on the network. ❌
 
 ## IRCv3 Features
 
 These features are based on the IRCv3 specifications, providing modern capabilities. More information at [ircv3.net](https://ircv3.net/).
+
+> ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
 
 ### Enhanced Commands and Extensions
 
@@ -141,6 +146,33 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **TAGMSG**: Send messages with tags but without text content. ❌
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
 - **WHO**: Extended to allow clients to request additional information. ❌
+
+## Modes
+
+Modes are a way to change the behavior of a channel or user. They can be set by users with the correct permissions or by the server itself. Modes can be set on channels or users.
+
+> ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
+
+### User Modes
+
+- **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✴️
+- **+o (Operator)**: Provides elevated privileges for network management and oversight. ✴️
+- **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✴️
+- **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✴️
+
+### Channel Modes
+
+- **+b (Ban)**: Prevents a user or host from joining the channel. ✴️
+- **+i (Invite Only)**: Restricts channel access to invited users only. ✴️
+- **+k (Key)**: Requires a password to join the channel. ✴️
+- **+l (Limit)**: Limits the number of users who can join the channel. ✴️
+- **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✴️
+- **+n (No External Messages)**: Prevents messages from users not in the channel. ✴️
+- **+o (Operator)**: Grants operator status to a user. ✴️
+- **+p (Private)**: Hides the channel from the LIST command. ✴️
+- **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✴️
+- **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✴️
+- **+v (Voice)**: Grants voice status to a user. ✴️
 
 ## Installation
 

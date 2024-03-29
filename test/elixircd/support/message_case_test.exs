@@ -88,7 +88,23 @@ defmodule ElixIRCd.MessageCaseTest do
       Client.disconnect(ssl_socket)
     end
 
-    test "raises an error messages are not sent in the correct order" do
+    test "passes if the messages are sent and expected message is a regex" do
+      {:ok, tcp_socket} = Client.connect(:tcp)
+      {:ok, ssl_socket} = Client.connect(:ssl)
+
+      :ranch_tcp.send(tcp_socket, "PING :test")
+      :ranch_ssl.send(ssl_socket, "PING :test")
+
+      assert_sent_messages([
+        {tcp_socket, ~r/^PING/},
+        {ssl_socket, ~r/^PING/}
+      ])
+
+      Client.disconnect(tcp_socket)
+      Client.disconnect(ssl_socket)
+    end
+
+    test "raises an error if messages are not sent in the correct order" do
       {:ok, tcp_socket} = Client.connect(:tcp)
       {:ok, ssl_socket} = Client.connect(:ssl)
 
@@ -176,6 +192,21 @@ defmodule ElixIRCd.MessageCaseTest do
           ],
           validate_order?: false
         )
+      end
+
+      Client.disconnect(tcp_socket)
+      Client.disconnect(ssl_socket)
+    end
+
+    test "raises an error if messages are not sent and expected message is a regex" do
+      {:ok, tcp_socket} = Client.connect(:tcp)
+      {:ok, ssl_socket} = Client.connect(:ssl)
+
+      assert_raise AssertionError, fn ->
+        assert_sent_messages([
+          {tcp_socket, ~r/^PING/},
+          {ssl_socket, ~r/^PING/}
+        ])
       end
 
       Client.disconnect(tcp_socket)

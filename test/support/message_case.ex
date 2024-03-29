@@ -92,11 +92,11 @@ defmodule ElixIRCd.MessageCase do
       end
 
       @spec assert_messages_content(:inet.socket(), [tuple()], [tuple()], validate_order? :: boolean()) :: :ok
-      defp assert_messages_content(socket, expected_msgs, sent_msgs, true) do
+      defp assert_messages_content(socket, expected_msgs, sent_msgs, _validate_order = true) do
         Enum.zip(expected_msgs, sent_msgs)
         |> Enum.with_index()
         |> Enum.each(fn {{expected_msg, sent_msg}, index} ->
-          unless expected_msg == sent_msg do
+          unless message_match?(expected_msg, sent_msg) do
             raise AssertionError, """
             Assertion failed: Message order or content does not match.
             At position #{index + 1}:
@@ -109,15 +109,25 @@ defmodule ElixIRCd.MessageCase do
         end)
       end
 
-      defp assert_messages_content(_socket, expected_msgs, sent_msgs, false) do
-        unless Enum.sort(expected_msgs) == Enum.sort(sent_msgs) do
-          raise AssertionError, """
-          Assertion failed: Message content does not match.
-          Expected message sequence for socket: #{inspect(expected_msgs)}
-          Actual message sequence for socket: #{inspect(sent_msgs)}
-          """
-        end
+      defp assert_messages_content(_socket, expected_msgs, sent_msgs, _validate_order = false) do
+        ordered_expected_msgs = Enum.sort(expected_msgs)
+        ordered_sent_msgs = Enum.sort(sent_msgs)
+
+        Enum.zip(ordered_expected_msgs, ordered_sent_msgs)
+        |> Enum.each(fn {expected_msg, sent_msg} ->
+          unless message_match?(expected_msg, sent_msg) do
+            raise AssertionError, """
+            Assertion failed: Message content does not match.
+            Expected message sequence for socket: #{inspect(expected_msgs)}
+            Actual message sequence for socket: #{inspect(sent_msgs)}
+            """
+          end
+        end)
       end
+
+      @spec message_match?(String.t() | Regex.t(), String.t()) :: boolean()
+      defp message_match?(expected_msg, sent_msg) when is_binary(expected_msg), do: expected_msg == sent_msg
+      defp message_match?(expected_msg = %Regex{}, sent_msg), do: Regex.match?(expected_msg, sent_msg)
     end
   end
 end

@@ -16,8 +16,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @modes ["n", "t", "s", "i", "m", "p", "k", "l", "b", "o", "v"]
-  @modes_with_value_to_add ["k", "l", "b", "o", "v"]
+  @modes ["b", "i", "k", "l", "m", "n", "o", "p", "s", "t", "v"]
+  @modes_with_value_to_add ["b", "k", "l", "o", "v"]
   @modes_with_value_to_replace ["k", "l"]
   @modes_with_value_to_remove ["b", "o", "v"]
   @modes_with_value_as_integer ["l"]

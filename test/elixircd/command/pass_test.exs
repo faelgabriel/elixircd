@@ -37,7 +37,7 @@ defmodule ElixIRCd.Command.PassTest do
       end)
     end
 
-    test "handles PASS command with valid password" do
+    test "handles PASS command with a password" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
         message = %Message{command: "PASS", params: ["password"]}
