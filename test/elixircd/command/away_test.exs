@@ -8,6 +8,7 @@ defmodule ElixIRCd.Command.AwayTest do
 
   alias ElixIRCd.Command.Away
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
 
   describe "handle/2" do
     test "handles AWAY command with user not registered" do
@@ -25,12 +26,17 @@ defmodule ElixIRCd.Command.AwayTest do
 
     test "handles AWAY command with no message" do
       Memento.transaction!(fn ->
-        user = insert(:user)
+        user = insert(:user, away_message: "I'm away")
         message = %Message{command: "AWAY", params: []}
 
         Away.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 305 #{user.nick} :You are no longer marked as being away\r\n"}
+        ])
+
+        {:ok, updated_user} = Users.get_by_port(user.port)
+        assert updated_user.away_message == nil
       end)
     end
 
@@ -41,7 +47,12 @@ defmodule ElixIRCd.Command.AwayTest do
 
         Away.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 306 #{user.nick} :You have been marked as being away\r\n"}
+        ])
+
+        {:ok, updated_user} = Users.get_by_port(user.port)
+        assert updated_user.away_message == "I'm away"
       end)
     end
   end

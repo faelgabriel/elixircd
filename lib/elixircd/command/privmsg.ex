@@ -44,13 +44,14 @@ defmodule ElixIRCd.Command.Privmsg do
   end
 
   @impl true
-  def handle(user, %{command: "PRIVMSG", params: [receiver], trailing: message}) do
-    if channel_name?(receiver),
-      do: handle_channel_message(user, receiver, message),
-      else: handle_user_message(user, receiver, message)
+  def handle(user, %{command: "PRIVMSG", params: [target], trailing: message_text}) do
+    if channel_name?(target),
+      do: handle_channel_message(user, target, message_text),
+      else: handle_user_message(user, target, message_text)
   end
 
-  defp handle_channel_message(user, channel_name, message) do
+  @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok
+  defp handle_channel_message(user, channel_name, message_text) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
       channel_users_without_user =
@@ -61,7 +62,7 @@ defmodule ElixIRCd.Command.Privmsg do
         prefix: build_user_mask(user),
         command: "PRIVMSG",
         params: [channel.name],
-        trailing: message
+        trailing: message_text
       })
       |> Messaging.broadcast(channel_users_without_user)
     else
@@ -85,22 +86,32 @@ defmodule ElixIRCd.Command.Privmsg do
     end
   end
 
-  defp handle_user_message(user, receiver_nick, message) do
-    case Users.get_by_nick(receiver_nick) do
-      {:ok, receiver_user} ->
+  defp handle_user_message(user, target_nick, message_text) do
+    case Users.get_by_nick(target_nick) do
+      {:ok, target_user} ->
         Message.build(%{
           prefix: build_user_mask(user),
           command: "PRIVMSG",
-          params: [receiver_nick],
-          trailing: message
+          params: [target_nick],
+          trailing: message_text
         })
-        |> Messaging.broadcast(receiver_user)
+        |> Messaging.broadcast(target_user)
+
+        if target_user.away_message do
+          Message.build(%{
+            prefix: :server,
+            command: :rpl_away,
+            params: [user.nick, target_user.nick],
+            trailing: target_user.away_message
+          })
+          |> Messaging.broadcast(user)
+        end
 
       {:error, _} ->
         Message.build(%{
           prefix: :server,
           command: :err_nosuchnick,
-          params: [user.nick, receiver_nick],
+          params: [user.nick, target_nick],
           trailing: "No such nick"
         })
         |> Messaging.broadcast(user)

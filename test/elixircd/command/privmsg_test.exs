@@ -101,13 +101,28 @@ defmodule ElixIRCd.Command.PrivmsgTest do
     test "handles PRIVMSG command for user with existing user" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        another_user = insert(:user)
+        target_user = insert(:user)
 
-        message = %Message{command: "PRIVMSG", params: [another_user.nick], trailing: "Hello"}
+        message = %Message{command: "PRIVMSG", params: [target_user.nick], trailing: "Hello"}
         Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{build_user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n"}
+          {target_user.socket, ":#{build_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command for user with existing away user" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, away_message: "I'm away")
+
+        message = %Message{command: "PRIVMSG", params: [target_user.nick], trailing: "Hello"}
+        Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {target_user.socket, ":#{build_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"},
+          {user.socket, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
         ])
       end)
     end

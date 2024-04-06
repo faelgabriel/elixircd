@@ -74,7 +74,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **WHO**: Get information about users on a server. ✅
 - **WHOWAS**: Get information about a user who has left. ✴️
 - **USERS**: List users logged into the server. ✴️
-- **AWAY**: Set an away message. ✴️
+- **AWAY**: Set an away message. ✅
 - **PING/PONG**: Test the presence of an active connection. ✅
 - **QUIT**: Disconnect from the server.
 - **WALLOPS**: Distribute messages to users with 'wallop' privileges. ✴️

@@ -97,16 +97,15 @@ defmodule ElixIRCd.Command.Whois do
     ]
     |> Messaging.broadcast(user)
 
-    # Future: when away is implemented
-    # if true do
-    #   Message.build(%{
-    #     prefix: :server,
-    #     command: :rpl_away,
-    #     params: [user.nick, target_user.nick],
-    #     trailing: "target_user.away_message"
-    #   })
-    #   |> Messaging.broadcast(user)
-    # end
+    if target_user.away_message != nil do
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_away,
+        params: [user.nick, target_user.nick],
+        trailing: target_user.away_message
+      })
+      |> Messaging.broadcast(user)
+    end
 
     if "o" in target_user.modes do
       Message.build(%{

@@ -130,6 +130,21 @@ defmodule ElixIRCd.Command.WhoisTest do
         assert_user_whois_message(user, target_user, channel)
       end)
     end
+
+    test "handles WHOIS command with user nick target and target user is away" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", away_message: "I'm away")
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        Whois.handle(user, message)
+
+        assert_user_whois_message(user, target_user, channel)
+
+      end)
+    end
   end
 
   @spec assert_user_whois_message(User.t(), User.t(), Channel.t()) :: :ok
@@ -141,6 +156,8 @@ defmodule ElixIRCd.Command.WhoisTest do
         {user.socket, ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon\r\n"},
         {user.socket,
          ~r/^:server\.example\.com 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+        target_user.away_message &&
+          {user.socket, ":server.example.com 301 #{user.nick} #{target_user.nick} :#{target_user.away_message}\r\n"},
         target_user.modes |> Enum.find(fn mode -> mode == "o" end) &&
           {user.socket, ":server.example.com 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
         {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}

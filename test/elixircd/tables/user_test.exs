@@ -29,6 +29,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.userid == nil
       assert user.registered == false
       assert user.modes == []
+      assert user.password == nil
+      assert user.away_message == nil
       assert_in_delta user.last_activity, :erlang.system_time(:second), 1
       assert user.registered_at == nil
       assert DateTime.diff(DateTime.utc_now(), user.created_at) < 1000
@@ -51,6 +53,8 @@ defmodule ElixIRCd.Tables.UserTest do
         userid: "test",
         registered: true,
         modes: [],
+        password: "test",
+        away_message: "test",
         last_activity: time_now,
         registered_at: utc_now,
         created_at: utc_now
@@ -69,6 +73,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.userid == "test"
       assert user.registered == true
       assert user.modes == []
+      assert user.password == "test"
+      assert user.away_message == "test"
       assert user.last_activity == time_now
       assert user.registered_at == utc_now
       assert user.created_at == utc_now
@@ -90,6 +96,8 @@ defmodule ElixIRCd.Tables.UserTest do
           userid: "test",
           registered: true,
           modes: [{:a, "test"}],
+          password: "test",
+          away_message: "test",
           last_activity: :erlang.system_time(:second),
           registered_at: utc_now
         })
@@ -105,6 +113,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert updated_user.userid == "test"
       assert updated_user.registered == true
       assert updated_user.modes == [{:a, "test"}]
+      assert updated_user.password == "test"
+      assert updated_user.away_message == "test"
       assert_in_delta updated_user.last_activity, :erlang.system_time(:second), 1
       assert updated_user.registered_at == utc_now
       assert updated_user.created_at == user.created_at

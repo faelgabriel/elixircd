@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.WhoTest do
         another_user1 = insert(:user, modes: ["o"])
         another_user2 = insert(:user, modes: ["o"])
         another_user3 = insert(:user, modes: ["i"])
-        another_user4 = insert(:user)
+        another_user4 = insert(:user, away_message: "away")
         insert(:user_channel, channel: channel, user: another_user1)
         insert(:user_channel, channel: channel, user: another_user2, modes: ["o"])
         insert(:user_channel, channel: channel, user: another_user3, modes: ["o"])
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.WhoTest do
             {user.socket,
              ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{another_user3.nick} H@ :0 realname\r\n"},
             {user.socket,
-             ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{another_user4.nick} H+ :0 realname\r\n"},
+             ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{another_user4.nick} G+ :0 realname\r\n"},
             {user.socket,
              ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{user.nick} H :0 realname\r\n"},
             {user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
@@ -94,7 +94,7 @@ defmodule ElixIRCd.Command.WhoTest do
         another_user1 = insert(:user, modes: ["o"])
         another_user2 = insert(:user, modes: ["o"])
         another_user3 = insert(:user, modes: ["i"])
-        another_user4 = insert(:user)
+        another_user4 = insert(:user, away_message: "away")
         insert(:user_channel, channel: channel, user: another_user1)
         insert(:user_channel, channel: channel, user: another_user2, modes: ["o"])
         insert(:user_channel, channel: channel, user: another_user3, modes: ["o"])
@@ -110,7 +110,7 @@ defmodule ElixIRCd.Command.WhoTest do
             {user.socket,
              ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{another_user2.nick} H*@ :0 realname\r\n"},
             {user.socket,
-             ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{another_user4.nick} H+ :0 realname\r\n"},
+             ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{another_user4.nick} G+ :0 realname\r\n"},
             {user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
           ],
           validate_order?: false
@@ -180,7 +180,7 @@ defmodule ElixIRCd.Command.WhoTest do
         another_user1 = insert(:user, nick: "anick2", modes: ["o"])
         another_user2 = insert(:user, nick: "anick3", modes: ["o"])
         another_user3 = insert(:user, nick: "anick4", modes: ["i"])
-        another_user4 = insert(:user, nick: "anick5")
+        another_user4 = insert(:user, nick: "anick5", away_message: "away")
         insert(:user_channel, channel: channel, user: another_user1)
         insert(:user_channel, channel: channel, user: another_user2, modes: ["o"])
         insert(:user_channel, channel: channel, user: another_user3, modes: ["o"])
@@ -198,7 +198,7 @@ defmodule ElixIRCd.Command.WhoTest do
             {user.socket,
              ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user3.nick} H :0 realname\r\n"},
             {user.socket,
-             ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user4.nick} H :0 realname\r\n"},
+             ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user4.nick} G :0 realname\r\n"},
             {user.socket,
              ":server.example.com 352 #{user.nick} * username hostname server.example.com #{user.nick} H :0 realname\r\n"},
             {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
@@ -216,7 +216,7 @@ defmodule ElixIRCd.Command.WhoTest do
         another_user1 = insert(:user, nick: "anick2", modes: ["o"])
         another_user2 = insert(:user, nick: "anick3", modes: ["o"])
         another_user3 = insert(:user, nick: "anick4", modes: ["i"])
-        another_user4 = insert(:user, nick: "anick5")
+        another_user4 = insert(:user, nick: "anick5", away_message: "away")
         insert(:user_channel, channel: channel, user: another_user1)
         insert(:user_channel, channel: channel, user: another_user2, modes: ["o"])
         insert(:user_channel, channel: channel, user: another_user3, modes: ["o"])
@@ -232,7 +232,7 @@ defmodule ElixIRCd.Command.WhoTest do
             {user.socket,
              ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user2.nick} H* :0 realname\r\n"},
             {user.socket,
-             ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user4.nick} H :0 realname\r\n"},
+             ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user4.nick} G :0 realname\r\n"},
             {user.socket,
              ":server.example.com 352 #{user.nick} * username hostname server.example.com #{user.nick} H :0 realname\r\n"},
             {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}

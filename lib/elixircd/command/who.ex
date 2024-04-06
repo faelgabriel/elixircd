@@ -36,6 +36,7 @@ defmodule ElixIRCd.Command.Who do
 
   @impl true
   # Future: implement filter = "o" where filters only irc operators
+  # Future: server hostname as first target
   def handle(user, %{command: "WHO", params: [target | _filter]}) do
     case channel_name?(target) do
       true -> handle_who_channel(user, target)
@@ -173,14 +174,17 @@ defmodule ElixIRCd.Command.Who do
       channel_voice_symbol(user_channel)
   end
 
-  # Future: away status is "G"
-  defp user_away_status(%User{} = _user), do: "H"
+  @spec user_away_status(User.t()) :: String.t()
+  defp user_away_status(%User{} = user), do: if(user.away_message != nil, do: "G", else: "H")
 
+  @spec irc_operator_symbol(User.t()) :: String.t()
   defp irc_operator_symbol(%User{modes: modes}), do: if("o" in modes, do: "*", else: "")
 
+  @spec channel_operator_symbol(UserChannel.t() | nil) :: String.t()
   defp channel_operator_symbol(%UserChannel{modes: modes}), do: if("o" in modes, do: "@", else: "")
   defp channel_operator_symbol(_), do: ""
 
+  @spec channel_voice_symbol(UserChannel.t() | nil) :: String.t()
   defp channel_voice_symbol(%UserChannel{modes: modes}), do: if("v" in modes, do: "+", else: "")
   defp channel_voice_symbol(_), do: ""
 end
