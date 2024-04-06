@@ -3,7 +3,7 @@ defmodule ElixIRCd.Tables.User do
   Module for the User table.
   """
 
-  @enforce_keys [:port, :socket, :transport, :pid, :registered, :modes, :created_at]
+  @enforce_keys [:port, :socket, :transport, :pid, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
     attributes: [
       :port,
@@ -18,6 +18,8 @@ defmodule ElixIRCd.Tables.User do
       :registered,
       :modes,
       :password,
+      :last_activity,
+      :registered_at,
       :created_at
     ],
     index: [:nick],
@@ -36,6 +38,8 @@ defmodule ElixIRCd.Tables.User do
           registered: boolean(),
           modes: [String.t()],
           password: String.t() | nil,
+          last_activity: integer(),
+          registered_at: DateTime.t() | nil,
           created_at: DateTime.t()
         }
 
@@ -52,6 +56,8 @@ defmodule ElixIRCd.Tables.User do
           optional(:registered) => boolean(),
           optional(:modes) => [String.t()],
           optional(:password) => String.t() | nil,
+          optional(:last_activity) => integer(),
+          optional(:registered_at) => DateTime.t() | nil,
           optional(:created_at) => DateTime.t()
         }
 
@@ -64,6 +70,7 @@ defmodule ElixIRCd.Tables.User do
       attrs
       |> Map.put_new(:registered, false)
       |> Map.put_new(:modes, [])
+      |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
 
     struct!(__MODULE__, new_attrs)

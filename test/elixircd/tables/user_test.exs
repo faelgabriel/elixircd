@@ -29,12 +29,15 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.userid == nil
       assert user.registered == false
       assert user.modes == []
+      assert_in_delta user.last_activity, :erlang.system_time(:second), 1
+      assert user.registered_at == nil
       assert DateTime.diff(DateTime.utc_now(), user.created_at) < 1000
     end
 
     test "creates a new user with custom values" do
-      utc_now = DateTime.utc_now()
       port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+      time_now = :erlang.system_time(:second)
+      utc_now = DateTime.utc_now()
 
       attrs = %{
         port: port,
@@ -48,6 +51,8 @@ defmodule ElixIRCd.Tables.UserTest do
         userid: "test",
         registered: true,
         modes: [],
+        last_activity: time_now,
+        registered_at: utc_now,
         created_at: utc_now
       }
 
@@ -64,6 +69,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.userid == "test"
       assert user.registered == true
       assert user.modes == []
+      assert user.last_activity == time_now
+      assert user.registered_at == utc_now
       assert user.created_at == utc_now
     end
   end
@@ -72,6 +79,7 @@ defmodule ElixIRCd.Tables.UserTest do
     test "updates a user with new values" do
       port = Port.open({:spawn, "cat /dev/null"}, [:binary])
       user = User.new(%{port: port, socket: port, transport: :ranch_tcp, pid: self()})
+      utc_now = DateTime.utc_now()
 
       updated_user =
         User.update(user, %{
@@ -81,7 +89,9 @@ defmodule ElixIRCd.Tables.UserTest do
           realname: "test",
           userid: "test",
           registered: true,
-          modes: [{:a, "test"}]
+          modes: [{:a, "test"}],
+          last_activity: :erlang.system_time(:second),
+          registered_at: utc_now
         })
 
       assert updated_user.port == port
@@ -95,6 +105,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert updated_user.userid == "test"
       assert updated_user.registered == true
       assert updated_user.modes == [{:a, "test"}]
+      assert_in_delta updated_user.last_activity, :erlang.system_time(:second), 1
+      assert updated_user.registered_at == utc_now
       assert updated_user.created_at == user.created_at
     end
   end

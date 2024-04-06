@@ -21,6 +21,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == nil
       assert updated_user.registered == false
+      assert updated_user.registered_at == nil
     end
 
     test "handles a user handshake successfully with found lookup hostname and got ident response" do
@@ -53,6 +54,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert updated_user.hostname == "localhost"
       assert updated_user.userid == "anyuserid"
       assert updated_user.registered == true
+      assert DateTime.diff(DateTime.utc_now(), updated_user.registered_at) < 1000
     end
 
     test "handles a user handshake successfully with not found hostname lookup and not got ident response" do
@@ -82,9 +84,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
       )
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
-      assert updated_user.registered == true
-      assert updated_user.userid == nil
       assert updated_user.hostname == "127.0.0.1"
+      assert updated_user.userid == nil
+      assert updated_user.registered == true
     end
 
     test "handles a user handshake successfully for an ipv6 socket connection with not found hostname lookup and no ident response" do
@@ -105,9 +107,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert_sent_messages_amount(user.socket, 4)
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
-      assert updated_user.registered == true
-      assert updated_user.userid == nil
       assert updated_user.hostname == "::1"
+      assert updated_user.userid == nil
+      assert updated_user.registered == true
     end
 
     test "handles a user handshake successfully with ident protocol disabled" do
@@ -160,8 +162,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert_sent_messages_amount(user.socket, 4)
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
-      assert updated_user.registered == true
       assert updated_user.hostname == "localhost"
+      assert updated_user.registered == true
     end
 
     test "handles a user handshake error with get socket ip error" do

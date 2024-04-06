@@ -66,6 +66,9 @@ defmodule ElixIRCd.Command.Whois do
   end
 
   def whois_message(user, _target_nick, target_user, target_user_channel_names) do
+    idle_seconds = :erlang.system_time(:second) - target_user.last_activity
+    signon_time = target_user.registered_at |> DateTime.to_unix()
+
     [
       Message.build(%{
         prefix: :server,
@@ -85,11 +88,10 @@ defmodule ElixIRCd.Command.Whois do
         params: [user.nick, target_user.nick, "ElixIRCd", get_app_version()],
         trailing: "Elixir IRC daemon"
       }),
-      # TODO: implements idle time
       Message.build(%{
         prefix: :server,
         command: :rpl_whoisidle,
-        params: [user.nick, target_user.nick, "0"],
+        params: [user.nick, target_user.nick, idle_seconds, signon_time],
         trailing: "seconds idle, signon time"
       })
     ]

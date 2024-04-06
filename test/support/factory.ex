@@ -25,6 +25,11 @@ defmodule ElixIRCd.Factory do
   def build(:user, attrs) do
     port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
+    registered_at =
+      if Map.get(attrs, :registered) == false and Map.get(attrs, :registered_at) == nil,
+        do: nil,
+        else: Map.get(attrs, :registered_at, DateTime.utc_now())
+
     %User{
       port: Map.get(attrs, :port, port),
       socket: Map.get(attrs, :socket, port),
@@ -38,6 +43,8 @@ defmodule ElixIRCd.Factory do
       userid: Map.get(attrs, :userid, nil),
       registered: Map.get(attrs, :registered, true),
       password: Map.get(attrs, :password, nil),
+      last_activity: Map.get(attrs, :last_activity, :erlang.system_time(:second)),
+      registered_at: registered_at,
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end

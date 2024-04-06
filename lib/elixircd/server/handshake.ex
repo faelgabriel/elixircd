@@ -23,8 +23,15 @@ defmodule ElixIRCd.Server.Handshake do
   @spec handle(User.t()) :: :ok
   def handle(user) when user.nick != nil and user.username != nil and user.realname != nil do
     with :ok <- check_server_password(user),
-         {:ok, {userid, hostname}} <- handle_async_data(user),
-         updated_user <- Users.update(user, %{registered: true, userid: userid, hostname: hostname}) do
+         {:ok, {userid, hostname}} <- handle_async_data(user) do
+      updated_user =
+        Users.update(user, %{
+          userid: userid,
+          hostname: hostname,
+          registered: true,
+          registered_at: DateTime.utc_now()
+        })
+
       Motd.send_motd(updated_user)
     else
       {:error, :bad_password} ->

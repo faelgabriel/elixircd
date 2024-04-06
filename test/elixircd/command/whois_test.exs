@@ -139,12 +139,13 @@ defmodule ElixIRCd.Command.WhoisTest do
         {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
         {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
         {user.socket, ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon\r\n"},
-        {user.socket, ":server.example.com 317 #{user.nick} #{target_user.nick} 0 :seconds idle, signon time\r\n"},
+        {user.socket,
+         ~r/^:server\.example\.com 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
         target_user.modes |> Enum.find(fn mode -> mode == "o" end) &&
           {user.socket, ":server.example.com 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
         {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
       ]
-      |> Enum.filter(&(&1 != nil))
+      |> Enum.reject(&(&1 == nil))
     )
   end
 
