@@ -142,7 +142,6 @@ defmodule ElixIRCd.Command.WhoisTest do
         Whois.handle(user, message)
 
         assert_user_whois_message(user, target_user, channel)
-
       end)
     end
   end
