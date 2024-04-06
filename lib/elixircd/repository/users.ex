@@ -3,6 +3,8 @@ defmodule ElixIRCd.Repository.Users do
   Module for the users repository.
   """
 
+  import ElixIRCd.Helper, only: [user_mask_match?: 2]
+
   alias ElixIRCd.Tables.User
 
   @doc """
@@ -67,5 +69,15 @@ defmodule ElixIRCd.Repository.Users do
       |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
 
     Memento.Query.select(User, conditions)
+  end
+
+  @doc """
+  Get all users that match the mask.
+  """
+  @spec get_by_match_mask(String.t()) :: [User.t()]
+  def get_by_match_mask(mask) do
+    Memento.Query.all(User)
+    # Future: Use Mnesia foldl to filter users by mask.
+    |> Enum.filter(fn user -> user_mask_match?(user, mask) end)
   end
 end

@@ -5,6 +5,7 @@ defmodule ElixIRCd.MessageTest do
 
   alias ElixIRCd.Message
 
+  # Future: add missing numeric replies
   @supported_numeric_replies [
     {:rpl_welcome, "001"},
     {:rpl_yourhost, "002"},

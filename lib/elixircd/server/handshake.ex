@@ -23,8 +23,8 @@ defmodule ElixIRCd.Server.Handshake do
   @spec handle(User.t()) :: :ok
   def handle(user) when user.nick != nil and user.username != nil and user.realname != nil do
     with :ok <- check_server_password(user),
-         {:ok, {identity, hostname}} <- handle_identity(user),
-         updated_user <- Users.update(user, %{registered: true, identity: identity, hostname: hostname}) do
+         {:ok, {userid, hostname}} <- handle_async_data(user),
+         updated_user <- Users.update(user, %{registered: true, userid: userid, hostname: hostname}) do
       Motd.send_motd(updated_user)
     else
       {:error, :bad_password} ->
@@ -50,8 +50,8 @@ defmodule ElixIRCd.Server.Handshake do
     end
   end
 
-  @spec handle_identity(User.t()) :: {:ok, {String.t(), String.t()}} | {:error, String.t()}
-  defp handle_identity(user) do
+  @spec handle_async_data(User.t()) :: {:ok, {String.t(), String.t()}} | {:error, String.t()}
+  defp handle_async_data(user) do
     ident_task = Task.async(fn -> check_ident(user) end)
     hostname_task = Task.async(fn -> lookup_hostname(user) end)
     ident_result = Task.await(ident_task)
@@ -79,7 +79,7 @@ defmodule ElixIRCd.Server.Handshake do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"})
     |> Messaging.broadcast(user)
 
-    IdentClient.fetch_user_id(ip, port_connected)
+    IdentClient.query_userid(ip, port_connected)
     |> case do
       {:ok, user_id} ->
         Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Got Ident response"})

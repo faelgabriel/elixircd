@@ -1,6 +1,6 @@
 defmodule ElixIRCd.Server.Handshake.IdentClient do
   @moduledoc """
-  Module for fetching user identity from an Ident server.
+  Module for querying the userid from an Ident server.
   """
 
   # Since Mimic library does not support mocking of sticky modules (:gen_tcp, for this case),
@@ -10,8 +10,8 @@ defmodule ElixIRCd.Server.Handshake.IdentClient do
   @doc """
   Retrieves the user identifier from an Ident server.
   """
-  @spec fetch_user_id(tuple(), integer()) :: {:ok, String.t()} | {:error, String.t()}
-  def fetch_user_id(ip, server_port_query) do
+  @spec query_userid(tuple(), integer()) :: {:ok, String.t()} | {:error, String.t()}
+  def query_userid(ip, server_port_query) do
     timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
 
     with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}]),

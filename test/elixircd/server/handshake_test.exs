@@ -30,7 +30,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
       IdentClient
-      |> expect(:fetch_user_id, fn _ip, _server_port_query -> {:ok, "anyuserid"} end)
+      |> expect(:query_userid, fn _ip, _server_port_query -> {:ok, "anyuserid"} end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "localhost"
-      assert updated_user.identity == "anyuserid"
+      assert updated_user.userid == "anyuserid"
       assert updated_user.registered == true
     end
 
@@ -62,7 +62,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
       IdentClient
-      |> expect(:fetch_user_id, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+      |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
@@ -83,7 +83,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.registered == true
-      assert updated_user.identity == nil
+      assert updated_user.userid == nil
       assert updated_user.hostname == "127.0.0.1"
     end
 
@@ -94,7 +94,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
       IdentClient
-      |> expect(:fetch_user_id, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+      |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.registered == true
-      assert updated_user.identity == nil
+      assert updated_user.userid == nil
       assert updated_user.hostname == "::1"
     end
 
@@ -134,7 +134,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "localhost"
-      assert updated_user.identity == nil
+      assert updated_user.userid == nil
       assert updated_user.registered == true
     end
 
@@ -149,7 +149,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
       IdentClient
-      |> expect(:fetch_user_id, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+      |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)

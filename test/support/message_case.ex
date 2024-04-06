@@ -92,7 +92,7 @@ defmodule ElixIRCd.MessageCase do
       end
 
       @spec assert_messages_content(:inet.socket(), [tuple()], [tuple()], validate_order? :: boolean()) :: :ok
-      defp assert_messages_content(socket, expected_msgs, sent_msgs, _validate_order = true) do
+      defp assert_messages_content(socket, expected_msgs, sent_msgs, true = _validate_order) do
         Enum.zip(expected_msgs, sent_msgs)
         |> Enum.with_index()
         |> Enum.each(fn {{expected_msg, sent_msg}, index} ->
@@ -109,7 +109,7 @@ defmodule ElixIRCd.MessageCase do
         end)
       end
 
-      defp assert_messages_content(_socket, expected_msgs, sent_msgs, _validate_order = false) do
+      defp assert_messages_content(_socket, expected_msgs, sent_msgs, false = _validate_order) do
         ordered_expected_msgs = Enum.sort(expected_msgs)
         ordered_sent_msgs = Enum.sort(sent_msgs)
 
@@ -127,7 +127,7 @@ defmodule ElixIRCd.MessageCase do
 
       @spec message_match?(String.t() | Regex.t(), String.t()) :: boolean()
       defp message_match?(expected_msg, sent_msg) when is_binary(expected_msg), do: expected_msg == sent_msg
-      defp message_match?(expected_msg = %Regex{}, sent_msg), do: Regex.match?(expected_msg, sent_msg)
+      defp message_match?(%Regex{} = expected_msg, sent_msg), do: Regex.match?(expected_msg, sent_msg)
     end
   end
 end

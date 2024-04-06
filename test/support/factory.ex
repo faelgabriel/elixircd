@@ -35,7 +35,7 @@ defmodule ElixIRCd.Factory do
       hostname: Map.get(attrs, :hostname, "hostname"),
       username: Map.get(attrs, :username, "username"),
       realname: Map.get(attrs, :realname, "realname"),
-      identity: Map.get(attrs, :identity, nil),
+      userid: Map.get(attrs, :userid, nil),
       registered: Map.get(attrs, :registered, true),
       password: Map.get(attrs, :password, nil),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())

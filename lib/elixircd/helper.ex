@@ -56,11 +56,27 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
+  Gets the application version.
+  """
+  @spec get_app_version() :: String.t()
+  def get_app_version do
+    {:ok, version} = :application.get_key(:elixircd, :vsn)
+    version |> to_string()
+  end
+
+  @doc """
   Gets the user's reply to a message.
   """
   @spec get_user_reply(User.t()) :: String.t()
   def get_user_reply(%{registered: false}), do: "*"
   def get_user_reply(%{nick: nick}), do: nick
+
+  @doc """
+  Gets the user's identity.
+  """
+  @spec get_user_identity(User.t()) :: String.t()
+  def get_user_identity(%{userid: userid}) when userid != nil, do: userid
+  def get_user_identity(%{username: username}) when username != nil, do: username
 
   @doc """
   Gets a list of targets from a comma-separated string.
@@ -128,8 +144,8 @@ defmodule ElixIRCd.Helper do
   """
   @spec build_user_mask(User.t()) :: String.t()
   def build_user_mask(%{registered: true} = user)
-      when user.nick != nil and user.identity != nil and user.hostname != nil do
-    "#{user.nick}!#{String.slice(user.identity, 0..8)}@#{user.hostname}"
+      when user.nick != nil and user.userid != nil and user.hostname != nil do
+    "#{user.nick}!#{String.slice(user.userid, 0..9)}@#{user.hostname}"
   end
 
   def build_user_mask(%{registered: true} = user)

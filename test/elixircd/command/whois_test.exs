@@ -36,62 +36,123 @@ defmodule ElixIRCd.Command.WhoisTest do
       end)
     end
 
-    test "handles WHOIS command with invalid nick" do
+    test "handles WHOIS command with inexistent user nick" do
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "WHOIS", params: ["invalid.nick"]}
 
         Whois.handle(user, message)
 
-        assert_sent_messages([
-          {user.socket, ":server.example.com 401 #{user.nick} invalid.nick :No such nick\r\n"},
-          {user.socket, ":server.example.com 318 #{user.nick} invalid.nick :End of /WHOIS list.\r\n"}
-        ])
+        assert_no_user_whois_message(user, "invalid.nick")
       end)
     end
 
-    test "handles WHOIS command with valid nick" do
+    test "handles WHOIS command with user nick target" do
       Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick")
-        message = %Message{command: "WHOIS", params: ["target_nick"]}
         channel = insert(:channel)
         insert(:user_channel, user: target_user, channel: channel)
 
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
         Whois.handle(user, message)
 
-        assert_sent_messages([
-          {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
-          {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
-          {user.socket,
-           ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon\r\n"},
-          {user.socket, ":server.example.com 317 #{user.nick} #{target_user.nick} 0 :seconds idle, signon time\r\n"},
-          {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
-        ])
+        assert_user_whois_message(user, target_user, channel)
       end)
     end
 
-    test "handles WHOIS command with multiple valid and invalid nicks" do
+    test "handles WHOIS command with user nick target, invisible target user and user does not share channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        target_user = insert(:user, nick: "target_nick")
-        message = %Message{command: "WHOIS", params: ["invalid.nick", "target_nick", "invalid.nick2"]}
+        _target_user = insert(:user, nick: "target_nick", modes: ["i"])
 
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
         Whois.handle(user, message)
 
-        assert_sent_messages([
-          {user.socket, ":server.example.com 401 #{user.nick} invalid.nick :No such nick\r\n"},
-          {user.socket, ":server.example.com 318 #{user.nick} invalid.nick :End of /WHOIS list.\r\n"},
-          {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
-          {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :\r\n"},
-          {user.socket,
-           ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon\r\n"},
-          {user.socket, ":server.example.com 317 #{user.nick} #{target_user.nick} 0 :seconds idle, signon time\r\n"},
-          {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"},
-          {user.socket, ":server.example.com 401 #{user.nick} invalid.nick2 :No such nick\r\n"},
-          {user.socket, ":server.example.com 318 #{user.nick} invalid.nick2 :End of /WHOIS list.\r\n"}
-        ])
+        assert_no_user_whois_message(user, "target_nick")
       end)
     end
+
+    test "handles WHOIS command with user nick target, invisible target user and user shares channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", modes: ["i"])
+        channel = insert(:channel)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        Whois.handle(user, message)
+
+        assert_user_whois_message(user, target_user, channel)
+      end)
+    end
+
+    test "handles WHOIS command with user nick target, invisible target user and user does not share secret channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", modes: ["i"])
+        channel = insert(:channel, modes: ["s"])
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        Whois.handle(user, message)
+
+        assert_no_user_whois_message(user, "target_nick")
+      end)
+    end
+
+    test "handles WHOIS command with user nick target, invisible target user and user shares secret channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", modes: ["i"])
+        channel = insert(:channel, modes: ["s"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        Whois.handle(user, message)
+
+        assert_user_whois_message(user, target_user, channel)
+      end)
+    end
+
+    test "handles WHOIS command with user nick target and target user is an irc operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", modes: ["o"])
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        Whois.handle(user, message)
+
+        assert_user_whois_message(user, target_user, channel)
+      end)
+    end
+  end
+
+  @spec assert_user_whois_message(User.t(), User.t(), Channel.t()) :: :ok
+  defp assert_user_whois_message(user, target_user, channel) do
+    assert_sent_messages(
+      [
+        {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
+        {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
+        {user.socket, ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd 0.1.0 :Elixir IRC daemon\r\n"},
+        {user.socket, ":server.example.com 317 #{user.nick} #{target_user.nick} 0 :seconds idle, signon time\r\n"},
+        target_user.modes |> Enum.find(fn mode -> mode == "o" end) &&
+          {user.socket, ":server.example.com 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
+        {user.socket, ":server.example.com 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+      ]
+      |> Enum.filter(&(&1 != nil))
+    )
+  end
+
+  @spec assert_no_user_whois_message(User.t(), String.t()) :: :ok
+  defp assert_no_user_whois_message(user, target_nick) do
+    assert_sent_messages([
+      {user.socket, ":server.example.com 401 #{user.nick} #{target_nick} :No such nick\r\n"},
+      {user.socket, ":server.example.com 318 #{user.nick} #{target_nick} :End of /WHOIS list.\r\n"}
+    ])
   end
 end

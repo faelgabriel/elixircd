@@ -99,4 +99,13 @@ defmodule ElixIRCd.Repository.UsersTest do
       assert [] == Memento.transaction!(fn -> Users.get_by_ports([]) end)
     end
   end
+
+  describe "get_by_match_mask/1" do
+    test "returns a list of users that match the mask" do
+      insert(:user, hostname: "any")
+      user = insert(:user, hostname: "host")
+
+      assert [user] == Memento.transaction!(fn -> Users.get_by_match_mask("*!*@host") end)
+    end
+  end
 end
