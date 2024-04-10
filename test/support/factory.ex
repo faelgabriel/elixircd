@@ -53,9 +53,17 @@ defmodule ElixIRCd.Factory do
   def build(:channel, attrs) do
     %Channel{
       name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
-      topic: Map.get(attrs, :topic, %Channel.Topic{text: "topic", setter: "setter", set_at: DateTime.utc_now()}),
+      topic: Map.get(attrs, :topic, build(:channel_topic)),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:channel_topic, attrs) do
+    %Channel.Topic{
+      text: Map.get(attrs, :text, "topic"),
+      setter: Map.get(attrs, :setter, "setter"),
+      set_at: Map.get(attrs, :set_at, DateTime.utc_now())
     }
   end
 

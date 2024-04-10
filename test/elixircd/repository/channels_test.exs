@@ -6,6 +6,7 @@ defmodule ElixIRCd.Repository.ChannelsTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Repository.Channels
+  alias ElixIRCd.Tables.Channel
 
   describe "create/1" do
     test "creates a new channel" do
@@ -28,6 +29,21 @@ defmodule ElixIRCd.Repository.ChannelsTest do
       channel = insert(:channel)
 
       assert {:ok, channel} == Memento.transaction!(fn -> Channels.get_by_name(channel.name) end)
+    end
+  end
+
+  describe "get_by_names/1" do
+    test "returns channels by names" do
+      channel1 = insert(:channel, name: "#elixir")
+      channel2 = insert(:channel, name: "#phoenix")
+      insert(:channel, name: "#other")
+
+      assert [%Channel{}, %Channel{}] =
+               Memento.transaction!(fn -> Channels.get_by_names([channel1.name, channel2.name]) end)
+    end
+
+    test "returns an empty list when no channel names are provided" do
+      assert [] == Memento.transaction!(fn -> Channels.get_by_names([]) end)
     end
   end
 end

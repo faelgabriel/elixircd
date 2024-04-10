@@ -24,6 +24,14 @@ defmodule ElixIRCd.Repository.Channels do
   end
 
   @doc """
+  Get all channels.
+  """
+  @spec get_all() :: [Channel.t()]
+  def get_all do
+    Memento.Query.select(Channel, [])
+  end
+
+  @doc """
   Get a channel by the name.
   """
   @spec get_by_name(String.t()) :: {:ok, Channel.t()} | {:error, atom()}
@@ -33,5 +41,19 @@ defmodule ElixIRCd.Repository.Channels do
       nil -> {:error, :channel_not_found}
       channel -> {:ok, channel}
     end
+  end
+
+  @doc """
+  Get all channels by the names.
+  """
+  @spec get_by_names([String.t()]) :: [Channel.t()]
+  def get_by_names([]), do: []
+
+  def get_by_names(names) do
+    conditions =
+      Enum.map(names, fn name -> {:==, :name, name} end)
+      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
+
+    Memento.Query.select(Channel, conditions)
   end
 end

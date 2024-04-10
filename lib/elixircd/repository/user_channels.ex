@@ -84,4 +84,18 @@ defmodule ElixIRCd.Repository.UserChannels do
 
     Memento.Query.select(UserChannel, conditions)
   end
+
+  @doc """
+  Count the number of users in each channel by the channel names.
+  """
+  @spec count_users_by_channel_names([String.t()]) :: [{String.t(), integer()}]
+  def count_users_by_channel_names(channel_names) do
+    # Future: use foldl to only count users to avoid loading all user channels into memory
+    user_channels = get_by_channel_names(channel_names)
+
+    Enum.reduce(channel_names, [], fn channel_name, acc ->
+      users_count = Enum.count(user_channels, &(&1.channel_name == channel_name))
+      [{channel_name, users_count} | acc]
+    end)
+  end
 end

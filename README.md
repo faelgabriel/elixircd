@@ -36,7 +36,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **Message Types**: Different types of messages, e.g., PRIVMSG, NOTICE. ✅
 - **Channel Control**: Creating, joining, and leaving channels. ✅
 - **Channel Types and Modes**: Public, private, secret channels, and various modes. ✴️
-- **Channel Topics**: Managing and displaying channel topics. ✴️
+- **Channel Topics**: Managing and displaying channel topics. ✅
 - **Channel Lists**: Retrieving lists of available channels. ✴️
 - **Nicknames**: Rules for nickname registration and uniqueness. ✴️
 - **User Modes**: Different modes for users like invisible, operator, etc. ✴️
@@ -62,23 +62,23 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **MODE**: Set or unset user or channel modes. ✴️
 - **TOPIC**: Set or get the topic of a channel. ✅
 - **NAMES**: List all visible nicknames on a channel. ✅
-- **LIST**: List channels and their topics. ✴️
+- **LIST**: List channels and their topics. ✅
 - **INVITE**: Invite a user to a channel. ✴️
-- **SUMMON**: Summon a user to the IRC network. ✴️
 - **KICK**: Eject a user from a channel. ✴️
 - **PRIVMSG**: Send private messages between users or to a channel. ✅
 - **NOTICE**: Send a message to a user or channel without automatic reply. ✅
 - **MOTD**: Request the Message of the Day from the server. ✴️
-- **LUSERS**: Get statistics about the size of the network. ✴️
 - **WHOIS**: Get information about a user. ✅
 - **WHO**: Get information about users on a server. ✅
 - **WHOWAS**: Get information about a user who has left. ✴️
+- **USERHOST**: Provide information about a list of nicknames. ✅
 - **USERS**: List users logged into the server. ✴️
 - **AWAY**: Set an away message. ✅
 - **PING/PONG**: Test the presence of an active connection. ✅
 - **QUIT**: Disconnect from the server.
 - **WALLOPS**: Distribute messages to users with 'wallop' privileges. ✴️
-- **USERHOST**: Provide information about a list of nicknames. ✅
+- **LUSERS**: Get statistics about the size of the network. ✴️
+- **SUMMON**: Summon a user to the IRC network. ✴️
 - **ISON**: Check if specified users are online. ✴️
 - **VERSION**: Respond to queries about the server's version. ✴️
 - **STATS**: Provide server statistics. ✴️
@@ -155,24 +155,24 @@ Modes are a way to change the behavior of a channel or user. They can be set by 
 
 ### User Modes
 
-- **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✴️
+- **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✴️
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✴️
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✴️
 
 ### Channel Modes
 
-- **+b (Ban)**: Prevents a user or host from joining the channel. ✴️
-- **+i (Invite Only)**: Restricts channel access to invited users only. ✴️
-- **+k (Key)**: Requires a password to join the channel. ✴️
-- **+l (Limit)**: Limits the number of users who can join the channel. ✴️
+- **+b (Ban)**: Prevents a user or host from joining the channel. ✅
+- **+i (Invite Only)**: Restricts channel access to invited users only. ✅
+- **+k (Key)**: Requires a password to join the channel. ✅
+- **+l (Limit)**: Limits the number of users who can join the channel. ✅
 - **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✴️
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✴️
-- **+o (Operator)**: Grants operator status to a user. ✴️
+- **+o (Operator)**: Grants operator status to a user. ✅
 - **+p (Private)**: Hides the channel from the LIST command. ✴️
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✴️
-- **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✴️
-- **+v (Voice)**: Grants voice status to a user. ✴️
+- **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
+- **+v (Voice)**: Grants voice status to a user. ✅
 
 ## Installation
 
