@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.KickTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
 
   alias ElixIRCd.Command.Kick
   alias ElixIRCd.Message
@@ -40,16 +41,112 @@ defmodule ElixIRCd.Command.KickTest do
       end)
     end
 
-    test "handles KICK command" do
+    test "handles KICK command with channel not found" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel)
 
-        message = %Message{command: "KICK", params: [channel.name, user.nick], trailing: "reason"}
-
+        message = %Message{command: "KICK", params: ["#nonexistent", "target"]}
         Kick.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 403 #{user.nick} #nonexistent :No such channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KICK command with user not in channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        insert(:channel, name: "#channel")
+
+        message = %Message{command: "KICK", params: ["#channel", "target"]}
+        Kick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 441 #{user.nick} #channel :You're not on that channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KICK command with user not operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "KICK", params: ["#channel", "target"]}
+        Kick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 482 #{user.nick} #channel :You're not channel operator\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KICK command with target user not found" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "KICK", params: ["#channel", "target"]}
+        Kick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 401 #{user.nick} target :No such nick/channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KICK command with target user not in channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user, nick: "target")
+
+        message = %Message{command: "KICK", params: ["#channel", "target"]}
+        Kick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 441 #{user.nick} #channel :They aren't on that channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KICK command with target user kicked with reason" do
+      Memento.transaction(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        target_user = insert(:user, nick: "target")
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "KICK", params: ["#channel", "target"], trailing: "reason"}
+        Kick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{build_user_mask(user)} KICK #channel target :reason\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KICK command with target user kicked without reason" do
+      Memento.transaction(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        target_user = insert(:user, nick: "target")
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "KICK", params: ["#channel", "target"]}
+        Kick.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":#{build_user_mask(user)} KICK #channel target\r\n"}
+        ])
       end)
     end
   end

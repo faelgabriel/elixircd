@@ -64,7 +64,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **NAMES**: List all visible nicknames on a channel. ✅
 - **LIST**: List channels and their topics. ✅
 - **INVITE**: Invite a user to a channel. ✴️
-- **KICK**: Eject a user from a channel. ✴️
+- **KICK**: Eject a user from a channel. ✅
 - **PRIVMSG**: Send private messages between users or to a channel. ✅
 - **NOTICE**: Send a message to a user or channel without automatic reply. ✅
 - **MOTD**: Request the Message of the Day from the server. ✴️
@@ -75,7 +75,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **USERS**: List users logged into the server. ✴️
 - **AWAY**: Set an away message. ✅
 - **PING/PONG**: Test the presence of an active connection. ✅
-- **QUIT**: Disconnect from the server.
+- **QUIT**: Disconnect from the server. ✅
 - **WALLOPS**: Distribute messages to users with 'wallop' privileges. ✴️
 - **LUSERS**: Get statistics about the size of the network. ✴️
 - **SUMMON**: Summon a user to the IRC network. ✴️
