@@ -223,7 +223,7 @@ defmodule ElixIRCd.Command.Join do
   @spec check_user_invited(Channel.t(), User.t()) :: :ok | {:error, :user_not_invited}
   defp check_user_invited(channel, user) do
     if "i" in channel.modes do
-      ChannelInvites.get_by_channel_name_and_user_mask(channel.name, build_user_mask(user))
+      ChannelInvites.get_by_channel_name_and_user_port(channel.name, user.port)
       |> case do
         {:ok, _channel_invite} -> :ok
         {:error, :channel_invite_not_found} -> {:error, :user_not_invited}

@@ -15,11 +15,12 @@ defmodule ElixIRCd.Repository.ChannelInvites do
   end
 
   @doc """
-  Get a channel invite by the channel name and user mask.
+  Get a channel invite by the channel name and user port.
   """
-  @spec get_by_channel_name_and_user_mask(String.t(), String.t()) :: {:ok, ChannelInvite.t()} | {:error, atom()}
-  def get_by_channel_name_and_user_mask(channel_name, user_mask) do
-    conditions = [{:==, :channel_name, channel_name}, {:==, :user_mask, user_mask}]
+  @spec get_by_channel_name_and_user_port(String.t(), port()) ::
+          {:ok, ChannelInvite.t()} | {:error, :channel_invite_not_found}
+  def get_by_channel_name_and_user_port(channel_name, user_port) do
+    conditions = [{:==, :channel_name, channel_name}, {:==, :user_port, user_port}]
 
     Memento.Query.select(ChannelInvite, conditions, limit: 1)
     |> case do

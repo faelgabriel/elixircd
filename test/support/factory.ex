@@ -3,8 +3,6 @@ defmodule ElixIRCd.Factory do
   This module defines the factories for the schemas.
   """
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
-
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelInvite
@@ -90,9 +88,11 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:channel_invite, attrs) do
+    port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+
     %ChannelInvite{
       channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
-      user_mask: Map.get(attrs, :user_mask, "nick!user@host"),
+      user_port: Map.get(attrs, :user_port, port),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
@@ -182,7 +182,7 @@ defmodule ElixIRCd.Factory do
     updated_attrs =
       attrs
       |> Map.put(:channel_name, channel.name)
-      |> Map.put(:user_mask, build_user_mask(user))
+      |> Map.put(:user_port, user.port)
 
     Memento.transaction!(fn ->
       build(:channel_invite, updated_attrs)
