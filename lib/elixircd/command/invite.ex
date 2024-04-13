@@ -7,8 +7,8 @@ defmodule ElixIRCd.Command.Invite do
 
   import ElixIRCd.Helper, only: [build_user_mask: 1]
 
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
@@ -33,12 +33,10 @@ defmodule ElixIRCd.Command.Invite do
 
   @impl true
   def handle(user, %{command: "INVITE", params: params}) when length(params) <= 1 do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "INVITE"],
+      params: [user.nick, "INVITE"],
       trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
@@ -51,6 +49,7 @@ defmodule ElixIRCd.Command.Invite do
          {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
          :ok <- check_user_permission(user_channel),
          :ok <- check_target_user_on_channel(target_user, channel) do
+      maybe_add_channel_invite(user, target_user, channel)
       send_user_invite_success(user, target_user, channel)
     else
       {:error, error} -> send_user_invite_error(error, user, target_nick, channel_name)
@@ -82,10 +81,17 @@ defmodule ElixIRCd.Command.Invite do
     end
   end
 
+  @spec maybe_add_channel_invite(User.t(), User.t(), Channel.t()) :: :ok
+  defp maybe_add_channel_invite(user, target_user, channel) do
+    if "i" in channel.modes do
+      ChannelInvites.create(%{user_port: target_user.port, channel_name: channel.name, setter: build_user_mask(user)})
+    end
+
+    :ok
+  end
+
   @spec send_user_invite_success(User.t(), User.t(), Channel.t()) :: :ok
   defp send_user_invite_success(user, target_user, channel) do
-    # Future: check if channel is +i and add a ChannelInvite
-    # Future: if mode is +i and is changed to -i, remove all ChannelInvites
     # Future: maybe handle RPL_AWAY
     Message.build(%{
       prefix: :server,

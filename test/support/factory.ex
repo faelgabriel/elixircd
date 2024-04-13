@@ -181,8 +181,8 @@ defmodule ElixIRCd.Factory do
 
     updated_attrs =
       attrs
-      |> Map.put(:channel_name, channel.name)
       |> Map.put(:user_port, user.port)
+      |> Map.put(:channel_name, channel.name)
 
     Memento.transaction!(fn ->
       build(:channel_invite, updated_attrs)

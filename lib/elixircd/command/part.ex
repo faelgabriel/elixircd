@@ -47,6 +47,7 @@ defmodule ElixIRCd.Command.Part do
          {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
       channel_users = UserChannels.get_by_channel_name(channel.name)
       UserChannels.delete(user_channel)
+      # Future: Delete channel if the channel is not registered and has no users
 
       Message.build(%{
         prefix: build_user_mask(user),

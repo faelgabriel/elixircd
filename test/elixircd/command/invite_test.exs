@@ -7,6 +7,7 @@ defmodule ElixIRCd.Command.InviteTest do
   import ElixIRCd.Factory
   import ElixIRCd.Helper, only: [build_user_mask: 1]
 
+  alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Command.Invite
   alias ElixIRCd.Message
 
@@ -130,6 +131,25 @@ defmodule ElixIRCd.Command.InviteTest do
           {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
           {target_user.socket, ":#{build_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
+      end)
+    end
+
+    test "handles INVITE command with success when channel has +i mode" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user)
+        channel = insert(:channel, name: "#channel", modes: ["i"])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
+        Invite.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.socket, ":#{build_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+        ])
+
+        assert ChannelInvites.get_by_user_port_and_channel_name(target_user.port, channel.name) != nil
       end)
     end
   end
