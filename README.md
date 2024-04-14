@@ -79,8 +79,8 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **WALLOPS**: Distribute messages to users with 'wallop' privileges. ✴️
 - **LUSERS**: Get statistics about the size of the network. ✅
 - **SUMMON**: Summon a user to the IRC network. ✴️
-- **ISON**: Check if specified users are online. ✴️
-- **VERSION**: Respond to queries about the server's version. ✴️
+- **ISON**: Check if specified users are online. ✅
+- **VERSION**: Respond to queries about the server's version. ✅
 - **STATS**: Provide server statistics. ✴️
 - **INFO**: Provide information about the server. ✴️
 - **TIME**: Provide the server's local time. ✴️

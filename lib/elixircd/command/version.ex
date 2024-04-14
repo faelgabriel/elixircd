@@ -17,12 +17,17 @@ defmodule ElixIRCd.Command.Version do
   end
 
   @impl true
-  def handle(_user, %{command: "VERSION"}) do
-    # Scenario: Client queries for server version
-    # Respond with RPL_VERSION (351), providing the version of the IRCd,
-    # the server's name, and optionally, a comment field with additional information.
-    # The format for RPL_VERSION is "<version>.<debuglevel> <server> :<comments>"
-    # Example response might be "ElixIRCd-1.0.0 0 irc.example.com :Elixir based IRCd"
-    :ok
+  def handle(user, %{command: "VERSION"}) do
+    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+
+    # Future: parameterize the version
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_version,
+      params: [user.nick, "ElixIRCd-1.0.0", server_hostname]
+    })
+    |> Messaging.broadcast(user)
+
+    # Future: implements RPL_ISUPPORT - https://modern.ircdocs.horse/#feature-advertisement
   end
 end

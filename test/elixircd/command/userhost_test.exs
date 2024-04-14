@@ -67,7 +67,7 @@ defmodule ElixIRCd.Command.UserhostTest do
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick")
         target_user2 = insert(:user, nick: "target_nick2")
-        message = %Message{command: "USERHOST", params: ["target_nick", "target_nick2", "invalid.nick"]}
+        message = %Message{command: "USERHOST", params: ["target_nick", "invalid.nick", "target_nick2"]}
 
         Userhost.handle(user, message)
 

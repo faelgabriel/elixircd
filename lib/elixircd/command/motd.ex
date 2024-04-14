@@ -28,6 +28,7 @@ defmodule ElixIRCd.Command.Motd do
   def send_motd(user) do
     server_name = Application.get_env(:elixircd, :server)[:name]
 
+    # Future: parameterize the version
     [
       Message.build(%{
         prefix: :server,

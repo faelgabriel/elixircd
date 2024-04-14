@@ -38,12 +38,16 @@ defmodule ElixIRCd.Command.IsonTest do
 
     test "handles ISON command" do
       Memento.transaction!(fn ->
-        user = insert(:user)
-        message = %Message{command: "ISON", params: ["nick1", "nick2"]}
+        user = insert(:user, nick: "nick1")
+        insert(:user, nick: "nick2")
+        insert(:user, nick: "nick3")
 
+        message = %Message{command: "ISON", params: ["nick1", "nick2", "invalid_nick", "nick3"]}
         Ison.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 303 #{user.nick} :nick1 nick2 nick3\r\n"}
+        ])
       end)
     end
   end

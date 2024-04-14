@@ -123,7 +123,7 @@ defmodule ElixIRCd.Repository.UsersTest do
                unknown: 1,
                total: 4
              } ==
-               Memento.transaction!(fn -> Users.count_states() end)
+               Memento.transaction!(fn -> Users.count_all_states() end)
     end
   end
 end

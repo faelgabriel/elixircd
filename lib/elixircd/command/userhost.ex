@@ -36,20 +36,21 @@ defmodule ElixIRCd.Command.Userhost do
 
   @impl true
   def handle(user, %{command: @command, params: target_nicks}) do
-    userhost_detailed =
+    userhosts_detailed =
       target_nicks
-      |> Enum.map_join(" ", fn nick -> fetch_userhost_info(nick) end)
-      |> String.trim()
+      |> Enum.map(&fetch_userhost_info/1)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
 
-    Message.build(%{prefix: :server, command: :rpl_userhost, params: [user.nick], trailing: userhost_detailed})
+    Message.build(%{prefix: :server, command: :rpl_userhost, params: [user.nick], trailing: userhosts_detailed})
     |> Messaging.broadcast(user)
   end
 
-  @spec fetch_userhost_info(String.t()) :: String.t()
+  @spec fetch_userhost_info(String.t()) :: String.t() | nil
   defp fetch_userhost_info(nick) do
     case Users.get_by_nick(nick) do
       {:ok, user} -> "#{user.nick}=#{build_user_mask(user)}"
-      {:error, _} -> ""
+      {:error, _} -> nil
     end
   end
 end

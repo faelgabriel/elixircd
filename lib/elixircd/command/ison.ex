@@ -7,6 +7,7 @@ defmodule ElixIRCd.Command.Ison do
 
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
@@ -31,14 +32,22 @@ defmodule ElixIRCd.Command.Ison do
   end
 
   @impl true
-  def handle(_user, %{command: "ISON", params: _target_nicks}) do
-    # Scenario: Checking the online status of specified nicknames
-    # The command may include multiple nicknames separated by spaces in the params.
-    # 1. Split the nicknames from the params.
-    # 2. Check the online status for each nickname.
-    # 3. Collect the nicknames that are currently online.
-    # 4. Respond with RPL_ISON (303) listing all online nicknames from the queried list.
-    # Note: If no nicknames are specified, the server might respond with RPL_ISON with an empty list.
-    :ok
+  def handle(user, %{command: "ISON", params: target_nicks}) do
+    users_nick_online =
+      target_nicks
+      |> Enum.map(&fetch_user_nick/1)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" ")
+
+    Message.build(%{prefix: :server, command: :rpl_ison, params: [user.nick], trailing: users_nick_online})
+    |> Messaging.broadcast(user)
+  end
+
+  @spec fetch_user_nick(String.t()) :: String.t() | nil
+  defp fetch_user_nick(nick) do
+    case Users.get_by_nick(nick) do
+      {:ok, user} -> user.nick
+      {:error, _} -> nil
+    end
   end
 end
