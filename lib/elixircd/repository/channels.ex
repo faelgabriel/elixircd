@@ -57,6 +57,9 @@ defmodule ElixIRCd.Repository.Channels do
     Memento.Query.select(Channel, conditions)
   end
 
+  @doc """
+  Count all channels.
+  """
   @spec count_all() :: integer()
   def count_all do
     :mnesia.foldl(fn _record, acc -> acc + 1 end, 0, Channel)

@@ -82,6 +82,9 @@ defmodule ElixIRCd.Repository.Users do
     |> Enum.filter(fn user -> user_mask_match?(user, mask) end)
   end
 
+  @doc """
+  Count all users and state types.
+  """
   @spec count_all_states :: %{
           visible: integer(),
           invisible: integer(),

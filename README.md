@@ -76,17 +76,17 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **AWAY**: Set an away message. ✅
 - **PING/PONG**: Test the presence of an active connection. ✅
 - **QUIT**: Disconnect from the server. ✅
-- **WALLOPS**: Distribute messages to users with 'wallop' privileges. ✴️
 - **LUSERS**: Get statistics about the size of the network. ✅
 - **SUMMON**: Summon a user to the IRC network. ✴️
 - **ISON**: Check if specified users are online. ✅
 - **VERSION**: Respond to queries about the server's version. ✅
 - **STATS**: Provide server statistics. ✴️
 - **INFO**: Provide information about the server. ✴️
-- **TIME**: Provide the server's local time. ✴️
+- **TIME**: Provide the server's local time. ✅
 - **TRACE**: Trace routes to a specific server or user. ✴️
 - **ADMIN**: Provide information about the server administrator. ✴️
 - **OPER**: Allow operators to gain elevated privileges on the server. ✴️
+- **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✴️
 - **KILL**: Allow operators to disconnect a user from the network. ️✴️
 - **REHASH**: Enable operators to reload the server's configuration. ✴️
 - **RESTART**: Allow operators to restart the server. ✴️

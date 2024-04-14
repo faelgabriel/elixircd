@@ -7,9 +7,9 @@ defmodule ElixIRCd.Command.InviteTest do
   import ElixIRCd.Factory
   import ElixIRCd.Helper, only: [build_user_mask: 1]
 
-  alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Command.Invite
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.ChannelInvites
 
   describe "handle/2" do
     test "handles INVITE command with user not registered" do

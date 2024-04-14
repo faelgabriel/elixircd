@@ -30,7 +30,10 @@ defmodule ElixIRCd.Command.TimeTest do
 
         Time.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket,
+           ~r/^:server.example.com 391 #{user.nick} server.example.com :[A-Za-z]+ [A-Za-z]+ [0-9]{2} [0-9]{4} -- [0-9]{2}:[0-9]{2}:[0-9]{2} UTC\r\n$/}
+        ])
       end)
     end
   end

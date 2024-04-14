@@ -17,13 +17,16 @@ defmodule ElixIRCd.Command.Time do
   end
 
   @impl true
-  def handle(_user, %{command: "TIME"}) do
-    # Scenario: Client queries for server local time
-    # Ignore any parameters provided with the TIME command as they are not typically used.
-    # Respond with RPL_TIME (391), providing the server's local time in a human-readable format.
-    # The format for RPL_TIME is typically: "<server> :<local time string>"
-    # Example response might be: ":server.name 391 your_nick :Sun Nov 7 20:10:00 2021"
-    # This provides the client with the current time from the server's perspective.
-    :ok
+  def handle(user, %{command: "TIME"}) do
+    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+    current_time = DateTime.utc_now() |> Calendar.strftime("%A %B %d %Y -- %H:%M:%S %Z")
+
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_time,
+      params: [user.nick, server_hostname],
+      trailing: current_time
+    })
+    |> Messaging.broadcast(user)
   end
 end
