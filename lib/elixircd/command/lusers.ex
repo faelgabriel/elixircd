@@ -6,6 +6,8 @@ defmodule ElixIRCd.Command.Lusers do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Channels
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
@@ -17,27 +19,58 @@ defmodule ElixIRCd.Command.Lusers do
   end
 
   @impl true
-  def handle(_user, %{command: "LUSERS"}) do
-    # Scenario: Client queries for network statistics
-    # Any parameters provided with the LUSERS command are typically ignored.
-    # Collect and respond with a series of statistics about the network:
-    # - RPL_LUSERCLIENT (251): Display the total number of users, invisible users, and servers.
-    #   Example: "There are <users> users and <invisible> invisible on <servers> servers"
-    # - RPL_LUSEROP (252): Number of IRC Operators online.
-    #   Example: "<count> IRC Operators online"
-    # - RPL_LUSERUNKNOWN (253): Number of connections in an unknown state.
-    #   Example: "<count> unknown connection(s)"
-    # - RPL_LUSERCHANNELS (254): Number of channels formed.
-    #   Example: "<count> channels formed"
-    # - RPL_LUSERME (255): Server's client and server count.
-    #   Example: "I have <clients> clients and <servers> servers"
-    # - RPL_LOCALUSERS (265): Current local users count and the maximum observed.
-    #   Example: "Current local users <current>, max <max>"
-    # - RPL_GLOBALUSERS (266): Current global users count and the maximum observed.
-    #   Example: "Current global users <current>, max <max>"
-    # - Optionally, include RPL_LUSERSCONN (250) for the highest connection count with details.
-    #   Example: "Highest connection count: <total> (<clients> clients) (<connections> connections received)"
-    # The response provides a snapshot of the network's current state and capacity.
-    :ok
+  def handle(user, %{command: "LUSERS"}) do
+    %{visible: visible, invisible: invisible, operators: operators, unknown: unknown, total: total_users} =
+      Users.count_all_states()
+
+    total_channels = Channels.count_all()
+
+    # Future: add RPL_LUSERSCONN for the highest connection count
+    # Future: add a configuration for max local and global users
+    [
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_luserclient,
+        params: [user.nick],
+        trailing: "There are #{visible} users and #{invisible} invisible on 1 server"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_luserop,
+        params: [user.nick, operators],
+        trailing: "operator(s) online"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_luserunknown,
+        params: [user.nick, unknown],
+        trailing: "unknown connection(s)"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_luserchannels,
+        params: [user.nick, total_channels],
+        trailing: "channels formed"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_luserme,
+        params: [user.nick],
+        trailing: "I have #{total_users} clients and 0 servers"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_localusers,
+        params: [user.nick, total_users, 1000],
+        trailing: "Current local users #{total_users}, max 1000"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_globalusers,
+        params: [user.nick, total_users, 1000],
+        trailing: "Current global users #{total_users}, max 1000"
+      })
+    ]
+    |> Messaging.broadcast(user)
   end
 end

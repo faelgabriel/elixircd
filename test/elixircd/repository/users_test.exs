@@ -108,4 +108,22 @@ defmodule ElixIRCd.Repository.UsersTest do
       assert [user] == Memento.transaction!(fn -> Users.get_by_match_mask("*!*@host") end)
     end
   end
+
+  describe "count_all_states/0" do
+    test "returns the total number of users in each state" do
+      insert(:user, registered: true, modes: [])
+      insert(:user, registered: true, modes: ["i"])
+      insert(:user, registered: true, modes: ["o"])
+      insert(:user, registered: false)
+
+      assert %{
+               visible: 2,
+               invisible: 1,
+               operators: 1,
+               unknown: 1,
+               total: 4
+             } ==
+               Memento.transaction!(fn -> Users.count_states() end)
+    end
+  end
 end

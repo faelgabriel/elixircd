@@ -46,4 +46,13 @@ defmodule ElixIRCd.Repository.ChannelsTest do
       assert [] == Memento.transaction!(fn -> Channels.get_by_names([]) end)
     end
   end
+
+  describe "count_all/0" do
+    test "returns the total number of channels" do
+      insert(:channel)
+      insert(:channel)
+
+      assert 2 == Memento.transaction!(fn -> Channels.count_all() end)
+    end
+  end
 end
