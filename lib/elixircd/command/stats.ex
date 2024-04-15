@@ -5,7 +5,6 @@ defmodule ElixIRCd.Command.Stats do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
@@ -19,30 +18,73 @@ defmodule ElixIRCd.Command.Stats do
 
   @impl true
   def handle(user, %{command: "STATS", params: []}) do
-    user_reply = Helper.get_user_reply(user)
+    [
+      "/stats <flag> - Request specific server statistics",
+      "Available flags:",
+      "u - uptime - Send the server uptime and connection count"
+    ]
+    |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_stats, params: [user.nick], trailing: &1}))
+    |> Messaging.broadcast(user)
 
     Message.build(%{
       prefix: :server,
-      command: :err_needmoreparams,
-      params: [user_reply, "STATS"],
-      trailing: "Not enough parameters"
+      command: :rpl_endofstats,
+      params: [user.nick, "*"],
+      trailing: "End of /STATS report"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(_user, %{command: "STATS", params: [_query_flag | _rest]}) do
-    # Scenario: Client queries for specific statistics with a query flag
-    # Depending on the query flag, collect and respond with the requested statistics.
-    # Example flags and their associated responses:
-    # - 'l': Return information about server connections (RPL_STATSLINKINFO).
-    # - 'u': Server uptime (RPL_STATSUPTIME).
-    # - 'm': Usage counts for each of commands (RPL_STATSCOMMANDS).
-    # - 'o': List of operator privileges (RPL_STATSOLINE).
-    # Each flag requires the server to respond with the appropriate RPL_* numeric replies
-    # and potentially ends with RPL_ENDOFSTATS (219) to indicate the end of the STATS report.
-    # Note: Ensure to check if the user has the necessary privileges to view the requested statistics,
-    # especially for sensitive information. Respond with ERR_NOPRIVILEGES (481) if not authorized.
-    :ok
+  def handle(user, %{command: "STATS", params: [flag | _rest]}) do
+    handle_flag(user, flag)
+
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_endofstats,
+      params: [user.nick, flag],
+      trailing: "End of /STATS report"
+    })
+    |> Messaging.broadcast(user)
   end
+
+  @spec handle_flag(User.t(), String.t()) :: :ok
+  defp handle_flag(user, "u") do
+    server_start_time = Application.get_env(:elixircd, :server_start_time)
+    uptime = format_uptime(server_start_time)
+
+    Message.build(%{prefix: :server, command: :rpl_statsuptime, params: [user.nick], trailing: "Server Up #{uptime}"})
+    |> Messaging.broadcast(user)
+
+    # Future: implement highest connection count statistics
+    # Message.build(%{
+    #   prefix: :server,
+    #   command: :rpl_statsconn,
+    #   params: [user.nick],
+    #   trailing: "Highest connection count: #{} (#{} clients) (#{} connections received)"
+    # })
+    # |> Messaging.broadcast(user)
+  end
+
+  defp handle_flag(_user, _flag), do: :ok
+
+  @spec format_uptime(DateTime.t()) :: String.t()
+  defp format_uptime(server_start_time) do
+    current_datetime = DateTime.utc_now()
+    diff_seconds = DateTime.diff(current_datetime, server_start_time)
+
+    days = div(diff_seconds, 60 * 60 * 24)
+    diff_seconds = rem(diff_seconds, 60 * 60 * 24)
+    hours = div(diff_seconds, 60 * 60)
+    diff_seconds = rem(diff_seconds, 60 * 60)
+    minutes = div(diff_seconds, 60)
+    seconds = rem(diff_seconds, 60)
+
+    day_word = if days == 1, do: "day", else: "days"
+    "#{days} #{day_word}, #{pad_zero(hours)}:#{pad_zero(minutes)}:#{pad_zero(seconds)}"
+  end
+
+  @spec pad_zero(integer()) :: String.t()
+  defp pad_zero(n) when n < 10, do: "0#{n}"
+  defp pad_zero(n), do: to_string(n)
 end

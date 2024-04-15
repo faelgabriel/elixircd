@@ -80,7 +80,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **SUMMON**: Summon a user to the IRC network. ✴️
 - **ISON**: Check if specified users are online. ✅
 - **VERSION**: Respond to queries about the server's version. ✅
-- **STATS**: Provide server statistics. ✴️
+- **STATS**: Provide server statistics. ✅
 - **INFO**: Provide information about the server. ✅
 - **TIME**: Provide the server's local time. ✅
 - **TRACE**: Trace routes to a specific server or user. ✴️
