@@ -109,6 +109,15 @@ defmodule ElixIRCd.Repository.UsersTest do
     end
   end
 
+  describe "count_all/0" do
+    test "returns the total number of users" do
+      insert(:user)
+      insert(:user)
+
+      assert 2 == Memento.transaction!(fn -> Users.count_all() end)
+    end
+  end
+
   describe "count_all_states/0" do
     test "returns the total number of users in each state" do
       insert(:user, registered: true, modes: [])

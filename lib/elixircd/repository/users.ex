@@ -83,6 +83,12 @@ defmodule ElixIRCd.Repository.Users do
   end
 
   @doc """
+  Count all users.
+  """
+  @spec count_all() :: integer()
+  def count_all, do: :mnesia.foldl(fn _raw_user, acc -> acc + 1 end, 0, User)
+
+  @doc """
   Count all users and state types.
   """
   @spec count_all_states :: %{

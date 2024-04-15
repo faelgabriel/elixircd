@@ -37,11 +37,11 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **Channel Control**: Creating, joining, and leaving channels. ✅
 - **Channel Types and Modes**: Public, private, secret channels, and various modes. ✴️
 - **Channel Topics**: Managing and displaying channel topics. ✅
-- **Channel Lists**: Retrieving lists of available channels. ✴️
+- **Channel Lists**: Retrieving lists of available channels. ✅
 - **Nicknames**: Rules for nickname registration and uniqueness. ✴️
 - **User Modes**: Different modes for users like invisible, operator, etc. ✴️
 - **User Lists**: Obtaining lists of users in channels. ✅
-- **Bans and Kicks**: Rules for user removal from channels. ✴️
+- **Bans and Kicks**: Rules for user removal from channels. ✅
 - **Privileges**: Granting operator and user privileges. ✴️
 - **CTCP (Client-to-Client Protocol)**: Custom commands and queries. ✅
 - **Idle Time Tracking**: Monitoring user activity and idle times. ✴️
@@ -72,7 +72,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **WHO**: Get information about users on a server. ✅
 - **WHOWAS**: Get information about a user who has left. ✴️
 - **USERHOST**: Provide information about a list of nicknames. ✅
-- **USERS**: List users logged into the server. ✴️
+- **USERS**: List users logged into the server. ✅
 - **AWAY**: Set an away message. ✅
 - **PING/PONG**: Test the presence of an active connection. ✅
 - **QUIT**: Disconnect from the server. ✅
@@ -102,6 +102,33 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **SQUERY**: Allow servers to send queries to other servers. ❌
 - **ERROR**: Allow servers to report errors to other servers. Also used before ending client connections. ❌
 - **SERVER**: Allow servers to introduce themselves to other servers on the network. ❌
+
+## Modes
+
+Modes are a way to change the behavior of a channel or user. They can be set by users with the correct permissions or by the server itself. Modes can be set on channels or users.
+
+> ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
+
+### User Modes
+
+- **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
+- **+o (Operator)**: Provides elevated privileges for network management and oversight. ✴️
+- **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✴️
+- **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✴️
+
+### Channel Modes
+
+- **+b (Ban)**: Prevents a user or host from joining the channel. ✅
+- **+i (Invite Only)**: Restricts channel access to invited users only. ✅
+- **+k (Key)**: Requires a password to join the channel. ✅
+- **+l (Limit)**: Limits the number of users who can join the channel. ✅
+- **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✴️
+- **+n (No External Messages)**: Prevents messages from users not in the channel. ✴️
+- **+o (Operator)**: Grants operator status to a user. ✅
+- **+p (Private)**: Hides the channel from the LIST command. ✴️
+- **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✴️
+- **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
+- **+v (Voice)**: Grants voice status to a user. ✅
 
 ## IRCv3 Features
 
@@ -146,33 +173,6 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **TAGMSG**: Send messages with tags but without text content. ❌
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
 - **WHO**: Extended to allow clients to request additional information. ❌
-
-## Modes
-
-Modes are a way to change the behavior of a channel or user. They can be set by users with the correct permissions or by the server itself. Modes can be set on channels or users.
-
-> ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
-
-### User Modes
-
-- **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
-- **+o (Operator)**: Provides elevated privileges for network management and oversight. ✴️
-- **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✴️
-- **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✴️
-
-### Channel Modes
-
-- **+b (Ban)**: Prevents a user or host from joining the channel. ✅
-- **+i (Invite Only)**: Restricts channel access to invited users only. ✅
-- **+k (Key)**: Requires a password to join the channel. ✅
-- **+l (Limit)**: Limits the number of users who can join the channel. ✅
-- **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✴️
-- **+n (No External Messages)**: Prevents messages from users not in the channel. ✴️
-- **+o (Operator)**: Grants operator status to a user. ✅
-- **+p (Private)**: Hides the channel from the LIST command. ✴️
-- **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✴️
-- **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
-- **+v (Voice)**: Grants voice status to a user. ✅
 
 ## Installation
 

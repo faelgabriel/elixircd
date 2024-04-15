@@ -6,6 +6,7 @@ defmodule ElixIRCd.Command.Users do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
@@ -17,11 +18,24 @@ defmodule ElixIRCd.Command.Users do
   end
 
   @impl true
-  def handle(_user, %{command: "USERS"}) do
-    # Scenario: User requests a list of users logged into the server
-    # 1. Respond with RPL_USERSSTART (392) to indicate the start of the user list
-    # 2. For each user, send RPL_USERS (393) with details about the user
-    # 3. Respond with RPL_ENDOFUSERS (394) to indicate the end of the user list
-    :ok
+  def handle(user, %{command: "USERS"}) do
+    total_users = Users.count_all()
+
+    # Future: add a configuration for max local and global users
+    [
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_localusers,
+        params: [user.nick, total_users, 1000],
+        trailing: "Current local users #{total_users}, max 1000"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_globalusers,
+        params: [user.nick, total_users, 1000],
+        trailing: "Current global users #{total_users}, max 1000"
+      })
+    ]
+    |> Messaging.broadcast(user)
   end
 end
