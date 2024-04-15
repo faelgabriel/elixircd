@@ -9,6 +9,8 @@ defmodule ElixIRCd do
 
   @impl true
   def start(_type, _args) do
+    Application.put_env(:elixircd, :app_start_time, DateTime.utc_now())
+
     children = [
       ElixIRCd.Server.Supervisor
     ]

@@ -100,8 +100,8 @@ defmodule ElixIRCd.MessageCase do
             raise AssertionError, """
             Assertion failed: Message order or content does not match.
             At position #{index + 1}:
-            Expected message: '{#{inspect(socket)}, #{expected_msg}}'
-            Sent message: '{#{inspect(socket)}, #{sent_msg}'
+            Expected message: '{#{inspect(socket)}, #{inspect(expected_msg)}}'
+            Sent message: '{#{inspect(socket)}, #{inspect(sent_msg)}'
             Full expected message sequence for socket: #{inspect(expected_msgs)}
             Full actual message sequence for socket: #{inspect(sent_msgs)}
             """

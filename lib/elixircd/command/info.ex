@@ -9,6 +9,31 @@ defmodule ElixIRCd.Command.Info do
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
+  # Future: parameterize versions
+  # Future: improve ASCII art
+  @info """
+     ____   __   _          ____   ___   _____     __
+    / __/  / /  (_) __ __  /  _/  / _ \ / ___/ ___/ /
+   / _/   / /  / /  \ \ / _/ /   / , _// /__  / _  /
+  /___/  /_/  /_/  /_\_\ /___/  /_/|_| \___/  \_._/
+
+       https://github.com/faelgabriel/elixircd
+
+
+  This is an ElixIRCd server running version 0.1.0.
+  It was compiled with Elixir 1.16.1 and Erlang/OTP 26.
+
+  ElixIRCd is released under the AGPL-3.0 license.
+
+  Developer:
+  * Rafael Gabriel (faelgabriel)
+
+  Bugs and feature requests:
+  https://github.com/faelgabriel/elixircd/issues
+
+  --------------------------------------------------------
+  """
+
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "INFO"}) do
@@ -17,32 +42,30 @@ defmodule ElixIRCd.Command.Info do
   end
 
   @impl true
-  def handle(_user, %{command: "INFO", params: [_server | _rest]}) do
-    # Scenario: Client queries for server and network information
-    # Ignore any parameters provided with the INFO command as they are not typically used.
-    # Respond with a series of replies to provide detailed information about the server:
-    # - RPL_INFO (371): Send multiple RPL_INFO messages, each containing a line of text
-    #   about the server's software, authors, copyright, and other details.
-    #   Example: ":server.name 371 your_nick :IRCd version x.y, developed by..."
-    # - RPL_ENDOFINFO (374): Indicate the end of the INFO response.
-    #   Example: ":server.name 374 your_nick :End of /INFO list"
-    # This sequence provides the client with detailed insights into the server and its network's background
-    #  and policies.
-    :ok
-  end
+  def handle(user, %{command: "INFO"}) do
+    @info
+    |> String.split("\n")
+    |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_info, params: [user.nick], trailing: &1}))
+    |> Messaging.broadcast(user)
 
-  @impl true
-  def handle(_user, %{command: "INFO"}) do
-    # Scenario: Client queries for server and network information
-    # Ignore any parameters provided with the INFO command as they are not typically used.
-    # Respond with a series of replies to provide detailed information about the server:
-    # - RPL_INFO (371): Send multiple RPL_INFO messages, each containing a line of text
-    #   about the server's software, authors, copyright, and other details.
-    #   Example: ":server.name 371 your_nick :IRCd version x.y, developed by..."
-    # - RPL_ENDOFINFO (374): Indicate the end of the INFO response.
-    #   Example: ":server.name 374 your_nick :End of /INFO list"
-    # This sequence provides the client with detailed insights into the server and its network's background
-    #  and policies.
-    :ok
+    app_start_time = Application.get_env(:elixircd, :app_start_time) |> Calendar.strftime("%a %b %d %Y at %H:%M:%S %Z")
+    server_start_time = Application.get_env(:elixircd, :server_start_time) |> Calendar.strftime("%a %b %d %H:%M:%S %Y")
+
+    [
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_info,
+        params: [user.nick],
+        trailing: "Birth Date: #{app_start_time}, compile # 1"
+      }),
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_info,
+        params: [user.nick],
+        trailing: "On-line since #{server_start_time}"
+      }),
+      Message.build(%{prefix: :server, command: :rpl_endofinfo, params: [user.nick], trailing: "End of /INFO list"})
+    ]
+    |> Messaging.broadcast(user)
   end
 end
