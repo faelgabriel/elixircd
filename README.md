@@ -85,7 +85,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **TIME**: Provide the server's local time. ✅
 - **TRACE**: Trace routes to a specific server or user. ✴️
 - **ADMIN**: Provide information about the server administrator. ✴️
-- **OPER**: Allow operators to gain elevated privileges on the server. ✴️
+- **OPER**: Allow operators to gain elevated privileges on the server. ✅
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✴️
 - **KILL**: Allow operators to disconnect a user from the network. ️✴️
 - **REHASH**: Enable operators to reload the server's configuration. ✴️

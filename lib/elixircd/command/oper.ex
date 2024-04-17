@@ -5,8 +5,8 @@ defmodule ElixIRCd.Command.Oper do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
@@ -19,28 +19,43 @@ defmodule ElixIRCd.Command.Oper do
 
   @impl true
   def handle(user, %{command: "OPER", params: params}) when length(params) <= 1 do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "OPER"],
+      params: [user.nick, "OPER"],
       trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(_user, %{command: "OPER", params: [_username, _password | _rest]}) do
-    # Scenario: User attempts to authenticate as an operator
-    # 1. Validate the provided username and password against the server's list of authorized operators.
-    # 2. If authentication fails, respond with ERR_PASSWDMISMATCH (464).
-    # 3. If the username and password are correct, grant the user operator privileges.
-    #    This involves setting appropriate user modes and possibly updating internal state to recognize the user
-    #    as an oper.
-    # 4. Respond with RPL_YOUREOPER (381) to acknowledge successful operator authentication.
-    # Note: Implementing proper security measures for operator authentication is crucial,
-    #       including secure storage and handling of passwords.
-    :ok
+  def handle(user, %{command: "OPER", params: [username, password | _rest]}) do
+    if valid_irc_operator_credential?(username, password) do
+      updated_user = Users.update(user, %{modes: ["o" | user.modes]})
+
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_youreoper,
+        params: [updated_user.nick],
+        trailing: "You are now an IRC operator"
+      })
+      |> Messaging.broadcast(updated_user)
+    else
+      Message.build(%{
+        prefix: :server,
+        command: :err_passwdmismatch,
+        params: [user.nick],
+        trailing: "Password incorrect"
+      })
+      |> Messaging.broadcast(user)
+    end
+  end
+
+  @spec valid_irc_operator_credential?(String.t(), String.t()) :: boolean()
+  defp valid_irc_operator_credential?(username, password) do
+    Application.get_env(:elixircd, :operators)
+    |> Enum.any?(fn {oper_username, oper_password} ->
+      oper_username == username and Argon2.verify_pass(password, oper_password)
+    end)
   end
 end

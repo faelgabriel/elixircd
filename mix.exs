@@ -40,6 +40,7 @@ defmodule ElixIRCd.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:argon2_elixir, "~> 4.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:doctor, "~> 0.21.0", only: :dev},

@@ -21,4 +21,8 @@ config :elixircd,
   ident_service: [
     enabled: true,
     timeout: 5_000
+  ],
+  # IRC Operators
+  operators: [
+    {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
   ]

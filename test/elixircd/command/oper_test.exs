@@ -40,14 +40,29 @@ defmodule ElixIRCd.Command.OperTest do
       end)
     end
 
-    test "handles OPER command" do
+    test "handles OPER command with valid credentials" do
       Memento.transaction!(fn ->
         user = insert(:user)
 
-        message = %Message{command: "OPER", params: ["username", "password"]}
+        message = %Message{command: "OPER", params: ["admin", "admin"]}
         Oper.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 381 #{user.nick} :You are now an IRC operator\r\n"}
+        ])
+      end)
+    end
+
+    test "handles OPER command with invalid credentials" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        message = %Message{command: "OPER", params: ["admin", "invalid"]}
+        Oper.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 464 #{user.nick} :Password incorrect\r\n"}
+        ])
       end)
     end
   end
