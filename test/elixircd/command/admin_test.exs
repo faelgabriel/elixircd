@@ -23,25 +23,19 @@ defmodule ElixIRCd.Command.AdminTest do
       end)
     end
 
-    test "handles ADMIN command with server parameter" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-        message = %Message{command: "ADMIN", params: ["server.example.com"]}
-
-        Admin.handle(user, message)
-
-        assert_sent_messages([])
-      end)
-    end
-
-    test "handles ADMIN command without server parameter" do
+    test "handles ADMIN command" do
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "ADMIN", params: []}
 
         Admin.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 256 #{user.nick} :Administrative info about Server Example\r\n"},
+          {user.socket, ":server.example.com 257 #{user.nick} :Server Location Here\r\n"},
+          {user.socket, ":server.example.com 258 #{user.nick} :Organization Name Here\r\n"},
+          {user.socket, ":server.example.com 259 #{user.nick} :admin@example.com\r\n"}
+        ])
       end)
     end
   end

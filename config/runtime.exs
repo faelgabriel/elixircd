@@ -23,6 +23,14 @@ config :elixircd,
     timeout: 5_000
   ],
   # IRC Operators
+  # Future: add mask support
   operators: [
     {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
+  ],
+  # Administrative Contact Information
+  admin_info: [
+    server: "Server Example",
+    location: "Server Location Here",
+    organization: "Organization Name Here",
+    email: "admin@example.com"
   ]

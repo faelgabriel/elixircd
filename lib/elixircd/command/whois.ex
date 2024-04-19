@@ -66,7 +66,7 @@ defmodule ElixIRCd.Command.Whois do
   end
 
   def whois_message(user, _target_nick, target_user, target_user_channel_names) when target_user != nil do
-    idle_seconds = :erlang.system_time(:second) - target_user.last_activity
+    idle_seconds = (:erlang.system_time(:second) - target_user.last_activity) |> to_string()
     signon_time = target_user.registered_at |> DateTime.to_unix()
 
     [

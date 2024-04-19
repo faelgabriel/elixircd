@@ -272,6 +272,16 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
+  describe "format_ip_address/1" do
+    test "formats ipv4 address" do
+      assert "127.0.0.1" = Helper.format_ip_address({127, 0, 0, 1})
+    end
+
+    test "formats ipv6 address" do
+      assert "::1" = Helper.format_ip_address({0, 0, 0, 0, 0, 0, 0, 1})
+    end
+  end
+
   describe "normalize_mask/1" do
     test "normalizes user mask" do
       assert "nick!user@host" == Helper.normalize_mask("nick!user@host")

@@ -5,7 +5,8 @@ defmodule ElixIRCd.Server.Handshake do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [get_socket_hostname: 1, get_socket_ip: 1, get_socket_port_connected: 1]
+  import ElixIRCd.Helper,
+    only: [format_ip_address: 1, get_socket_hostname: 1, get_socket_ip: 1, get_socket_port_connected: 1]
 
   alias ElixIRCd.Command.Motd
   alias ElixIRCd.Message
@@ -81,7 +82,7 @@ defmodule ElixIRCd.Server.Handshake do
     end
   end
 
-  @spec request_ident(user :: User.t(), ip :: tuple(), port_connected :: integer()) :: String.t() | nil
+  @spec request_ident(user :: User.t(), ip_address :: tuple(), port_connected :: integer()) :: String.t() | nil
   defp request_ident(user, ip, port_connected) do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"})
     |> Messaging.broadcast(user)
@@ -110,16 +111,16 @@ defmodule ElixIRCd.Server.Handshake do
     end
   end
 
-  @spec resolve_hostname(user :: User.t(), ip :: tuple()) :: String.t()
-  defp resolve_hostname(user, ip) do
+  @spec resolve_hostname(user :: User.t(), ip_address :: tuple()) :: String.t()
+  defp resolve_hostname(user, ip_address) do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Looking up your hostname..."})
     |> Messaging.broadcast(user)
 
-    formatted_ip = format_ip_address(ip)
+    formatted_ip_address = format_ip_address(ip_address)
 
-    case get_socket_hostname(ip) do
+    case get_socket_hostname(ip_address) do
       {:ok, hostname} ->
-        Logger.debug("Resolved hostname for #{formatted_ip}: #{hostname}")
+        Logger.debug("Resolved hostname for #{formatted_ip_address}: #{hostname}")
 
         Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Found your hostname"})
         |> Messaging.broadcast(user)
@@ -127,7 +128,7 @@ defmodule ElixIRCd.Server.Handshake do
         hostname
 
       _error ->
-        Logger.debug("Could not resolve hostname for #{formatted_ip}")
+        Logger.debug("Could not resolve hostname for #{formatted_ip_address}")
 
         Message.build(%{
           prefix: :server,
@@ -137,21 +138,7 @@ defmodule ElixIRCd.Server.Handshake do
         })
         |> Messaging.broadcast(user)
 
-        formatted_ip
+        formatted_ip_address
     end
-  end
-
-  @spec format_ip_address(ip_address :: tuple()) :: String.t()
-  defp format_ip_address({a, b, c, d}) do
-    [a, b, c, d]
-    |> Enum.map_join(".", &Integer.to_string/1)
-  end
-
-  defp format_ip_address({a, b, c, d, e, f, g, h}) do
-    formatted_ip =
-      [a, b, c, d, e, f, g, h]
-      |> Enum.map_join(":", &Integer.to_string(&1, 16))
-
-    Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
   end
 end

@@ -102,11 +102,11 @@ defmodule ElixIRCd.Helper do
   @doc """
   Gets the hostname for an IP address.
   """
-  @spec get_socket_hostname(ip :: tuple()) :: {:ok, String.t()} | {:error, String.t()}
-  def get_socket_hostname(ip) do
-    case :inet.gethostbyaddr(ip) do
+  @spec get_socket_hostname(ip_address :: tuple()) :: {:ok, String.t()} | {:error, String.t()}
+  def get_socket_hostname(ip_address) do
+    case :inet.gethostbyaddr(ip_address) do
       {:ok, {:hostent, hostname, _, _, _, _}} -> {:ok, to_string(hostname)}
-      {:error, error} -> {:error, "Unable to get hostname for #{inspect(ip)}: #{inspect(error)}"}
+      {:error, error} -> {:error, "Unable to get hostname for #{inspect(ip_address)}: #{inspect(error)}"}
     end
   end
 
@@ -151,6 +151,23 @@ defmodule ElixIRCd.Helper do
   def build_user_mask(%{registered: true} = user)
       when user.nick != nil and user.username != nil and user.hostname != nil do
     "#{user.nick}!~#{String.slice(user.username, 0..8)}@#{user.hostname}"
+  end
+
+  @doc """
+  Formats an IP address.
+  """
+  @spec format_ip_address(ip_address :: tuple()) :: String.t()
+  def format_ip_address({a, b, c, d}) do
+    [a, b, c, d]
+    |> Enum.map_join(".", &Integer.to_string/1)
+  end
+
+  def format_ip_address({a, b, c, d, e, f, g, h}) do
+    formatted_ip =
+      [a, b, c, d, e, f, g, h]
+      |> Enum.map_join(":", &Integer.to_string(&1, 16))
+
+    Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
   end
 
   @doc """
