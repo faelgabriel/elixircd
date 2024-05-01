@@ -303,6 +303,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_bannedfromchan), do: "474"
   defp numeric_reply(:err_badchannelkey), do: "475"
   defp numeric_reply(:err_badchanmask), do: "476"
+  defp numeric_reply(:err_noprivileges), do: "481"
   defp numeric_reply(:err_chanoprivsneeded), do: "482"
   defp numeric_reply(:err_usersdontmatch), do: "502"
 end

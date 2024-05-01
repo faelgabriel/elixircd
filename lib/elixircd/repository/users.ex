@@ -83,6 +83,21 @@ defmodule ElixIRCd.Repository.Users do
   end
 
   @doc """
+  Get all users by the mode.
+  """
+  @spec get_by_mode(String.t()) :: [User.t()]
+  def get_by_mode(mode) do
+    :mnesia.foldl(
+      fn raw_user, acc ->
+        user = Data.load(raw_user)
+        if user.registered and mode in user.modes, do: [user | acc], else: acc
+      end,
+      [],
+      User
+    )
+  end
+
+  @doc """
   Count all users.
   """
   @spec count_all() :: integer()

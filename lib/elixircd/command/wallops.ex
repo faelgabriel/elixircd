@@ -5,8 +5,10 @@ defmodule ElixIRCd.Command.Wallops do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Helper, only: [build_user_mask: 1, irc_operator?: 1]
+
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
@@ -19,25 +21,44 @@ defmodule ElixIRCd.Command.Wallops do
 
   @impl true
   def handle(user, %{command: "WALLOPS", trailing: nil}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "WALLOPS"],
+      params: [user.nick, "WALLOPS"],
       trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(_user, %{command: "WALLOPS", trailing: _message}) do
-    # Scenario: User issues WALLOPS command with a message
-    # The message is expected to be in the trailing part of the command,
-    # allowing it to contain spaces without being split into multiple parameters.
-    # Check if the user has the necessary privileges to send a WALLOPS message.
-    # If so, broadcast the message to all users who have set the 'w' mode to receive such messages.
-    # If not, respond with ERR_NOPRIVILEGES (481) or a similar error message.
-    :ok
+  def handle(user, %{command: "WALLOPS", trailing: message}) do
+    case irc_operator?(user) do
+      true -> wallops_message(user, message)
+      false -> noprivileges_message(user)
+    end
+  end
+
+  @spec wallops_message(User.t(), String.t()) :: :ok
+  defp wallops_message(user, message) do
+    target_users = Users.get_by_mode("w")
+
+    Message.build(%{
+      prefix: build_user_mask(user),
+      command: "WALLOPS",
+      params: [],
+      trailing: message
+    })
+    |> Messaging.broadcast(target_users)
+  end
+
+  @spec noprivileges_message(User.t()) :: :ok
+  defp noprivileges_message(user) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_noprivileges,
+      params: [user.nick],
+      trailing: "Permission Denied- You're not an IRC operator"
+    })
+    |> Messaging.broadcast(user)
   end
 end

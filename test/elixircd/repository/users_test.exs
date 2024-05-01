@@ -109,6 +109,15 @@ defmodule ElixIRCd.Repository.UsersTest do
     end
   end
 
+  describe "get_by_mode/1" do
+    test "returns a list of users by mode" do
+      user1 = insert(:user, modes: ["i"])
+      _user2 = insert(:user, modes: ["o"])
+
+      assert [user1] == Memento.transaction!(fn -> Users.get_by_mode("i") end)
+    end
+  end
+
   describe "count_all/0" do
     test "returns the total number of users" do
       insert(:user)
