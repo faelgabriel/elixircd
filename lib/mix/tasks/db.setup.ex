@@ -8,6 +8,7 @@ defmodule Mix.Tasks.Db.Setup do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelInvite
+  alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -15,6 +16,7 @@ defmodule Mix.Tasks.Db.Setup do
     Channel,
     ChannelBan,
     ChannelInvite,
+    HistoricalUser,
     User,
     UserChannel
   ]

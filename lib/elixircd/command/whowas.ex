@@ -5,9 +5,10 @@ defmodule ElixIRCd.Command.Whowas do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.HistoricalUsers
   alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -19,28 +20,87 @@ defmodule ElixIRCd.Command.Whowas do
 
   @impl true
   def handle(user, %{command: "WHOWAS", params: []}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "WHOWAS"],
+      params: [user.nick, "WHOWAS"],
       trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(_user, %{command: "WHOWAS", params: [_target_nick]}) do
-    # Scenario: WHOWAS request with a specific user pattern
-    # Respond with a series of RPL_WHOWASUSER (314), RPL_WHOISSERVER (312), and RPL_ENDOFWHOWAS (369) messages
-    :ok
+  def handle(user, %{command: "WHOWAS", params: params}) do
+    {target_nick, max_replies} = extract_parameters(params)
+
+    handle_whowas(user, target_nick, max_replies)
+
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_endofwhowas,
+      params: [user.nick, target_nick],
+      trailing: "End of WHOWAS list"
+    })
+    |> Messaging.broadcast(user)
   end
 
-  @impl true
-  def handle(_user, %{command: "WHOWAS", params: [_target_nick, _max_replies | _rest]}) do
-    # Scenario: WHOWAS request with a specific user pattern
-    # Respond with a series of RPL_WHOWASUSER (314), RPL_WHOISSERVER (312), and RPL_ENDOFWHOWAS (369) messages
-    :ok
+  @spec handle_whowas(User.t(), String.t(), non_neg_integer() | nil) :: :ok
+  defp handle_whowas(user, target_nick, max_replies) do
+    historical_users = HistoricalUsers.get_by_nick(target_nick, max_replies)
+
+    whowasuser_message(user, historical_users, target_nick)
+  end
+
+  @spec extract_parameters([String.t()]) :: {String.t(), non_neg_integer() | nil}
+  defp extract_parameters([target_nick]), do: {target_nick, nil}
+
+  defp extract_parameters([target_nick, max_replies | _rest]) do
+    max_replies =
+      case Integer.parse(max_replies) do
+        {num, ""} when num >= 0 -> num
+        _ -> nil
+      end
+
+    {target_nick, max_replies}
+  end
+
+  @spec whowasuser_message(User.t(), [HistoricalUser.t()], String.t()) :: :ok
+  defp whowasuser_message(user, [], target_nick) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_wasnosuchnick,
+      params: [user.nick, target_nick],
+      trailing: "There was no such nickname"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  defp whowasuser_message(user, historical_users, _target_nick) do
+    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+
+    Enum.each(historical_users, fn historical_user ->
+      created_at_time = historical_user.created_at |> Calendar.strftime("%A %B %d %Y -- %H:%M:%S %Z")
+
+      [
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_whowasuser,
+          params: [
+            user.nick,
+            historical_user.nick,
+            # Future: username is prefixed with ~
+            historical_user.userid || historical_user.username,
+            historical_user.hostname,
+            historical_user.realname
+          ]
+        }),
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_whoisserver,
+          params: [user.nick, historical_user.nick, server_hostname, created_at_time]
+        })
+      ]
+      |> Messaging.broadcast(user)
+    end)
   end
 end

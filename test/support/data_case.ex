@@ -10,6 +10,7 @@ defmodule ElixIRCd.DataCase do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelInvite
+  alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -17,6 +18,7 @@ defmodule ElixIRCd.DataCase do
     Channel,
     ChannelBan,
     ChannelInvite,
+    HistoricalUser,
     User,
     UserChannel
   ]

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Server do
   alias ElixIRCd.Command
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelInvites
+  alias ElixIRCd.Repository.HistoricalUsers
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
@@ -156,10 +157,18 @@ defmodule ElixIRCd.Server do
       |> Enum.group_by(& &1.user_port)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
+    # Future: Delete channel if the channel is not registered and has no users
     ChannelInvites.delete_by_user_port(user.port)
     UserChannels.delete_by_user_port(user.port)
     Users.delete(user)
-    # Future: Delete channel if the channel is not registered and has no users
+
+    HistoricalUsers.create(%{
+      nick: user.nick,
+      hostname: user.hostname,
+      username: user.username,
+      realname: user.realname,
+      userid: user.userid
+    })
 
     Message.build(%{prefix: build_user_mask(user), command: "QUIT", params: [], trailing: quit_message})
     |> Messaging.broadcast(all_channel_users)

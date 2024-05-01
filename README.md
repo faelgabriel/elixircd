@@ -70,7 +70,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **MOTD**: Request the Message of the Day from the server. ✴️
 - **WHOIS**: Get information about a user. ✅
 - **WHO**: Get information about users on a server. ✅
-- **WHOWAS**: Get information about a user who has left. ✴️
+- **WHOWAS**: Get information about a user who has left. ✅
 - **USERHOST**: Provide information about a list of nicknames. ✅
 - **USERS**: List users logged into the server. ✅
 - **AWAY**: Set an away message. ✅
@@ -105,7 +105,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 
 ## Modes
 
-Modes are a way to change the behavior of a channel or user. They can be set by users with the correct permissions or by the server itself. Modes can be set on channels or users.
+Modes can be applied to channels or users to modify their behaviors. These can be set by users who have the appropriate permissions or automatically by the server.
 
 > ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
 
@@ -160,7 +160,7 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ❌
 
-### Server Commands
+### Server Commands (Client-to-Server)
 
 - **CAP**: Negotiate client capabilities with the server. ✴️
 - **AUTHENTICATE**: Log in to a client account using SASL authentication. ❌

@@ -14,6 +14,7 @@ defmodule ElixIRCd.Tables.User do
       :hostname,
       :username,
       :realname,
+      # Future: make username and userid the same, but when it's username it's prefixed with ~
       :userid,
       :registered,
       :modes,
