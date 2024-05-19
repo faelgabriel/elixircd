@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.KillTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
 
   alias ElixIRCd.Command.Kill
   alias ElixIRCd.Message
@@ -36,14 +37,69 @@ defmodule ElixIRCd.Command.KillTest do
       end)
     end
 
-    test "handles KILL command" do
+    test "handles KILL command with user not operator" do
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "KILL", params: ["target"], trailing: "reason"}
 
         Kill.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KILL command with target user not found" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        message = %Message{command: "KILL", params: ["target"], trailing: "reason"}
+
+        Kill.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
+        ])
+      end)
+    end
+
+    test "handles KILL command with target user found and reason" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        target_user = insert(:user)
+        message = %Message{command: "KILL", params: [target_user.nick], trailing: "Kill reason"}
+
+        Kill.handle(user, message)
+
+        expected_killed_message = "Killed (#{user.nick} (Kill reason))"
+        expected_target_user_socket = target_user.socket
+
+        assert_sent_messages([
+          {target_user.socket,
+           ":server.example.com ERROR :Closing Link: #{build_user_mask(target_user)} (#{expected_killed_message})\r\n"}
+        ])
+
+        assert_received {:disconnect, ^expected_target_user_socket, ^expected_killed_message}
+      end)
+    end
+
+    test "handles KILL command with target user found and no reason" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        target_user = insert(:user)
+        message = %Message{command: "KILL", params: [target_user.nick]}
+
+        Kill.handle(user, message)
+
+        expected_killed_message = "Killed (#{user.nick})"
+        expected_target_user_socket = target_user.socket
+
+        assert_sent_messages([
+          {target_user.socket,
+           ":server.example.com ERROR :Closing Link: #{build_user_mask(target_user)} (#{expected_killed_message})\r\n"}
+        ])
+
+        assert_received {:disconnect, ^expected_target_user_socket, ^expected_killed_message}
       end)
     end
   end

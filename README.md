@@ -87,7 +87,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **ADMIN**: Provide information about the server administrator. ✅
 - **OPER**: Allow operators to gain elevated privileges on the server. ✅
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✅
-- **KILL**: Allow operators to disconnect a user from the network. ️✴️
+- **KILL**: Allow operators to disconnect a user from the network. ️✅
 - **REHASH**: Enable operators to reload the server's configuration. ✴️
 - **RESTART**: Allow operators to restart the server. ✴️
 - **DIE**: Allow operators to shut down the server. ✴️

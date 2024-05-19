@@ -5,8 +5,10 @@ defmodule ElixIRCd.Command.Kill do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Helper, only: [build_user_mask: 1, irc_operator?: 1]
+
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
@@ -19,24 +21,60 @@ defmodule ElixIRCd.Command.Kill do
 
   @impl true
   def handle(user, %{command: "KILL", params: []}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "KILL"],
+      params: [user.nick, "KILL"],
       trailing: "Not enough parameters"
     })
     |> Messaging.broadcast(user)
   end
 
   @impl true
-  def handle(_user, %{command: "KILL", params: [_target_nick | _rest], trailing: _reason}) do
-    # Scenarios to handle when a target nickname and reason are provided:
-    # 1. Target user does not exist: ERR_NOSUCHNICK (401)
-    # 2. Target user is the same as the user issuing the KILL command: ERR_CANTKILLSERVER (483)
-    # 3. Successful KILL: Send RPL_KILL (349) and disconnect the target user
-    # Each condition leads to a specific IRC numeric response or action.
-    :ok
+  def handle(user, %{command: "KILL", params: [target_nick | _rest], trailing: reason}) do
+    with {:irc_operator?, true} <- {:irc_operator?, irc_operator?(user)},
+         {:ok, target_user} <- Users.get_by_nick(target_nick) do
+      formatted_reason = if is_nil(reason), do: "", else: " (#{reason})"
+      killed_message = "Killed (#{user.nick}#{formatted_reason})"
+
+      closing_link_message(target_user, killed_message)
+      send(target_user.pid, {:disconnect, target_user.socket, killed_message})
+    else
+      {:irc_operator?, false} -> noprivileges_message(user)
+      {:error, :user_not_found} -> target_not_found_message(user, target_nick)
+    end
+  end
+
+  @spec closing_link_message(User.t(), String.t()) :: :ok
+  defp closing_link_message(target_user, killed_message) do
+    Message.build(%{
+      prefix: :server,
+      command: "ERROR",
+      params: [],
+      trailing: "Closing Link: #{build_user_mask(target_user)} (#{killed_message})"
+    })
+    |> Messaging.broadcast(target_user)
+  end
+
+  @spec noprivileges_message(User.t()) :: :ok
+  defp noprivileges_message(user) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_noprivileges,
+      params: [user.nick],
+      trailing: "Permission Denied- You're not an IRC operator"
+    })
+    |> Messaging.broadcast(user)
+  end
+
+  @spec target_not_found_message(User.t(), String.t()) :: :ok
+  defp target_not_found_message(user, target) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_nosuchnick,
+      params: [user.nick, target],
+      trailing: "No such nick"
+    })
+    |> Messaging.broadcast(user)
   end
 end

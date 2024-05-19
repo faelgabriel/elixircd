@@ -251,6 +251,22 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :closed} == Client.recv(socket)
     end
 
+    test "handles successful disconnect by disconnect process message" do
+      {:ok, socket} = Client.connect(:ssl)
+      {:error, :timeout} = Client.recv(socket)
+      [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+
+      insert(:user_channel, %{user: user, channel: insert(:channel)})
+      [%UserChannel{}] = Memento.transaction!(fn -> Memento.Query.all(UserChannel) end)
+
+      send(user.pid, {:disconnect, user.socket, "Disconnect message"})
+
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(UserChannel) end), @wait_keywords)
+      assert wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
+
+      assert {:error, :closed} == Client.recv(socket)
+    end
+
     test "handles successful tcp disconnect by unexpected error rescued" do
       Command
       |> expect(:handle, 1, fn _user, _message ->

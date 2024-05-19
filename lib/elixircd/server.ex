@@ -103,6 +103,9 @@ defmodule ElixIRCd.Server do
       {:ssl_error, ^socket, reason} ->
         Logger.warning("SSL connection error: #{inspect(reason)}")
         handle_disconnect(socket, transport, "Connection Error")
+
+      {:disconnect, ^socket, reason} ->
+        handle_disconnect(socket, transport, reason)
     after
       Application.get_env(:elixircd, :user)[:timeout] ->
         handle_disconnect(socket, transport, "Connection Timeout")
