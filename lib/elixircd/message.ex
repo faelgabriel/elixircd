@@ -281,6 +281,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_endofinfo), do: "374"
   defp numeric_reply(:rpl_endofmotd), do: "376"
   defp numeric_reply(:rpl_youreoper), do: "381"
+  defp numeric_reply(:rpl_rehashing), do: "382"
   defp numeric_reply(:rpl_time), do: "391"
   # Error replies
   defp numeric_reply(:err_nosuchnick), do: "401"

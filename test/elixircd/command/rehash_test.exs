@@ -23,14 +23,30 @@ defmodule ElixIRCd.Command.RehashTest do
       end)
     end
 
-    test "handles REHASH command" do
+    test "handles REHASH command with user not operator" do
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "REHASH", params: []}
 
         Rehash.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+        ])
+      end)
+    end
+
+    test "handles REHASH command with user operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        message = %Message{command: "REHASH", params: []}
+
+        Rehash.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 382 #{user.nick} runtime.exs :Rehashing\r\n"},
+          {user.socket, ":server.example.com NOTICE #{user.nick} :Rehashing completed\r\n"}
+        ])
       end)
     end
   end
