@@ -132,6 +132,7 @@ defmodule ElixIRCd.Server do
     end)
   end
 
+  @spec handle_packet_result(:ok | {:quit, String.t()}, :inet.socket(), atom()) :: :ok
   defp handle_packet_result(:ok, socket, transport), do: handle_listening(socket, transport)
   defp handle_packet_result({:quit, reason}, socket, transport), do: handle_disconnect(socket, transport, reason)
 

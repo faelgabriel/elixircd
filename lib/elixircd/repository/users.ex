@@ -35,6 +35,14 @@ defmodule ElixIRCd.Repository.Users do
   end
 
   @doc """
+  Get all users.
+  """
+  @spec get_all() :: [User.t()]
+  def get_all do
+    Memento.Query.all(User)
+  end
+
+  @doc """
   Get a user by the port.
   """
   @spec get_by_port(port()) :: {:ok, User.t()} | {:error, atom()}

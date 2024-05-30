@@ -45,6 +45,7 @@ Mimic.copy(ElixIRCd.Server.Handshake.IdentClient)
 Mimic.copy(ElixIRCd.Server.Messaging)
 Mimic.copy(Memento)
 Mimic.copy(Memento.Schema)
+Mimic.copy(System)
 
 ExUnit.CaptureIO.capture_io(fn -> Mix.Tasks.Db.Setup.run(["-r"]) end)
 

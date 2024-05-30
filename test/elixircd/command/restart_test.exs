@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.RestartTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
 
   alias ElixIRCd.Command.Restart
   alias ElixIRCd.Message
@@ -23,14 +24,45 @@ defmodule ElixIRCd.Command.RestartTest do
       end)
     end
 
-    test "handles RESTART command" do
+    test "handles RESTART command with user not operator" do
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "RESTART", params: []}
 
         Restart.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+        ])
+      end)
+    end
+
+    test "handles RESTART command with user operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        message = %Message{command: "RESTART", params: []}
+
+        Restart.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com NOTICE * :Server is restarting\r\n"},
+          {user.socket, ":server.example.com ERROR :Closing Link: #{build_user_mask(user)} (Server is restarting)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles RESTART command with user operator and reason" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        message = %Message{command: "RESTART", params: ["#reason"], trailing: "Restarting reason"}
+
+        Restart.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com NOTICE * :Server is restarting: Restarting reason\r\n"},
+          {user.socket,
+           ":server.example.com ERROR :Closing Link: #{build_user_mask(user)} (Server is restarting: Restarting reason)\r\n"}
+        ])
       end)
     end
   end

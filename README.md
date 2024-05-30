@@ -89,8 +89,8 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✅
 - **KILL**: Allow operators to disconnect a user from the network. ️✅
 - **REHASH**: Enable operators to reload the server's configuration. ✅
-- **RESTART**: Allow operators to restart the server. ✴️
-- **DIE**: Allow operators to shut down the server. ✴️
+- **RESTART**: Allow operators to restart the server. ✅
+- **DIE**: Allow operators to shut down the server. ✅
 - **SERVICE**: Allow operators to register services on the network. ❌
 
 ### Server Commands (Server-to-Server)

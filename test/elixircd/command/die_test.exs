@@ -5,6 +5,8 @@ defmodule ElixIRCd.Command.DieTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import Mimic
 
   alias ElixIRCd.Command.Die
   alias ElixIRCd.Message
@@ -23,14 +25,52 @@ defmodule ElixIRCd.Command.DieTest do
       end)
     end
 
-    test "handles DIE command" do
+    test "handles DIE command with user not operator" do
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "DIE", params: []}
 
         Die.handle(user, message)
 
-        assert_sent_messages([])
+        assert_sent_messages([
+          {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+        ])
+      end)
+    end
+
+    test "handles DIE command with user operator" do
+      Memento.transaction!(fn ->
+        System
+        |> expect(:halt, 1, fn 0 -> :ok end)
+
+        user = insert(:user, modes: ["o"])
+        message = %Message{command: "DIE", params: []}
+
+        Die.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com NOTICE * :Server is shutting down\r\n"},
+          {user.socket,
+           ":server.example.com ERROR :Closing Link: #{build_user_mask(user)} (Server is shutting down)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles DIE command with user operator and reason" do
+      Memento.transaction!(fn ->
+        System
+        |> expect(:halt, 1, fn 0 -> :ok end)
+
+        user = insert(:user, modes: ["o"])
+        message = %Message{command: "DIE", params: ["#reason"], trailing: "Shutting down reason"}
+
+        Die.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com NOTICE * :Server is shutting down: Shutting down reason\r\n"},
+          {user.socket,
+           ":server.example.com ERROR :Closing Link: #{build_user_mask(user)} (Server is shutting down: Shutting down reason)\r\n"}
+        ])
       end)
     end
   end
