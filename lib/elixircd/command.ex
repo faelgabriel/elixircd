@@ -45,7 +45,6 @@ defmodule ElixIRCd.Command do
   def handle(user, %{command: "REHASH"} = message), do: Command.Rehash.handle(user, message)
   def handle(user, %{command: "RESTART"} = message), do: Command.Restart.handle(user, message)
   def handle(user, %{command: "STATS"} = message), do: Command.Stats.handle(user, message)
-  def handle(user, %{command: "SUMMON"} = message), do: Command.Summon.handle(user, message)
   def handle(user, %{command: "TIME"} = message), do: Command.Time.handle(user, message)
   def handle(user, %{command: "TOPIC"} = message), do: Command.Topic.handle(user, message)
   def handle(user, %{command: "TRACE"} = message), do: Command.Trace.handle(user, message)

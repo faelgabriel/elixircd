@@ -77,7 +77,6 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **PING/PONG**: Test the presence of an active connection. ✅
 - **QUIT**: Disconnect from the server. ✅
 - **LUSERS**: Get statistics about the size of the network. ✅
-- **SUMMON**: Summon a user to the IRC network. ✴️
 - **ISON**: Check if specified users are online. ✅
 - **VERSION**: Respond to queries about the server's version. ✅
 - **STATS**: Provide server statistics. ✅

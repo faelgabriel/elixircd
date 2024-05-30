@@ -35,7 +35,6 @@ defmodule ElixIRCd.CommandTest do
     {"REHASH", Command.Rehash},
     {"RESTART", Command.Restart},
     {"STATS", Command.Stats},
-    {"SUMMON", Command.Summon},
     {"TOPIC", Command.Topic},
     {"TRACE", Command.Trace},
     {"TIME", Command.Time},
