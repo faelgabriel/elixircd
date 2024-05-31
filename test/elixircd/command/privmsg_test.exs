@@ -54,10 +54,11 @@ defmodule ElixIRCd.Command.PrivmsgTest do
       end)
     end
 
-    test "handles PRIVMSG command for channel with existing channel and user is not in the channel" do
+    test "handles PRIVMSG command for channel with moderated mode and user is not voice or higher" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel)
+        channel = insert(:channel, modes: ["m"])
+        insert(:user_channel, user: user, channel: channel)
 
         message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
         Privmsg.handle(user, message)
@@ -68,11 +69,10 @@ defmodule ElixIRCd.Command.PrivmsgTest do
       end)
     end
 
-    test "handles PRIVMSG command for channel with moderated mode and user is not voice or higher" do
+    test "handles PRIVMSG command for channel with no external messages mode and user is not in the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["m"])
-        insert(:user_channel, user: user, channel: channel)
+        channel = insert(:channel, modes: ["n"])
 
         message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
         Privmsg.handle(user, message)
@@ -106,6 +106,39 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         another_user = insert(:user)
         channel = insert(:channel, modes: ["m"])
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.socket, ":#{build_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command for channel with no external messages mode and user is in the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["n"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.socket, ":#{build_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command for channel without no external messages mode and user is not in the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel)
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}

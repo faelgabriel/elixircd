@@ -53,8 +53,7 @@ defmodule ElixIRCd.Command.Privmsg do
   @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok
   defp handle_channel_message(user, channel_name, message_text) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
-         :ok <- check_channel_moderated(channel, user_channel) do
+         :ok <- check_channel_modes(channel, user) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_port == user.port))
@@ -71,7 +70,7 @@ defmodule ElixIRCd.Command.Privmsg do
         })
         |> Messaging.broadcast(user)
 
-      {:error, error} when error in [:user_can_not_send, :user_channel_not_found] ->
+      {:error, :user_can_not_send} ->
         Message.build(%{
           prefix: :server,
           command: :err_cannotsendtochan,
@@ -114,9 +113,23 @@ defmodule ElixIRCd.Command.Privmsg do
     end
   end
 
+  @spec check_channel_modes(Channel.t(), User.t()) :: :ok | {:error, :user_can_not_send}
+  defp check_channel_modes(channel, user) do
+    with true <- "m" in channel.modes or "n" in channel.modes,
+         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         :ok <- check_channel_moderated(channel, user_channel) do
+      :ok
+    else
+      # neither m nor n mode
+      false -> :ok
+      # user can not send
+      {:error, _} -> {:error, :user_can_not_send}
+    end
+  end
+
   @spec check_channel_moderated(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_can_not_send}
   defp check_channel_moderated(channel, user_channel) do
-    if "m" in channel.modes and (not channel_operator?(user_channel) and not channel_voice?(user_channel)) do
+    if "m" in channel.modes and not (channel_operator?(user_channel) or channel_voice?(user_channel)) do
       {:error, :user_can_not_send}
     else
       :ok
