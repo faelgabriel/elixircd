@@ -5,6 +5,7 @@ defmodule ElixIRCd.Command.StatsTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import Mimic
 
   alias ElixIRCd.Command.Stats
   alias ElixIRCd.Message
@@ -36,13 +37,16 @@ defmodule ElixIRCd.Command.StatsTest do
 
     test "handles STATS command with supported query flag" do
       Memento.transaction!(fn ->
+        DateTime
+        |> expect(:diff, 1, fn _, _ -> 999_969 end)
+
         user = insert(:user)
         message = %Message{command: "STATS", params: ["u"]}
 
         Stats.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ~r":server.example.com 242 #{user.nick} :Server Up 0 days, 00:00:\d{2}\r\n"},
+          {user.socket, ":server.example.com 242 #{user.nick} :Server Up 11 days, 13:46:09\r\n"},
           {user.socket, ":server.example.com 219 #{user.nick} u :End of /STATS report\r\n"}
         ])
       end)

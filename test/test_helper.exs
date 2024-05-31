@@ -1,6 +1,7 @@
 Mimic.copy(:ranch)
 Mimic.copy(:ranch_tcp)
 Mimic.copy(:ranch_ssl)
+Mimic.copy(DateTime)
 Mimic.copy(ElixIRCd.Command)
 Mimic.copy(ElixIRCd.Command.Admin)
 Mimic.copy(ElixIRCd.Command.Away)
