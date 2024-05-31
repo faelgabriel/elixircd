@@ -37,7 +37,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:ok, socket} = Client.connect(:tcp)
       assert {:error, :timeout} == Client.recv(socket)
 
-      assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      assert user.modes == []
 
       Client.disconnect(socket)
     end
@@ -58,7 +59,8 @@ defmodule ElixIRCd.ServerTest do
       assert {:ok, socket} = Client.connect(:ssl)
       assert {:error, :timeout} == Client.recv(socket)
 
-      assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
+      assert user.modes == ["Z"]
 
       Client.disconnect(socket)
     end

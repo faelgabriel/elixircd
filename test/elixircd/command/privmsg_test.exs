@@ -68,6 +68,55 @@ defmodule ElixIRCd.Command.PrivmsgTest do
       end)
     end
 
+    test "handles PRIVMSG command for channel with moderated mode and user is not voice or higher" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["m"])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command for channel with moderated mode and user is voice" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["m"])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.socket, ":#{build_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command for channel with moderated mode and user is operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["m"])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.socket, ":#{build_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
     test "handles PRIVMSG command for channel with existing channel and user is in the channel with another user" do
       Memento.transaction!(fn ->
         user = insert(:user)

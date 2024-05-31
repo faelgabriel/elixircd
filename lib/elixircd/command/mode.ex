@@ -180,11 +180,7 @@ defmodule ElixIRCd.Command.Mode do
 
   @spec handle_user_mode(User.t(), String.t(), String.t() | nil) :: :ok
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick == receiver_nick do
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_umodeis,
-      params: [user.nick, UserModes.display_modes(user.modes)]
-    })
+    Message.build(%{prefix: :server, command: :rpl_umodeis, params: [user.nick, UserModes.display_modes(user.modes)]})
     |> Messaging.broadcast(user)
   end
 

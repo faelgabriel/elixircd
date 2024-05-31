@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Privmsg do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_name?: 1]
+  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
@@ -53,34 +53,30 @@ defmodule ElixIRCd.Command.Privmsg do
   @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok
   defp handle_channel_message(user, channel_name, message_text) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         :ok <- check_channel_moderated(channel, user_channel) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_port == user.port))
 
-      Message.build(%{
-        prefix: build_user_mask(user),
-        command: "PRIVMSG",
-        params: [channel.name],
-        trailing: message_text
-      })
+      Message.build(%{prefix: build_user_mask(user), command: "PRIVMSG", params: [channel.name], trailing: message_text})
       |> Messaging.broadcast(channel_users_without_user)
     else
-      {:error, :user_channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_cannotsendtochan,
-          params: [user.nick, channel_name],
-          trailing: "Cannot send to channel"
-        })
-        |> Messaging.broadcast(user)
-
       {:error, :channel_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
           trailing: "No such channel"
+        })
+        |> Messaging.broadcast(user)
+
+      {:error, error} when error in [:user_can_not_send, :user_channel_not_found] ->
+        Message.build(%{
+          prefix: :server,
+          command: :err_cannotsendtochan,
+          params: [user.nick, channel_name],
+          trailing: "Cannot send to channel"
         })
         |> Messaging.broadcast(user)
     end
@@ -115,6 +111,15 @@ defmodule ElixIRCd.Command.Privmsg do
           trailing: "No such nick"
         })
         |> Messaging.broadcast(user)
+    end
+  end
+
+  @spec check_channel_moderated(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_can_not_send}
+  defp check_channel_moderated(channel, user_channel) do
+    if "m" in channel.modes and (not channel_operator?(user_channel) and not channel_voice?(user_channel)) do
+      {:error, :user_can_not_send}
+    else
+      :ok
     end
   end
 end

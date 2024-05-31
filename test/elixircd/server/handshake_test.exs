@@ -101,10 +101,20 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
-      user = insert(:user, registered: false, hostname: nil)
+      user = insert(:user, registered: false, hostname: nil, modes: ["Z"])
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
-      assert_sent_messages_amount(user.socket, 4)
+      assert_sent_messages(
+        [
+          {user.socket, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
+          {user.socket, ":server.example.com NOTICE * :*** Couldn't look up your hostname\r\n"},
+          {user.socket, ":server.example.com NOTICE * :*** Checking Ident\r\n"},
+          {user.socket, ":server.example.com NOTICE * :*** No Ident response\r\n"},
+          {user.socket, ":#{user.nick} MODE #{user.nick} :+Z\r\n"}
+          # MOTD messages are mocked as we don't care about it here
+        ],
+        validate_order?: false
+      )
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "::1"

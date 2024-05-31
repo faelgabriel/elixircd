@@ -8,6 +8,7 @@ defmodule ElixIRCd.Server.Handshake do
   import ElixIRCd.Helper,
     only: [format_ip_address: 1, get_socket_hostname: 1, get_socket_ip: 1, get_socket_port_connected: 1]
 
+  alias ElixIRCd.Command.Mode.UserModes
   alias ElixIRCd.Command.Motd
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
@@ -26,14 +27,10 @@ defmodule ElixIRCd.Server.Handshake do
     with :ok <- check_server_password(user),
          {:ok, {userid, hostname}} <- handle_async_data(user) do
       updated_user =
-        Users.update(user, %{
-          userid: userid,
-          hostname: hostname,
-          registered: true,
-          registered_at: DateTime.utc_now()
-        })
+        Users.update(user, %{userid: userid, hostname: hostname, registered: true, registered_at: DateTime.utc_now()})
 
       Motd.send_motd(updated_user)
+      send_user_modes(updated_user)
     else
       {:error, :bad_password} ->
         Message.build(%{prefix: :server, command: :err_passwdmismatch, params: ["*"], trailing: "Bad Password"})
@@ -141,4 +138,12 @@ defmodule ElixIRCd.Server.Handshake do
         formatted_ip_address
     end
   end
+
+  @spec send_user_modes(User.t()) :: :ok
+  defp send_user_modes(%User{nick: nick, modes: modes} = user) when modes != [] do
+    Message.build(%{prefix: nick, command: "MODE", params: [nick], trailing: UserModes.display_modes(modes)})
+    |> Messaging.broadcast(user)
+  end
+
+  defp send_user_modes(_user), do: :ok
 end

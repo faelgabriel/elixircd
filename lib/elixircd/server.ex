@@ -71,7 +71,8 @@ defmodule ElixIRCd.Server do
     Logger.debug("Connection established: #{inspect(socket)}")
 
     Memento.transaction!(fn ->
-      Users.create(%{port: get_socket_port(socket), socket: socket, transport: transport, pid: pid})
+      modes = if transport == :ranch_ssl, do: ["Z"], else: []
+      Users.create(%{port: get_socket_port(socket), socket: socket, transport: transport, pid: pid, modes: modes})
     end)
 
     transport.setopts(socket, [{:packet, :line}])
