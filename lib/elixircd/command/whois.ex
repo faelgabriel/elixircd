@@ -9,6 +9,7 @@ defmodule ElixIRCd.Command.Whois do
 
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
@@ -131,22 +132,35 @@ defmodule ElixIRCd.Command.Whois do
 
   @spec get_target_user(User.t(), String.t()) :: {User.t() | nil, [String.t()]}
   defp get_target_user(user, target_nick) do
+    # Future: Optimize get user channels to load channel names only
     with {:ok, target_user} <- Users.get_by_nick(target_nick),
+         user_channel_names <- UserChannels.get_by_user_port(user.port) |> Enum.map(& &1.channel_name),
          target_user_channel_names <- UserChannels.get_by_user_port(target_user.port) |> Enum.map(& &1.channel_name),
-         true <- target_user_visible?(user, target_user, target_user_channel_names) do
-      {target_user, target_user_channel_names}
+         true <- target_user_visible?(user_channel_names, target_user, target_user_channel_names) do
+      {target_user, filter_out_secret_channels(user_channel_names, target_user_channel_names)}
     else
       _ -> {nil, []}
     end
   end
 
-  @spec target_user_visible?(User.t(), User.t(), [String.t()]) :: boolean()
-  defp target_user_visible?(user, target_user, target_user_channel_names) do
+  @spec target_user_visible?([String.t()], User.t(), [String.t()]) :: boolean()
+  defp target_user_visible?(user_channel_names, target_user, target_user_channel_names) do
     if "i" in target_user.modes do
-      user_channel_names = UserChannels.get_by_user_port(user.port) |> Enum.map(& &1.channel_name)
       Enum.any?(user_channel_names, &Enum.member?(target_user_channel_names, &1))
     else
       true
     end
+  end
+
+  @spec filter_out_secret_channels([String.t()], [String.t()]) :: [String.t()]
+  defp filter_out_secret_channels(user_channel_names, target_user_channel_names) do
+    Enum.reject(target_user_channel_names, fn channel_name ->
+      with {:ok, channel} <- Channels.get_by_name(channel_name),
+           true <- "s" in channel.modes do
+        not Enum.member?(user_channel_names, channel_name)
+      else
+        _ -> false
+      end
+    end)
   end
 end

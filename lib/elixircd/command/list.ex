@@ -39,7 +39,7 @@ defmodule ElixIRCd.Command.List do
   def handle(user, %{command: "LIST", params: params}) do
     search_string = Enum.at(params, 0, nil)
 
-    handle_list(search_string)
+    handle_list(search_string, user)
     |> Enum.sort_by(& &1.channel.name)
     |> Enum.map(fn detailed_channel ->
       name = detailed_channel.channel.name
@@ -54,8 +54,8 @@ defmodule ElixIRCd.Command.List do
     |> Messaging.broadcast(user)
   end
 
-  @spec handle_list(String.t()) :: [detailed_channel()]
-  defp handle_list(search_string) do
+  @spec handle_list(String.t(), User.t()) :: [detailed_channel()]
+  defp handle_list(search_string, user) do
     {general_filters, channel_name_filters} = parse_filters(search_string)
 
     channels =
@@ -67,6 +67,7 @@ defmodule ElixIRCd.Command.List do
       end
 
     channels
+    |> filter_out_hidden_channels(user)
     |> convert_to_detailed_channels()
     |> apply_general_filters(general_filters)
   end
@@ -111,6 +112,18 @@ defmodule ElixIRCd.Command.List do
       {num, ""} -> {type, num}
       _ -> nil
     end
+  end
+
+  @spec filter_out_hidden_channels([Channel.t()], User.t()) :: [Channel.t()]
+  defp filter_out_hidden_channels(channels, user) do
+    # Future: Optimize this to load channel names only
+    user_channel_names =
+      UserChannels.get_by_user_port(user.port)
+      |> Enum.map(& &1.channel_name)
+
+    Enum.reject(channels, fn channel ->
+      ("p" in channel.modes or "s" in channel.modes) and not Enum.member?(user_channel_names, channel.name)
+    end)
   end
 
   @spec convert_to_detailed_channels([Channel.t()]) :: [detailed_channel()]

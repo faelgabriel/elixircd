@@ -35,21 +35,21 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **Message Handling**: Routing and delivery of messages. ✅
 - **Message Types**: Different types of messages, e.g., PRIVMSG, NOTICE. ✅
 - **Channel Control**: Creating, joining, and leaving channels. ✅
-- **Channel Types and Modes**: Public, private, secret channels, and various modes. ✴️
+- **Channel Types and Modes**: Public, private, secret channels, and various modes. ✅
 - **Channel Topics**: Managing and displaying channel topics. ✅
 - **Channel Lists**: Retrieving lists of available channels. ✅
 - **Nicknames**: Rules for nickname registration and uniqueness. ✴️
-- **User Modes**: Different modes for users like invisible, operator, etc. ✴️
+- **User Modes**: Different modes for users like invisible, operator, etc. ✅
 - **User Lists**: Obtaining lists of users in channels. ✅
 - **Bans and Kicks**: Rules for user removal from channels. ✅
-- **Privileges**: Granting operator and user privileges. ✴️
+- **Privileges**: Granting operator and user privileges. ✅
 - **CTCP (Client-to-Client Protocol)**: Custom commands and queries. ✅
 - **Idle Time Tracking**: Monitoring user activity and idle times. ✴️
 - **Connection Management**: Using PING/PONG for connection stability. ✅
 - **Error Handling**: How errors and exceptional conditions are managed. ✅
 - **Motd (Message of the Day)**: Customization of server-wide announcements and informational messages. ✴️
 - **Server Statistics**: Gathering and reporting network and server statistics. ✴️
-- **Oper Commands**: Special commands for server operators (IRCops). ✴️
+- **Oper Commands**: Special commands for server operators (IRCops). ✅
 - **TLS Protocol**: For secure, encrypted connections. ✅
 
 ### Server Commands (Client-to-Server)
@@ -59,7 +59,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **USER**: Specify username, hostname, servername, and real name. ✅
 - **JOIN**: Join a channel or create one if it doesn't exist. ✅
 - **PART**: Leave a channel. ✅
-- **MODE**: Set or unset user or channel modes. ✴️
+- **MODE**: Set or unset user or channel modes. ✅
 - **TOPIC**: Set or get the topic of a channel. ✅
 - **NAMES**: List all visible nicknames on a channel. ✅
 - **LIST**: List channels and their topics. ✅
@@ -111,9 +111,9 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 ### User Modes
 
 - **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
-- **+o (Operator)**: Provides elevated privileges for network management and oversight. ✴️
-- **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✴️
-- **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✴️
+- **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
+- **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
+- **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
 
 ### Channel Modes
 
@@ -121,11 +121,11 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
 - **+k (Key)**: Requires a password to join the channel. ✅
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
-- **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✴️
-- **+n (No External Messages)**: Prevents messages from users not in the channel. ✴️
+- **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
+- **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
 - **+o (Operator)**: Grants operator status to a user. ✅
-- **+p (Private)**: Hides the channel from the LIST command. ✴️
-- **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✴️
+- **+p (Private)**: Hides the channel from the LIST command. ✅
+- **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
 - **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
 - **+v (Voice)**: Grants voice status to a user. ✅
 

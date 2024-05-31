@@ -12,7 +12,9 @@ defmodule ElixIRCd.Command.Privmsg do
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserChannel
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok

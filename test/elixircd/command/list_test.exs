@@ -210,5 +210,39 @@ defmodule ElixIRCd.Command.ListTest do
         ])
       end)
     end
+
+    test "handles LIST command with private and secret channels and user not in any channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        insert(:channel, name: "#anything1", modes: ["p"])
+        insert(:channel, name: "#anything2", modes: ["s"])
+
+        message = %Message{command: "LIST", params: []}
+        List.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+        ])
+      end)
+    end
+
+    test "handles LIST command with private and secret channels and user is in the channels" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel1 = insert(:channel, name: "#anything1", modes: ["p"])
+        channel2 = insert(:channel, name: "#anything2", modes: ["s"])
+        insert(:user_channel, user: user, channel: channel1)
+        insert(:user_channel, user: user, channel: channel2)
+
+        message = %Message{command: "LIST", params: []}
+        List.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},
+          {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 1 :#{channel2.topic.text}\r\n"},
+          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+        ])
+      end)
+    end
   end
 end
