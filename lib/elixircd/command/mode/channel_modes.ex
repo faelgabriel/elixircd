@@ -30,6 +30,12 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   @type mode_change :: {:add, mode()} | {:remove, mode()}
 
   @doc """
+  Returns the supported modes.
+  """
+  @spec modes :: [String.t()]
+  def modes, do: @modes
+
+  @doc """
   Returns the string representation of the modes.
   """
   @spec display_modes([mode()]) :: String.t()

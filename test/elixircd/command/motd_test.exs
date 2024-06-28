@@ -23,7 +23,11 @@ defmodule ElixIRCd.Command.MotdTest do
       end)
     end
 
-    test "handles MOTD command" do
+    test "handles MOTD command without MOTD configuration" do
+      original_config = Application.get_env(:elixircd, :server)
+      Application.put_env(:elixircd, :server, original_config |> Keyword.delete(:motd))
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_config) end)
+
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "MOTD", params: []}
@@ -31,13 +35,30 @@ defmodule ElixIRCd.Command.MotdTest do
         Motd.handle(user, message)
 
         assert_sent_messages([
-          {user.socket,
-           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
-          {user.socket,
-           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version 0.1.0.\r\n"},
-          {user.socket, ":server.example.com 003 #{user.nick} :This server was created ...\r\n"},
-          {user.socket, ":server.example.com 004 #{user.nick} :ElixIRCd 0.1.0 +i +int\r\n"},
-          {user.socket, ":server.example.com 376 #{user.nick} :End of MOTD command\r\n"}
+          {user.socket, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
+          {user.socket, ":server.example.com 422 #{user.nick} :MOTD is missing\r\n"},
+          {user.socket, ":server.example.com 376 #{user.nick} :End of /MOTD command\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MOTD command with MOTD file" do
+      original_config = Application.get_env(:elixircd, :server)
+      Application.put_env(:elixircd, :server, original_config |> Keyword.put(:motd, "Welcome!\r\nMOTD\r\Message\r\n"))
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_config) end)
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "MOTD", params: []}
+
+        Motd.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
+          {user.socket, ":server.example.com 372 #{user.nick} :Welcome!\r\n"},
+          {user.socket, ":server.example.com 372 #{user.nick} :MOTD\r\n"},
+          {user.socket, ":server.example.com 372 #{user.nick} :Message\r\n"},
+          {user.socket, ":server.example.com 376 #{user.nick} :End of /MOTD command\r\n"}
         ])
       end)
     end

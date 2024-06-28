@@ -26,13 +26,13 @@ defmodule ElixIRCd.Command.Users do
       Message.build(%{
         prefix: :server,
         command: :rpl_localusers,
-        params: [user.nick, total_users, 1000],
+        params: [user.nick, to_string(total_users), "1000"],
         trailing: "Current local users #{total_users}, max 1000"
       }),
       Message.build(%{
         prefix: :server,
         command: :rpl_globalusers,
-        params: [user.nick, total_users, 1000],
+        params: [user.nick, to_string(total_users), "1000"],
         trailing: "Current global users #{total_users}, max 1000"
       })
     ]

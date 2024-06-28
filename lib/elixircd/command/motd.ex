@@ -26,31 +26,29 @@ defmodule ElixIRCd.Command.Motd do
   """
   @spec send_motd(User.t()) :: :ok
   def send_motd(user) do
-    server_name = Application.get_env(:elixircd, :server)[:name]
+    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
 
-    # Future: parameterize the version
-    [
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_welcome,
-        params: [user.nick],
-        trailing: "Welcome to the #{server_name} Internet Relay Chat Network #{user.nick}"
-      }),
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_yourhost,
-        params: [user.nick],
-        trailing: "Your host is #{server_name}, running version 0.1.0."
-      }),
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_created,
-        params: [user.nick],
-        trailing: "This server was created ..."
-      }),
-      Message.build(%{prefix: :server, command: :rpl_myinfo, params: [user.nick], trailing: "ElixIRCd 0.1.0 +i +int"}),
-      Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of MOTD command"})
-    ]
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_motdstart,
+      params: [user.nick],
+      trailing: "#{server_hostname} Message of the Day"
+    })
+    |> Messaging.broadcast(user)
+
+    Application.get_env(:elixircd, :server)[:motd]
+    |> case do
+      nil ->
+        Message.build(%{prefix: :server, command: :err_nomotd, params: [user.nick], trailing: "MOTD is missing"})
+
+      content ->
+        content
+        |> String.split(~r/\R/, trim: true)
+        |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_motd, params: [user.nick], trailing: &1}))
+    end
+    |> Messaging.broadcast(user)
+
+    Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of /MOTD command"})
     |> Messaging.broadcast(user)
   end
 end

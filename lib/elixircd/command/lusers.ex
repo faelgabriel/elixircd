@@ -20,6 +20,14 @@ defmodule ElixIRCd.Command.Lusers do
 
   @impl true
   def handle(user, %{command: "LUSERS"}) do
+    send_lusers(user)
+  end
+
+  @doc """
+  Sends the LUSERS information to the user.
+  """
+  @spec send_lusers(User.t()) :: :ok
+  def send_lusers(user) do
     %{visible: visible, invisible: invisible, operators: operators, unknown: unknown, total: total_users} =
       Users.count_all_states()
 
@@ -37,19 +45,19 @@ defmodule ElixIRCd.Command.Lusers do
       Message.build(%{
         prefix: :server,
         command: :rpl_luserop,
-        params: [user.nick, operators],
+        params: [user.nick, to_string(operators)],
         trailing: "operator(s) online"
       }),
       Message.build(%{
         prefix: :server,
         command: :rpl_luserunknown,
-        params: [user.nick, unknown],
+        params: [user.nick, to_string(unknown)],
         trailing: "unknown connection(s)"
       }),
       Message.build(%{
         prefix: :server,
         command: :rpl_luserchannels,
-        params: [user.nick, total_channels],
+        params: [user.nick, to_string(total_channels)],
         trailing: "channels formed"
       }),
       Message.build(%{
@@ -61,13 +69,13 @@ defmodule ElixIRCd.Command.Lusers do
       Message.build(%{
         prefix: :server,
         command: :rpl_localusers,
-        params: [user.nick, total_users, 1000],
+        params: [user.nick, to_string(total_users), "1000"],
         trailing: "Current local users #{total_users}, max 1000"
       }),
       Message.build(%{
         prefix: :server,
         command: :rpl_globalusers,
-        params: [user.nick, total_users, 1000],
+        params: [user.nick, to_string(total_users), "1000"],
         trailing: "Current global users #{total_users}, max 1000"
       })
     ]

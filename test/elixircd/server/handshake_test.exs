@@ -7,6 +7,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
   import ElixIRCd.Factory
   import Mimic
 
+  alias ElixIRCd.Command.Lusers
   alias ElixIRCd.Command.Motd
   alias ElixIRCd.Helper
   alias ElixIRCd.Server.Handshake
@@ -14,6 +15,13 @@ defmodule ElixIRCd.Server.HandshakeTest do
   alias ElixIRCd.Tables.User
 
   describe "handle/1" do
+    setup do
+      app_version = "ElixIRCd-#{Application.spec(:elixircd, :vsn)}"
+      server_start_date = Application.get_env(:elixircd, :server_start_time) |> Calendar.strftime("%Y-%m-%d")
+
+      {:ok, app_version: app_version, server_start_date: server_start_date}
+    end
+
     test "does nothing if the user is not ready for handshake" do
       user = insert(:user, nick: nil, registered: false, hostname: nil, username: nil, realname: nil)
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
@@ -24,7 +32,10 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert updated_user.registered_at == nil
     end
 
-    test "handles a user handshake successfully with found lookup hostname and got ident response" do
+    test "handles a user handshake successfully with found lookup hostname and got ident response", %{
+      app_version: app_version,
+      server_start_date: server_start_date
+    } do
       Helper
       |> expect(:get_socket_ip, 2, fn _socket -> {:ok, {127, 0, 0, 1}} end)
       |> expect(:get_socket_hostname, fn _ip -> {:ok, "localhost"} end)
@@ -32,6 +43,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       IdentClient
       |> expect(:query_userid, fn _ip, _server_port_query -> {:ok, "anyuserid"} end)
+
+      Lusers
+      |> expect(:send_lusers, fn _user -> :ok end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
@@ -44,7 +58,14 @@ defmodule ElixIRCd.Server.HandshakeTest do
           {user.socket, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
           {user.socket, ":server.example.com NOTICE * :*** Found your hostname\r\n"},
           {user.socket, ":server.example.com NOTICE * :*** Checking Ident\r\n"},
-          {user.socket, ":server.example.com NOTICE * :*** Got Ident response\r\n"}
+          {user.socket, ":server.example.com NOTICE * :*** Got Ident response\r\n"},
+          {user.socket,
+           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+          {user.socket,
+           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+          {user.socket, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+          {user.socket, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"}
+          # LUSERS messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
         ],
         validate_order?: false
@@ -57,7 +78,10 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert DateTime.diff(DateTime.utc_now(), updated_user.registered_at) < 1000
     end
 
-    test "handles a user handshake successfully with not found hostname lookup and not got ident response" do
+    test "handles a user handshake successfully with not found hostname lookup and not got ident response", %{
+      app_version: app_version,
+      server_start_date: server_start_date
+    } do
       Helper
       |> expect(:get_socket_ip, 2, fn _socket -> {:ok, {127, 0, 0, 1}} end)
       |> expect(:get_socket_hostname, fn _ip -> {:error, "anyerror"} end)
@@ -65,6 +89,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       IdentClient
       |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+
+      Lusers
+      |> expect(:send_lusers, fn _user -> :ok end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
@@ -77,7 +104,14 @@ defmodule ElixIRCd.Server.HandshakeTest do
           {user.socket, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
           {user.socket, ":server.example.com NOTICE * :*** Couldn't look up your hostname\r\n"},
           {user.socket, ":server.example.com NOTICE * :*** Checking Ident\r\n"},
-          {user.socket, ":server.example.com NOTICE * :*** No Ident response\r\n"}
+          {user.socket, ":server.example.com NOTICE * :*** No Ident response\r\n"},
+          {user.socket,
+           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+          {user.socket,
+           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+          {user.socket, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+          {user.socket, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"}
+          # LUSERS messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
         ],
         validate_order?: false
@@ -89,7 +123,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert updated_user.registered == true
     end
 
-    test "handles a user handshake successfully for an ipv6 socket connection with not found hostname lookup and no ident response" do
+    test "handles a user handshake successfully for an ipv6 socket connection with not found hostname lookup and no ident response",
+         %{app_version: app_version, server_start_date: server_start_date} do
       Helper
       |> expect(:get_socket_ip, 2, fn _socket -> {:ok, {0, 0, 0, 0, 0, 0, 0, 1}} end)
       |> expect(:get_socket_hostname, fn _ip -> {:error, "anyerror"} end)
@@ -97,6 +132,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       IdentClient
       |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+
+      Lusers
+      |> expect(:send_lusers, fn _user -> :ok end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
@@ -110,8 +148,15 @@ defmodule ElixIRCd.Server.HandshakeTest do
           {user.socket, ":server.example.com NOTICE * :*** Couldn't look up your hostname\r\n"},
           {user.socket, ":server.example.com NOTICE * :*** Checking Ident\r\n"},
           {user.socket, ":server.example.com NOTICE * :*** No Ident response\r\n"},
-          {user.socket, ":#{user.nick} MODE #{user.nick} :+Z\r\n"}
+          {user.socket,
+           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+          {user.socket,
+           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+          {user.socket, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+          {user.socket, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"},
+          # LUSERS messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
+          {user.socket, ":#{user.nick} MODE #{user.nick} :+Z\r\n"}
         ],
         validate_order?: false
       )
@@ -122,7 +167,10 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert updated_user.registered == true
     end
 
-    test "handles a user handshake successfully with ident protocol disabled" do
+    test "handles a user handshake successfully with ident protocol disabled", %{
+      app_version: app_version,
+      server_start_date: server_start_date
+    } do
       original_config = Application.get_env(:elixircd, :ident_service)
       Application.put_env(:elixircd, :ident_service, original_config |> Keyword.put(:enabled, false))
       on_exit(fn -> Application.put_env(:elixircd, :ident_service, original_config) end)
@@ -132,6 +180,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_hostname, fn _ip -> {:ok, "localhost"} end)
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
+      Lusers
+      |> expect(:send_lusers, fn _user -> :ok end)
+
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
@@ -140,7 +191,14 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert_sent_messages([
         {user.socket, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
-        {user.socket, ":server.example.com NOTICE * :*** Found your hostname\r\n"}
+        {user.socket, ":server.example.com NOTICE * :*** Found your hostname\r\n"},
+        {user.socket,
+         ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+        {user.socket,
+         ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+        {user.socket, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+        {user.socket, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"}
+        # LUSERS messages are mocked as we don't care about it here
         # MOTD messages are mocked as we don't care about it here
       ])
 
@@ -163,13 +221,16 @@ defmodule ElixIRCd.Server.HandshakeTest do
       IdentClient
       |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
 
+      Lusers
+      |> expect(:send_lusers, fn _user -> :ok end)
+
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
       user = insert(:user, registered: false, hostname: nil, password: "password")
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
-      assert_sent_messages_amount(user.socket, 4)
+      assert_sent_messages_amount(user.socket, 8)
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "localhost"

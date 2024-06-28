@@ -9,8 +9,6 @@ defmodule ElixIRCd.Command.Info do
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
-  # Future: parameterize versions
-  # Future: improve ASCII art
   @info """
      ____   __   _          ____   ___   _____     __
     / __/  / /  (_) __ __  /  _/  / _ \ / ___/ ___/ /
@@ -20,8 +18,8 @@ defmodule ElixIRCd.Command.Info do
        https://github.com/faelgabriel/elixircd
 
 
-  This is an ElixIRCd server running version 0.1.0.
-  It was compiled with Elixir 1.16.1 and Erlang/OTP 26.
+  This is an ElixIRCd server running version #{Application.spec(:elixircd, :vsn)}.
+  It was compiled with Elixir #{System.version()} and Erlang/OTP #{:erlang.system_info(:otp_release)}.
 
   ElixIRCd is released under the AGPL-3.0 license.
 
