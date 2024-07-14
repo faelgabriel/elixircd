@@ -13,9 +13,7 @@ defmodule ElixIRCd.Server.Supervisor do
   @spec start_link(keyword()) :: Supervisor.on_start()
   def start_link(_supervisor_opts) do
     Application.put_env(:elixircd, :server_start_time, DateTime.utc_now())
-
-    server_listeners = Application.get_env(:elixircd, :server)[:listeners]
-    Supervisor.start_link(__MODULE__, server_listeners, name: __MODULE__)
+    Supervisor.start_link(__MODULE__, Application.get_env(:elixircd, :listeners), name: __MODULE__)
   end
 
   @impl true
@@ -24,8 +22,12 @@ defmodule ElixIRCd.Server.Supervisor do
     |> Supervisor.init(strategy: :one_for_one)
   end
 
-  @spec create_child_spec({:ranch_tcp | :ranch_ssl, keyword()}) :: Supervisor.child_spec()
+  @spec create_child_spec({:tcp | :ssl, keyword()}) :: Supervisor.child_spec()
   defp create_child_spec({transport, server_opts} = listener_opts) do
-    :ranch.child_spec({__MODULE__, listener_opts}, transport, server_opts, ElixIRCd.Server, [])
+    :ranch.child_spec({__MODULE__, listener_opts}, convert_to_ranch(transport), server_opts, ElixIRCd.Server, [])
   end
+
+  @spec convert_to_ranch(:tcp | :ssl) :: :ranch_tcp | :ranch_ssl
+  defp convert_to_ranch(:tcp), do: :ranch_tcp
+  defp convert_to_ranch(:ssl), do: :ranch_ssl
 end

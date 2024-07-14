@@ -1,11 +1,11 @@
-# ---- Base Stage ----
-# This stage sets up the base environment for both development and production stages.
-FROM elixir:1.16.1-otp-26-alpine AS base
+# ---- Build Application Stage ----
+# This stage builds the application by compiling the source code and generating a release.
+FROM elixir:1.16.3-otp-26-alpine AS build
 
 ENV LANG=C.UTF-8
 
 RUN apk update && \
-    apk --no-cache add openssl make
+    apk --no-cache add build-base make
 
 RUN mix local.hex --force && \
     mix local.rebar --force
@@ -13,23 +13,6 @@ RUN mix local.hex --force && \
 WORKDIR /app
 
 COPY mix.exs mix.lock ./
-
-# ---- Development Stage ----
-# This stage installs and compiles dependencies for the development environment.
-FROM base AS development
-
-EXPOSE 6667 6668 6697 6698
-
-ENV MIX_ENV=dev
-
-RUN mix deps.get && \
-    mix deps.compile
-
-CMD ["/bin/sh"]
-
-# ---- Production Build Application Stage ----
-# This stage builds the production application by compiling the source code and generating a release.
-FROM base AS production-build
 
 ENV MIX_ENV=prod
 
@@ -41,16 +24,16 @@ COPY lib lib/
 
 RUN mix do compile, release
 
-# ---- Production Run Application Stage ----
-# This stage sets up the environment to run the built application in production with a minimal image size.
-FROM elixir:1.16.1-otp-26-alpine AS production
+# ---- Runtime Application Stage ----
+# This stage sets up the environment to run the built application with a minimal image size.
+FROM elixir:1.16.1-otp-26-alpine AS runtime
 
 EXPOSE 6667 6668 6697 6698
 
 WORKDIR /app
 RUN chown nobody /app
 
-COPY --from=production-build --chown=nobody:root /app/_build/prod/rel/elixircd /app
+COPY --from=build --chown=nobody:root /app/_build/prod/rel/elixircd /app
 
 USER nobody
 

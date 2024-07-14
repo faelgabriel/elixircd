@@ -154,6 +154,7 @@ defmodule ElixIRCd.Server do
 
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
   defp handle_quit(%{registered: true} = user, quit_message) do
+    # Future: Use a more efficient way to get all shared user channels
     all_channel_users =
       UserChannels.get_by_user_port(user.port)
       |> Enum.map(& &1.channel_name)

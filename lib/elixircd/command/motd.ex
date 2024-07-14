@@ -36,7 +36,7 @@ defmodule ElixIRCd.Command.Motd do
     })
     |> Messaging.broadcast(user)
 
-    Application.get_env(:elixircd, :server)[:motd]
+    config_motd_content()
     |> case do
       nil ->
         Message.build(%{prefix: :server, command: :err_nomotd, params: [user.nick], trailing: "MOTD is missing"})
@@ -50,5 +50,17 @@ defmodule ElixIRCd.Command.Motd do
 
     Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of /MOTD command"})
     |> Messaging.broadcast(user)
+  end
+
+  # the motd config supports a string or a File.read/1 result
+  @spec config_motd_content :: String.t() | nil
+  defp config_motd_content do
+    Application.get_env(:elixircd, :server)[:motd]
+    |> case do
+      content when is_binary(content) -> content
+      nil -> nil
+      {:ok, content} -> content
+      {:error, _error} -> nil
+    end
   end
 end

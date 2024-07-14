@@ -12,6 +12,7 @@ defmodule ElixIRCd.MixProject do
       aliases: aliases(),
       dialyzer: dialyzer(),
       elixirc_paths: elixirc_paths(Mix.env()),
+      compilers: [:yecc] ++ Mix.compilers(),
 
       # Coveralls
       preferred_cli_env: [
@@ -33,7 +34,7 @@ defmodule ElixIRCd.MixProject do
   def application do
     [
       mod: {ElixIRCd, []},
-      extra_applications: [:logger, :memento]
+      extra_applications: [:logger, :memento, :mix]
     ]
   end
 

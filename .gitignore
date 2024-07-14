@@ -23,14 +23,14 @@ elixircd-*.tar
 /tmp/
 
 # Certs
-/priv/ssl/
+/priv/cert/
 
 # Dialyzer
 /priv/plts/*.plt
 /priv/plts/*.plt.hash
 
-# Mnesia
-/priv/mnesia.*/
+# Mnesia database
+/priv/mnesia.*
 
 # ElixirLS
 /.elixir_ls/

@@ -9,7 +9,7 @@
 
 ## Introduction
 
-ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust, scalable, and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM to deliver an efficient and reliable platform for IRC operations.
+ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust, and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM to deliver an efficient and reliable platform for IRC operations.
 
 ## Status
 
@@ -38,18 +38,18 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **Channel Types and Modes**: Public, private, secret channels, and various modes. ✅
 - **Channel Topics**: Managing and displaying channel topics. ✅
 - **Channel Lists**: Retrieving lists of available channels. ✅
-- **Nicknames**: Rules for nickname registration and uniqueness. ✴️
+- **Nicknames**: Rules for nickname registration and uniqueness. ✅
 - **User Modes**: Different modes for users like invisible, operator, etc. ✅
 - **User Lists**: Obtaining lists of users in channels. ✅
 - **Bans and Kicks**: Rules for user removal from channels. ✅
 - **Privileges**: Granting operator and user privileges. ✅
 - **CTCP (Client-to-Client Protocol)**: Custom commands and queries. ✅
-- **Idle Time Tracking**: Monitoring user activity and idle times. ✴️
+- **Idle Time Tracking**: Monitoring user activity and idle times. ✅
 - **Connection Management**: Using PING/PONG for connection stability. ✅
 - **Error Handling**: How errors and exceptional conditions are managed. ✅
-- **Motd (Message of the Day)**: Customization of server-wide announcements and informational messages. ✴️
-- **Server Statistics**: Gathering and reporting network and server statistics. ✴️
-- **Oper Commands**: Special commands for server operators (IRCops). ✅
+- **Motd (Message of the Day)**: Customization of server-wide announcements and informational messages. ✅
+- **Server Statistics**: Gathering and reporting network and server statistics. ✅
+- **Oper Commands**: Special commands for server (IRCops). ✅
 - **TLS Protocol**: For secure, encrypted connections. ✅
 
 ### Server Commands (Client-to-Server)
@@ -67,7 +67,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **KICK**: Eject a user from a channel. ✅
 - **PRIVMSG**: Send private messages between users or to a channel. ✅
 - **NOTICE**: Send a message to a user or channel without automatic reply. ✅
-- **MOTD**: Request the Message of the Day from the server. ✴️
+- **MOTD**: Request the Message of the Day from the server. ✅
 - **WHOIS**: Get information about a user. ✅
 - **WHO**: Get information about users on a server. ✅
 - **WHOWAS**: Get information about a user who has left. ✅
@@ -178,37 +178,17 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 To run ElixIRCd server, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the server container by running:
 
 ```bash
-docker build --target production --tag elixircd:production .
-docker run -p 6667:6667 -p 6697:6697 --name elixircd -d elixircd:production
+docker build --target runtime --tag elixircd:beta .
+docker run -p 6667:6667 -p 6697:6697 -p 6668:6668 -p 6698:6698 --name elixircd -d elixircd:beta
 ```
-
-> Once the ElixiRCd has a stable release, we will provide the Docker image on Docker Hub.
-
-### SSL
-
-To run the server using SSL, you'll need to have a valid certificate and private key files. By default, the server expects the following files:
-
-```
-Private key: priv/ssl/key.pem
-Certificate: priv/ssl/cert.crt
-```
-
-To customize, see the `ssl_keyfile` and `ssl_certfile` configurations.
 
 ## Development
 
-### Environment
+ElixIRCd is written in Elixir, so you'll need to have Elixir and Erlang installed on your machine.
 
-To set up the development environment, you need to have [Docker](https://docker.com/) or [asdf](https://asdf-vm.com/) installed.
+We recommend using [asdf](https://asdf-vm.com/) to easily install and manage the required Elixir and Erlang versions. Once you have asdf installed, you can easily install the required Elixir and Erlang versions by running:
 
-#### Docker
-
-```bash
-docker build --target development --tag elixircd:development .
-docker run -it -p 6667:6667 -v $(pwd):/app -v deps:/app/deps -v build:/app/_build --name elixircd_dev -d elixircd:development
-```
-
-#### asdf
+### asdf
 
 ```bash
 asdf plugin-add erlang
@@ -216,22 +196,12 @@ asdf plugin-add elixir
 asdf install
 ```
 
-### SSL
+## Usage
 
-For development, you can create a self-signed certificate:
-
-```
-mkdir -p priv/ssl/
-openssl req -x509 -newkey rsa:4096 -keyout priv/ssl/key.pem -out priv/ssl/cert.crt -days 365 -nodes -subj "/CN=localhost"
-```
-
-### Usage
-
-To install dependencies and set up the database, run the following commands:
+To install dependencies, run the following commands:
 
 ```bash
 mix deps.get
-mix db.setup
 ```
 
 To start the ElixIRCd server in interactive mode, run the following command:

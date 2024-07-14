@@ -55,11 +55,6 @@ jobs:
           path: |
             priv/plts
 
-      - name: Generate self-signed SSL certificate
-        run: |
-          mkdir -p priv/ssl/
-          openssl req -x509 -newkey rsa:4096 -keyout priv/ssl/key.pem -out priv/ssl/cert.crt -days 365 -nodes -subj "/CN=localhost"
-
       - name: Install dependencies
         run: mix deps.get
 
@@ -128,11 +123,6 @@ jobs:
           key: ${{ runner.os }}-mix-build-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
             ${{ runner.os }}-mix-build-
-
-      - name: Generate self-signed SSL certificate
-        run: |
-          mkdir -p priv/ssl/
-          openssl req -x509 -newkey rsa:4096 -keyout priv/ssl/key.pem -out priv/ssl/cert.crt -days 365 -nodes -subj "/CN=localhost"
 
       - name: Install dependencies
         run: mix deps.get
