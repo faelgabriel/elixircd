@@ -179,7 +179,14 @@ To run ElixIRCd server, you'll need to have [Docker](https://docker.com/) instal
 
 ```bash
 docker build --target runtime --tag elixircd:beta .
-docker run -p 6667:6667 -p 6697:6697 -p 6668:6668 -p 6698:6698 --name elixircd -d elixircd:beta
+
+docker run --name elixircd \
+           -p 6667:6667 \
+           -p 6697:6697 \
+           -p 6668:6668 \
+           -p 6698:6698 \
+           -v $(pwd)/priv:/app/priv \
+           -d elixircd:beta
 ```
 
 ## Development

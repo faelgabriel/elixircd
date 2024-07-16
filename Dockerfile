@@ -35,6 +35,8 @@ RUN chown nobody /app
 
 COPY --from=build --chown=nobody:root /app/_build/prod/rel/elixircd /app
 
+VOLUME /app/priv/
+
 USER nobody
 
 CMD ["./bin/elixircd", "start"]
