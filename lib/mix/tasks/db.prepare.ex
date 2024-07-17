@@ -5,6 +5,8 @@ defmodule Mix.Tasks.Db.Prepare do
 
   use Mix.Task
 
+  require Logger
+
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelInvite
@@ -27,6 +29,19 @@ defmodule Mix.Tasks.Db.Prepare do
   @spec run(list) :: :ok
   def run(args) do
     opts = parse_opts(args)
+
+    # changes the log level temporarily to avoid unnecessary info log from Mnesia application stop
+    original_level = Logger.level()
+    Logger.configure(level: :warning)
+
+    try do
+      # Setting up disk persistence in Mnesia has always been a bit weird. It involves stopping the application,
+      # creating schemas on disk, restarting the application and then creating the tables with certain options.
+      Memento.stop()
+      |> verbose_info("Mnesia stop", opts)
+    after
+      Logger.configure(level: original_level)
+    end
 
     if opts[:recreate] do
       Memento.Schema.delete([node()])
