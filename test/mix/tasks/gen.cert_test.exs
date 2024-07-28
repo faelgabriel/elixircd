@@ -1,4 +1,3 @@
-
 # It includes code from the Phoenix Framework, which is licensed under the MIT License.
 # The original file can be found at:
 # https://github.com/phoenixframework/phoenix/blob/main/lib/mix/tasks/phx.gen.cert.ex

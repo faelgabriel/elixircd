@@ -11,46 +11,28 @@
 
 ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust, and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM to deliver an efficient and reliable platform for IRC operations.
 
-## Status
+## Installation
 
-ElixIRCd is currently under active development. The project is being developed in the open, and we welcome contributions from the community.
+To run ElixIRCd server, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the server container by running:
 
-The project is currently in the early stages of development, and many features are not yet implemented. We are working to implement the core features of the IRC protocol and will continue to add support for modern IRCv3 features.
+```bash
+docker build --target runtime --tag elixircd:beta .
+docker run --name elixircd -p 6667:6667 -p 6697:6697 -p 6668:6668 -p 6698:6698 -v $(pwd)/priv:/app/priv -d elixircd:beta
+```
 
-## Contributing
+## Configuration
 
-Contributions to ElixIRCd are welcome! If you have an issue or feature request, please open an issue on the issue tracker. Additionally, feel free to pick up any open issues that haven't been assigned yet. We warmly welcome your pull requests.
+The server configuration is stored in the `config/runtime.exs` file. You can customize the server configuration by editing this file. The default configuration is as follows:
 
-Please see the [contributing guidelines](https://github.com/faelgabriel/elixircd/blob/main/CONTRIBUTING.md) for details on how to contribute to this project.
+```elixir
+
+```
 
 ## Features
 
 These features are based on traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol. Key RFCs include [RFC 1459](https://datatracker.ietf.org/doc/html/rfc1459) (Internet Relay Chat Protocol), [RFC 2810](https://datatracker.ietf.org/doc/html/rfc2810) (IRC: Architecture), [RFC 2811](https://datatracker.ietf.org/doc/html/rfc2811) (IRC: Channel Management), [RFC 2812](https://datatracker.ietf.org/doc/html/rfc2812) (IRC: Client Protocol), [RFC 2813](https://datatracker.ietf.org/doc/html/rfc2813) (IRC: Server Protocol), and [RFC 7194](https://datatracker.ietf.org/doc/html/rfc7194) (Default Port for IRC via TLS/SSL).
 
 > ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
-
-### Protocol Mechanics
-
-- **Message Formatting**: Standard IRC message format. ✅
-- **Message Handling**: Routing and delivery of messages. ✅
-- **Message Types**: Different types of messages, e.g., PRIVMSG, NOTICE. ✅
-- **Channel Control**: Creating, joining, and leaving channels. ✅
-- **Channel Types and Modes**: Public, private, secret channels, and various modes. ✅
-- **Channel Topics**: Managing and displaying channel topics. ✅
-- **Channel Lists**: Retrieving lists of available channels. ✅
-- **Nicknames**: Rules for nickname registration and uniqueness. ✅
-- **User Modes**: Different modes for users like invisible, operator, etc. ✅
-- **User Lists**: Obtaining lists of users in channels. ✅
-- **Bans and Kicks**: Rules for user removal from channels. ✅
-- **Privileges**: Granting operator and user privileges. ✅
-- **CTCP (Client-to-Client Protocol)**: Custom commands and queries. ✅
-- **Idle Time Tracking**: Monitoring user activity and idle times. ✅
-- **Connection Management**: Using PING/PONG for connection stability. ✅
-- **Error Handling**: How errors and exceptional conditions are managed. ✅
-- **Motd (Message of the Day)**: Customization of server-wide announcements and informational messages. ✅
-- **Server Statistics**: Gathering and reporting network and server statistics. ✅
-- **Oper Commands**: Special commands for server (IRCops). ✅
-- **TLS Protocol**: For secure, encrypted connections. ✅
 
 ### Server Commands (Client-to-Server)
 
@@ -129,7 +111,7 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 - **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
 - **+v (Voice)**: Grants voice status to a user. ✅
 
-## IRCv3 Features
+## IRCv3 Features / Capabilities
 
 These features are based on the IRCv3 specifications, providing modern capabilities. More information at [ircv3.net](https://ircv3.net/).
 
@@ -173,23 +155,7 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
 - **WHO**: Extended to allow clients to request additional information. ❌
 
-## Installation
-
-To run ElixIRCd server, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the server container by running:
-
-```bash
-docker build --target runtime --tag elixircd:beta .
-
-docker run --name elixircd \
-           -p 6667:6667 \
-           -p 6697:6697 \
-           -p 6668:6668 \
-           -p 6698:6698 \
-           -v $(pwd)/priv:/app/priv \
-           -d elixircd:beta
-```
-
-## Development
+## Developer
 
 ElixIRCd is written in Elixir, so you'll need to have Elixir and Erlang installed on your machine.
 
@@ -203,19 +169,11 @@ asdf plugin-add elixir
 asdf install
 ```
 
-## Usage
+## Contributing
 
-To install dependencies, run the following commands:
+Contributions to ElixIRCd are welcome! If you have an issue or feature request, please open an issue on the issue tracker. Additionally, feel free to pick up any open issues that haven't been assigned yet. We warmly welcome your pull requests.
 
-```bash
-mix deps.get
-```
-
-To start the ElixIRCd server in interactive mode, run the following command:
-
-```bash
-iex -S mix
-```
+Please see the [contributing guidelines](https://github.com/faelgabriel/elixircd/blob/main/CONTRIBUTING.md) for details on how to contribute to this project.
 
 ## License
 
