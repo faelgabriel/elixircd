@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Privmsg do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
@@ -60,7 +60,7 @@ defmodule ElixIRCd.Command.Privmsg do
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_port == user.port))
 
-      Message.build(%{prefix: build_user_mask(user), command: "PRIVMSG", params: [channel.name], trailing: message_text})
+      Message.build(%{prefix: get_user_mask(user), command: "PRIVMSG", params: [channel.name], trailing: message_text})
       |> Messaging.broadcast(channel_users_without_user)
     else
       {:error, :channel_not_found} ->
@@ -87,7 +87,7 @@ defmodule ElixIRCd.Command.Privmsg do
     case Users.get_by_nick(target_nick) do
       {:ok, target_user} ->
         Message.build(%{
-          prefix: build_user_mask(user),
+          prefix: get_user_mask(user),
           command: "PRIVMSG",
           params: [target_nick],
           trailing: message_text

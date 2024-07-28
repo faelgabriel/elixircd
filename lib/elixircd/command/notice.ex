@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Notice do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_name?: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, channel_name?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.Notice do
         |> Enum.reject(&(&1.user_port == user.port))
 
       Message.build(%{
-        prefix: build_user_mask(user),
+        prefix: get_user_mask(user),
         command: "NOTICE",
         params: [channel.name],
         trailing: message
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Command.Notice do
     case Users.get_by_nick(receiver_nick) do
       {:ok, receiver_user} ->
         Message.build(%{
-          prefix: build_user_mask(user),
+          prefix: get_user_mask(user),
           command: "NOTICE",
           params: [receiver_nick],
           trailing: message

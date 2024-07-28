@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.PartTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Command.Part
   alias ElixIRCd.Message
@@ -79,8 +79,8 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} PART #{channel.name}\r\n"},
-          {another_user.socket, ":#{build_user_mask(user)} PART #{channel.name}\r\n"}
+          {user.socket, ":#{get_user_mask(user)} PART #{channel.name}\r\n"},
+          {another_user.socket, ":#{get_user_mask(user)} PART #{channel.name}\r\n"}
         ])
       end)
     end

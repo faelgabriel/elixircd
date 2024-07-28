@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Kill do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
@@ -53,7 +53,7 @@ defmodule ElixIRCd.Command.Kill do
       prefix: :server,
       command: "ERROR",
       params: [],
-      trailing: "Closing Link: #{build_user_mask(target_user)} (#{killed_message})"
+      trailing: "Closing Link: #{get_user_mask(target_user)} (#{killed_message})"
     })
     |> Messaging.broadcast(target_user)
   end

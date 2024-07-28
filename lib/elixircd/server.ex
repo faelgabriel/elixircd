@@ -7,7 +7,7 @@ defmodule ElixIRCd.Server do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, get_socket_port: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, get_socket_port: 1]
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
@@ -176,7 +176,7 @@ defmodule ElixIRCd.Server do
       userid: user.userid
     })
 
-    Message.build(%{prefix: build_user_mask(user), command: "QUIT", params: [], trailing: quit_message})
+    Message.build(%{prefix: get_user_mask(user), command: "QUIT", params: [], trailing: quit_message})
     |> Messaging.broadcast(all_channel_users)
   end
 

@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Topic do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
@@ -85,7 +85,7 @@ defmodule ElixIRCd.Command.Topic do
   defp normalize_topic(new_topic_text, user) do
     %Channel.Topic{
       text: new_topic_text,
-      setter: build_user_mask(user),
+      setter: get_user_mask(user),
       set_at: DateTime.utc_now()
     }
   end
@@ -127,7 +127,7 @@ defmodule ElixIRCd.Command.Topic do
       end
 
     Message.build(%{
-      prefix: build_user_mask(user),
+      prefix: get_user_mask(user),
       command: "TOPIC",
       params: [channel.name],
       trailing: topic_text

@@ -248,27 +248,27 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
-  describe "build_user_mask/1" do
+  describe "get_user_mask/1" do
     test "builds user mask with userid" do
       user = build(:user, nick: "nick", userid: "userid", username: "noused", hostname: "host", registered: true)
-      assert "nick!userid@host" == Helper.build_user_mask(user)
+      assert "nick!userid@host" == Helper.get_user_mask(user)
     end
 
     test "builds user mask with username" do
       user = build(:user, nick: "nick", userid: nil, username: "username", hostname: "host", registered: true)
-      assert "nick!~username@host" == Helper.build_user_mask(user)
+      assert "nick!~username@host" == Helper.get_user_mask(user)
     end
 
     test "builds a user mask and truncates userid" do
       user =
         build(:user, nick: "nick", userid: "useriduseriduserid", username: "noused", hostname: "host", registered: true)
 
-      assert "nick!useriduser@host" == Helper.build_user_mask(user)
+      assert "nick!useriduser@host" == Helper.get_user_mask(user)
     end
 
     test "builds a user mask and truncates username" do
       user = build(:user, nick: "nick", userid: nil, username: "usernameusername", hostname: "host", registered: true)
-      assert "nick!~usernameu@host" == Helper.build_user_mask(user)
+      assert "nick!~usernameu@host" == Helper.get_user_mask(user)
     end
   end
 

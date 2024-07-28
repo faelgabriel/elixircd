@@ -7,7 +7,7 @@ defmodule ElixIRCd.Command.Part do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
@@ -50,7 +50,7 @@ defmodule ElixIRCd.Command.Part do
       # Future: Delete channel if the channel is not registered and has no users
 
       Message.build(%{
-        prefix: build_user_mask(user),
+        prefix: get_user_mask(user),
         command: "PART",
         params: [channel.name],
         trailing: part_message

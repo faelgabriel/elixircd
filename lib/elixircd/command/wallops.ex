@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Wallops do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
@@ -43,7 +43,7 @@ defmodule ElixIRCd.Command.Wallops do
     target_users = Users.get_by_mode("w")
 
     Message.build(%{
-      prefix: build_user_mask(user),
+      prefix: get_user_mask(user),
       command: "WALLOPS",
       params: [],
       trailing: message

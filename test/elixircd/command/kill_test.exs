@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.KillTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Command.Kill
   alias ElixIRCd.Message
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.KillTest do
 
         assert_sent_messages([
           {target_user.socket,
-           ":server.example.com ERROR :Closing Link: #{build_user_mask(target_user)} (#{expected_killed_message})\r\n"}
+           ":server.example.com ERROR :Closing Link: #{get_user_mask(target_user)} (#{expected_killed_message})\r\n"}
         ])
 
         assert_received {:disconnect, ^expected_target_user_socket, ^expected_killed_message}
@@ -96,7 +96,7 @@ defmodule ElixIRCd.Command.KillTest do
 
         assert_sent_messages([
           {target_user.socket,
-           ":server.example.com ERROR :Closing Link: #{build_user_mask(target_user)} (#{expected_killed_message})\r\n"}
+           ":server.example.com ERROR :Closing Link: #{get_user_mask(target_user)} (#{expected_killed_message})\r\n"}
         ])
 
         assert_received {:disconnect, ^expected_target_user_socket, ^expected_killed_message}

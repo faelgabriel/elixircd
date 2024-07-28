@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Trace do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, format_ip_address: 1, get_socket_ip: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, format_ip_address: 1, get_socket_ip: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.Trace do
 
   @spec send_trace(User.t(), User.t(), tuple()) :: :ok
   defp send_trace(user, target_user, ip_address) do
-    mask = build_user_mask(target_user)
+    mask = get_user_mask(target_user)
     formatted_ip_address = format_ip_address(ip_address)
     idle_seconds = (:erlang.system_time(:second) - target_user.last_activity) |> to_string()
     signon_seconds = DateTime.diff(DateTime.utc_now(), target_user.registered_at, :second) |> to_string()

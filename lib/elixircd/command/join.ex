@@ -7,7 +7,7 @@ defmodule ElixIRCd.Command.Join do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_name?: 1, channel_operator?: 1, user_mask_match?: 2]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, channel_name?: 1, channel_operator?: 1, user_mask_match?: 2]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
@@ -90,12 +90,13 @@ defmodule ElixIRCd.Command.Join do
   defp determine_user_channel_modes(:created), do: ["o"]
   defp determine_user_channel_modes(:existing), do: []
 
+  # Future: needs to send user operator/voicer symbols
   @spec send_join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
   defp send_join_channel(user, channel, user_channel) do
     user_channels = UserChannels.get_by_channel_name(channel.name)
 
     Message.build(%{
-      prefix: build_user_mask(user),
+      prefix: get_user_mask(user),
       command: "JOIN",
       params: [channel.name]
     })

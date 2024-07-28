@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Invite do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelInvites
@@ -84,7 +84,7 @@ defmodule ElixIRCd.Command.Invite do
   @spec maybe_add_channel_invite(User.t(), User.t(), Channel.t()) :: :ok
   defp maybe_add_channel_invite(user, target_user, channel) do
     if "i" in channel.modes do
-      ChannelInvites.create(%{user_port: target_user.port, channel_name: channel.name, setter: build_user_mask(user)})
+      ChannelInvites.create(%{user_port: target_user.port, channel_name: channel.name, setter: get_user_mask(user)})
     end
 
     :ok
@@ -101,7 +101,7 @@ defmodule ElixIRCd.Command.Invite do
     |> Messaging.broadcast(user)
 
     Message.build(%{
-      prefix: build_user_mask(user),
+      prefix: get_user_mask(user),
       command: "INVITE",
       params: [target_user.nick, channel.name]
     })

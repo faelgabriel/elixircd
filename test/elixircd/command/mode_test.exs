@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.ModeTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Command.Mode
   alias ElixIRCd.Message
@@ -82,7 +82,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +tnl 10\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} +tnl 10\r\n"}
         ])
       end)
     end
@@ -97,7 +97,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +ts\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} +ts\r\n"}
         ])
       end)
     end
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -ts\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} -ts\r\n"}
         ])
       end)
     end
@@ -127,7 +127,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +tlk 20 password\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} +tlk 20 password\r\n"}
         ])
       end)
     end
@@ -142,7 +142,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -lk\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} -lk\r\n"}
         ])
       end)
     end
@@ -157,7 +157,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -tlk\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} -tlk\r\n"}
         ])
       end)
     end
@@ -176,7 +176,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         mode_change_message =
-          ":#{build_user_mask(user)} MODE #{channel.name} +ov #{user_operator.nick} #{user_voice.nick}\r\n"
+          ":#{get_user_mask(user)} MODE #{channel.name} +ov #{user_operator.nick} #{user_voice.nick}\r\n"
 
         assert_sent_messages([
           {user.socket, mode_change_message},
@@ -200,7 +200,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         mode_change_message =
-          ":#{build_user_mask(user)} MODE #{channel.name} -ov #{user_operator.nick} #{user_voice.nick}\r\n"
+          ":#{get_user_mask(user)} MODE #{channel.name} -ov #{user_operator.nick} #{user_voice.nick}\r\n"
 
         assert_sent_messages([
           {user.socket, mode_change_message},
@@ -252,7 +252,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +b nick!user@host\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} +b nick!user@host\r\n"}
         ])
       end)
     end
@@ -268,7 +268,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -b nick!user@host\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{channel.name} -b nick!user@host\r\n"}
         ])
       end)
     end
@@ -398,7 +398,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{user.nick} +iw\r\n"}
+          {user.socket, ":#{get_user_mask(user)} MODE #{user.nick} +iw\r\n"}
         ])
       end)
     end
@@ -411,7 +411,7 @@ defmodule ElixIRCd.Command.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} MODE #{user.nick} +iw\r\n"},
+          {user.socket, ":#{get_user_mask(user)} MODE #{user.nick} +iw\r\n"},
           {user.socket, ":server.example.com 472 #{user.nick} y :is unknown mode char to me\r\n"},
           {user.socket, ":server.example.com 472 #{user.nick} z :is unknown mode char to me\r\n"}
         ])

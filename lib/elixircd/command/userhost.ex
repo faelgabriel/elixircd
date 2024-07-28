@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Userhost do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, get_user_reply: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, get_user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
@@ -49,7 +49,7 @@ defmodule ElixIRCd.Command.Userhost do
   @spec fetch_userhost_info(String.t()) :: String.t() | nil
   defp fetch_userhost_info(nick) do
     case Users.get_by_nick(nick) do
-      {:ok, user} -> "#{user.nick}=#{build_user_mask(user)}"
+      {:ok, user} -> "#{user.nick}=#{get_user_mask(user)}"
       {:error, _} -> nil
     end
   end

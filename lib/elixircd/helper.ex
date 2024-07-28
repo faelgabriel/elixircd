@@ -52,7 +52,7 @@ defmodule ElixIRCd.Helper do
     |> String.replace("!", "\\!")
     |> String.replace("*", ".*")
     |> Regex.compile!()
-    |> Regex.match?(build_user_mask(user))
+    |> Regex.match?(get_user_mask(user))
   end
 
   @doc """
@@ -140,15 +140,15 @@ defmodule ElixIRCd.Helper do
   def get_socket_port({:sslsocket, {:gen_tcp, socket, :tls_connection, _}, _}), do: socket
 
   @doc """
-  Builds the user mask.
+  Gets the user mask.
   """
-  @spec build_user_mask(User.t()) :: String.t()
-  def build_user_mask(%{registered: true} = user)
+  @spec get_user_mask(User.t()) :: String.t()
+  def get_user_mask(%{registered: true} = user)
       when user.nick != nil and user.userid != nil and user.hostname != nil do
     "#{user.nick}!#{String.slice(user.userid, 0..9)}@#{user.hostname}"
   end
 
-  def build_user_mask(%{registered: true} = user)
+  def get_user_mask(%{registered: true} = user)
       when user.nick != nil and user.username != nil and user.hostname != nil do
     "#{user.nick}!~#{String.slice(user.username, 0..8)}@#{user.hostname}"
   end

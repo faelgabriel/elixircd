@@ -7,7 +7,7 @@ defmodule ElixIRCd.Command.Nick do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, get_user_reply: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, get_user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.UserChannels
@@ -71,7 +71,7 @@ defmodule ElixIRCd.Command.Nick do
   end
 
   defp change_nick(user, nick) do
-    old_user_mask = build_user_mask(user)
+    old_user_mask = get_user_mask(user)
     updated_user = Users.update(user, %{nick: nick})
 
     all_channel_users =

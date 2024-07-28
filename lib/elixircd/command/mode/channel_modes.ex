@@ -3,7 +3,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   This module includes the channel modes handler.
   """
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, normalize_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, normalize_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
@@ -327,7 +327,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
 
   @spec channel_ban_mode_changed?(User.t(), mode_change(), ChannelBan.t(), String.t()) :: boolean()
   defp channel_ban_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name) do
-    ChannelBans.create(%{channel_name: channel_name, mask: mode_value, setter: build_user_mask(user)})
+    ChannelBans.create(%{channel_name: channel_name, mask: mode_value, setter: get_user_mask(user)})
     true
   end
 

@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Mode do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, channel_operator?: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, channel_operator?: 1]
 
   alias ElixIRCd.Command.Mode.ChannelModes
   alias ElixIRCd.Command.Mode.UserModes
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.Mode do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
       Message.build(%{
-        prefix: build_user_mask(user),
+        prefix: get_user_mask(user),
         command: "MODE",
         params: [channel.name, ChannelModes.display_modes(channel.modes)]
       })
@@ -90,7 +90,7 @@ defmodule ElixIRCd.Command.Mode do
           channel_users = UserChannels.get_by_channel_name(updated_channel.name)
 
           Message.build(%{
-            prefix: build_user_mask(user),
+            prefix: get_user_mask(user),
             command: "MODE",
             params: [updated_channel.name, ChannelModes.display_mode_changes(applied_changes)]
           })
@@ -200,7 +200,7 @@ defmodule ElixIRCd.Command.Mode do
 
     if length(applied_changes) > 0 do
       Message.build(%{
-        prefix: build_user_mask(user),
+        prefix: get_user_mask(user),
         command: "MODE",
         params: [updated_user.nick, UserModes.display_mode_changes(applied_changes)]
       })

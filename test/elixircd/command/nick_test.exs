@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.NickTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
   import Mimic
 
   alias ElixIRCd.Command.Nick
@@ -81,7 +81,7 @@ defmodule ElixIRCd.Command.NickTest do
 
         assert :ok = Nick.handle(user, message)
 
-        assert_sent_messages([{user.socket, ":#{build_user_mask(user)} NICK #{nick}\r\n"}])
+        assert_sent_messages([{user.socket, ":#{get_user_mask(user)} NICK #{nick}\r\n"}])
       end)
     end
 
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Command.NickTest do
 
         assert :ok = Nick.handle(user, message)
 
-        assert_sent_messages([{user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"}])
+        assert_sent_messages([{user.socket, ":#{get_user_mask(user)} NICK new_nick\r\n"}])
       end)
     end
 
@@ -123,8 +123,8 @@ defmodule ElixIRCd.Command.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"},
-          {another_user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"}
+          {user.socket, ":#{get_user_mask(user)} NICK new_nick\r\n"},
+          {another_user.socket, ":#{get_user_mask(user)} NICK new_nick\r\n"}
         ])
       end)
     end

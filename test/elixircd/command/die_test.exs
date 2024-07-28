@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.DieTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
   import Mimic
 
   alias ElixIRCd.Command.Die
@@ -50,8 +50,7 @@ defmodule ElixIRCd.Command.DieTest do
 
         assert_sent_messages([
           {user.socket, ":server.example.com NOTICE * :Server is shutting down\r\n"},
-          {user.socket,
-           ":server.example.com ERROR :Closing Link: #{build_user_mask(user)} (Server is shutting down)\r\n"}
+          {user.socket, ":server.example.com ERROR :Closing Link: #{get_user_mask(user)} (Server is shutting down)\r\n"}
         ])
       end)
     end
@@ -69,7 +68,7 @@ defmodule ElixIRCd.Command.DieTest do
         assert_sent_messages([
           {user.socket, ":server.example.com NOTICE * :Server is shutting down: Shutting down reason\r\n"},
           {user.socket,
-           ":server.example.com ERROR :Closing Link: #{build_user_mask(user)} (Server is shutting down: Shutting down reason)\r\n"}
+           ":server.example.com ERROR :Closing Link: #{get_user_mask(user)} (Server is shutting down: Shutting down reason)\r\n"}
         ])
       end)
     end

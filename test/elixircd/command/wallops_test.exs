@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.WallopsTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Command.Wallops
   alias ElixIRCd.Message
@@ -59,7 +59,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
-          {target_user.socket, ":#{build_user_mask(user)} WALLOPS :Wallops message\r\n"}
+          {target_user.socket, ":#{get_user_mask(user)} WALLOPS :Wallops message\r\n"}
         ])
       end)
     end

@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.InviteTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [build_user_mask: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Command.Invite
   alias ElixIRCd.Message
@@ -129,7 +129,7 @@ defmodule ElixIRCd.Command.InviteTest do
 
         assert_sent_messages([
           {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.socket, ":#{build_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {target_user.socket, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
     end
@@ -146,7 +146,7 @@ defmodule ElixIRCd.Command.InviteTest do
 
         assert_sent_messages([
           {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.socket, ":#{build_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {target_user.socket, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
 
         assert ChannelInvites.get_by_user_port_and_channel_name(target_user.port, channel.name) != nil

@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Die do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [build_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
@@ -62,7 +62,7 @@ defmodule ElixIRCd.Command.Die do
       prefix: :server,
       command: "ERROR",
       params: [],
-      trailing: "Closing Link: #{build_user_mask(user)} (#{message})"
+      trailing: "Closing Link: #{get_user_mask(user)} (#{message})"
     })
     |> Messaging.broadcast(user)
   end
