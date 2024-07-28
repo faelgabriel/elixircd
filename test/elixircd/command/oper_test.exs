@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.OperTest do
         user = insert(:user, registered: false)
         message = %Message{command: "OPER", params: ["#anything"]}
 
-        Oper.handle(user, message)
+        assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,10 +28,10 @@ defmodule ElixIRCd.Command.OperTest do
         user = insert(:user)
 
         message = %Message{command: "OPER", params: []}
-        Oper.handle(user, message)
+        assert :ok = Oper.handle(user, message)
 
         message = %Message{command: "OPER", params: ["only_username"]}
-        Oper.handle(user, message)
+        assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} OPER :Not enough parameters\r\n"},
@@ -45,7 +45,7 @@ defmodule ElixIRCd.Command.OperTest do
         user = insert(:user)
 
         message = %Message{command: "OPER", params: ["admin", "admin"]}
-        Oper.handle(user, message)
+        assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 381 #{user.nick} :You are now an IRC operator\r\n"}
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.OperTest do
         user = insert(:user)
 
         message = %Message{command: "OPER", params: ["admin", "invalid"]}
-        Oper.handle(user, message)
+        assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 464 #{user.nick} :Password incorrect\r\n"}

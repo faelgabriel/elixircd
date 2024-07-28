@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.DieTest do
         user = insert(:user, registered: false)
         message = %Message{command: "DIE", params: ["#anything"]}
 
-        Die.handle(user, message)
+        assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -30,7 +30,7 @@ defmodule ElixIRCd.Command.DieTest do
         user = insert(:user)
         message = %Message{command: "DIE", params: []}
 
-        Die.handle(user, message)
+        assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
@@ -46,7 +46,7 @@ defmodule ElixIRCd.Command.DieTest do
         user = insert(:user, modes: ["o"])
         message = %Message{command: "DIE", params: []}
 
-        Die.handle(user, message)
+        assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com NOTICE * :Server is shutting down\r\n"},
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Command.DieTest do
         user = insert(:user, modes: ["o"])
         message = %Message{command: "DIE", params: ["#reason"], trailing: "Shutting down reason"}
 
-        Die.handle(user, message)
+        assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com NOTICE * :Server is shutting down: Shutting down reason\r\n"},

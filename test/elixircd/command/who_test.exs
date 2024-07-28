@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.WhoTest do
         user = insert(:user, registered: false)
         message = %Message{command: "WHO", params: ["#anything"]}
 
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.WhoTest do
         user = insert(:user)
         message = %Message{command: "WHO", params: []}
 
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} WHO :Not enough parameters\r\n"}
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Command.WhoTest do
         user = insert(:user)
         message = %Message{command: "WHO", params: ["#anything"]}
 
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 315 #{user.nick} #anything :End of WHO list\r\n"}
@@ -65,7 +65,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user4, modes: ["v"])
 
         message = %Message{command: "WHO", params: [channel.name]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -101,7 +101,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user4, modes: ["v"])
 
         message = %Message{command: "WHO", params: [channel.name]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -130,7 +130,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user2)
 
         message = %Message{command: "WHO", params: [channel.name]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -158,7 +158,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user2)
 
         message = %Message{command: "WHO", params: [channel.name]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [{user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}],
@@ -187,7 +187,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user4, modes: ["v"])
 
         message = %Message{command: "WHO", params: ["anick*"]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -223,7 +223,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user4, modes: ["v"])
 
         message = %Message{command: "WHO", params: ["anick*"]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -254,7 +254,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user2)
 
         message = %Message{command: "WHO", params: ["anick*"]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -281,7 +281,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user1, modes: ["o"])
 
         message = %Message{command: "WHO", params: ["anick*"]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -303,7 +303,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user1, modes: ["o"])
 
         message = %Message{command: "WHO", params: ["anick*"]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [
@@ -325,7 +325,7 @@ defmodule ElixIRCd.Command.WhoTest do
         insert(:user_channel, channel: channel, user: another_user1, modes: ["o"])
 
         message = %Message{command: "WHO", params: ["anick*"]}
-        Who.handle(user, message)
+        assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
           [

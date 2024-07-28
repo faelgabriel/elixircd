@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.ListTest do
         user = insert(:user, registered: false)
         message = %Message{command: "LIST", params: ["#anything"]}
 
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -30,7 +30,7 @@ defmodule ElixIRCd.Command.ListTest do
         channel2 = insert(:channel, name: "#anything2")
 
         message = %Message{command: "LIST", params: []}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
@@ -47,7 +47,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:channel, name: "#anything2")
 
         message = %Message{command: "LIST", params: ["#anything1,*any*"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #anything1 0 :#{channel1.topic.text}\r\n"},
@@ -63,7 +63,7 @@ defmodule ElixIRCd.Command.ListTest do
         channel2 = insert(:channel, name: "#anything2")
 
         message = %Message{command: "LIST", params: ["#anything1,#anything2"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #anything1 0 :#{channel1.topic.text}\r\n"},
@@ -88,7 +88,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:user_channel, channel: channel3)
 
         message = %Message{command: "LIST", params: [">0,<3"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},
@@ -105,7 +105,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:channel, name: "#anything2", created_at: DateTime.add(DateTime.utc_now(), -20, :minute))
 
         message = %Message{command: "LIST", params: ["C>15"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
@@ -121,7 +121,7 @@ defmodule ElixIRCd.Command.ListTest do
         channel2 = insert(:channel, name: "#anything2", created_at: DateTime.add(DateTime.utc_now(), -20, :minute))
 
         message = %Message{command: "LIST", params: ["C<15"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
@@ -139,7 +139,7 @@ defmodule ElixIRCd.Command.ListTest do
         channel2 = insert(:channel, name: "#anything2", topic: topic2)
 
         message = %Message{command: "LIST", params: ["T>15"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
@@ -157,7 +157,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:channel, name: "#anything2", topic: topic2)
 
         message = %Message{command: "LIST", params: ["T<15"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
@@ -173,7 +173,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:channel, name: "#anything2")
 
         message = %Message{command: "LIST", params: ["*any*,!*ing2*"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
@@ -189,7 +189,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:channel, name: "#anything2")
 
         message = %Message{command: "LIST", params: ["anything1"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
@@ -203,7 +203,7 @@ defmodule ElixIRCd.Command.ListTest do
         user = insert(:user)
 
         message = %Message{command: "LIST", params: ["T<AA"]}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
@@ -218,7 +218,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:channel, name: "#anything2", modes: ["s"])
 
         message = %Message{command: "LIST", params: []}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
@@ -235,7 +235,7 @@ defmodule ElixIRCd.Command.ListTest do
         insert(:user_channel, user: user, channel: channel2)
 
         message = %Message{command: "LIST", params: []}
-        List.handle(user, message)
+        assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},

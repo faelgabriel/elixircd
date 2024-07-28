@@ -62,16 +62,17 @@ defmodule ElixIRCd.CommandTest do
         |> expect(:handle, fn input_user, input_message ->
           assert input_user == user
           assert input_message == message
+          :ok
         end)
 
-        Command.handle(user, message)
+        assert :ok = Command.handle(user, message)
       end
     end
 
     test "handles unknown command", %{user: user} do
       message = %Message{command: "UNKNOWN", params: []}
 
-      Command.handle(user, message)
+      assert :ok = Command.handle(user, message)
 
       assert_sent_messages([
         {user.socket, ":server.example.com 421 #{user.nick} #{message.command} :Unknown command\r\n"}

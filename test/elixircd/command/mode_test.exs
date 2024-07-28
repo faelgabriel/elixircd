@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.ModeTest do
         user = insert(:user, registered: false)
         message = %Message{command: "MODE", params: ["#anything"]}
 
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.ModeTest do
         user = insert(:user)
         message = %Message{command: "MODE", params: []}
 
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} MODE :Not enough parameters\r\n"}
@@ -42,10 +42,10 @@ defmodule ElixIRCd.Command.ModeTest do
         user = insert(:user)
 
         message = %Message{command: "MODE", params: ["#channel"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         message = %Message{command: "MODE", params: ["#channel", "+t"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 403 #{user.nick} #channel :No such channel\r\n"},
@@ -60,10 +60,10 @@ defmodule ElixIRCd.Command.ModeTest do
         channel = insert(:channel)
 
         message = %Message{command: "MODE", params: [channel.name]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         message = %Message{command: "MODE", params: [channel.name, "+t"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"},
@@ -79,7 +79,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +tnl 10\r\n"}
@@ -94,7 +94,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+t+s"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +ts\r\n"}
@@ -109,7 +109,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-t-s"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -ts\r\n"}
@@ -124,7 +124,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+t+l+k", "20", "password"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +tlk 20 password\r\n"}
@@ -139,7 +139,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-l-k"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -lk\r\n"}
@@ -154,7 +154,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-t-l-k"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -tlk\r\n"}
@@ -173,7 +173,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user_voice, channel: channel, modes: [])
 
         message = %Message{command: "MODE", params: [channel.name, "+ov", user_operator.nick, user_voice.nick]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         mode_change_message =
           ":#{build_user_mask(user)} MODE #{channel.name} +ov #{user_operator.nick} #{user_voice.nick}\r\n"
@@ -197,7 +197,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user_voice, channel: channel, modes: ["v"])
 
         message = %Message{command: "MODE", params: [channel.name, "-ov", user_operator.nick, user_voice.nick]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         mode_change_message =
           ":#{build_user_mask(user)} MODE #{channel.name} -ov #{user_operator.nick} #{user_voice.nick}\r\n"
@@ -218,7 +218,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+o", user_operator.nick]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -234,7 +234,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+o", "nonexistent"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 401 #{user.nick} #{channel.name} nonexistent :No such nick\r\n"}
@@ -249,7 +249,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+b", "nick!user@host"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} +b nick!user@host\r\n"}
@@ -265,7 +265,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:channel_ban, channel: channel, mask: "nick!user@host")
 
         message = %Message{command: "MODE", params: [channel.name, "-b", "nick!user@host"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{channel.name} -b nick!user@host\r\n"}
@@ -280,7 +280,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "-b", "inexistent!@mask"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([])
       end)
@@ -294,7 +294,7 @@ defmodule ElixIRCd.Command.ModeTest do
         channel_ban = insert(:channel_ban, channel: channel, mask: "nick!user@host")
 
         message = %Message{command: "MODE", params: [channel.name, "+b"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -311,7 +311,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+wz"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 472 #{user.nick} w :is unknown mode char to me\r\n"},
@@ -327,7 +327,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+t"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([])
       end)
@@ -340,7 +340,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "MODE", params: [channel.name, "+l"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} MODE :Not enough parameters\r\n"}
@@ -355,7 +355,7 @@ defmodule ElixIRCd.Command.ModeTest do
         insert(:user_channel, user: user, channel: channel)
 
         message = %Message{command: "MODE", params: [channel.name, "+t"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 482 #{user.nick} #{channel.name} :You're not a channel operator\r\n"}
@@ -370,7 +370,7 @@ defmodule ElixIRCd.Command.ModeTest do
         user = insert(:user, modes: ["i", "w", "o", "Z"])
 
         message = %Message{command: "MODE", params: [user.nick]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 221 #{user.nick} +iwoZ\r\n"}
@@ -384,7 +384,7 @@ defmodule ElixIRCd.Command.ModeTest do
         another_user = insert(:user, modes: ["i", "w", "o", "Z"])
 
         message = %Message{command: "MODE", params: [another_user.nick]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         # Future
       end)
@@ -395,7 +395,7 @@ defmodule ElixIRCd.Command.ModeTest do
         user = insert(:user, modes: [])
 
         message = %Message{command: "MODE", params: [user.nick, "+iw"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{user.nick} +iw\r\n"}
@@ -408,7 +408,7 @@ defmodule ElixIRCd.Command.ModeTest do
         user = insert(:user, modes: [])
 
         message = %Message{command: "MODE", params: [user.nick, "+iywz"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} MODE #{user.nick} +iw\r\n"},
@@ -424,7 +424,7 @@ defmodule ElixIRCd.Command.ModeTest do
         another_user = insert(:user)
 
         message = %Message{command: "MODE", params: [another_user.nick, "+i"]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 502 #{user.nick} :Cannot change mode for other users\r\n"}
@@ -438,7 +438,7 @@ defmodule ElixIRCd.Command.ModeTest do
         another_user = insert(:user)
 
         message = %Message{command: "MODE", params: [another_user.nick]}
-        Mode.handle(user, message)
+        assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 502 #{user.nick} :Cannot change mode for other users\r\n"}

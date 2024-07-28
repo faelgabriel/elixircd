@@ -30,18 +30,7 @@ defmodule Mix.Tasks.Db.Prepare do
   def run(args) do
     opts = parse_opts(args)
 
-    # changes the log level temporarily to avoid unnecessary info log from Mnesia application stop
-    original_level = Logger.level()
-    Logger.configure(level: :warning)
-
-    try do
-      # Setting up disk persistence in Mnesia has always been a bit weird. It involves stopping the application,
-      # creating schemas on disk, restarting the application and then creating the tables with certain options.
-      Memento.stop()
-      |> verbose_info("Mnesia stop", opts)
-    after
-      Logger.configure(level: original_level)
-    end
+    stop_mnesia(opts)
 
     if opts[:recreate] do
       Memento.Schema.delete([node()])
@@ -60,7 +49,6 @@ defmodule Mix.Tasks.Db.Prepare do
     |> verbose_info("Mnesia start", opts)
     |> case do
       :ok -> :ok
-      {:error, {:already_started, _}} -> :ok
       {:error, error} -> Mix.raise("Failed to start Mnesia. Error:\n#{inspect(error, pretty: true)}")
     end
 
@@ -76,6 +64,22 @@ defmodule Mix.Tasks.Db.Prepare do
     end
 
     shell_info("Mnesia database prepared successfully.", opts)
+  end
+
+  @spec stop_mnesia(keyword()) :: :ok
+  defp stop_mnesia(opts) do
+    # changes the log level temporarily to avoid unnecessary info log from Mnesia application stop
+    original_level = Logger.level()
+    Logger.configure(level: :warning)
+
+    try do
+      # Setting up disk persistence in Mnesia has always been a bit weird. It involves stopping the application,
+      # creating schemas on disk, restarting the application and then creating the tables with certain options.
+      Memento.stop()
+      |> verbose_info("Mnesia stop", opts)
+    after
+      Logger.configure(level: original_level)
+    end
   end
 
   @spec handle_table_create(atom) :: :ok

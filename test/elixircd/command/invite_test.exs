@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.InviteTest do
         user = insert(:user, registered: false)
         message = %Message{command: "INVITE", params: ["#anything"]}
 
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -30,10 +30,10 @@ defmodule ElixIRCd.Command.InviteTest do
         user = insert(:user)
 
         message = %Message{command: "INVITE", params: []}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         message = %Message{command: "INVITE", params: ["#only_channel_name"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} INVITE :Not enough parameters\r\n"},
@@ -47,7 +47,7 @@ defmodule ElixIRCd.Command.InviteTest do
         user = insert(:user)
 
         message = %Message{command: "INVITE", params: ["target", "#channel"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 401 #{user.nick} target :No such nick/channel\r\n"}
@@ -61,7 +61,7 @@ defmodule ElixIRCd.Command.InviteTest do
         insert(:user, nick: "target")
 
         message = %Message{command: "INVITE", params: ["target", "#nonexistent"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 403 #{user.nick} #nonexistent :No such channel\r\n"}
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.InviteTest do
         insert(:channel, name: "#channel")
 
         message = %Message{command: "INVITE", params: ["target", "#channel"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 442 #{user.nick} #channel :You're not on that channel\r\n"}
@@ -92,7 +92,7 @@ defmodule ElixIRCd.Command.InviteTest do
         insert(:user, nick: "target")
 
         message = %Message{command: "INVITE", params: ["target", "#channel"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 482 #{user.nick} #channel :You're not channel operator\r\n"}
@@ -109,7 +109,7 @@ defmodule ElixIRCd.Command.InviteTest do
         insert(:user_channel, user: user_target, channel: channel)
 
         message = %Message{command: "INVITE", params: ["target", "#channel"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 443 #{user.nick} target #channel :is already on channel\r\n"}
@@ -125,7 +125,7 @@ defmodule ElixIRCd.Command.InviteTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
@@ -142,7 +142,7 @@ defmodule ElixIRCd.Command.InviteTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
-        Invite.handle(user, message)
+        assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},

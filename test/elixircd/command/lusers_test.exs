@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.LusersTest do
         user = insert(:user, registered: false)
         message = %Message{command: "LUSERS", params: ["#anything"]}
 
-        Lusers.handle(user, message)
+        assert :ok = Lusers.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -33,7 +33,7 @@ defmodule ElixIRCd.Command.LusersTest do
         user = insert(:user)
         message = %Message{command: "LUSERS", params: []}
 
-        Lusers.handle(user, message)
+        assert :ok = Lusers.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 251 #{user.nick} :There are 3 users and 1 invisible on 1 server\r\n"},

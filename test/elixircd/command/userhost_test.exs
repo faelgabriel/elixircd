@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.UserhostTest do
         user = insert(:user, registered: false)
         message = %Message{command: "USERHOST", params: ["#anything"]}
 
-        Userhost.handle(user, message)
+        assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.UserhostTest do
         user = insert(:user)
         message = %Message{command: "USERHOST", params: []}
 
-        Userhost.handle(user, message)
+        assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} USERHOST :Not enough parameters\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.UserhostTest do
         user = insert(:user)
         message = %Message{command: "USERHOST", params: ["invalid.nick"]}
 
-        Userhost.handle(user, message)
+        assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([{user.socket, ":server.example.com 302 #{user.nick} :\r\n"}])
       end)
@@ -54,7 +54,7 @@ defmodule ElixIRCd.Command.UserhostTest do
         target_user = insert(:user, nick: "target_nick")
         message = %Message{command: "USERHOST", params: ["target_nick"]}
 
-        Userhost.handle(user, message)
+        assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 302 #{user.nick} :#{target_user.nick}=#{build_user_mask(target_user)}\r\n"}
@@ -69,7 +69,7 @@ defmodule ElixIRCd.Command.UserhostTest do
         target_user2 = insert(:user, nick: "target_nick2")
         message = %Message{command: "USERHOST", params: ["target_nick", "invalid.nick", "target_nick2"]}
 
-        Userhost.handle(user, message)
+        assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
           {user.socket,

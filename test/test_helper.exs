@@ -48,6 +48,7 @@ Mimic.copy(Memento.Schema)
 Mimic.copy(Memento.Table)
 Mimic.copy(System)
 
-Mix.Tasks.Db.Prepare.run(["--quiet"])
+# Clean up database
+Mix.Tasks.Db.Prepare.run(["--recreate", "--quiet"])
 
 ExUnit.start()

@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.RestartTest do
         user = insert(:user, registered: false)
         message = %Message{command: "RESTART", params: ["#anything"]}
 
-        Restart.handle(user, message)
+        assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.RestartTest do
         user = insert(:user)
         message = %Message{command: "RESTART", params: []}
 
-        Restart.handle(user, message)
+        assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.RestartTest do
         user = insert(:user, modes: ["o"])
         message = %Message{command: "RESTART", params: []}
 
-        Restart.handle(user, message)
+        assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com NOTICE * :Server is restarting\r\n"},
@@ -56,7 +56,7 @@ defmodule ElixIRCd.Command.RestartTest do
         user = insert(:user, modes: ["o"])
         message = %Message{command: "RESTART", params: ["#reason"], trailing: "Restarting reason"}
 
-        Restart.handle(user, message)
+        assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com NOTICE * :Server is restarting: Restarting reason\r\n"},

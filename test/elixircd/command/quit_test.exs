@@ -13,7 +13,7 @@ defmodule ElixIRCd.Command.QuitTest do
       user = insert(:user)
       message = %Message{command: "QUIT", params: [], trailing: "Bye!"}
 
-      assert {:quit, "Bye!"} == Quit.handle(user, message)
+      assert {:quit, "Bye!"} = Quit.handle(user, message)
     end
   end
 end

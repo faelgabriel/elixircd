@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.WhowasTest do
         user = insert(:user, registered: false)
         message = %Message{command: "WHOWAS", params: ["#anything"]}
 
-        Whowas.handle(user, message)
+        assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.WhowasTest do
         user = insert(:user)
         message = %Message{command: "WHOWAS", params: []}
 
-        Whowas.handle(user, message)
+        assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} WHOWAS :Not enough parameters\r\n"}
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Command.WhowasTest do
         user = insert(:user)
         message = %Message{command: "WHOWAS", params: ["inexistent"]}
 
-        Whowas.handle(user, message)
+        assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 406 #{user.nick} inexistent :There was no such nickname\r\n"},
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Command.WhowasTest do
         user = insert(:user)
         message = %Message{command: "WHOWAS", params: ["nick"]}
 
-        Whowas.handle(user, message)
+        assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -80,7 +80,7 @@ defmodule ElixIRCd.Command.WhowasTest do
         user = insert(:user)
         message = %Message{command: "WHOWAS", params: ["nick", "1"]}
 
-        Whowas.handle(user, message)
+        assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -98,7 +98,7 @@ defmodule ElixIRCd.Command.WhowasTest do
         user = insert(:user)
         message = %Message{command: "WHOWAS", params: ["nick", "invalid"]}
 
-        Whowas.handle(user, message)
+        assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
           {user.socket,

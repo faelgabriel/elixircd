@@ -17,13 +17,13 @@ defmodule ElixIRCd.Command.UserTest do
         user = insert(:user, registered: false)
 
         message = %Message{command: "USER", params: []}
-        User.handle(user, message)
+        assert :ok = User.handle(user, message)
 
         message = %Message{command: "USER", params: ["username"]}
-        User.handle(user, message)
+        assert :ok = User.handle(user, message)
 
         message = %Message{command: "USER", params: ["username", "0"]}
-        User.handle(user, message)
+        assert :ok = User.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 * USER :Not enough parameters\r\n"},
@@ -38,10 +38,10 @@ defmodule ElixIRCd.Command.UserTest do
         user = insert(:user)
 
         message = %Message{command: "USER", params: [], trailing: nil}
-        User.handle(user, message)
+        assert :ok = User.handle(user, message)
 
         message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
-        User.handle(user, message)
+        assert :ok = User.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"},
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.UserTest do
         user = insert(:user, registered: false)
         message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
 
-        User.handle(user, message)
+        assert :ok = User.handle(user, message)
 
         assert_sent_messages([])
       end)

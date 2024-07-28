@@ -263,8 +263,5 @@ defmodule Mix.Tasks.Gen.Cert do
     File.mkdir_p!(Path.dirname(path))
     File.write!(path, contents)
     true
-  rescue
-    error ->
-      Mix.raise("Could not write to file #{path}: #{inspect(error)}")
   end
 end

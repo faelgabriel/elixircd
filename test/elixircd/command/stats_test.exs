@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.StatsTest do
         user = insert(:user, registered: false)
         message = %Message{command: "STATS", params: ["#anything"]}
 
-        Stats.handle(user, message)
+        assert :ok = Stats.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.StatsTest do
         user = insert(:user)
         message = %Message{command: "STATS", params: []}
 
-        Stats.handle(user, message)
+        assert :ok = Stats.handle(user, message)
 
         assert_sent_messages_amount(user.socket, 4)
       end)
@@ -43,7 +43,7 @@ defmodule ElixIRCd.Command.StatsTest do
         user = insert(:user)
         message = %Message{command: "STATS", params: ["u"]}
 
-        Stats.handle(user, message)
+        assert :ok = Stats.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 242 #{user.nick} :Server Up 11 days, 13:46:09\r\n"},
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Command.StatsTest do
         user = insert(:user)
         message = %Message{command: "STATS", params: ["&"]}
 
-        Stats.handle(user, message)
+        assert :ok = Stats.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 219 #{user.nick} & :End of /STATS report\r\n"}

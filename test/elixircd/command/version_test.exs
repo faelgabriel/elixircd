@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.VersionTest do
         user = insert(:user, registered: false)
         message = %Message{command: "VERSION", params: ["#anything"]}
 
-        Version.handle(user, message)
+        assert :ok = Version.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.VersionTest do
         user = insert(:user)
         message = %Message{command: "VERSION", params: []}
 
-        Version.handle(user, message)
+        assert :ok = Version.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 351 #{user.nick} ElixIRCd-1.0.0 server.example.com\r\n"}

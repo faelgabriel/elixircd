@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.MotdTest do
         user = insert(:user, registered: false)
         message = %Message{command: "MOTD", params: ["#anything"]}
 
-        Motd.handle(user, message)
+        assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.MotdTest do
         user = insert(:user)
         message = %Message{command: "MOTD", params: []}
 
-        Motd.handle(user, message)
+        assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Command.MotdTest do
         user = insert(:user)
         message = %Message{command: "MOTD", params: []}
 
-        Motd.handle(user, message)
+        assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
@@ -71,7 +71,7 @@ defmodule ElixIRCd.Command.MotdTest do
         user = insert(:user)
         message = %Message{command: "MOTD", params: []}
 
-        Motd.handle(user, message)
+        assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
@@ -91,7 +91,7 @@ defmodule ElixIRCd.Command.MotdTest do
         user = insert(:user)
         message = %Message{command: "MOTD", params: []}
 
-        Motd.handle(user, message)
+        assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},

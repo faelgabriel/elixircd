@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.AwayTest do
         user = insert(:user, registered: false)
         message = %Message{command: "AWAY", params: ["#anything"]}
 
-        Away.handle(user, message)
+        assert :ok = Away.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.AwayTest do
         user = insert(:user, away_message: "I'm away")
         message = %Message{command: "AWAY", params: []}
 
-        Away.handle(user, message)
+        assert :ok = Away.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 305 #{user.nick} :You are no longer marked as being away\r\n"}
@@ -45,7 +45,7 @@ defmodule ElixIRCd.Command.AwayTest do
         user = insert(:user)
         message = %Message{command: "AWAY", params: [], trailing: "I'm away"}
 
-        Away.handle(user, message)
+        assert :ok = Away.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 306 #{user.nick} :You have been marked as being away\r\n"}

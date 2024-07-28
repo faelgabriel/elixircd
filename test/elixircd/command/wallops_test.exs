@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         user = insert(:user, registered: false)
         message = %Message{command: "WALLOPS", params: ["#anything"]}
 
-        Wallops.handle(user, message)
+        assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         user = insert(:user)
         message = %Message{command: "WALLOPS", params: []}
 
-        Wallops.handle(user, message)
+        assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} WALLOPS :Not enough parameters\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         user = insert(:user)
         message = %Message{command: "WALLOPS", params: [], trailing: "message"}
 
-        Wallops.handle(user, message)
+        assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
@@ -56,7 +56,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         target_user = insert(:user, modes: ["w"])
         message = %Message{command: "WALLOPS", params: [], trailing: "Wallops message"}
 
-        Wallops.handle(user, message)
+        assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
           {target_user.socket, ":#{build_user_mask(user)} WALLOPS :Wallops message\r\n"}

@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.PassTest do
         user = insert(:user, registered: true)
         message = %Message{command: "PASS", params: ["password"]}
 
-        Pass.handle(user, message)
+        assert :ok = Pass.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.PassTest do
         user = insert(:user, registered: false)
         message = %Message{command: "PASS", params: []}
 
-        Pass.handle(user, message)
+        assert :ok = Pass.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 * PASS :Not enough parameters\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.PassTest do
         user = insert(:user, registered: false)
         message = %Message{command: "PASS", params: ["password"]}
 
-        Pass.handle(user, message)
+        assert :ok = Pass.handle(user, message)
 
         assert_sent_messages([])
 

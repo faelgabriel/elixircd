@@ -104,6 +104,8 @@ defmodule ElixIRCd.Command.Privmsg do
           |> Messaging.broadcast(user)
         end
 
+        :ok
+
       {:error, _} ->
         Message.build(%{
           prefix: :server,

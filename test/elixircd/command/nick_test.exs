@@ -18,7 +18,7 @@ defmodule ElixIRCd.Command.NickTest do
         user = insert(:user)
         message = %Message{command: "NICK", params: []}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
@@ -33,7 +33,7 @@ defmodule ElixIRCd.Command.NickTest do
         user = insert(:user, registered: false)
         message = %Message{command: "NICK", params: [nick]}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
@@ -48,7 +48,7 @@ defmodule ElixIRCd.Command.NickTest do
         user = insert(:user, registered: false)
         message = %Message{command: "NICK", params: [nick]}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Command.NickTest do
         user = insert(:user)
         message = %Message{command: "NICK", params: [nick]}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
@@ -79,7 +79,7 @@ defmodule ElixIRCd.Command.NickTest do
         user = insert(:user)
         message = %Message{command: "NICK", params: [nick]}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([{user.socket, ":#{build_user_mask(user)} NICK #{nick}\r\n"}])
       end)
@@ -93,7 +93,7 @@ defmodule ElixIRCd.Command.NickTest do
         user = insert(:user, registered: false)
         message = %Message{command: "NICK", params: ["new_nick"]}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([])
       end)
@@ -104,7 +104,7 @@ defmodule ElixIRCd.Command.NickTest do
         user = insert(:user)
         message = %Message{command: "NICK", params: [], trailing: "new_nick"}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([{user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"}])
       end)
@@ -120,7 +120,7 @@ defmodule ElixIRCd.Command.NickTest do
 
         message = %Message{command: "NICK", params: ["new_nick"]}
 
-        Nick.handle(user, message)
+        assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} NICK new_nick\r\n"},

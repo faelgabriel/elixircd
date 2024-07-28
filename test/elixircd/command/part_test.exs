@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.PartTest do
         user = insert(:user, registered: false)
         message = %Message{command: "PART", params: ["#anything"]}
 
-        Part.handle(user, message)
+        assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.PartTest do
         user = insert(:user)
         message = %Message{command: "PART", params: []}
 
-        Part.handle(user, message)
+        assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} PART :Not enough parameters\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.PartTest do
         user = insert(:user)
         message = %Message{command: "PART", params: ["#new_channel"]}
 
-        Part.handle(user, message)
+        assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Command.PartTest do
 
         message = %Message{command: "PART", params: [channel.name]}
 
-        Part.handle(user, message)
+        assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.PartTest do
 
         message = %Message{command: "PART", params: [channel.name]}
 
-        Part.handle(user, message)
+        assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} PART #{channel.name}\r\n"},

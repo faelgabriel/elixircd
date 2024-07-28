@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.TimeTest do
         user = insert(:user, registered: false)
         message = %Message{command: "TIME", params: ["#anything"]}
 
-        Time.handle(user, message)
+        assert :ok = Time.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.TimeTest do
         user = insert(:user)
         message = %Message{command: "TIME", params: []}
 
-        Time.handle(user, message)
+        assert :ok = Time.handle(user, message)
 
         assert_sent_messages([
           {user.socket,

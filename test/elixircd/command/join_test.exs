@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.JoinTest do
         user = insert(:user, registered: false)
         message = %Message{command: "JOIN", params: ["#anything"]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.JoinTest do
         user = insert(:user)
         message = %Message{command: "JOIN", params: []}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} JOIN :Not enough parameters\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.JoinTest do
         user = insert(:user)
         message = %Message{command: "JOIN", params: ["#invalid.channel.name"]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -56,7 +56,7 @@ defmodule ElixIRCd.Command.JoinTest do
         user = insert(:user)
         message = %Message{command: "JOIN", params: ["#new_channel"]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} JOIN #new_channel\r\n"},
@@ -74,7 +74,7 @@ defmodule ElixIRCd.Command.JoinTest do
         channel = insert(:channel, modes: [{"k", "password"}])
         message = %Message{command: "JOIN", params: [channel.name]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
@@ -88,7 +88,7 @@ defmodule ElixIRCd.Command.JoinTest do
         channel = insert(:channel, modes: [{"k", "password"}])
         message = %Message{command: "JOIN", params: [channel.name, "wrong_password"]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
@@ -103,7 +103,7 @@ defmodule ElixIRCd.Command.JoinTest do
         insert(:user_channel, channel: channel)
         message = %Message{command: "JOIN", params: [channel.name]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -119,7 +119,7 @@ defmodule ElixIRCd.Command.JoinTest do
         insert(:channel_ban, channel: channel, mask: "#{user.nick}!*@*")
         message = %Message{command: "JOIN", params: [channel.name]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -134,7 +134,7 @@ defmodule ElixIRCd.Command.JoinTest do
         channel = insert(:channel, modes: ["i"])
         message = %Message{command: "JOIN", params: [channel.name]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -150,7 +150,7 @@ defmodule ElixIRCd.Command.JoinTest do
         insert(:channel_invite, channel: channel, user: user)
         message = %Message{command: "JOIN", params: [channel.name, "password"]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} JOIN #{channel.name}\r\n"},
@@ -170,7 +170,7 @@ defmodule ElixIRCd.Command.JoinTest do
         user = insert(:user)
         message = %Message{command: "JOIN", params: [channel.name]}
 
-        Join.handle(user, message)
+        assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} JOIN #{channel.name}\r\n"},

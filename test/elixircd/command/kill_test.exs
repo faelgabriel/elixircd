@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.KillTest do
         user = insert(:user, registered: false)
         message = %Message{command: "KILL", params: ["#anything"]}
 
-        Kill.handle(user, message)
+        assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.KillTest do
         user = insert(:user)
         message = %Message{command: "KILL", params: []}
 
-        Kill.handle(user, message)
+        assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} KILL :Not enough parameters\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.KillTest do
         user = insert(:user)
         message = %Message{command: "KILL", params: ["target"], trailing: "reason"}
 
-        Kill.handle(user, message)
+        assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
@@ -55,7 +55,7 @@ defmodule ElixIRCd.Command.KillTest do
         user = insert(:user, modes: ["o"])
         message = %Message{command: "KILL", params: ["target"], trailing: "reason"}
 
-        Kill.handle(user, message)
+        assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
@@ -69,7 +69,7 @@ defmodule ElixIRCd.Command.KillTest do
         target_user = insert(:user)
         message = %Message{command: "KILL", params: [target_user.nick], trailing: "Kill reason"}
 
-        Kill.handle(user, message)
+        assert :ok = Kill.handle(user, message)
 
         expected_killed_message = "Killed (#{user.nick} (Kill reason))"
         expected_target_user_socket = target_user.socket
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Command.KillTest do
         target_user = insert(:user)
         message = %Message{command: "KILL", params: [target_user.nick]}
 
-        Kill.handle(user, message)
+        assert :ok = Kill.handle(user, message)
 
         expected_killed_message = "Killed (#{user.nick})"
         expected_target_user_socket = target_user.socket

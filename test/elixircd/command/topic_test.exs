@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.TopicTest do
         user = insert(:user, registered: false)
 
         message = %Message{command: "TOPIC", params: ["#anything"]}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -30,7 +30,7 @@ defmodule ElixIRCd.Command.TopicTest do
         user = insert(:user)
 
         message = %Message{command: "TOPIC", params: []}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} TOPIC :Not enough parameters\r\n"}
@@ -43,10 +43,10 @@ defmodule ElixIRCd.Command.TopicTest do
         user = insert(:user)
 
         message = %Message{command: "TOPIC", params: ["#non-existing"]}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         message = %Message{command: "TOPIC", params: ["#non-existing"], trailing: "Topic text!"}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 403 #{user.nick} #non-existing :No such channel\r\n"},
@@ -61,7 +61,7 @@ defmodule ElixIRCd.Command.TopicTest do
         channel = insert(:channel, topic: nil)
 
         message = %Message{command: "TOPIC", params: [channel.name]}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 331 #{user.nick} #{channel.name} :No topic is set\r\n"}
@@ -79,7 +79,7 @@ defmodule ElixIRCd.Command.TopicTest do
           })
 
         message = %Message{command: "TOPIC", params: [channel.name]}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :Channel Topic!\r\n"},
@@ -95,7 +95,7 @@ defmodule ElixIRCd.Command.TopicTest do
         channel = insert(:channel)
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: "Topic text!"}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
@@ -110,7 +110,7 @@ defmodule ElixIRCd.Command.TopicTest do
         insert(:user_channel, user: user, channel: channel)
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: "Topic text!"}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 482 #{user.nick} #{channel.name} :You're not a channel operator\r\n"}
@@ -125,7 +125,7 @@ defmodule ElixIRCd.Command.TopicTest do
         insert(:user_channel, user: user, channel: channel)
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: "Topic text!"}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} TOPIC #{channel.name} :Topic text!\r\n"}
@@ -145,7 +145,7 @@ defmodule ElixIRCd.Command.TopicTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: "Topic channel text!"}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} TOPIC #{channel.name} :Topic channel text!\r\n"}
@@ -165,7 +165,7 @@ defmodule ElixIRCd.Command.TopicTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: ""}
-        Topic.handle(user, message)
+        assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} TOPIC #{channel.name} :\r\n"}

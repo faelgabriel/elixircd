@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.AdminTest do
         user = insert(:user, registered: false)
         message = %Message{command: "ADMIN", params: ["#anything"]}
 
-        Admin.handle(user, message)
+        assert :ok = Admin.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.AdminTest do
         user = insert(:user)
         message = %Message{command: "ADMIN", params: []}
 
-        Admin.handle(user, message)
+        assert :ok = Admin.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 256 #{user.nick} :Administrative info about Server Example\r\n"},

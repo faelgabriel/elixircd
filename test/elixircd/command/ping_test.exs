@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.PingTest do
         user = insert(:user)
         message = %Message{command: "PING", params: [], trailing: nil}
 
-        Ping.handle(user, message)
+        assert :ok = Ping.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} PING :Not enough parameters\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.PingTest do
         user = insert(:user)
         message = %Message{command: "PING", params: [], trailing: "anything"}
 
-        Ping.handle(user, message)
+        assert :ok = Ping.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com PONG :anything\r\n"}
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Command.PingTest do
         user = insert(:user)
         message = %Message{command: "PING", params: ["anything"]}
 
-        Ping.handle(user, message)
+        assert :ok = Ping.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com PONG anything\r\n"}

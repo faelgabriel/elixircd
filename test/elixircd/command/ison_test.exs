@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.IsonTest do
         user = insert(:user, registered: false)
         message = %Message{command: "ISON", params: ["#anything"]}
 
-        Ison.handle(user, message)
+        assert :ok = Ison.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.IsonTest do
         user = insert(:user)
         message = %Message{command: "ISON", params: []}
 
-        Ison.handle(user, message)
+        assert :ok = Ison.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} ISON :Not enough parameters\r\n"}
@@ -43,7 +43,7 @@ defmodule ElixIRCd.Command.IsonTest do
         insert(:user, nick: "nick3")
 
         message = %Message{command: "ISON", params: ["nick1", "nick2", "invalid_nick", "nick3"]}
-        Ison.handle(user, message)
+        assert :ok = Ison.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 303 #{user.nick} :nick1 nick2 nick3\r\n"}

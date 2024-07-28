@@ -27,7 +27,17 @@ defmodule ElixIRCd.MixProject do
   end
 
   defp aliases do
-    []
+    [
+      "check.all": [
+        "compile --warnings-as-errors",
+        "format",
+        "credo --strict",
+        "sobelow --config",
+        "deps.audit",
+        "doctor",
+        "dialyzer"
+      ]
+    ]
   end
 
   # Run "mix help compile.app" to learn about applications.

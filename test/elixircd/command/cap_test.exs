@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.CapTest do
         user = insert(:user, registered: false)
         message = %Message{command: "CAP", params: ["LS", "302"]}
 
-        Cap.handle(user, message)
+        assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com CAP * LS\r\n"}
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.CapTest do
           user.transport
           |> reject(:send, 2)
 
-          Cap.handle(user, message)
+          assert :ok = Cap.handle(user, message)
           verify!()
         end
       end)

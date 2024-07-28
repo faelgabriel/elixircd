@@ -17,7 +17,7 @@ defmodule ElixIRCd.Command.TraceTest do
         user = insert(:user, registered: false)
         message = %Message{command: "TRACE", params: ["#anything"]}
 
-        Trace.handle(user, message)
+        assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -33,7 +33,7 @@ defmodule ElixIRCd.Command.TraceTest do
         user = insert(:user)
         message = %Message{command: "TRACE", params: []}
 
-        Trace.handle(user, message)
+        assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -52,7 +52,7 @@ defmodule ElixIRCd.Command.TraceTest do
         target_user = insert(:user, nick: "target")
         message = %Message{command: "TRACE", params: ["target"]}
 
-        Trace.handle(user, message)
+        assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
           {user.socket,
@@ -67,7 +67,7 @@ defmodule ElixIRCd.Command.TraceTest do
         user = insert(:user)
         message = %Message{command: "TRACE", params: ["target"]}
 
-        Trace.handle(user, message)
+        assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
@@ -84,7 +84,7 @@ defmodule ElixIRCd.Command.TraceTest do
         target_user = insert(:user)
         message = %Message{command: "TRACE", params: [target_user.nick]}
 
-        Trace.handle(user, message)
+        assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 401 #{user.nick} #{target_user.nick} :No such nick\r\n"}

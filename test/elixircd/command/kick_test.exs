@@ -16,7 +16,7 @@ defmodule ElixIRCd.Command.KickTest do
         user = insert(:user, registered: false)
         message = %Message{command: "KICK", params: ["#anything"]}
 
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -29,10 +29,10 @@ defmodule ElixIRCd.Command.KickTest do
         user = insert(:user)
 
         message = %Message{command: "KICK", params: []}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         message = %Message{command: "KICK", params: ["#only_channel_name"]}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} KICK :Not enough parameters\r\n"},
@@ -46,7 +46,7 @@ defmodule ElixIRCd.Command.KickTest do
         user = insert(:user)
 
         message = %Message{command: "KICK", params: ["#nonexistent", "target"]}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 403 #{user.nick} #nonexistent :No such channel\r\n"}
@@ -60,7 +60,7 @@ defmodule ElixIRCd.Command.KickTest do
         insert(:channel, name: "#channel")
 
         message = %Message{command: "KICK", params: ["#channel", "target"]}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 441 #{user.nick} #channel :You're not on that channel\r\n"}
@@ -75,7 +75,7 @@ defmodule ElixIRCd.Command.KickTest do
         insert(:user_channel, user: user, channel: channel)
 
         message = %Message{command: "KICK", params: ["#channel", "target"]}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 482 #{user.nick} #channel :You're not channel operator\r\n"}
@@ -90,7 +90,7 @@ defmodule ElixIRCd.Command.KickTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
         message = %Message{command: "KICK", params: ["#channel", "target"]}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 401 #{user.nick} target :No such nick/channel\r\n"}
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Command.KickTest do
         insert(:user, nick: "target")
 
         message = %Message{command: "KICK", params: ["#channel", "target"]}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 441 #{user.nick} #channel :They aren't on that channel\r\n"}
@@ -124,7 +124,7 @@ defmodule ElixIRCd.Command.KickTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "KICK", params: ["#channel", "target"], trailing: "reason"}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} KICK #channel target :reason\r\n"}
@@ -142,7 +142,7 @@ defmodule ElixIRCd.Command.KickTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "KICK", params: ["#channel", "target"]}
-        Kick.handle(user, message)
+        assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":#{build_user_mask(user)} KICK #channel target\r\n"}

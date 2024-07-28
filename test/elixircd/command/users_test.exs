@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.UsersTest do
         user = insert(:user, registered: false)
         message = %Message{command: "USERS", params: ["#anything"]}
 
-        Users.handle(user, message)
+        assert :ok = Users.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.UsersTest do
         user = insert(:user)
         message = %Message{command: "USERS", params: []}
 
-        Users.handle(user, message)
+        assert :ok = Users.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 265 #{user.nick} 1 1000 :Current local users 1, max 1000\r\n"},

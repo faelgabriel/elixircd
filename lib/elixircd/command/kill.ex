@@ -39,6 +39,8 @@ defmodule ElixIRCd.Command.Kill do
 
       closing_link_message(target_user, killed_message)
       send(target_user.pid, {:disconnect, target_user.socket, killed_message})
+
+      :ok
     else
       {:irc_operator?, false} -> noprivileges_message(user)
       {:error, :user_not_found} -> target_not_found_message(user, target_nick)

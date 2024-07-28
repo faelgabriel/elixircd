@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         user = insert(:user, registered: false)
         message = %Message{command: "WHOIS", params: ["#anything"]}
 
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         user = insert(:user)
         message = %Message{command: "WHOIS", params: []}
 
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_sent_messages([
           {user.socket, ":server.example.com 461 #{user.nick} WHOIS :Not enough parameters\r\n"}
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         user = insert(:user)
         message = %Message{command: "WHOIS", params: ["invalid.nick"]}
 
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_no_user_whois_message(user, "invalid.nick")
       end)
@@ -55,7 +55,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_user_whois_message(user, target_user, channel)
       end)
@@ -67,7 +67,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         _target_user = insert(:user, nick: "target_nick", modes: ["i"])
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_no_user_whois_message(user, "target_nick")
       end)
@@ -82,7 +82,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_user_whois_message(user, target_user, channel)
       end)
@@ -96,7 +96,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_no_user_whois_message(user, "target_nick")
       end)
@@ -111,7 +111,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_user_whois_message(user, target_user, channel)
       end)
@@ -125,7 +125,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_user_whois_message(user, target_user, channel)
       end)
@@ -139,7 +139,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
-        Whois.handle(user, message)
+        assert :ok = Whois.handle(user, message)
 
         assert_user_whois_message(user, target_user, channel)
       end)

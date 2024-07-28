@@ -130,8 +130,5 @@ jobs:
       - name: Compile code
         run: mix compile
 
-      - name: Run Tests
-        run: mix test --cover
-
-      - name: Send coverage to Coveralls
+      - name: Run Tests and Send Coverage to Coveralls
         run: mix coveralls.github
