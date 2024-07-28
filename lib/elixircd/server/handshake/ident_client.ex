@@ -3,7 +3,7 @@ defmodule ElixIRCd.Server.Handshake.IdentClient do
   Module for querying the userid from an Ident server.
   """
 
-  # Since Mimic library does not support mocking of sticky modules (:gen_tcp, for this case),
+  # Mimic library does not support mocking of sticky modules (:gen_tcp, for this case),
   # we need to ignore this module from the test coverage.
   # coveralls-ignore-start
 
