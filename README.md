@@ -9,23 +9,112 @@
 
 ## Introduction
 
-ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust, and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM to deliver an efficient and reliable platform for IRC operations.
+ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM (BEAM) and OTP (Open Telecom Platform) principles to deliver an efficient and reliable platform for IRC operations.
 
 ## Installation
 
-To run ElixIRCd server, you'll need to have [Docker](https://docker.com/) installed. Once you have Docker installed, you can start the server container by running:
+To run the ElixIRCd server, ensure you have [Docker](https://docker.com/) installed.
+
+### Build the Docker Image
+
+First, build the Docker image using the following command:
 
 ```bash
 docker build --target runtime --tag elixircd:beta .
-docker run --name elixircd -p 6667:6667 -p 6697:6697 -p 6668:6668 -p 6698:6698 -v $(pwd)/priv:/app/priv -d elixircd:beta
+```
+
+### Run the Docker Container
+
+Next, start the server container by running:
+
+```bash
+docker run --name elixircd \
+  -p 6667:6667 \
+  -p 6697:6697 \
+  -p 6668:6668 \
+  -p 6698:6698 \
+  -v $(pwd)/priv:/app/priv \
+  -d elixircd:beta
 ```
 
 ## Configuration
 
-The server configuration is stored in the `config/runtime.exs` file. You can customize the server configuration by editing this file. The default configuration is as follows:
+The server configuration is stored in the `config/runtime.exs` file. You can customize the server configuration by editing this file.
+
+### Descriptions
+
+- `server` - **Server Configuration:**
+  - `name`: The name of your IRC server.
+  - `hostname`: The hostname or domain name of your IRC server.
+  - `password`: An optional server password. Set to `nil` if no password is required.
+  - `motd`: The Message of the Day file. This is the message users will see when they connect to the server.
+
+- `listeners` - **Network Configuration - Listeners for the server:**
+  - `{ :tcp, [port: 6667] }`: Standard IRC port (6667).
+  - `{ :tcp, [port: 6668] }`: Alternative IRC port (6668).
+  - `{ :ssl, [port: 6697, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"] }`: SSL-enabled IRC port (6697), with paths to the SSL key and certificate files.
+  - `{ :ssl, [port: 6698, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"] }`: Additional SSL-enabled IRC port (6698).
+
+- `user` - **User Configuration:**
+  - `timeout`: The duration (in milliseconds) before a user times out due to inactivity. Default is set to 180,000 ms (3 minutes).
+
+- `ident_service` - **Features Configuration - Configuration for the ident service:**
+  - `enabled`: Boolean value to enable or disable the ident service.
+  - `timeout`: Timeout (in milliseconds) for ident service responses. Default is set to 5,000 ms (5 seconds).
+
+- `admin_info` - **Administrative Contact Information:**
+  - `server`: The name of your IRC server for contact purposes.
+  - `location`: The location of your server.
+  - `organization`: The name of the organization running the server.
+  - `email`: The contact email address for server administrators.
+
+- `operators` - **IRC Operators - A list of IRC operators, each with a username and a hashed password:**
+  - `{"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}`: Example operator with a hashed password using the Argon2id algorithm.
+
+### Full Default Configuration
 
 ```elixir
+import Config
 
+config :elixircd,
+  # Server Configuration
+  server: [
+    name: "Server Example",
+    hostname: "server.example.com",
+    password: nil,
+    motd: File.read("priv/motd.txt")
+  ],
+  # Network Configuration
+  listeners: [
+    # Standard IRC port
+    {:tcp, [port: 6667]},
+    # Alternative IRC port
+    {:tcp, [port: 6668]},
+    # SSL port
+    {:ssl, [port: 6697, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"]},
+    # Additional SSL port
+    {:ssl, [port: 6698, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"]}
+  ],
+  # User Configuration
+  user: [
+    timeout: 180_000
+  ],
+  # Features Configuration
+  ident_service: [
+    enabled: true,
+    timeout: 5_000
+  ],
+  # Administrative Contact Information
+  admin_info: [
+    server: "Server Example",
+    location: "Server Location Here",
+    organization: "Organization Name Here",
+    email: "admin@example.com"
+  ],
+  # IRC Operators
+  operators: [
+    {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
+  ]
 ```
 
 ## Features
@@ -68,7 +157,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **ADMIN**: Provide information about the server administrator. ✅
 - **OPER**: Allow operators to gain elevated privileges on the server. ✅
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✅
-- **KILL**: Allow operators to disconnect a user from the network. ️✅
+- **KILL**: Allow operators to disconnect a user from the network. ✅
 - **REHASH**: Enable operators to reload the server's configuration. ✅
 - **RESTART**: Allow operators to restart the server. ✅
 - **DIE**: Allow operators to shut down the server. ✅
@@ -155,13 +244,14 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
 - **WHO**: Extended to allow clients to request additional information. ❌
 
-## Developer
+## Developer Setup
 
 ElixIRCd is written in Elixir, so you'll need to have Elixir and Erlang installed on your machine.
+We recommend using [asdf](https://asdf-vm.com/) to easily install and manage the required versions.
 
-We recommend using [asdf](https://asdf-vm.com/) to easily install and manage the required Elixir and Erlang versions. Once you have asdf installed, you can easily install the required Elixir and Erlang versions by running:
+### Install Dependencies with asdf
 
-### asdf
+First, install `asdf` by following the instructions on the [asdf website](https://asdf-vm.com/). Then, add the necessary plugins and install the required versions:
 
 ```bash
 asdf plugin-add erlang
@@ -169,9 +259,11 @@ asdf plugin-add elixir
 asdf install
 ```
 
+This will install the versions specified in the .tool-versions file.
+
 ## Contributing
 
-Contributions to ElixIRCd are welcome! If you have an issue or feature request, please open an issue on the issue tracker. Additionally, feel free to pick up any open issues that haven't been assigned yet. We warmly welcome your pull requests.
+We welcome contributions to ElixIRCd! If you have an issue or feature request, please open an issue on the issue tracker. Additionally, feel free to pick up any open issues that haven't been assigned yet. We warmly welcome your pull requests.
 
 Please see the [contributing guidelines](https://github.com/faelgabriel/elixircd/blob/main/CONTRIBUTING.md) for details on how to contribute to this project.
 
