@@ -17,9 +17,15 @@ defmodule Mix.Tasks.Db.PrepareTest do
 
   describe "run/1" do
     test "sets up Mnesia database" do
+      # deletes Mnesia schema and tables to simulate a fresh setup
       Memento.stop()
       Memento.Schema.delete([node()])
 
+      Db.Prepare.run([])
+      assert_received {:mix_shell, :info, ["Mnesia database prepared successfully."]}
+    end
+
+    test "ignores create Mnesia schema and tables if already set up" do
       Db.Prepare.run([])
       assert_received {:mix_shell, :info, ["Mnesia database prepared successfully."]}
     end
@@ -33,8 +39,6 @@ defmodule Mix.Tasks.Db.PrepareTest do
     end
 
     test "recreates Mnesia database with short option and verbose flag" do
-      Memento.stop()
-
       Db.Prepare.run(["-r", "-v"])
       assert_received {:mix_shell, :info, ["Mnesia schema delete: :ok"]}
       assert_received {:mix_shell, :info, ["Mnesia schema create: :ok"]}
