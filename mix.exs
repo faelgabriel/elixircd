@@ -5,7 +5,7 @@ defmodule ElixIRCd.MixProject do
   def project do
     [
       app: :elixircd,
-      version: "0.1.0",
+      version: System.get_env("APP_VERSION") || "0.0.1-dev",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -13,8 +13,6 @@ defmodule ElixIRCd.MixProject do
       dialyzer: dialyzer(),
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:yecc] ++ Mix.compilers(),
-
-      # Coveralls
       preferred_cli_env: [
         coveralls: :test,
         "coveralls.detail": :test,
@@ -22,7 +20,12 @@ defmodule ElixIRCd.MixProject do
         "coveralls.json": :test,
         "coveralls.github": :test
       ],
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      releases: [
+        elixircd: [
+          include_executables_for: include_executables_for()
+        ]
+      ]
     ]
   end
 
@@ -30,7 +33,7 @@ defmodule ElixIRCd.MixProject do
     [
       "check.all": [
         "compile --warnings-as-errors",
-        "format",
+        "format --check-formatted",
         "credo --strict",
         "sobelow --config",
         "deps.audit",
@@ -75,4 +78,11 @@ defmodule ElixIRCd.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  defp include_executables_for do
+    case :os.type() do
+      {:unix, _} -> [:unix]
+      {:win32, _} -> [:windows]
+    end
+  end
 end

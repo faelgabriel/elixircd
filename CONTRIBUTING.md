@@ -1,37 +1,23 @@
 # Contributing to ElixIRCd
 
-Thank you for considering contributing to ElixIRCd! This document outlines the guidelines and best practices to follow when contributing to this project.
+Thank you for considering contributing to ElixIRCd! This document outlines the guidelines and best practices for contributing to the project.
 
-### Bug Reports and Feature Requests
+## Bug Reports and Feature Implementations
 
-If you encounter a bug or have a feature request, please open an issue on the GitHub repository. Please include as much detail as possible in your report or request, such as steps to reproduce the bug or a clear description of the new feature.
+If you encounter a bug or have a feature to implement, please open an issue on the GitHub repository. We have provided templates to help you elaborate on the content effectively:
 
-### Pull Requests
+- **Bug Reports:** Use the [Bug Report template](https://github.com/faelgabriel/elixircd/issues/new?assignees=&labels=bug&projects=&template=bug-report.md&title=) to provide detailed steps for reproducing the issue, expected behavior, and relevant environment information.
+- **Feature Implementations:** Use the [Feature Implementation template](https://github.com/faelgabriel/elixircd/issues/new?assignees=&labels=feature&projects=&template=feature-implementation.md&title=) to outline the proposed feature, its benefits, technical details, and potential impact on the project.
+
+Including as much detail as possible helps us understand and address the issue or request more efficiently.
+
+## Pull Requests
 
 Pull requests are always welcome! Before submitting a pull request, please ensure that:
 
-- All existing tests pass
-- New code is accompanied by tests that cover all cases
-- The code is formatted according to the Elixir style guide (see Code Conventions below)
-- The pull request contains a clear description of the changes made and why they are needed
-- Each pull request should be kept small and focused on a single change or feature.
-- Functions should be well-documented and follow the [Elixir documentation conventions](https://hexdocs.pm/elixir/writing-documentation.html).
-
-### Code Conventions
-
-Please follow the Elixir style guide for all code contributions. You can find the style guide at https://github.com/christopheradams/elixir_style_guide.
-
-## Test Coverage
-
-We aim to maintain a high level of test coverage for this project to ensure that it remains stable and bug-free. When submitting changes, please ensure that all tests pass and that any new code is covered by tests.
-
-Our current test coverage target is 100%, as measured by [Coveralls](https://coveralls.io/). To check the current test coverage status, visit our [Coveralls page](https://coveralls.io/github/faelgabriel/elixircd).
-
-To run tests locally and check your code's test coverage, run the following command:
-
-```bash
-mix coveralls
-```
-
-This will generate a coverage report and open it in your default web browser.
-Note that if you're not using a graphical interface, the coverage report will be generated but won't open in a browser.
+- **Focus:** Each pull request is small and focused on a single change or feature, making it easier to review and merge.
+- **Description:** The pull request contains a clear and concise description of the changes made and the reasons for them.
+- **Testing and Test Coverage:** All existing tests pass, and new code is accompanied by tests that cover all relevant cases. High test coverage is crucial for maintaining the stability.
+- **Code Quality and Conventions:** Your code is formatted according to the [Elixir style guide](https://github.com/christopheradams/elixir_style_guide) and adheres to the project's conventions.
+- **Documentation:** Functions are well-documented, following the [Elixir documentation conventions](https://hexdocs.pm/elixir/writing-documentation.html).
+- **Quality Checks:** You have passed all necessary quality and reliability checks, including those for compilation warnings, code formatting, linting, security analysis, dependency audits, documentation quality, and static analysis.

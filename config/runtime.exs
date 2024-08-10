@@ -6,7 +6,7 @@ config :elixircd,
     name: "Server Example",
     hostname: "server.example.com",
     password: nil,
-    motd: File.read("priv/motd.txt")
+    motd: File.read("motd.txt")
   ],
   # Network Configuration
   listeners: [
@@ -37,5 +37,6 @@ config :elixircd,
   ],
   # IRC Operators
   operators: [
-    {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
+    # Example operator with nick "admin" and password "admin":
+    # {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
   ]

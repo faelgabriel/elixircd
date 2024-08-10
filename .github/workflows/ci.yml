@@ -1,4 +1,4 @@
-name: Elixir CI
+name: CI
 
 on:
   push:
@@ -8,15 +8,14 @@ on:
     branches:
       - main
 
+env:
+  ELIXIR_VERSION: "1.16.1"
+  OTP_VERSION: "26.2.2"
+
 jobs:
   code_quality:
     name: Code Quality
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        elixir: ["1.16.1"]
-        otp: ["26.2.2"]
 
     steps:
       - name: Checkout code
@@ -25,8 +24,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: ${{ matrix.elixir }}
-          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
       - name: Restore deps cache
         uses: actions/cache@v4
@@ -49,9 +48,9 @@ jobs:
         uses: actions/cache@v4
         with:
           key: |
-            plt-${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-${{ hashFiles('**/mix.lock') }}
+            plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            plt-${{ runner.os }}-${{ matrix.otp }}-${{ matrix.elixir }}-
+            plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-
           path: |
             priv/plts
 
@@ -93,11 +92,6 @@ jobs:
       MIX_ENV: test
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-    strategy:
-      matrix:
-        elixir: ["1.16.1"]
-        otp: ["26.2.2"]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -105,8 +99,8 @@ jobs:
       - name: Set up Elixir
         uses: erlef/setup-beam@v1
         with:
-          elixir-version: ${{ matrix.elixir }}
-          otp-version: ${{ matrix.otp }}
+          elixir-version: ${{ env.ELIXIR_VERSION }}
+          otp-version: ${{ env.OTP_VERSION }}
 
       - name: Restore deps cache
         uses: actions/cache@v4

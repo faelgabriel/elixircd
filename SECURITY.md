@@ -16,7 +16,7 @@ Given the ongoing development of ElixIRCd, we're currently focusing security eff
 
 ## Policy
 
-- **Acknowledgment**: We aim to acknowledge any security concerns raised within 48 hours.
-- **Investigation and Response**: Detailed investigations will follow an initial review, and we'll strive to address issues within a month, considering the complexity and severity.
+- **Acknowledgment:** We aim to acknowledge any security concerns raised as quickly as possible.
+- **Investigation and Response:** While we strive to address issues as quickly as possible, the timeline for resolving vulnerabilities may vary based on their complexity and the availability of resources. We will keep you informed of our progress and any updates.
 
 Your contributions and patience are invaluable to us, and we thank you for helping us improve the security and reliability of ElixIRCd.
