@@ -20,12 +20,10 @@ defmodule ElixIRCd.MixProject do
         "coveralls.json": :test,
         "coveralls.github": :test
       ],
-      test_coverage: [tool: ExCoveralls],
       releases: [
-        elixircd: [
-          include_executables_for: include_executables_for()
-        ]
-      ]
+        elixircd: [include_executables_for: include_executables_for()]
+      ],
+      test_coverage: [tool: ExCoveralls]
     ]
   end
 

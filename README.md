@@ -238,7 +238,7 @@ ElixIRCd is written in Elixir, so you'll need to have Elixir and Erlang installe
 
 We recommend using [asdf](https://asdf-vm.com/) to easily install and manage the required versions.
 
-### Install Dependencies with asdf
+### Install Elixir and Erlang with asdf
 
 First, install `asdf` by following the instructions on the [asdf website](https://asdf-vm.com/). Then, add the necessary plugins and install the required versions:
 
@@ -251,12 +251,28 @@ asdf plugin-add elixir
 asdf install
 ```
 
+### Install Dependencies
+
+To install the project dependencies, run the following command:
+
+```bash
+mix deps.get
+```
+
 ### Running Quality and Reliability Checks
 
-Maintaining high code quality and reliability is crucial for the stability of ElixIRCd. To ensure that your changes meet the project's standards, you can run all the necessary checks — including compilation warnings, code formatting, linting, security analysis, dependency audits, documentation quality, static analysis, and test coverage — with a single command:
+Maintaining high code quality and reliability is crucial for the stability of ElixIRCd. To ensure that your changes meet the project's standards, you can run all the necessary checks — including compilation warnings, code formatting, linting, security analysis, dependency audits, documentation quality, and static analysis — with a single command:
 
 ```bash
 mix check.all
+```
+
+### Running Tests
+
+To run the test suite with code coverage, use the following command:
+
+```bash
+mix test --cover
 ```
 
 ### Running the Server in Interactive Mode

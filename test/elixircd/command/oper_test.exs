@@ -41,6 +41,16 @@ defmodule ElixIRCd.Command.OperTest do
     end
 
     test "handles OPER command with valid credentials" do
+      # Argon2 hash is required for the password
+      # User: admin / Password: admin
+      operators = [
+        {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
+      ]
+
+      original_config = Application.get_env(:elixircd, :operators)
+      Application.put_env(:elixircd, :operators, operators)
+      on_exit(fn -> Application.put_env(:elixircd, :operators, original_config) end)
+
       Memento.transaction!(fn ->
         user = insert(:user)
 
