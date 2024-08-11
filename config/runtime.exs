@@ -38,5 +38,5 @@ config :elixircd,
   # IRC Operators
   operators: [
     # Example operator with nick "admin" and password "admin":
-    # {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
+    # {"admin", "$2b$12$y.SEeys8jg7CIu5wsKnk/.DrPvzrhvrjQ2qaO3cPzkFQy71S82A5y"}
   ]

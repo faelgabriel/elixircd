@@ -52,7 +52,6 @@ defmodule ElixIRCd.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:argon2_elixir, "~> 4.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:doctor, "~> 0.21.0", only: :dev},
@@ -60,6 +59,7 @@ defmodule ElixIRCd.MixProject do
       {:memento, "~> 0.3.2"},
       {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.7", only: [:dev, :test]},
+      {:pbkdf2_elixir, "~> 2.2"},
       {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:wait_for_it, "~> 2.1", only: [:dev, :test]}

@@ -99,7 +99,7 @@ The server configuration is located in the `releases/{elixircd-version}/runtime.
   - `email`: The contact email address for server administrators.
 
 - `operators` - **IRC Operators:**
-  - `{"nick", "argon2_hashed_password"}`: Format for each operator entry. Requires Argon2 hashed passwords.
+  - `{"nick", "pbkdf2_hashed_password"}`: Format for each operator entry. Supports Pbkdf2 hashed passwords.
 
 ### Additional Information
 

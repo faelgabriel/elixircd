@@ -41,10 +41,11 @@ defmodule ElixIRCd.Command.OperTest do
     end
 
     test "handles OPER command with valid credentials" do
-      # Argon2 hash is required for the password
+      # Pbkdf2 hashing
       # User: admin / Password: admin
       operators = [
-        {"admin", "$argon2id$v=19$m=65536,t=3,p=4$FDb7o+zPhX+AIfcPDZ7O+g$IBllcYuvYr6dSuAb+qEuB72/YWwTwaTVhmFX2XKp76Q"}
+        {"admin",
+         "$pbkdf2-sha512$160000$WhzkcFhTzXpYvaxwyjdI1w$H04RERCV2tiA5yTvyFYGpTsYxxszYuaVbge8sJ8uXJodxxCAQfQc0lXUzsLet.26jsEcmzO8rzKydx4A.uoSeQ"}
       ]
 
       original_config = Application.get_env(:elixircd, :operators)
