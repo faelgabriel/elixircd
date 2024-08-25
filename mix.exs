@@ -20,9 +20,7 @@ defmodule ElixIRCd.MixProject do
         "coveralls.json": :test,
         "coveralls.github": :test
       ],
-      releases: [
-        elixircd: [include_executables_for: include_executables_for()]
-      ],
+      releases: releases(),
       test_coverage: [tool: ExCoveralls]
     ]
   end
@@ -52,6 +50,7 @@ defmodule ElixIRCd.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:burrito, "~> 1.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
       {:doctor, "~> 0.21.0", only: :dev},
@@ -77,10 +76,20 @@ defmodule ElixIRCd.MixProject do
   defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
 
-  defp include_executables_for do
-    case :os.type() do
-      {:unix, _} -> [:unix]
-      {:win32, _} -> [:windows]
-    end
+  def releases do
+    [
+      elixircd: [
+        steps: [:assemble, &Burrito.wrap/1],
+        burrito: [
+          targets: [
+            # macos_x86_64: [os: :darwin, cpu: :x86_64],
+            # macos_arm64: [os: :darwin, cpu: :aarch64],
+            linux_x86_64: [os: :linux, cpu: :x86_64]
+            # linux_arm64: [os: :linux, cpu: :aarch64],
+            # windows_x86_64: [os: :windows, cpu: :x86_64]
+          ]
+        ]
+      ]
+    ]
   end
 end
