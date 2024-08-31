@@ -20,9 +20,6 @@ defmodule ElixIRCd.MixProject do
         "coveralls.json": :test,
         "coveralls.github": :test
       ],
-      releases: [
-        elixircd: [include_executables_for: include_executables_for()]
-      ],
       test_coverage: [tool: ExCoveralls]
     ]
   end
@@ -76,11 +73,4 @@ defmodule ElixIRCd.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
-
-  defp include_executables_for do
-    case :os.type() do
-      {:unix, _} -> [:unix]
-      {:win32, _} -> [:windows]
-    end
-  end
 end
