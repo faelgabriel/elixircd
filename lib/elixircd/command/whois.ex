@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Whois do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_app_version: 0, get_user_identity: 1]
+  import ElixIRCd.Helper, only: [get_user_identity: 1]
 
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
@@ -86,7 +86,7 @@ defmodule ElixIRCd.Command.Whois do
       Message.build(%{
         prefix: :server,
         command: :rpl_whoisserver,
-        params: [user.nick, target_user.nick, "ElixIRCd", get_app_version()],
+        params: [user.nick, target_user.nick, "ElixIRCd", Application.spec(:elixircd, :vsn)],
         trailing: "Elixir IRC daemon"
       }),
       Message.build(%{

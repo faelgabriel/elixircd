@@ -4,15 +4,12 @@ FROM elixir:1.16.3-otp-26-alpine AS build
 
 ENV LANG=C.UTF-8
 
-RUN apk update && \
-    apk --no-cache add build-base make
-
-RUN mix local.hex --force && \
-    mix local.rebar --force
-
 WORKDIR /app
 
 COPY mix.exs mix.lock ./
+
+ARG APP_VERSION
+ENV APP_VERSION=${APP_VERSION}
 
 ENV MIX_ENV=prod
 
@@ -27,8 +24,6 @@ RUN mix do compile, release
 # ---- Runtime Application Stage ----
 # This stage sets up the environment to run the built application with a minimal image size.
 FROM elixir:1.16.1-otp-26-alpine AS runtime
-
-EXPOSE 6667 6668 6697 6698
 
 WORKDIR /app
 RUN mkdir -p /app/priv

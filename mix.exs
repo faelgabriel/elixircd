@@ -5,7 +5,7 @@ defmodule ElixIRCd.MixProject do
   def project do
     [
       app: :elixircd,
-      version: System.get_env("APP_VERSION") || "0.0.1-dev",
+      version: app_version() || "0.0.0-dev",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -73,4 +73,12 @@ defmodule ElixIRCd.MixProject do
   defp elixirc_paths(:test), do: ["lib", "test/support"]
   defp elixirc_paths(:dev), do: ["lib", "test/support"]
   defp elixirc_paths(_), do: ["lib"]
+
+  defp app_version do
+    case System.get_env("APP_VERSION") do
+      nil -> nil
+      "" -> nil
+      version -> version
+    end
+  end
 end

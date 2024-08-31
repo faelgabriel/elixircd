@@ -7,6 +7,8 @@ defmodule ElixIRCd.Server.Supervisor do
 
   require Logger
 
+  import ElixIRCd.Utils, only: [logger_with_time: 3]
+
   @doc """
   Starts the server supervisor.
   """
@@ -24,7 +26,13 @@ defmodule ElixIRCd.Server.Supervisor do
 
   @spec create_child_spec({:tcp | :ssl, keyword()}) :: Supervisor.child_spec()
   defp create_child_spec({transport, server_opts} = listener_opts) do
-    :ranch.child_spec({__MODULE__, listener_opts}, convert_to_ranch(transport), server_opts, ElixIRCd.Server, [])
+    logger_with_time(
+      :info,
+      "creating server listener at port #{Keyword.get(server_opts, :port)}#{if transport == :ssl, do: " (SSL)", else: ""}",
+      fn ->
+        :ranch.child_spec({__MODULE__, listener_opts}, convert_to_ranch(transport), server_opts, ElixIRCd.Server, [])
+      end
+    )
   end
 
   @spec convert_to_ranch(:tcp | :ssl) :: :ranch_tcp | :ranch_ssl

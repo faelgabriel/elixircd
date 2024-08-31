@@ -11,7 +11,21 @@
 
 ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM (BEAM) and OTP (Open Telecom Platform) principles to deliver an efficient and reliable platform for IRC operations.
 
-## Quick Start
+## Getting Started
+
+Running ElixIRCd is simple and straightforward with the official Docker image.
+
+You can also try the demo server to explore ElixIRCd's capabilities.
+
+### Demo Server
+
+To connect to the ElixIRCd demo server, you can use an IRC client or a web-based client like [Kiwi IRC](https://kiwiirc.com/nextclient/irc.elixircd.org/#elixircd).
+
+- **Server**: `irc.elixircd.org`
+- **Ports**: `6667` (plaintext) and `6697` (SSL/TLS)
+- **Alternative Ports**: `6668` (plaintext) and `6698` (SSL/TLS)
+
+### Quick Start with Docker
 
 To quickly start the ElixIRCd server using [Docker](https://docs.docker.com/get-docker/), run the following command:
 
@@ -78,6 +92,16 @@ docker run \
   -v ./motd.txt:/app/config/ \
   # ... other volume mounts
   faelgabriel/elixircd
+```
+
+### Useful Elixir Application Commands
+
+```bash
+# Connects to the running system via a remote shell
+docker exec -it <container_name> ./bin/elixircd remote
+
+# Gracefully stops the running system via a remote command
+docker exec -it <container_name> ./bin/elixircd stop
 ```
 
 ## Features
@@ -163,7 +187,7 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 - **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
 - **+v (Voice)**: Grants voice status to a user. ✅
 
-## IRCv3 Features / Capabilities
+## IRCv3 Capabilities
 
 These features are based on the IRCv3 specifications, providing modern capabilities. More information at [ircv3.net](https://ircv3.net/).
 

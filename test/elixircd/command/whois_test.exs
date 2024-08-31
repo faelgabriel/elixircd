@@ -5,7 +5,6 @@ defmodule ElixIRCd.Command.WhoisTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_app_version: 0]
 
   alias ElixIRCd.Command.Whois
   alias ElixIRCd.Message
@@ -154,7 +153,7 @@ defmodule ElixIRCd.Command.WhoisTest do
         {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
         {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
         {user.socket,
-         ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd #{get_app_version()} :Elixir IRC daemon\r\n"},
+         ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
         {user.socket,
          ~r/^:server\.example\.com 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
         target_user.away_message &&

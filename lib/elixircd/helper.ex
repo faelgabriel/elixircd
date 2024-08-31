@@ -1,6 +1,6 @@
 defmodule ElixIRCd.Helper do
   @moduledoc """
-  Module for helper functions.
+  Module for helper functions used throughout the IRC server logic.
   """
 
   alias ElixIRCd.Tables.User
@@ -53,15 +53,6 @@ defmodule ElixIRCd.Helper do
     |> String.replace("*", ".*")
     |> Regex.compile!()
     |> Regex.match?(get_user_mask(user))
-  end
-
-  @doc """
-  Gets the application version.
-  """
-  @spec get_app_version() :: String.t()
-  def get_app_version do
-    {:ok, version} = :application.get_key(:elixircd, :vsn)
-    version |> to_string()
   end
 
   @doc """

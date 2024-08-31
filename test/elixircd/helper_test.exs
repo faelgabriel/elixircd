@@ -106,13 +106,6 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
-  describe "get_app_version/0" do
-    test "gets application version" do
-      version = Helper.get_app_version()
-      assert Regex.match?(~r/\d+\.\d+\.\d+/, version)
-    end
-  end
-
   describe "get_user_reply/1" do
     test "gets reply for registered user" do
       user = build(:user)

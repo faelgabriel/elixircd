@@ -7,21 +7,29 @@ defmodule ElixIRCd do
 
   require Logger
 
+  import ElixIRCd.Utils, only: [logger_with_time: 3]
+
   @impl true
   def start(_type, _args) do
-    Logger.info("Starting ElixIRCd application")
+    Logger.info(
+      "ElixIRCd version #{Application.spec(:elixircd, :vsn)} - Powerd by Elixir #{System.version()} (Erlang/OTP #{:erlang.system_info(:otp_release)})"
+    )
 
     prepare_database()
     generate_certificate()
 
     Application.put_env(:elixircd, :app_start_time, DateTime.utc_now())
-    Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
+
+    logger_with_time(:info, "starting server supervisor", fn ->
+      Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
+    end)
   end
 
   @spec prepare_database :: :ok
   defp prepare_database do
-    Logger.info("Preparing Mnesia database")
-    Mix.Task.run("db.prepare", ["--quiet"])
+    logger_with_time(:info, "preparing Mnesia database", fn ->
+      Mix.Task.run("db.prepare", ["--quiet"])
+    end)
   end
 
   # generates self-signed certificate if it is configured and does not exist yet
@@ -32,8 +40,9 @@ defmodule ElixIRCd do
     # as self-signed certificate generation is already tested in the `gen.cert` Mix task.
     # coveralls-ignore-start
     if Enum.find(Application.get_env(:elixircd, :listeners), &should_generate_certificate?/1) do
-      Logger.info("Generating self-signed certificate for SSL")
-      Mix.Task.run("gen.cert", [])
+      logger_with_time(:info, "generating self-signed certificate for SSL listeners", fn ->
+        Mix.Task.run("gen.cert", [])
+      end)
     end
 
     # coveralls-ignore-stop
