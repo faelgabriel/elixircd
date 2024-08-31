@@ -1,16 +1,18 @@
-name: Docker
+name: Docker Build
 
 on:
   push:
     branches:
       - main
+    tags:
+      - "*.*.*"
   pull_request:
     branches:
       - main
 
 jobs:
   build:
-    name: ElixIRCd Docker Image Build
+    name: Docker Image Build
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +26,9 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           target: runtime
-          push: false
-          tags: elixircd:beta
+          push: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') }}
+          tags: |
+            faelgabriel/elixircd:${{ github.ref_name }}
+            ${{ !endsWith(github.ref_name, 'beta') && 'faelgabriel/elixircd:latest' || '' }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

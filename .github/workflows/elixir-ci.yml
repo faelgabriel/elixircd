@@ -1,4 +1,4 @@
-name: CI
+name: Elixir CI
 
 on:
   push:
@@ -124,5 +124,10 @@ jobs:
       - name: Compile code
         run: mix compile
 
-      - name: Run Tests and Send Coverage to Coveralls
+      - name: Run Tests with Coverage
+        run: mix coveralls
+        if: github.event_name == 'pull_request'
+
+      - name: Run Tests with Coverage and publish to Coveralls
         run: mix coveralls.github
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
