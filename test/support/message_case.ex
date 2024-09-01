@@ -16,17 +16,23 @@ defmodule ElixIRCd.MessageCase do
     quote do
       import ElixIRCd.MessageCase
 
+      @agent_name Module.concat(__MODULE__, "MessageCase")
+
       setup do
-        Agent.start_link(fn -> [] end, name: __MODULE__)
+        {:ok, pid} = Agent.start_link(fn -> [] end, name: @agent_name)
 
         :ranch_tcp
         |> stub(:send, fn socket, msg ->
-          Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
+          Agent.update(@agent_name, fn messages -> [{socket, msg} | messages] end)
         end)
 
         :ranch_ssl
         |> stub(:send, fn socket, msg ->
-          Agent.update(__MODULE__, fn messages -> [{socket, msg} | messages] end)
+          Agent.update(@agent_name, fn messages -> [{socket, msg} | messages] end)
+        end)
+
+        on_exit(fn ->
+          Process.exit(pid, :kill)
         end)
 
         :ok
@@ -34,15 +40,19 @@ defmodule ElixIRCd.MessageCase do
 
       @spec assert_sent_messages_amount(:inet.socket(), integer()) :: :ok
       defp assert_sent_messages_amount(socket, amount) do
-        sent_messages = Agent.get(__MODULE__, &Enum.reverse(&1))
+        sent_messages = Agent.get(@agent_name, & &1)
         sent_messages_for_socket = Enum.filter(sent_messages, fn {s, _} -> s == socket end)
+
+        # Clean up the agent state for the socket after each assertion
+        Agent.update(@agent_name, fn _messages -> sent_messages -- sent_messages_for_socket end)
+
         assert length(sent_messages_for_socket) == amount
       end
 
       @spec assert_sent_messages([tuple()], opts :: [validate_order?: boolean()]) :: :ok
       defp assert_sent_messages(expected_messages, opts \\ []) do
         validate_order? = Keyword.get(opts, :validate_order?, true)
-        agent_pid = Process.whereis(__MODULE__)
+        agent_pid = Process.whereis(@agent_name)
 
         if not (agent_pid != nil && Process.alive?(agent_pid)) do
           raise RuntimeError,
@@ -51,7 +61,7 @@ defmodule ElixIRCd.MessageCase do
             """
         end
 
-        sent_messages = Agent.get(__MODULE__, &Enum.reverse(&1))
+        sent_messages = Agent.get(@agent_name, &Enum.reverse(&1))
 
         grouped_expected_messages =
           Enum.group_by(expected_messages, fn {socket, _} -> socket end, fn {_, msg} -> msg end)
@@ -87,6 +97,9 @@ defmodule ElixIRCd.MessageCase do
           Actual message: #{inspect(sent_messages)}
           """
         end
+
+        # Clean up the agent state after each assertion
+        Agent.update(@agent_name, fn _ -> [] end)
 
         :ok
       end
