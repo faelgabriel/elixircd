@@ -37,6 +37,8 @@ defmodule ElixIRCd.DataCase do
 
         Enum.each(@tables, &Memento.Table.clear/1)
         Memento.wait(@tables)
+
+        :timer.sleep(50)
       end)
     end
 
