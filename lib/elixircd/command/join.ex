@@ -90,7 +90,6 @@ defmodule ElixIRCd.Command.Join do
   defp determine_user_channel_modes(:created), do: ["o"]
   defp determine_user_channel_modes(:existing), do: []
 
-  # Future: needs to send user operator/voicer symbols
   @spec send_join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
   defp send_join_channel(user, channel, user_channel) do
     user_channels = UserChannels.get_by_channel_name(channel.name)
@@ -277,9 +276,20 @@ defmodule ElixIRCd.Command.Join do
     user_channels
     |> Enum.map(fn user_channel ->
       user = Map.get(users_by_port, user_channel.user_port)
-      {user, user_channel.created_at}
+      {user, user_channel}
     end)
-    |> Enum.sort_by(fn {_user, created_at} -> created_at end, :desc)
-    |> Enum.map_join(" ", fn {user, _created_at} -> user.nick end)
+    |> Enum.sort_by(fn {_user, user_channel} -> user_channel.created_at end, :desc)
+    |> Enum.map_join(" ", fn {user, user_channel} ->
+      user_mode_symbol(user_channel) <> user.nick
+    end)
+  end
+
+  @spec user_mode_symbol(UserChannel.t()) :: String.t()
+  defp user_mode_symbol(%UserChannel{modes: modes}) do
+    cond do
+      Enum.member?(modes, "o") -> "@"
+      Enum.member?(modes, "v") -> "+"
+      true -> ""
+    end
   end
 end
