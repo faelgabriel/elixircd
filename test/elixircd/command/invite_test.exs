@@ -152,5 +152,23 @@ defmodule ElixIRCd.Command.InviteTest do
         assert ChannelInvites.get_by_user_port_and_channel_name(target_user.port, channel.name) != nil
       end)
     end
+
+    test "handles INVITE command with success when target user is away" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, away_message: "I'm away")
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
+        assert :ok = Invite.handle(user, message)
+
+        assert_sent_messages([
+          {user.socket, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"},
+          {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.socket, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+        ])
+      end)
+    end
   end
 end

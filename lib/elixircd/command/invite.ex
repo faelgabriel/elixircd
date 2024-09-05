@@ -92,7 +92,16 @@ defmodule ElixIRCd.Command.Invite do
 
   @spec send_user_invite_success(User.t(), User.t(), Channel.t()) :: :ok
   defp send_user_invite_success(user, target_user, channel) do
-    # Future: maybe handle RPL_AWAY
+    if target_user.away_message do
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_away,
+        params: [user.nick, target_user.nick],
+        trailing: target_user.away_message
+      })
+      |> Messaging.broadcast(user)
+    end
+
     Message.build(%{
       prefix: :server,
       command: :rpl_inviting,
