@@ -15,7 +15,16 @@ defmodule ElixIRCd.Repository.ChannelInvites do
   end
 
   @doc """
-  Delete a user invite by user port from the database.
+  Delete all channel invites by the channel name from the database.
+  """
+  @spec delete_by_channel_name(String.t()) :: :ok
+  def delete_by_channel_name(channel_name) do
+    Memento.Query.select(ChannelInvite, [{:==, :channel_name, channel_name}])
+    |> Enum.each(&Memento.Query.delete_record/1)
+  end
+
+  @doc """
+  Delete all user invites by user port from the database.
   """
   @spec delete_by_user_port(port()) :: :ok
   def delete_by_user_port(user_port) do

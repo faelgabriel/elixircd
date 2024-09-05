@@ -10,6 +10,7 @@ defmodule ElixIRCd.Command.Part do
   import ElixIRCd.Helper, only: [get_user_mask: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Server.Messaging
@@ -45,9 +46,15 @@ defmodule ElixIRCd.Command.Part do
   defp handle_channel(user, channel_name, part_message) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
-      channel_users = UserChannels.get_by_channel_name(channel.name)
+      all_user_channels = UserChannels.get_by_channel_name(channel.name)
+
       UserChannels.delete(user_channel)
-      # Future: Delete channel if the channel is not registered and has no users
+
+      # Delete the channel if there are no other users
+      if all_user_channels == [user_channel] do
+        ChannelInvites.delete_by_channel_name(channel_name)
+        Channels.delete(channel)
+      end
 
       Message.build(%{
         prefix: get_user_mask(user),
@@ -55,7 +62,7 @@ defmodule ElixIRCd.Command.Part do
         params: [channel.name],
         trailing: part_message
       })
-      |> Messaging.broadcast(channel_users)
+      |> Messaging.broadcast(all_user_channels)
     else
       {:error, :user_channel_not_found} ->
         Message.build(%{

@@ -11,7 +11,9 @@ defmodule ElixIRCd.ServerTest do
   alias ElixIRCd.Client
   alias ElixIRCd.Command
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -352,7 +354,7 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :closed} == Client.recv(socket)
     end
 
-    test "handles sucessful disconnect by command quit result" do
+    test "handles successful disconnect by command quit result" do
       Command
       |> expect(:handle, 1, fn _user, _message ->
         {:quit, "Bye!"}
@@ -368,7 +370,41 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :closed} == Client.recv(socket)
     end
 
-    test "handles successful quit notification" do
+    test "handles successful quit process with user alone in a channel" do
+      {:ok, socket} = Client.connect(:ssl)
+
+      [user] =
+        case_wait(Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords) do
+          [_] = expected_users -> expected_users
+        end
+
+      user =
+        Memento.transaction!(fn ->
+          Memento.Query.write(%User{
+            user
+            | registered: true,
+              nick: "nick1",
+              hostname: "hostname1",
+              username: "username1",
+              realname: "realname1"
+          })
+        end)
+
+      channel = insert(:channel)
+      insert(:user_channel, %{user: user, channel: channel})
+
+      Client.send(socket, "QUIT :Quit message\r\n")
+
+      assert {:error, :closed} = Client.recv(socket)
+
+      # Channel should be deleted
+      assert wait(
+               {:error, :channel_not_found} == Memento.transaction!(fn -> Channels.get_by_name(channel.name) end),
+               @wait_keywords
+             )
+    end
+
+    test "handles successful quit process with user in a channel with another user" do
       {:ok, socket1} = Client.connect(:ssl)
       assert wait(1 == length(Memento.transaction!(fn -> Memento.Query.all(User) end)), @wait_keywords)
       {:ok, socket2} = Client.connect(:ssl)
@@ -411,6 +447,9 @@ defmodule ElixIRCd.ServerTest do
 
       assert {:error, :closed} = Client.recv(socket1)
       assert {:ok, ":nick1!~username1@hostname1 QUIT :Quit message\r\n"} = Client.recv(socket2)
+
+      # Channel should not be deleted
+      assert {:ok, %Channel{}} = Memento.transaction!(fn -> Channels.get_by_name(channel.name) end)
 
       Client.disconnect(socket2)
     end

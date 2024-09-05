@@ -12,6 +12,7 @@ defmodule ElixIRCd.Server do
   alias ElixIRCd.Command
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelInvites
+  alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.HistoricalUsers
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
@@ -154,19 +155,40 @@ defmodule ElixIRCd.Server do
 
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
   defp handle_quit(%{registered: true} = user, quit_message) do
-    # Future: Use a more efficient way to get all shared user channels
-    all_channel_users =
+    # List of all channel names the quitting user is a member of
+    all_channel_names =
       UserChannels.get_by_user_port(user.port)
       |> Enum.map(& &1.channel_name)
-      |> UserChannels.get_by_channel_names()
-      |> Enum.reject(fn user_channel -> user_channel.user_port == user.port end)
-      |> Enum.group_by(& &1.user_port)
-      |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    # Future: Delete channel if the channel is not registered and has no users
+    # List of all user_channel records for channels the quitting user is a member of, excluding himself
+    all_user_channels_without_user =
+      UserChannels.get_by_channel_names(all_channel_names)
+      |> Enum.reject(fn user_channel -> user_channel.user_port == user.port end)
+
+    # List of unique user_channel.user_port records that share channels with the quitting user
+    all_shared_unique_user_channels =
+      all_user_channels_without_user
+      |> Enum.uniq_by(& &1.user_port)
+
+    # Find channels with no other users remaining after removing the quitting user
+    channels_with_no_other_users =
+      all_channel_names
+      |> Enum.filter(fn channel_name ->
+        # Check if no user_channel records remain for this channel after removing the quitting user
+        not Enum.any?(all_user_channels_without_user, fn user_channel ->
+          user_channel.channel_name == channel_name
+        end)
+      end)
+
     ChannelInvites.delete_by_user_port(user.port)
     UserChannels.delete_by_user_port(user.port)
     Users.delete(user)
+
+    # Delete the channels that have no other users
+    Enum.each(channels_with_no_other_users, fn channel_name ->
+      ChannelInvites.delete_by_channel_name(channel_name)
+      Channels.delete_by_name(channel_name)
+    end)
 
     HistoricalUsers.create(%{
       nick: user.nick,
@@ -177,7 +199,7 @@ defmodule ElixIRCd.Server do
     })
 
     Message.build(%{prefix: get_user_mask(user), command: "QUIT", params: [], trailing: quit_message})
-    |> Messaging.broadcast(all_channel_users)
+    |> Messaging.broadcast(all_shared_unique_user_channels)
   end
 
   defp handle_quit(user, _quit_message) do

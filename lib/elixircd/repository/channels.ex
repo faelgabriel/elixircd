@@ -15,6 +15,22 @@ defmodule ElixIRCd.Repository.Channels do
   end
 
   @doc """
+  Delete a channel from the database.
+  """
+  @spec delete(Channel.t()) :: :ok
+  def delete(channel) do
+    Memento.Query.delete_record(channel)
+  end
+
+  @doc """
+  Delete a channel by the name from the database.
+  """
+  @spec delete_by_name(String.t()) :: :ok
+  def delete_by_name(name) do
+    Memento.Query.delete(Channel, name)
+  end
+
+  @doc """
   Update a channel and write it to the database.
   """
   @spec update(Channel.t(), map()) :: Channel.t()

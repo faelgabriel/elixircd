@@ -26,6 +26,21 @@ defmodule ElixIRCd.Repository.ChannelInvitesTest do
     end
   end
 
+  describe "delete_by_channel_name/1" do
+    test "deletes channel invites by channel name" do
+      channel = insert(:channel)
+      insert(:channel_invite, channel: channel)
+      insert(:channel_invite, channel: channel)
+
+      Memento.transaction!(fn -> ChannelInvites.delete_by_channel_name(channel.name) end)
+
+      assert [] ==
+               Memento.transaction!(fn ->
+                 Memento.Query.select(ChannelInvite, {:==, :channel_name, channel.name})
+               end)
+    end
+  end
+
   describe "delete_by_user_port/1" do
     test "deletes user channels by user port" do
       user = insert(:user)

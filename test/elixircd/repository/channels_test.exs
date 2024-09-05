@@ -24,6 +24,24 @@ defmodule ElixIRCd.Repository.ChannelsTest do
     end
   end
 
+  describe "delete/1" do
+    test "deletes a channel" do
+      channel = insert(:channel)
+
+      assert :ok == Memento.transaction!(fn -> Channels.delete(channel) end)
+      assert {:error, :channel_not_found} == Memento.transaction!(fn -> Channels.get_by_name(channel.name) end)
+    end
+  end
+
+  describe "delete_by_name/1" do
+    test "deletes a channel by name" do
+      channel = insert(:channel)
+
+      assert :ok == Memento.transaction!(fn -> Channels.delete_by_name(channel.name) end)
+      assert {:error, :channel_not_found} == Memento.transaction!(fn -> Channels.get_by_name(channel.name) end)
+    end
+  end
+
   describe "get_by_name/1" do
     test "returns a channel by name" do
       channel = insert(:channel)
