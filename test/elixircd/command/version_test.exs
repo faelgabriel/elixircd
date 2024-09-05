@@ -31,7 +31,8 @@ defmodule ElixIRCd.Command.VersionTest do
         assert :ok = Version.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 351 #{user.nick} ElixIRCd-1.0.0 server.example.com\r\n"}
+          {user.socket,
+           ":server.example.com 351 #{user.nick} ElixIRCd-#{Application.spec(:elixircd, :vsn)} server.example.com\r\n"}
         ])
       end)
     end

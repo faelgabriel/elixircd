@@ -85,9 +85,20 @@ defmodule ElixIRCd.Repository.Users do
   """
   @spec get_by_match_mask(String.t()) :: [User.t()]
   def get_by_match_mask(mask) do
-    Memento.Query.all(User)
-    # Future: Use Mnesia foldl to filter users by mask.
-    |> Enum.filter(fn user -> user_mask_match?(user, mask) end)
+    :mnesia.foldl(
+      fn raw_user, acc ->
+        user = Data.load(raw_user)
+
+        if user_mask_match?(user, mask) do
+          [user | acc]
+        else
+          acc
+        end
+      end,
+      [],
+      User
+    )
+    |> Enum.reverse()
   end
 
   @doc """

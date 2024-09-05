@@ -113,4 +113,29 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
                Memento.transaction!(fn -> UserChannels.get_by_channel_names([channel1.name, channel2.name]) end)
     end
   end
+
+  describe "count_users_by_channel_name/1" do
+    test "returns the number of users in a channel by the channel name" do
+      channel = insert(:channel)
+      insert(:user_channel, channel: channel)
+      insert(:user_channel, channel: channel)
+
+      assert 2 == Memento.transaction!(fn -> UserChannels.count_users_by_channel_name(channel.name) end)
+    end
+  end
+
+  describe "count_users_by_channel_names/1" do
+    test "returns the number of users in channels by the channel names" do
+      channel1 = insert(:channel, name: "#channel1")
+      channel2 = insert(:channel, name: "#channel2")
+      insert(:user_channel, channel: channel1)
+      insert(:user_channel, channel: channel2)
+      insert(:user_channel, channel: channel2)
+
+      assert [{"#channel1", 1}, {"#channel2", 2}] ==
+               Memento.transaction!(fn ->
+                 Enum.sort(UserChannels.count_users_by_channel_names([channel1.name, channel2.name]))
+               end)
+    end
+  end
 end

@@ -260,10 +260,7 @@ defmodule ElixIRCd.Command.Join do
         :ok
 
       channel_limit ->
-        # Future: Use a Mnesia fold to count the number of users in the channel
-        UserChannels.get_by_channel_name(channel.name)
-        |> Enum.count()
-        |> case do
+        case UserChannels.count_users_by_channel_name(channel.name) do
           channel_count when channel_count >= channel_limit -> {:error, :channel_limit_reached}
           _ -> :ok
         end
@@ -272,10 +269,11 @@ defmodule ElixIRCd.Command.Join do
 
   @spec get_user_channels_nicks([UserChannel.t()]) :: String.t()
   defp get_user_channels_nicks(user_channels) do
-    users = user_channels |> Enum.map(& &1.user_port) |> Users.get_by_ports()
-    users_by_port = Map.new(users, fn user -> {user.port, user} end)
+    users_by_port =
+      Enum.map(user_channels, & &1.user_port)
+      |> Users.get_by_ports()
+      |> Map.new(fn user -> {user.port, user} end)
 
-    # Future: Use a Mnesia fold to get the nicks of the users in the channel
     user_channels
     |> Enum.map(fn user_channel ->
       user = Map.get(users_by_port, user_channel.user_port)

@@ -19,12 +19,12 @@ defmodule ElixIRCd.Command.Version do
   @impl true
   def handle(user, %{command: "VERSION"}) do
     server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+    elixircd_version = Application.spec(:elixircd, :vsn)
 
-    # Future: parameterize the version
     Message.build(%{
       prefix: :server,
       command: :rpl_version,
-      params: [user.nick, "ElixIRCd-1.0.0", server_hostname]
+      params: [user.nick, "ElixIRCd-#{elixircd_version}", server_hostname]
     })
     |> Messaging.broadcast(user)
 

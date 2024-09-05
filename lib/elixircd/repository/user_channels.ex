@@ -86,11 +86,20 @@ defmodule ElixIRCd.Repository.UserChannels do
   end
 
   @doc """
-  Count the number of users in each channel by the channel names.
+  Count the number of users in a channel by the channel name.
+  """
+  @spec count_users_by_channel_name(String.t()) :: integer()
+  def count_users_by_channel_name(channel_name) do
+    get_by_channel_name(channel_name)
+    |> Enum.count()
+  end
+
+  @doc """
+  Count the number of users in each channel by the channel names,
+  returning a list of tuples with the channel name and the number of users.
   """
   @spec count_users_by_channel_names([String.t()]) :: [{String.t(), integer()}]
   def count_users_by_channel_names(channel_names) do
-    # Future: use foldl to only count users to avoid loading all user channels into memory
     user_channels = get_by_channel_names(channel_names)
 
     Enum.reduce(channel_names, [], fn channel_name, acc ->

@@ -21,9 +21,9 @@ defmodule ElixIRCd.Repository.HistoricalUsers do
   def get_by_nick(nick, nil), do: Memento.Query.select(HistoricalUser, {:==, :nick, nick})
 
   def get_by_nick(nick, limit) do
-    # Future: fix the "limit" option in Memento.Query.select/3, now it's not working
+    # Issue: fix the "limit" option in Memento.Query.select/3, which is currently not working
     Memento.Query.select(HistoricalUser, {:==, :nick, nick}, limit: limit)
-    # Future: remove Enum.take when Memento.Query.select/3 supports the above "limit" option
+    # Enum.take can be removed once Memento.Query.select/3 supports the above "limit" option
     |> Enum.take(limit)
   end
 end

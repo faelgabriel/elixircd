@@ -132,7 +132,6 @@ defmodule ElixIRCd.Command.Whois do
 
   @spec get_target_user(User.t(), String.t()) :: {User.t() | nil, [String.t()]}
   defp get_target_user(user, target_nick) do
-    # Future: Optimize get user channels to load channel names only
     with {:ok, target_user} <- Users.get_by_nick(target_nick),
          user_channel_names <- UserChannels.get_by_user_port(user.port) |> Enum.map(& &1.channel_name),
          target_user_channel_names <- UserChannels.get_by_user_port(target_user.port) |> Enum.map(& &1.channel_name),

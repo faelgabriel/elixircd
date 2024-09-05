@@ -35,7 +35,7 @@ defmodule ElixIRCd.Command.Nick do
 
   @impl true
   def handle(user, %{command: "NICK", params: [nick | _rest]}) do
-    # Future: nick needs to be case unsensitive
+    # Issue: nick needs to be case unsensitive
     with :ok <- validate_nick(nick),
          {:nick_in_use?, false} <- {:nick_in_use?, nick_in_use?(nick)} do
       change_nick(user, nick)

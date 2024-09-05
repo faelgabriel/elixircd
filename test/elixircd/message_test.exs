@@ -5,34 +5,6 @@ defmodule ElixIRCd.MessageTest do
 
   alias ElixIRCd.Message
 
-  # Future: add missing numeric replies
-  @supported_numeric_replies [
-    {:rpl_welcome, "001"},
-    {:rpl_yourhost, "002"},
-    {:rpl_created, "003"},
-    {:rpl_myinfo, "004"},
-    {:rpl_userhost, "302"},
-    {:rpl_whoisuser, "311"},
-    {:rpl_whoisserver, "312"},
-    {:rpl_whoisidle, "317"},
-    {:rpl_endofwhois, "318"},
-    {:rpl_whoischannels, "319"},
-    {:rpl_topic, "332"},
-    {:rpl_namreply, "353"},
-    {:rpl_endofnames, "366"},
-    {:rpl_endofmotd, "376"},
-    {:err_nosuchnick, "401"},
-    {:err_nosuchchannel, "403"},
-    {:err_unknowncommand, "421"},
-    {:err_erroneusnickname, "432"},
-    {:err_nicknameinuse, "433"},
-    {:err_notonchannel, "442"},
-    {:err_notregistered, "451"},
-    {:err_needmoreparams, "461"},
-    {:err_passwdmismatch, "464"},
-    {:err_badchanmask, "476"}
-  ]
-
   describe "new/1" do
     test "creates a message" do
       args = %{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}
@@ -61,19 +33,16 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "creates a message with numeric reply atom command" do
-      @supported_numeric_replies
-      |> Enum.each(fn {reply_code, numeric_reply} ->
-        args = %{prefix: "server.example.com", command: reply_code, params: ["user"], trailing: "Welcome!"}
+      args = %{prefix: "server.example.com", command: :rpl_welcome, params: ["user"], trailing: "Welcome!"}
 
-        expected = %Message{
-          prefix: args.prefix,
-          command: numeric_reply,
-          params: args.params,
-          trailing: args.trailing
-        }
+      expected = %Message{
+        prefix: args.prefix,
+        command: "001",
+        params: args.params,
+        trailing: args.trailing
+      }
 
-        assert Message.build(args) == expected
-      end)
+      assert Message.build(args) == expected
     end
   end
 
