@@ -6,6 +6,7 @@ defmodule ElixIRCd.FactoryTest do
   alias ElixIRCd.Factory
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.HistoricalUser
+  alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -52,6 +53,15 @@ defmodule ElixIRCd.FactoryTest do
 
     test "builds a historical user with custom attributes as a map" do
       assert %HistoricalUser{nick: "custom_nick"} = Factory.build(:historical_user, %{nick: "custom_nick"})
+    end
+
+    test "builds a metric with default attributes" do
+      assert %Metric{} = Factory.build(:metric)
+    end
+
+    test "builds a metric with custom attributes as a map" do
+      assert %Metric{key: :highest_connections, value: 50} =
+               Factory.build(:metric, %{key: :highest_connections, value: 50})
     end
   end
 
@@ -113,6 +123,16 @@ defmodule ElixIRCd.FactoryTest do
     test "inserts a historical user into the database with custom attributes as a map" do
       assert %HistoricalUser{} = historical_user = Factory.insert(:historical_user, %{nick: "custom_nick"})
       assert historical_user.nick == "custom_nick"
+    end
+
+    test "inserts a metric into the database with default attributes" do
+      assert %Metric{} = Factory.insert(:metric)
+    end
+
+    test "inserts a metric into the database with custom attributes as a map" do
+      assert %Metric{} = metric = Factory.insert(:metric, %{key: :highest_connections, value: 50})
+      assert metric.key == :highest_connections
+      assert metric.value == 50
     end
   end
 end

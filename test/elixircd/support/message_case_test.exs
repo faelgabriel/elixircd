@@ -18,9 +18,6 @@ defmodule ElixIRCd.MessageCaseTest do
 
       assert_sent_messages_amount(tcp_socket, 2)
       assert_sent_messages_amount(ssl_socket, 1)
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if the amount of messages sent is incorrect" do
@@ -38,9 +35,6 @@ defmodule ElixIRCd.MessageCaseTest do
       assert_raise AssertionError, fn ->
         assert_sent_messages_amount(ssl_socket, 2)
       end
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
   end
 
@@ -60,9 +54,6 @@ defmodule ElixIRCd.MessageCaseTest do
         {ssl_socket, "PING :test1"},
         {ssl_socket, "PING :test2"}
       ])
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "passes if messages are not sent in the correct order and validate_order? is false" do
@@ -83,9 +74,6 @@ defmodule ElixIRCd.MessageCaseTest do
         ],
         validate_order?: false
       )
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "passes if the messages are sent and expected message is a regex" do
@@ -99,9 +87,6 @@ defmodule ElixIRCd.MessageCaseTest do
         {tcp_socket, ~r/^PING/},
         {ssl_socket, ~r/^PING/}
       ])
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if messages are not sent in the correct order" do
@@ -121,9 +106,6 @@ defmodule ElixIRCd.MessageCaseTest do
           {ssl_socket, "PING :test1"}
         ])
       end
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if messages are not sent" do
@@ -136,9 +118,6 @@ defmodule ElixIRCd.MessageCaseTest do
           {ssl_socket, "PING :test"}
         ])
       end
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if more messages are sent than expected" do
@@ -156,23 +135,17 @@ defmodule ElixIRCd.MessageCaseTest do
           {ssl_socket, "PING :test"}
         ])
       end
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if more messages are sent than expected (2)" do
       {:ok, tcp_socket} = Client.connect(:tcp)
-      {:ok, ssl_socket} = Client.connect(:ssl)
+      Client.connect(:ssl)
 
       :ranch_tcp.send(tcp_socket, "PING :test")
 
       assert_raise AssertionError, fn ->
         assert_sent_messages([])
       end
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if messages are different with validate_order? set to false" do
@@ -193,9 +166,6 @@ defmodule ElixIRCd.MessageCaseTest do
           validate_order?: false
         )
       end
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
 
     test "raises an error if messages are not sent and expected message is a regex" do
@@ -208,9 +178,6 @@ defmodule ElixIRCd.MessageCaseTest do
           {ssl_socket, ~r/^PING/}
         ])
       end
-
-      Client.disconnect(tcp_socket)
-      Client.disconnect(ssl_socket)
     end
   end
 end

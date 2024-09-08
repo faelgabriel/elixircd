@@ -11,6 +11,7 @@ defmodule Mix.Tasks.Db.Prepare do
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
+  alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -19,6 +20,7 @@ defmodule Mix.Tasks.Db.Prepare do
     ChannelBan,
     ChannelInvite,
     HistoricalUser,
+    Metric,
     User,
     UserChannel
   ]

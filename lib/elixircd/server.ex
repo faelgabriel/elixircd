@@ -14,6 +14,7 @@ defmodule ElixIRCd.Server do
   alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.HistoricalUsers
+  alias ElixIRCd.Repository.Metrics
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
@@ -74,6 +75,7 @@ defmodule ElixIRCd.Server do
     Memento.transaction!(fn ->
       modes = if transport == :ranch_ssl, do: ["Z"], else: []
       Users.create(%{port: get_socket_port(socket), socket: socket, transport: transport, pid: pid, modes: modes})
+      update_connection_stats()
     end)
 
     transport.setopts(socket, [{:packet, :line}])
@@ -206,5 +208,18 @@ defmodule ElixIRCd.Server do
     ChannelInvites.delete_by_user_port(user.port)
     UserChannels.delete_by_user_port(user.port)
     Users.delete(user)
+  end
+
+  @spec update_connection_stats() :: :ok
+  defp update_connection_stats do
+    active_connections = Users.count_all()
+    highest_connections = Metrics.get(:highest_connections)
+
+    if active_connections > highest_connections do
+      Metrics.update_counter(:highest_connections, active_connections - highest_connections)
+    end
+
+    Metrics.update_counter(:total_connections, 1)
+    :ok
   end
 end

@@ -22,13 +22,11 @@ defmodule ElixIRCd.HelperTest do
     test "returns true for connected tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       assert true == Helper.socket_connected?(socket)
-      Client.disconnect(socket)
     end
 
     test "returns true for connected ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       assert true == Helper.socket_connected?(socket)
-      Client.disconnect(socket)
     end
 
     test "returns false for disconnected tcp socket" do
@@ -170,13 +168,11 @@ defmodule ElixIRCd.HelperTest do
     test "gets ip from tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
-      Client.disconnect(socket)
     end
 
     test "gets ip from ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
-      Client.disconnect(socket)
     end
 
     test "returns error for tcp socket disconnected" do
@@ -204,13 +200,11 @@ defmodule ElixIRCd.HelperTest do
     test "gets port connected from a tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
       assert {:ok, _} = Helper.get_socket_port_connected(socket)
-      Client.disconnect(socket)
     end
 
     test "gets port connected from an ssl socket" do
       {:ok, socket} = Client.connect(:ssl)
       assert {:ok, _} = Helper.get_socket_port_connected(socket)
-      Client.disconnect(socket)
     end
 
     test "returns error for tcp socket disconnected" do

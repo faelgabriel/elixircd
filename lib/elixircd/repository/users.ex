@@ -133,7 +133,6 @@ defmodule ElixIRCd.Repository.Users do
           total: integer()
         }
   def count_all_states do
-    # Eventually: optimize this for large datasets
     :mnesia.foldl(
       fn raw_user, acc ->
         user = Data.load(raw_user)

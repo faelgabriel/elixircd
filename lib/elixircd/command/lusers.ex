@@ -33,7 +33,6 @@ defmodule ElixIRCd.Command.Lusers do
 
     total_channels = Channels.count_all()
 
-    # Future: add RPL_LUSERSCONN for the highest connection count
     # Future: add a configuration for max local and global users
     [
       Message.build(%{

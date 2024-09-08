@@ -39,10 +39,9 @@ defmodule ElixIRCd do
   # this is for development and testing purposes only; for real-world use, you should use a trusted certificate
   @spec generate_certificate :: :ok
   defp generate_certificate do
-    # Most of time the self-signed certificate is already generated, so we can skip this step from the test coverage;
-    # self-signed certificate generation is already tested in the `gen.cert` Mix task.
+    # Self-signed certificate generation is already tested in the `gen.cert` Mix task.
     # coveralls-ignore-start
-    if Enum.find(Application.get_env(:elixircd, :listeners), &should_generate_certificate?/1) do
+    if Enum.any?(Application.get_env(:elixircd, :listeners), &should_generate_certificate?/1) do
       logger_with_time(:info, "generating self-signed certificate for SSL listeners", fn ->
         Mix.Task.run("gen.cert", [])
       end)

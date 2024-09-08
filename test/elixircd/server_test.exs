@@ -12,6 +12,7 @@ defmodule ElixIRCd.ServerTest do
   alias ElixIRCd.Command
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
+  alias ElixIRCd.Repository.Metrics
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -41,8 +42,6 @@ defmodule ElixIRCd.ServerTest do
 
       assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
       assert user.modes == []
-
-      Client.disconnect(socket)
     end
 
     test "handles successful ssl connect" do
@@ -63,8 +62,6 @@ defmodule ElixIRCd.ServerTest do
 
       assert [%User{} = user] = Memento.transaction!(fn -> Memento.Query.all(User) end)
       assert user.modes == ["Z"]
-
-      Client.disconnect(socket)
     end
 
     test "handles ranch handshake error on tcp connect" do
@@ -115,8 +112,6 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
-
-      Client.disconnect(socket)
     end
 
     test "handles valid ssl packet" do
@@ -131,8 +126,6 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
-
-      Client.disconnect(socket)
     end
 
     test "handles invalid tcp packet" do
@@ -146,8 +139,6 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
-
-      Client.disconnect(socket)
     end
 
     test "handles invalid ssl packet" do
@@ -161,8 +152,6 @@ defmodule ElixIRCd.ServerTest do
       assert {:error, :timeout} = Client.recv(socket)
 
       assert [%User{}] = Memento.transaction!(fn -> Memento.Query.all(User) end)
-
-      Client.disconnect(socket)
     end
 
     test "handles successful tcp disconnect by tcp close" do
@@ -450,8 +439,6 @@ defmodule ElixIRCd.ServerTest do
 
       # Channel should not be deleted
       assert {:ok, %Channel{}} = Memento.transaction!(fn -> Channels.get_by_name(channel.name) end)
-
-      Client.disconnect(socket2)
     end
 
     test "handles user not found error on disconnect" do
@@ -472,6 +459,28 @@ defmodule ElixIRCd.ServerTest do
         end)
 
       assert log =~ "Error handling disconnect: :user_not_found"
+    end
+
+    test "updates connection stats on new connections successfully" do
+      :ranch_tcp
+      |> expect(:setopts, 1, fn _socket, _opts -> :ok end)
+
+      :ranch_tcp
+      |> expect(:setopts, 1, fn _socket, _opts -> :ok end)
+
+      {:ok, socket1} = Client.connect(:tcp)
+      {:ok, socket2} = Client.connect(:tcp)
+      {:error, :timeout} = Client.recv(socket1)
+      {:error, :timeout} = Client.recv(socket2)
+      Client.disconnect(socket1)
+      Client.disconnect(socket2)
+      wait([] == Memento.transaction!(fn -> Memento.Query.all(User) end), @wait_keywords)
+
+      {:ok, socket1} = Client.connect(:tcp)
+      {:error, :timeout} = Client.recv(socket1)
+
+      assert Metrics.get(:highest_connections) == 2
+      assert Metrics.get(:total_connections) == 3
     end
   end
 end

@@ -7,6 +7,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
+  alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -110,6 +111,13 @@ defmodule ElixIRCd.Factory do
     }
   end
 
+  def build(:metric, attrs) do
+    %Metric{
+      key: Map.get(attrs, :key, :total_connections),
+      value: Map.get(attrs, :value, 10)
+    }
+  end
+
   @doc """
   Inserts a new struct with the given attributes into the database.
   """
@@ -205,6 +213,13 @@ defmodule ElixIRCd.Factory do
   def insert(:historical_user, attrs) do
     Memento.transaction!(fn ->
       build(:historical_user, attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:metric, attrs) do
+    Memento.transaction!(fn ->
+      build(:metric, attrs)
       |> Memento.Query.write()
     end)
   end
