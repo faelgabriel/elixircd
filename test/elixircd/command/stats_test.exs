@@ -9,6 +9,7 @@ defmodule ElixIRCd.Command.StatsTest do
 
   alias ElixIRCd.Command.Stats
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Metrics
 
   describe "handle/2" do
     test "handles STATS command with user not registered" do
@@ -40,6 +41,10 @@ defmodule ElixIRCd.Command.StatsTest do
         DateTime
         |> expect(:diff, 1, fn _, _ -> 999_969 end)
 
+        Metrics
+        |> expect(:get, 1, fn :highest_connections -> 10 end)
+        |> expect(:get, 1, fn :total_connections -> 50 end)
+
         user = insert(:user)
         message = %Message{command: "STATS", params: ["u"]}
 
@@ -47,6 +52,8 @@ defmodule ElixIRCd.Command.StatsTest do
 
         assert_sent_messages([
           {user.socket, ":server.example.com 242 #{user.nick} :Server Up 11 days, 13:46:09\r\n"},
+          {user.socket,
+           ":server.example.com 250 #{user.nick} :Highest connection count: 10 (1 clients) (50 connections received)\r\n"},
           {user.socket, ":server.example.com 219 #{user.nick} u :End of /STATS report\r\n"}
         ])
       end)

@@ -238,7 +238,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_endofstats), do: "219"
   defp numeric_reply(:rpl_umodeis), do: "221"
   defp numeric_reply(:rpl_statsuptime), do: "242"
-  # defp numeric_reply(:rpl_statsconn), do: "250"
+  defp numeric_reply(:rpl_statsconn), do: "250"
   defp numeric_reply(:rpl_luserclient), do: "251"
   defp numeric_reply(:rpl_luserop), do: "252"
   defp numeric_reply(:rpl_luserunknown), do: "253"

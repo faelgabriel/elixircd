@@ -6,6 +6,8 @@ defmodule ElixIRCd.Command.Stats do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Metrics
+  alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
@@ -56,14 +58,18 @@ defmodule ElixIRCd.Command.Stats do
     Message.build(%{prefix: :server, command: :rpl_statsuptime, params: [user.nick], trailing: "Server Up #{uptime}"})
     |> Messaging.broadcast(user)
 
-    # Future: implement highest connection count statistics
-    # Message.build(%{
-    #   prefix: :server,
-    #   command: :rpl_statsconn,
-    #   params: [user.nick],
-    #   trailing: "Highest connection count: #{} (#{} clients) (#{} connections received)"
-    # })
-    # |> Messaging.broadcast(user)
+    current_connections = Users.count_all()
+    highest_connections = Metrics.get(:highest_connections)
+    total_connections = Metrics.get(:total_connections)
+
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_statsconn,
+      params: [user.nick],
+      trailing:
+        "Highest connection count: #{highest_connections} (#{current_connections} clients) (#{total_connections} connections received)"
+    })
+    |> Messaging.broadcast(user)
   end
 
   defp handle_flag(_user, _flag), do: :ok
