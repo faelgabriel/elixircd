@@ -32,6 +32,8 @@ defmodule ElixIRCd.Server.Handshake do
 
       send_welcome(updated_user)
       Lusers.send_lusers(updated_user)
+      # Feature: implements RPL_ISUPPORT - https://modern.ircdocs.horse/#feature-advertisement
+      # See: lib/elixircd/command/version.ex
       Motd.send_motd(updated_user)
       send_user_modes(updated_user)
     else
