@@ -5,9 +5,11 @@ defmodule ElixIRCd.Command.LusersTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import Mimic
 
   alias ElixIRCd.Command.Lusers
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Metrics
 
   describe "handle/2" do
     test "handles LUSERS command with user not registered" do
@@ -25,6 +27,9 @@ defmodule ElixIRCd.Command.LusersTest do
 
     test "handles LUSERS command" do
       Memento.transaction!(fn ->
+        Metrics
+        |> expect(:get, 1, fn :highest_connections -> 10 end)
+
         insert(:user, registered: true, modes: [])
         insert(:user, registered: true, modes: ["i"])
         insert(:user, registered: true, modes: ["o"])
@@ -41,8 +46,8 @@ defmodule ElixIRCd.Command.LusersTest do
           {user.socket, ":server.example.com 253 #{user.nick} 1 :unknown connection(s)\r\n"},
           {user.socket, ":server.example.com 254 #{user.nick} 0 :channels formed\r\n"},
           {user.socket, ":server.example.com 255 #{user.nick} :I have 5 clients and 0 servers\r\n"},
-          {user.socket, ":server.example.com 265 #{user.nick} 5 1000 :Current local users 5, max 1000\r\n"},
-          {user.socket, ":server.example.com 266 #{user.nick} 5 1000 :Current global users 5, max 1000\r\n"}
+          {user.socket, ":server.example.com 265 #{user.nick} 5 10 :Current local users 5, max 10\r\n"},
+          {user.socket, ":server.example.com 266 #{user.nick} 5 10 :Current global users 5, max 10\r\n"}
         ])
       end)
     end

@@ -6,6 +6,7 @@ defmodule ElixIRCd.Command.Users do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repository.Metrics
   alias ElixIRCd.Repository.Users
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
@@ -20,20 +21,20 @@ defmodule ElixIRCd.Command.Users do
   @impl true
   def handle(user, %{command: "USERS"}) do
     total_users = Users.count_all()
+    highest_connections = Metrics.get(:highest_connections)
 
-    # Future: add a configuration for max local and global users
     [
       Message.build(%{
         prefix: :server,
         command: :rpl_localusers,
-        params: [user.nick, to_string(total_users), "1000"],
-        trailing: "Current local users #{total_users}, max 1000"
+        params: [user.nick, to_string(total_users), to_string(highest_connections)],
+        trailing: "Current local users #{total_users}, max #{highest_connections}"
       }),
       Message.build(%{
         prefix: :server,
         command: :rpl_globalusers,
-        params: [user.nick, to_string(total_users), "1000"],
-        trailing: "Current global users #{total_users}, max 1000"
+        params: [user.nick, to_string(total_users), to_string(highest_connections)],
+        trailing: "Current global users #{total_users}, max #{highest_connections}"
       })
     ]
     |> Messaging.broadcast(user)
