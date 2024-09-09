@@ -12,7 +12,7 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
       attrs = %{
         nick: "test",
         hostname: "example.com",
-        username: "test",
+        ident: "test",
         realname: "Test User"
       }
 
@@ -20,9 +20,8 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
 
       assert historical_user.nick == "test"
       assert historical_user.hostname == "example.com"
-      assert historical_user.username == "test"
+      assert historical_user.ident == "test"
       assert historical_user.realname == "Test User"
-      assert historical_user.userid == nil
       assert DateTime.diff(utc_now, historical_user.created_at) < 1000
     end
 
@@ -32,9 +31,8 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
       attrs = %{
         nick: "test",
         hostname: "example.com",
-        username: "test",
+        ident: "test",
         realname: "Test User",
-        userid: "test",
         created_at: utc_now
       }
 
@@ -42,9 +40,8 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
 
       assert historical_user.nick == "test"
       assert historical_user.hostname == "example.com"
-      assert historical_user.username == "test"
+      assert historical_user.ident == "test"
       assert historical_user.realname == "Test User"
-      assert historical_user.userid == "test"
       assert historical_user.created_at == utc_now
     end
   end

@@ -3,14 +3,13 @@ defmodule ElixIRCd.Tables.HistoricalUser do
   Module for the HistoricalUser table.
   """
 
-  @enforce_keys [:nick, :hostname, :username, :realname, :created_at]
+  @enforce_keys [:nick, :hostname, :ident, :realname, :created_at]
   use Memento.Table,
     attributes: [
       :nick,
       :hostname,
-      :username,
+      :ident,
       :realname,
-      :userid,
       :created_at
     ],
     type: :bag
@@ -18,18 +17,16 @@ defmodule ElixIRCd.Tables.HistoricalUser do
   @type t :: %__MODULE__{
           nick: String.t(),
           hostname: String.t(),
-          username: String.t(),
+          ident: String.t(),
           realname: String.t(),
-          userid: String.t() | nil,
           created_at: DateTime.t()
         }
 
   @type t_attrs :: %{
           optional(:nick) => String.t(),
           optional(:hostname) => String.t(),
-          optional(:username) => String.t(),
+          optional(:ident) => String.t(),
           optional(:realname) => String.t(),
-          optional(:userid) => String.t() | nil,
           optional(:created_at) => DateTime.t()
         }
 

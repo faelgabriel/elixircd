@@ -13,7 +13,7 @@ defmodule ElixIRCd.Repository.HistoricalUsersTest do
       attrs = %{
         nick: "testnick",
         hostname: "testhostname",
-        username: "testusername",
+        ident: "testusername",
         realname: "testrealname",
         created_at: DateTime.utc_now()
       }
@@ -22,9 +22,8 @@ defmodule ElixIRCd.Repository.HistoricalUsersTest do
 
       assert historical_user.nick == attrs.nick
       assert historical_user.hostname == attrs.hostname
-      assert historical_user.username == attrs.username
+      assert historical_user.ident == attrs.ident
       assert historical_user.realname == attrs.realname
-      assert historical_user.userid == nil
       assert historical_user.created_at == attrs.created_at
     end
   end

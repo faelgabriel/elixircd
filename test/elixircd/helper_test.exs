@@ -73,7 +73,7 @@ defmodule ElixIRCd.HelperTest do
 
   describe "user_mask_match?/2" do
     test "matches user mask" do
-      user = build(:user, nick: "nick", username: "user", hostname: "host")
+      user = build(:user, nick: "nick", ident: "~user", hostname: "host")
 
       assert true == Helper.user_mask_match?(user, "nick!~user@host")
       assert true == Helper.user_mask_match?(user, "nick!~user@*")
@@ -92,7 +92,7 @@ defmodule ElixIRCd.HelperTest do
     end
 
     test "does not match user mask" do
-      user = build(:user, nick: "nick", username: "user", hostname: "host")
+      user = build(:user, nick: "nick", ident: "~user", hostname: "host")
 
       assert false == Helper.user_mask_match?(user, "difnick!~user@host")
       assert false == Helper.user_mask_match?(user, "difnick!~user@*")
@@ -117,18 +117,6 @@ defmodule ElixIRCd.HelperTest do
       reply = Helper.get_user_reply(user)
 
       assert reply == "*"
-    end
-  end
-
-  describe "get_user_identity/1" do
-    test "gets user identity from userid" do
-      user = build(:user, %{userid: "userid", username: "noused"})
-      assert "userid" == Helper.get_user_identity(user)
-    end
-
-    test "gets user identity from username" do
-      user = build(:user, %{userid: nil, username: "username"})
-      assert "username" == Helper.get_user_identity(user)
     end
   end
 
@@ -236,26 +224,16 @@ defmodule ElixIRCd.HelperTest do
   end
 
   describe "get_user_mask/1" do
-    test "builds user mask with userid" do
-      user = build(:user, nick: "nick", userid: "userid", username: "noused", hostname: "host", registered: true)
-      assert "nick!userid@host" == Helper.get_user_mask(user)
-    end
-
-    test "builds user mask with username" do
-      user = build(:user, nick: "nick", userid: nil, username: "username", hostname: "host", registered: true)
+    test "builds user mask with ident" do
+      user = build(:user, nick: "nick", ident: "~username", hostname: "host", registered: true)
       assert "nick!~username@host" == Helper.get_user_mask(user)
     end
 
-    test "builds a user mask and truncates userid" do
+    test "builds a user mask and truncates ident" do
       user =
-        build(:user, nick: "nick", userid: "useriduseriduserid", username: "noused", hostname: "host", registered: true)
+        build(:user, nick: "nick", ident: "useriduseriduserid", hostname: "host", registered: true)
 
       assert "nick!useriduser@host" == Helper.get_user_mask(user)
-    end
-
-    test "builds a user mask and truncates username" do
-      user = build(:user, nick: "nick", userid: nil, username: "usernameusername", hostname: "host", registered: true)
-      assert "nick!~usernameu@host" == Helper.get_user_mask(user)
     end
   end
 

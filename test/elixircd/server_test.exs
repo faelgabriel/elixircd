@@ -374,7 +374,7 @@ defmodule ElixIRCd.ServerTest do
             | registered: true,
               nick: "nick1",
               hostname: "hostname1",
-              username: "username1",
+              ident: "ident1",
               realname: "realname1"
           })
         end)
@@ -411,7 +411,7 @@ defmodule ElixIRCd.ServerTest do
             | registered: true,
               nick: "nick1",
               hostname: "hostname1",
-              username: "username1",
+              ident: "ident1",
               realname: "realname1"
           })
         end)
@@ -423,7 +423,7 @@ defmodule ElixIRCd.ServerTest do
             | registered: true,
               nick: "nick2",
               hostname: "hostname2",
-              username: "username2",
+              ident: "ident2",
               realname: "realname2"
           })
         end)
@@ -435,7 +435,7 @@ defmodule ElixIRCd.ServerTest do
       Client.send(socket1, "QUIT :Quit message\r\n")
 
       assert {:error, :closed} = Client.recv(socket1)
-      assert {:ok, ":nick1!~username1@hostname1 QUIT :Quit message\r\n"} = Client.recv(socket2)
+      assert {:ok, ":nick1!ident1@hostname1 QUIT :Quit message\r\n"} = Client.recv(socket2)
 
       # Channel should not be deleted
       assert {:ok, %Channel{}} = Memento.transaction!(fn -> Channels.get_by_name(channel.name) end)

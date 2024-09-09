@@ -88,8 +88,7 @@ defmodule ElixIRCd.Command.Whowas do
           params: [
             user.nick,
             historical_user.nick,
-            # Future: username is prefixed with ~
-            historical_user.userid || historical_user.username,
+            historical_user.ident,
             historical_user.hostname,
             historical_user.realname
           ]

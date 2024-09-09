@@ -23,7 +23,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
     end
 
     test "does nothing if the user is not ready for handshake" do
-      user = insert(:user, nick: nil, registered: false, hostname: nil, username: nil, realname: nil)
+      user = insert(:user, nick: nil, registered: false, hostname: nil, ident: nil, realname: nil)
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
@@ -73,12 +73,12 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "localhost"
-      assert updated_user.userid == "anyuserid"
+      assert updated_user.ident == "anyuserid"
       assert updated_user.registered == true
       assert DateTime.diff(DateTime.utc_now(), updated_user.registered_at) < 1000
     end
 
-    test "handles a user handshake successfully with not found hostname lookup and not got ident response", %{
+    test "handles a user handshake successfully with not found hostname lookup and no ident response", %{
       app_version: app_version,
       server_start_date: server_start_date
     } do
@@ -119,7 +119,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "127.0.0.1"
-      assert updated_user.userid == nil
+      assert updated_user.ident == "~username"
       assert updated_user.registered == true
     end
 
@@ -163,7 +163,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "::1"
-      assert updated_user.userid == nil
+      assert updated_user.ident == "~username"
       assert updated_user.registered == true
     end
 
@@ -204,7 +204,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
       assert updated_user.hostname == "localhost"
-      assert updated_user.userid == nil
+      assert updated_user.ident == "~username"
       assert updated_user.registered == true
     end
 

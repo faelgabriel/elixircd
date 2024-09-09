@@ -24,9 +24,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.pid == self()
       assert user.nick == nil
       assert user.hostname == nil
-      assert user.username == nil
+      assert user.ident == nil
       assert user.realname == nil
-      assert user.userid == nil
       assert user.registered == false
       assert user.modes == []
       assert user.password == nil
@@ -48,9 +47,8 @@ defmodule ElixIRCd.Tables.UserTest do
         pid: self(),
         nick: "test",
         hostname: "test",
-        username: "test",
+        ident: "test",
         realname: "test",
-        userid: "test",
         registered: true,
         modes: [],
         password: "test",
@@ -68,9 +66,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.pid == self()
       assert user.nick == "test"
       assert user.hostname == "test"
-      assert user.username == "test"
+      assert user.ident == "test"
       assert user.realname == "test"
-      assert user.userid == "test"
       assert user.registered == true
       assert user.modes == []
       assert user.password == "test"
@@ -91,9 +88,8 @@ defmodule ElixIRCd.Tables.UserTest do
         User.update(user, %{
           nick: "test",
           hostname: "test",
-          username: "test",
+          ident: "test",
           realname: "test",
-          userid: "test",
           registered: true,
           modes: [{:a, "test"}],
           password: "test",
@@ -108,9 +104,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert updated_user.pid == self()
       assert updated_user.nick == "test"
       assert updated_user.hostname == "test"
-      assert updated_user.username == "test"
+      assert updated_user.ident == "test"
       assert updated_user.realname == "test"
-      assert updated_user.userid == "test"
       assert updated_user.registered == true
       assert updated_user.modes == [{:a, "test"}]
       assert updated_user.password == "test"

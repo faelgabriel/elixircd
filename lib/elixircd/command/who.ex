@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Who do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [channel_name?: 1, get_user_identity: 1, get_user_reply: 1, normalize_mask: 1]
+  import ElixIRCd.Helper, only: [channel_name?: 1, get_user_reply: 1, normalize_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
@@ -74,7 +74,7 @@ defmodule ElixIRCd.Command.Who do
     end
   end
 
-  @spec handle_who_mask(User.t(), String.t(), [Strng.t()]) :: :ok
+  @spec handle_who_mask(User.t(), String.t(), [String.t()]) :: :ok
   defp handle_who_mask(user, mask, filters) do
     user_ports_sharing_channel =
       UserChannels.get_by_user_port(user.port)
@@ -164,7 +164,7 @@ defmodule ElixIRCd.Command.Who do
       params: [
         get_user_reply(user),
         user_channel_name,
-        get_user_identity(user_target),
+        user_target.ident,
         user_target.hostname,
         Application.get_env(:elixircd, :server)[:hostname],
         user_target.nick,

@@ -24,11 +24,16 @@ defmodule ElixIRCd.Server.Handshake do
   The `user` should be loaded in the same transaction.
   """
   @spec handle(User.t()) :: :ok
-  def handle(user) when user.nick != nil and user.username != nil and user.realname != nil do
+  def handle(user) when user.nick != nil and user.ident != nil and user.realname != nil do
     with :ok <- check_server_password(user),
          {:ok, {userid, hostname}} <- handle_async_data(user) do
       updated_user =
-        Users.update(user, %{userid: userid, hostname: hostname, registered: true, registered_at: DateTime.utc_now()})
+        Users.update(user, %{
+          ident: userid || user.ident,
+          hostname: hostname,
+          registered: true,
+          registered_at: DateTime.utc_now()
+        })
 
       send_welcome(updated_user)
       Lusers.send_lusers(updated_user)
@@ -60,7 +65,7 @@ defmodule ElixIRCd.Server.Handshake do
     end
   end
 
-  @spec handle_async_data(User.t()) :: {:ok, {String.t(), String.t()}} | {:error, String.t()}
+  @spec handle_async_data(User.t()) :: {:ok, {String.t() | nil, String.t()}} | {:error, String.t()}
   defp handle_async_data(user) do
     ident_task = Task.async(fn -> check_ident(user) end)
     hostname_task = Task.async(fn -> lookup_hostname(user) end)

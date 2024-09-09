@@ -150,7 +150,8 @@ defmodule ElixIRCd.Command.WhoisTest do
   defp assert_user_whois_message(user, target_user, channel) do
     assert_sent_messages(
       [
-        {user.socket, ":server.example.com 311 #{user.nick} #{target_user.nick} username hostname * :realname\r\n"},
+        {user.socket,
+         ":server.example.com 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
         {user.socket, ":server.example.com 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
         {user.socket,
          ":server.example.com 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},

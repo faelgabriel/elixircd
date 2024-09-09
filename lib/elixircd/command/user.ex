@@ -27,7 +27,7 @@ defmodule ElixIRCd.Command.User do
   end
 
   def handle(user, %{command: "USER", params: [username, _, _], trailing: realname}) do
-    updated_user = Users.update(user, %{username: username, realname: realname})
+    updated_user = Users.update(user, %{ident: "~" <> username, realname: realname})
 
     Handshake.handle(updated_user)
   end

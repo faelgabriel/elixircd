@@ -38,9 +38,8 @@ defmodule ElixIRCd.Factory do
       nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
       modes: Map.get(attrs, :modes, []),
       hostname: Map.get(attrs, :hostname, "hostname"),
-      username: Map.get(attrs, :username, "username"),
+      ident: Map.get(attrs, :ident, "~username"),
       realname: Map.get(attrs, :realname, "realname"),
-      userid: Map.get(attrs, :userid, nil),
       registered: Map.get(attrs, :registered, true),
       password: Map.get(attrs, :password, nil),
       away_message: Map.get(attrs, :away_message, nil),
@@ -104,9 +103,8 @@ defmodule ElixIRCd.Factory do
     %HistoricalUser{
       nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
       hostname: Map.get(attrs, :hostname, "hostname"),
-      username: Map.get(attrs, :username, "username"),
+      ident: Map.get(attrs, :ident, "ident"),
       realname: Map.get(attrs, :realname, "realname"),
-      userid: Map.get(attrs, :userid, nil),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end

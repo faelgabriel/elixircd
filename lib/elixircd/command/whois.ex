@@ -5,8 +5,6 @@ defmodule ElixIRCd.Command.Whois do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_identity: 1]
-
   alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
@@ -74,7 +72,7 @@ defmodule ElixIRCd.Command.Whois do
       Message.build(%{
         prefix: :server,
         command: :rpl_whoisuser,
-        params: [user.nick, target_user.nick, get_user_identity(target_user), target_user.hostname, "*"],
+        params: [user.nick, target_user.nick, target_user.ident, target_user.hostname, "*"],
         trailing: target_user.realname
       }),
       Message.build(%{

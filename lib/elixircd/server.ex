@@ -195,9 +195,8 @@ defmodule ElixIRCd.Server do
     HistoricalUsers.create(%{
       nick: user.nick,
       hostname: user.hostname,
-      username: user.username,
-      realname: user.realname,
-      userid: user.userid
+      ident: user.ident,
+      realname: user.realname
     })
 
     Message.build(%{prefix: get_user_mask(user), command: "QUIT", params: [], trailing: quit_message})
