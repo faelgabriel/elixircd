@@ -132,6 +132,8 @@ defmodule ElixIRCd.Helper do
     "#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname}"
   end
 
+  def get_user_mask(%{registered: false}), do: "*"
+
   @doc """
   Formats an IP address.
   """

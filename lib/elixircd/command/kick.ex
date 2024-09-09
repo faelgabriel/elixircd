@@ -47,8 +47,8 @@ defmodule ElixIRCd.Command.Kick do
          :ok <- check_user_permission(user_channel),
          {:ok, target_user} <- get_target_user(target_nick),
          {:ok, target_user_channel} <- get_target_user_channel(target_user, channel) do
-      UserChannels.delete(target_user_channel)
       user_channels = UserChannels.get_by_channel_name(channel.name)
+      UserChannels.delete(target_user_channel)
 
       send_user_kick_success(channel, user, target_user, reason, user_channels)
     else

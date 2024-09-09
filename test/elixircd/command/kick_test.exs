@@ -127,7 +127,8 @@ defmodule ElixIRCd.Command.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} KICK #channel target :reason\r\n"}
+          {user.socket, ":#{get_user_mask(user)} KICK #channel target :reason\r\n"},
+          {target_user.socket, ":#{get_user_mask(user)} KICK #channel target :reason\r\n"}
         ])
       end)
     end
@@ -145,7 +146,8 @@ defmodule ElixIRCd.Command.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} KICK #channel target\r\n"}
+          {user.socket, ":#{get_user_mask(user)} KICK #channel target\r\n"},
+          {target_user.socket, ":#{get_user_mask(user)} KICK #channel target\r\n"}
         ])
       end)
     end

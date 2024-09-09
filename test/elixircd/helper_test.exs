@@ -235,6 +235,11 @@ defmodule ElixIRCd.HelperTest do
 
       assert "nick!useriduser@host" == Helper.get_user_mask(user)
     end
+
+    test "builds a user mask for unregistered user" do
+      user = build(:user, registered: false)
+      assert "*" == Helper.get_user_mask(user)
+    end
   end
 
   describe "format_ip_address/1" do
