@@ -43,7 +43,7 @@ defmodule Mix.Tasks.Db.Prepare do
     |> verbose_info("Mnesia schema create", opts)
     |> case do
       {:error, {_, {:already_exists, _}}} -> :ok
-      {:error, error} -> Mix.raise("Failed to create Mnesia schema. Error:\n#{inspect(error, pretty: true)}")
+      {:error, error} -> Mix.raise("Failed to create Mnesia schema:\n#{inspect(error, pretty: true)}")
       _ -> :ok
     end
 
@@ -51,7 +51,7 @@ defmodule Mix.Tasks.Db.Prepare do
     |> verbose_info("Mnesia start", opts)
     |> case do
       :ok -> :ok
-      {:error, error} -> Mix.raise("Failed to start Mnesia. Error:\n#{inspect(error, pretty: true)}")
+      {:error, error} -> Mix.raise("Failed to start Mnesia:\n#{inspect(error, pretty: true)}")
     end
 
     @memory_tables
@@ -62,7 +62,8 @@ defmodule Mix.Tasks.Db.Prepare do
     |> verbose_info("Mnesia wait tables", opts)
     |> case do
       :ok -> :ok
-      {:error, error} -> Mix.raise("Failed to wait for Mnesia tables. Error:\n#{inspect(error, pretty: true)}")
+      {:timeout, tables} -> Mix.raise("Timed out waiting for Mnesia tables:\n#{inspect(tables, pretty: true)}")
+      {:error, error} -> Mix.raise("Failed to wait for Mnesia tables:\n#{inspect(error, pretty: true)}")
     end
 
     shell_info("Mnesia database prepared successfully.", opts)
@@ -90,7 +91,7 @@ defmodule Mix.Tasks.Db.Prepare do
     |> case do
       :ok -> :ok
       {:error, {:already_exists, _}} -> :ok
-      {:error, error} -> Mix.raise("Failed to create Mnesia table. Error:\n#{inspect(error, pretty: true)}")
+      {:error, error} -> Mix.raise("Failed to create Mnesia table:\n#{inspect(error, pretty: true)}")
     end
   end
 

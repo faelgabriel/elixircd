@@ -52,28 +52,35 @@ defmodule Mix.Tasks.Db.PrepareTest do
       Memento.Schema
       |> stub(:create, fn _nodes -> {:error, :any} end)
 
-      assert_raise Mix.Error, "Failed to create Mnesia schema. Error:\n:any", fn -> Db.Prepare.run([]) end
+      assert_raise Mix.Error, "Failed to create Mnesia schema:\n:any", fn -> Db.Prepare.run([]) end
     end
 
     test "raises error if failed to start Mnesia" do
       Memento
       |> stub(:start, fn -> {:error, :any} end)
 
-      assert_raise Mix.Error, "Failed to start Mnesia. Error:\n:any", fn -> Db.Prepare.run([]) end
+      assert_raise Mix.Error, "Failed to start Mnesia:\n:any", fn -> Db.Prepare.run([]) end
     end
 
     test "raises error if failed to create Mnesia tables" do
       Memento.Table
       |> stub(:create, fn _table -> {:error, :any} end)
 
-      assert_raise Mix.Error, "Failed to create Mnesia table. Error:\n:any", fn -> Db.Prepare.run([]) end
+      assert_raise Mix.Error, "Failed to create Mnesia table:\n:any", fn -> Db.Prepare.run([]) end
     end
 
     test "raises error if failed waiting for Mnesia tables" do
       Memento
       |> stub(:wait, fn _tables, _timeout -> {:error, :any} end)
 
-      assert_raise Mix.Error, "Failed to wait for Mnesia tables. Error:\n:any", fn -> Db.Prepare.run(["-r"]) end
+      assert_raise Mix.Error, "Failed to wait for Mnesia tables:\n:any", fn -> Db.Prepare.run(["-r"]) end
+    end
+
+    test "raises error if timed out waiting for Mnesia tables" do
+      Memento
+      |> stub(:wait, fn _tables, _timeout -> {:timeout, []} end)
+
+      assert_raise Mix.Error, "Timed out waiting for Mnesia tables:\n[]", fn -> Db.Prepare.run(["-r"]) end
     end
   end
 end
