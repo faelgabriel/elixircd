@@ -35,12 +35,10 @@ defmodule ElixIRCd.Command.Who do
   end
 
   @impl true
-  # Future: implement filter = "o" where filters only irc operators
-  # Future: server hostname as first target
-  def handle(user, %{command: "WHO", params: [target | _filter]}) do
+  def handle(user, %{command: "WHO", params: [target | filters]}) do
     case channel_name?(target) do
-      true -> handle_who_channel(user, target)
-      false -> handle_who_mask(user, target)
+      true -> handle_who_channel(user, target, filters)
+      false -> handle_who_mask(user, target, filters)
     end
 
     Message.build(%{
@@ -52,8 +50,8 @@ defmodule ElixIRCd.Command.Who do
     |> Messaging.broadcast(user)
   end
 
-  @spec handle_who_channel(User.t(), String.t()) :: :ok
-  defp handle_who_channel(user, channel_name) do
+  @spec handle_who_channel(User.t(), String.t(), [String.t()]) :: :ok
+  defp handle_who_channel(user, channel_name, filters) do
     Channels.get_by_name(channel_name)
     |> case do
       {:ok, channel} ->
@@ -64,6 +62,7 @@ defmodule ElixIRCd.Command.Who do
         users
         |> filter_out_hidden_channel(channel, user_shares_channel?)
         |> filter_out_invisible_users_for_channel(user_shares_channel?)
+        |> maybe_filter_operators(filters)
         |> Enum.map(fn user_target ->
           user_channel = Enum.find(user_channels, fn user_channel -> user_channel.user_port == user_target.port end)
           build_message(user, user_target, user_channel)
@@ -75,8 +74,8 @@ defmodule ElixIRCd.Command.Who do
     end
   end
 
-  @spec handle_who_mask(User.t(), String.t()) :: :ok
-  defp handle_who_mask(user, mask) do
+  @spec handle_who_mask(User.t(), String.t(), [Strng.t()]) :: :ok
+  defp handle_who_mask(user, mask, filters) do
     user_ports_sharing_channel =
       UserChannels.get_by_user_port(user.port)
       |> Enum.map(& &1.channel_name)
@@ -88,6 +87,7 @@ defmodule ElixIRCd.Command.Who do
       normalize_mask(mask)
       |> Users.get_by_match_mask()
       |> filter_out_invisible_users_for_mask(user_ports_sharing_channel)
+      |> maybe_filter_operators(filters)
 
     users
     |> Enum.map(fn user_target ->
@@ -142,6 +142,14 @@ defmodule ElixIRCd.Command.Who do
     end)
   end
 
+  @spec maybe_filter_operators([User.t()], [String.t()]) :: [User.t()]
+  defp maybe_filter_operators(users, filters) do
+    case filter_operators?(filters) do
+      true -> Enum.filter(users, &("o" in &1.modes))
+      false -> users
+    end
+  end
+
   @spec build_message(User.t(), User.t(), UserChannel.t() | nil) :: Message.t()
   defp build_message(user, user_target, user_channel) do
     user_channel_name =
@@ -187,4 +195,13 @@ defmodule ElixIRCd.Command.Who do
   @spec channel_voice_symbol(UserChannel.t() | nil) :: String.t()
   defp channel_voice_symbol(%UserChannel{modes: modes}), do: if("v" in modes, do: "+", else: "")
   defp channel_voice_symbol(_), do: ""
+
+  @spec filter_operators?([String.t()]) :: boolean()
+  defp filter_operators?([filter | _]) do
+    filter
+    |> String.downcase()
+    |> String.contains?("o")
+  end
+
+  defp filter_operators?(_), do: false
 end

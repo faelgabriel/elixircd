@@ -167,10 +167,6 @@ defmodule ElixIRCd.Command.WhoTest do
       end)
     end
 
-    #
-    #
-    #
-    #
     test "handles WHO command with mask target and user shares channel" do
       Memento.transaction!(fn ->
         user = insert(:user, nick: "anick1")
@@ -332,6 +328,54 @@ defmodule ElixIRCd.Command.WhoTest do
             {user.socket,
              ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user1.nick} H :0 realname\r\n"},
             {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "handles WHO command with mask target and operator filter" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "anick1")
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        another_user = insert(:user, nick: "anick2", modes: ["o"])
+        insert(:user, nick: "anick3", modes: [])
+
+        message = %Message{command: "WHO", params: ["*", "o"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.socket,
+             ":server.example.com 352 #{user.nick} * username hostname server.example.com #{another_user.nick} H* :0 realname\r\n"},
+            {user.socket, ":server.example.com 315 #{user.nick} * :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "handles WHO command with channel target and operator filter" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        another_user1 = insert(:user, modes: ["o"])
+        another_user2 = insert(:user, modes: [])
+        insert(:user_channel, channel: channel, user: another_user1)
+        insert(:user_channel, channel: channel, user: another_user2, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name, "o"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.socket,
+             ":server.example.com 352 #{user.nick} #{channel.name} username hostname server.example.com #{another_user1.nick} H* :0 realname\r\n"},
+            {user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
           ],
           validate_order?: false
         )

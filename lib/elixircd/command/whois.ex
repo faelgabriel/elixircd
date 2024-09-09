@@ -118,7 +118,7 @@ defmodule ElixIRCd.Command.Whois do
       |> Messaging.broadcast(user)
     end
 
-    # Future: when account is implemented
+    # Feature: account implementation
     # if true do
     #   Message.build(%{
     #     prefix: :server,
