@@ -13,9 +13,9 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Command.Motd
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Handshake.IdentClient
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils
 
   @doc """
   Handles the user handshake.
@@ -94,7 +94,7 @@ defmodule ElixIRCd.Server.Handshake do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"})
     |> Messaging.broadcast(user)
 
-    IdentClient.query_userid(ip, port_connected)
+    Utils.query_identd_userid(ip, port_connected)
     |> case do
       {:ok, user_id} ->
         Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Got Ident response"})

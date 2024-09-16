@@ -11,8 +11,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
   alias ElixIRCd.Command.Motd
   alias ElixIRCd.Helper
   alias ElixIRCd.Server.Handshake
-  alias ElixIRCd.Server.Handshake.IdentClient
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils
 
   describe "handle/1" do
     setup do
@@ -41,8 +41,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_hostname, fn _ip -> {:ok, "localhost"} end)
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
-      IdentClient
-      |> expect(:query_userid, fn _ip, _server_port_query -> {:ok, "anyuserid"} end)
+      Utils
+      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -87,8 +87,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_hostname, fn _ip -> {:error, "anyerror"} end)
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
-      IdentClient
-      |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+      Utils
+      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -130,8 +130,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_hostname, fn _ip -> {:error, "anyerror"} end)
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
-      IdentClient
-      |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+      Utils
+      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -218,8 +218,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:get_socket_hostname, fn _ip -> {:ok, "localhost"} end)
       |> expect(:get_socket_port_connected, fn _socket -> {:ok, 6667} end)
 
-      IdentClient
-      |> expect(:query_userid, fn _ip, _server_port_query -> {:error, "anyerror"} end)
+      Utils
+      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)

@@ -40,4 +40,28 @@ defmodule ElixIRCd.Utils do
 
     result
   end
+
+  @doc """
+  Retrieves the user identifier from an Ident server.
+  """
+  # Mimic library does not support mocking of sticky modules (:gen_tcp, for this case),
+  # we need to ignore this module from the test coverage for now.
+  # coveralls-ignore-start
+  @spec query_identd_userid(tuple(), integer()) :: {:ok, String.t()} | {:error, String.t()}
+  def query_identd_userid(ip, irc_server_port) do
+    timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
+
+    with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}]),
+         :ok <- :gen_tcp.send(socket, "#{irc_server_port}, #{113}\r\n"),
+         {:ok, data} <- :gen_tcp.recv(socket, 0, timeout),
+         :ok <- :gen_tcp.close(socket),
+         [_port_info, "USERID", _os, user_id] <- String.split(data, " : ", trim: true) do
+      {:ok, user_id}
+    else
+      {:error, reason} -> {:error, "Failed to retrieve Identd response: #{inspect(reason)}"}
+      data -> {:error, "Unexpected Identd response: #{inspect(data)}"}
+    end
+  end
+
+  # coveralls-ignore-stop
 end
