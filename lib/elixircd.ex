@@ -7,7 +7,7 @@ defmodule ElixIRCd do
 
   require Logger
 
-  import ElixIRCd.Utils, only: [load_configurations: 0, logger_with_time: 3]
+  import ElixIRCd.Utils, only: [load_configurations: 0, logger_with_time: 3, should_generate_certificate?: 0]
 
   @impl true
   def start(_type, _args) do
@@ -49,24 +49,12 @@ defmodule ElixIRCd do
   defp generate_certificate do
     # Self-signed certificate generation is already tested in the `gen.cert` Mix task.
     # coveralls-ignore-start
-    if Enum.any?(Application.get_env(:elixircd, :listeners), &should_generate_certificate?/1) do
+    if should_generate_certificate?() do
       logger_with_time(:info, "generating self-signed certificate", fn ->
         Mix.Task.run("gen.cert", [])
       end)
     end
 
     # coveralls-ignore-stop
-    :ok
   end
-
-  @spec should_generate_certificate?({:tcp | :ssl, keyword()}) :: boolean()
-  defp should_generate_certificate?({:ssl, ssl_opts}) do
-    keyfile = Keyword.get(ssl_opts, :keyfile)
-    certfile = Keyword.get(ssl_opts, :certfile)
-
-    keyfile == "priv/cert/selfsigned_key.pem" and certfile == "priv/cert/selfsigned.pem" and
-      (!File.exists?(keyfile) or !File.exists?(certfile))
-  end
-
-  defp should_generate_certificate?(_listener), do: false
 end

@@ -42,9 +42,28 @@ defmodule ElixIRCd.Utils do
   end
 
   @doc """
+  Determines if a self-signed certificate should be generated. This is determined by checking if the configured keyfile
+  and certfile are set to the default values and if the files do not exist.
+  """
+  @spec should_generate_certificate?() :: boolean()
+  def should_generate_certificate? do
+    Enum.any?(Application.get_env(:elixircd, :listeners), fn
+      {:ssl, ssl_opts} ->
+        keyfile = Keyword.get(ssl_opts, :keyfile)
+        certfile = Keyword.get(ssl_opts, :certfile)
+
+        keyfile == "priv/cert/selfsigned_key.pem" and certfile == "priv/cert/selfsigned.pem" and
+          (!File.exists?(keyfile) or !File.exists?(certfile))
+
+      _ ->
+        false
+    end)
+  end
+
+  @doc """
   Retrieves the user identifier from an Ident server.
   """
-  # Mimic library does not support mocking of sticky modules (:gen_tcp, for this case),
+  # Mimic library does not support mocking of sticky modules (e.g. :gen_tcp),
   # we need to ignore this module from the test coverage for now.
   # coveralls-ignore-start
   @spec query_identd_userid(tuple(), integer()) :: {:ok, String.t()} | {:error, String.t()}
@@ -52,7 +71,7 @@ defmodule ElixIRCd.Utils do
     timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
 
     with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}]),
-         :ok <- :gen_tcp.send(socket, "#{irc_server_port}, #{113}\r\n"),
+         :ok <- :gen_tcp.send(socket, "#{irc_server_port}, 113\r\n"),
          {:ok, data} <- :gen_tcp.recv(socket, 0, timeout),
          :ok <- :gen_tcp.close(socket),
          [_port_info, "USERID", _os, user_id] <- String.split(data, " : ", trim: true) do
