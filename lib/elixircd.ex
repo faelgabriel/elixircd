@@ -16,7 +16,7 @@ defmodule ElixIRCd do
     init_database()
     generate_certificate()
 
-    Application.put_env(:elixircd, :app_start_time, DateTime.utc_now())
+    :persistent_term.put(:app_start_time, DateTime.utc_now())
 
     logger_with_time(:info, "starting server supervisor", fn ->
       Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)

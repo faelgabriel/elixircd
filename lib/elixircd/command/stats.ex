@@ -52,7 +52,7 @@ defmodule ElixIRCd.Command.Stats do
 
   @spec handle_flag(User.t(), String.t()) :: :ok
   defp handle_flag(user, "u") do
-    server_start_time = Application.get_env(:elixircd, :server_start_time)
+    server_start_time = :persistent_term.get(:server_start_time)
     uptime = format_uptime(server_start_time)
 
     Message.build(%{prefix: :server, command: :rpl_statsuptime, params: [user.nick], trailing: "Server Up #{uptime}"})

@@ -17,7 +17,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
   describe "handle/1" do
     setup do
       app_version = "ElixIRCd-#{Application.spec(:elixircd, :vsn)}"
-      server_start_date = Application.get_env(:elixircd, :server_start_time) |> Calendar.strftime("%Y-%m-%d")
+      server_start_date = :persistent_term.get(:server_start_time) |> Calendar.strftime("%Y-%m-%d")
 
       {:ok, app_version: app_version, server_start_date: server_start_date}
     end

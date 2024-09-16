@@ -14,7 +14,7 @@ defmodule ElixIRCd.Server.Supervisor do
   """
   @spec start_link(keyword()) :: Supervisor.on_start()
   def start_link(_supervisor_opts) do
-    Application.put_env(:elixircd, :server_start_time, DateTime.utc_now())
+    :persistent_term.put(:server_start_time, DateTime.utc_now())
     Supervisor.start_link(__MODULE__, Application.get_env(:elixircd, :listeners), name: __MODULE__)
   end
 

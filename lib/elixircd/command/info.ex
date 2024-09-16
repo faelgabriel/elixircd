@@ -46,8 +46,8 @@ defmodule ElixIRCd.Command.Info do
     |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_info, params: [user.nick], trailing: &1}))
     |> Messaging.broadcast(user)
 
-    app_start_time = Application.get_env(:elixircd, :app_start_time) |> Calendar.strftime("%a %b %d %Y at %H:%M:%S %Z")
-    server_start_time = Application.get_env(:elixircd, :server_start_time) |> Calendar.strftime("%a %b %d %H:%M:%S %Y")
+    app_start_time = :persistent_term.get(:app_start_time) |> Calendar.strftime("%a %b %d %Y at %H:%M:%S %Z")
+    server_start_time = :persistent_term.get(:server_start_time) |> Calendar.strftime("%a %b %d %H:%M:%S %Y")
 
     [
       Message.build(%{
