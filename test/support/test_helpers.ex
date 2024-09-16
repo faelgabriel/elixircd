@@ -33,7 +33,10 @@ defmodule ElixIRCd.TestHelpers do
   """
   @spec in_tmp(binary(), (-> any())) :: any
   def in_tmp(which, function) do
-    base = Path.join([tmp_path(), random_string(10)])
+    tmp_path = Path.expand("../../tmp", __DIR__)
+    random_string = :crypto.strong_rand_bytes(10) |> Base.url_encode64() |> binary_part(0, 10)
+
+    base = Path.join([tmp_path, random_string])
     path = Path.join([base, to_string(which)])
 
     try do
@@ -43,21 +46,5 @@ defmodule ElixIRCd.TestHelpers do
     after
       File.rm_rf!(base)
     end
-  end
-
-  @doc """
-  Returns the path to the temporary directory.
-  """
-  @spec tmp_path() :: binary()
-  def tmp_path do
-    Path.expand("../../tmp", __DIR__)
-  end
-
-  @doc """
-  Generates a random string of the given length.
-  """
-  @spec random_string(pos_integer()) :: binary()
-  def random_string(len) do
-    len |> :crypto.strong_rand_bytes() |> Base.url_encode64() |> binary_part(0, len)
   end
 end

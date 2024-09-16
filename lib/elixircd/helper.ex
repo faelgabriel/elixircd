@@ -1,6 +1,6 @@
 defmodule ElixIRCd.Helper do
   @moduledoc """
-  Module for helper functions used throughout the IRC server logic.
+  Module for helper functions used throughout the IRC server.
   """
 
   alias ElixIRCd.Tables.User

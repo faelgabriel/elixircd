@@ -10,7 +10,7 @@ defmodule ElixIRCd.Command.Rehash do
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
-  alias Mix.Tasks.Loadconfig
+  alias ElixIRCd.Utils
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -32,9 +32,7 @@ defmodule ElixIRCd.Command.Rehash do
     Message.build(%{prefix: :server, command: :rpl_rehashing, params: [user.nick, "runtime.exs"], trailing: "Rehashing"})
     |> Messaging.broadcast(user)
 
-    config = Mix.Project.config()
-    runtime = config[:config_path] |> Path.dirname() |> Path.join("runtime.exs")
-    Loadconfig.load_runtime(runtime)
+    Utils.load_configurations()
 
     Message.build(%{prefix: :server, command: "NOTICE", params: [user.nick], trailing: "Rehashing completed"})
     |> Messaging.broadcast(user)

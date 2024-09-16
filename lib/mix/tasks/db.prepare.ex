@@ -34,39 +34,58 @@ defmodule Mix.Tasks.Db.Prepare do
 
     stop_mnesia(opts)
 
-    if opts[:recreate] do
-      Memento.Schema.delete([node()])
-      |> verbose_info("Mnesia schema delete", opts)
-    end
+    if opts[:recreate], do: recreate_schema(opts)
 
+    create_schema(opts)
+    start_mnesia(opts)
+    create_tables(opts)
+    wait_for_tables(opts)
+
+    shell_info("Mnesia database prepared successfully.", opts)
+  end
+
+  defp recreate_schema(opts) do
+    Memento.Schema.delete([node()])
+    |> tap(&verbose_info(&1, "Mnesia schema delete", opts))
+  end
+
+  @spec create_schema(keyword()) :: :ok
+  defp create_schema(opts) do
     Memento.Schema.create([node()])
-    |> verbose_info("Mnesia schema create", opts)
+    |> tap(&verbose_info(&1, "Mnesia schema create", opts))
     |> case do
       {:error, {_, {:already_exists, _}}} -> :ok
       {:error, error} -> Mix.raise("Failed to create Mnesia schema:\n#{inspect(error, pretty: true)}")
       _ -> :ok
     end
+  end
 
+  @spec start_mnesia(keyword()) :: :ok
+  defp start_mnesia(opts) do
     Memento.start()
-    |> verbose_info("Mnesia start", opts)
+    |> tap(&verbose_info(&1, "Mnesia start", opts))
     |> case do
       :ok -> :ok
       {:error, error} -> Mix.raise("Failed to start Mnesia:\n#{inspect(error, pretty: true)}")
     end
+  end
 
+  @spec create_tables(keyword()) :: :ok
+  defp create_tables(opts) do
     @memory_tables
     |> Enum.each(&handle_table_create/1)
-    |> verbose_info("Mnesia table create", opts)
+    |> tap(&verbose_info(&1, "Mnesia table create", opts))
+  end
 
+  @spec wait_for_tables(keyword()) :: :ok
+  defp wait_for_tables(opts) do
     Memento.wait(@memory_tables, 30_000)
-    |> verbose_info("Mnesia wait tables", opts)
+    |> tap(&verbose_info(&1, "Mnesia wait tables", opts))
     |> case do
       :ok -> :ok
       {:timeout, tables} -> Mix.raise("Timed out waiting for Mnesia tables:\n#{inspect(tables, pretty: true)}")
       {:error, error} -> Mix.raise("Failed to wait for Mnesia tables:\n#{inspect(error, pretty: true)}")
     end
-
-    shell_info("Mnesia database prepared successfully.", opts)
   end
 
   @spec stop_mnesia(keyword()) :: :ok
@@ -79,7 +98,7 @@ defmodule Mix.Tasks.Db.Prepare do
       # Setting up disk persistence in Mnesia has always been a bit weird. It involves stopping the application,
       # creating schemas on disk, restarting the application and then creating the tables with certain options.
       Memento.stop()
-      |> verbose_info("Mnesia stop", opts)
+      |> tap(&verbose_info(&1, "Mnesia stop", opts))
     after
       Logger.configure(level: original_level)
     end
@@ -95,13 +114,13 @@ defmodule Mix.Tasks.Db.Prepare do
     end
   end
 
-  @spec verbose_info(term, String.t(), Keyword.t()) :: :ok | {:error, any}
+  @spec verbose_info(term, String.t(), Keyword.t()) :: :ok
   defp verbose_info(output, message, opts) do
     if opts[:verbose] do
       shell_info("#{message}: #{inspect(output, pretty: true)}", opts)
     end
 
-    output
+    :ok
   end
 
   @spec shell_info(String.t(), Keyword.t()) :: :ok

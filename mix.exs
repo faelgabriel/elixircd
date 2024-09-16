@@ -20,7 +20,12 @@ defmodule ElixIRCd.MixProject do
         "coveralls.json": :test,
         "coveralls.github": :test
       ],
-      test_coverage: [tool: ExCoveralls]
+      test_coverage: [tool: ExCoveralls],
+      releases: [
+        elixircd: [
+          steps: [:assemble, &assemble_config/1]
+        ]
+      ]
     ]
   end
 
@@ -38,7 +43,6 @@ defmodule ElixIRCd.MixProject do
     ]
   end
 
-  # Run "mix help compile.app" to learn about applications.
   def application do
     [
       mod: {ElixIRCd, []},
@@ -46,7 +50,6 @@ defmodule ElixIRCd.MixProject do
     ]
   end
 
-  # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
@@ -80,5 +83,13 @@ defmodule ElixIRCd.MixProject do
       "" -> nil
       version -> version
     end
+  end
+
+  defp assemble_config(release) do
+    source_path = Path.join([__DIR__, "config", "elixircd.exs"])
+    destination_path = Path.join([release.path, "config", "elixircd.exs"])
+    File.mkdir_p!(Path.dirname(destination_path))
+    File.copy!(source_path, destination_path)
+    release
   end
 end

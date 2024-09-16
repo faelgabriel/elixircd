@@ -13,7 +13,7 @@ ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. I
 
 ## Getting Started
 
-Running ElixIRCd is simple and straightforward with the official Docker image.
+Running ElixIRCd is simple and straightforward with the [official Docker image](https://hub.docker.com/repository/docker/faelgabriel/elixircd/).
 
 You can also try the demo server to explore ElixIRCd's capabilities.
 
@@ -37,28 +37,30 @@ docker run \
 
 ### Configuration
 
-You can configure ElixIRCd by creating a `runtime.exs` file and mounting it into the Docker container at `/app/config/`.
+You can configure ElixIRCd by placing the `elixircd.exs` file in your local `config` folder and mounting it into the Docker container at `/app/config/`.
 
-1. Create a `runtime.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/runtime.exs), and customize it as needed.
+1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs), and customize it as needed. Place this file in your local `config` folder.
 
-2. Start the ElixIRCd server with your configuration file by mounting it into the Docker container:
+2. Start the ElixIRCd server with your configuration file by mounting the `config` folder to the Docker container:
 
 ```bash
 docker run \
   -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./runtime.exs:/app/config/ \
+  -v ./config:/app/config/ \
+  # or mount the configuration file directly:
+  # -v ./config/elixircd.exs:/app/config/elixircd.exs \
   faelgabriel/elixircd
 ```
 
 ### SSL Certificates
 
-ElixIRCd automatically generates self-signed certificates for SSL listeners configured with `keyfile: "priv/cert/selfsigned_key.pem"` and `certfile: "priv/cert/selfsigned.pem"`.
+For development and testing environments, ElixIRCd automatically generates self-signed certificates by default for SSL listeners configured with `keyfile: "priv/cert/selfsigned_key.pem"` and `certfile: "priv/cert/selfsigned.pem"`.
 
-For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and mount them into the Docker container at `/app/priv/cert/`.
+For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and place them in your local `priv/cert` folder before mounting them into the Docker container at `/app/priv/cert/`.
 
 1. Obtain an SSL certificate and key from a trusted Certificate Authority (CA), such as [Let's Encrypt](https://letsencrypt.org/).
 
-2. Update your `runtime.exs` configuration file with the paths to the obtained SSL certificate and key. For this example, we are using the filenames `trusted_key.pem` and `trusted_cert.pem`.
+2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate and key (e.g., `trusted_key.pem` and `trusted_cert.pem`), and ensure these files are located in your local `priv/cert` folder.
 
 ```elixir
 # ... other configurations
@@ -67,34 +69,17 @@ For production environments, you should configure SSL listeners with a valid cer
 # ... other configurations
 ```
 
-3. Start the ElixIRCd server with your configuration and certificate files by mounting them into the Docker container:
+3. Start the ElixIRCd server with your configuration and certificate files by mounting the `priv/cert` folder into the Docker container:
 
 ```bash
 docker run \
   -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./runtime.exs:/app/config/ \
-  -v ./trusted_key.pem:/app/priv/cert/ \
-  -v ./trusted_cert.pem:/app/priv/cert/ \
+  -v ./config:/app/config/ \
+  -v ./priv/cert/:/app/priv/cert/ \
   faelgabriel/elixircd
 ```
 
-### MOTD (Message of the Day)
-
-To set the Message of the Day, create a `motd.txt` file and mount it into the Docker container at `/app/config/`.
-
-1. Create a `motd.txt` file containing your desired message.
-
-2. Start the ElixIRCd server with your MOTD file by mounting it into the Docker container:
-
-```bash
-docker run \
-  -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./motd.txt:/app/config/ \
-  # ... other volume mounts
-  faelgabriel/elixircd
-```
-
-### Useful Elixir Application Commands
+### Remote Commands
 
 ```bash
 # Connects to the running system via a remote shell
@@ -102,6 +87,24 @@ docker exec -it <container_name> ./bin/elixircd remote
 
 # Gracefully stops the running system via a remote command
 docker exec -it <container_name> ./bin/elixircd stop
+```
+
+### MOTD (Message of the Day)
+
+You can set the Message of the Day by placing a `motd.txt` file in your local `config` folder and mounting it into the Docker container at `/app/config/`.
+
+1. Create a `motd.txt` file with your desired message and save it in your local `config` folder.
+
+2. Start the ElixIRCd server with your MOTD file by mounting the `config` folder to the Docker container:
+
+```bash
+docker run \
+  -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
+  -v ./config:/app/config/ \
+  # or mount the MOTD file directly:
+  # -v ./config/motd.txt:/app/config/motd.txt \
+  # ... other volume mounts
+  faelgabriel/elixircd
 ```
 
 ## Features
