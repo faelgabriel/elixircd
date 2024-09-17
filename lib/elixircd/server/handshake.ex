@@ -49,7 +49,7 @@ defmodule ElixIRCd.Server.Handshake do
         {:quit, "Bad Password"}
 
       {:error, error} ->
-        Logger.debug("User handshake failed for #{inspect(user)}: #{error}")
+        Logger.warning("User handshake failed for #{inspect(user)}: #{error}")
         {:quit, "Handshake Failed"}
     end
   end
@@ -69,7 +69,7 @@ defmodule ElixIRCd.Server.Handshake do
   defp handle_async_data(user) do
     ident_task = Task.async(fn -> check_ident(user) end)
     hostname_task = Task.async(fn -> lookup_hostname(user) end)
-    ident_result = Task.await(ident_task)
+    ident_result = Task.await(ident_task, 10_200)
     hostname_result = Task.await(hostname_task)
 
     case hostname_result do

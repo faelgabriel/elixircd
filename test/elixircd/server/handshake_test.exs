@@ -237,6 +237,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert updated_user.registered == true
     end
 
+    @tag :capture_log
     test "handles a user handshake error with get socket ip error" do
       Helper
       |> expect(:get_socket_ip, fn _socket -> {:error, "anyerror"} end)
