@@ -9,8 +9,8 @@ on:
       - main
 
 env:
-  ELIXIR_VERSION: "1.16.1"
-  OTP_VERSION: "26.2.2"
+  ELIXIR_VERSION: "1.17.2"
+  OTP_VERSION: "27.1"
 
 jobs:
   code_quality:

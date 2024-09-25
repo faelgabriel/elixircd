@@ -6,7 +6,7 @@ defmodule ElixIRCd.MixProject do
     [
       app: :elixircd,
       version: app_version() || "0.0.0-dev",
-      elixir: "~> 1.15",
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -52,13 +52,13 @@ defmodule ElixIRCd.MixProject do
 
   defp deps do
     [
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
-      {:doctor, "~> 0.21.0", only: :dev},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
+      {:doctor, "~> 0.21", only: :dev},
       {:excoveralls, "~> 0.18", only: :test},
-      {:memento, "~> 0.3.2"},
-      {:mix_audit, "~> 2.0", only: [:dev, :test], runtime: false},
-      {:mimic, "~> 1.7", only: [:dev, :test]},
+      {:memento, "~> 0.4"},
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      {:mimic, "~> 1.10", only: [:dev, :test]},
       {:pbkdf2_elixir, "~> 2.2"},
       {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
