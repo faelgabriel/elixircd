@@ -20,8 +20,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          install: true
 
       - name: Log in to Docker Hub
         if: github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/main') || startsWith(github.ref, 'refs/tags/'))
@@ -38,6 +36,5 @@ jobs:
           tags: faelgabriel/elixircd:${{ github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
           build-args: |
             APP_VERSION=${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
