@@ -70,7 +70,7 @@ defmodule ElixIRCd.Utils do
   def query_identd_userid(ip, irc_server_port) do
     timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
 
-    with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}]),
+    with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}], timeout),
          :ok <- :gen_tcp.send(socket, "#{irc_server_port}, 113\r\n"),
          {:ok, data} <- :gen_tcp.recv(socket, 0, timeout),
          :ok <- :gen_tcp.close(socket),

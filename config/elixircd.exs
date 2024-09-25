@@ -25,15 +25,15 @@ config :elixircd,
   ],
   # User Configuration
   user: [
-    # User inactivity timeout in milliseconds (default: 180,000 ms = 3 minutes)
+    # User inactivity timeout in milliseconds
     timeout: 180_000
   ],
   # Ident Service Configuration
   ident_service: [
     # Enable or disable ident service
     enabled: true,
-    # Timeout for ident service responses in milliseconds (default: 5,000 ms = 5 seconds)
-    timeout: 5_000
+    # Timeout for ident service responses in milliseconds (max: 5_000)
+    timeout: 2_000
   ],
   # Administrative Contact Information
   admin_info: [
