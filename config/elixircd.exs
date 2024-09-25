@@ -50,5 +50,5 @@ config :elixircd,
   operators: [
     # Define IRC operators with nickname and Pbkdf2 hashed password
     # Example operator with nick "admin" and hashed "admin" password:
-    # {"admin", "$2b$12$y.SEeys8jg7CIu5wsKnk/.DrPvzrhvrjQ2qaO3cPzkFQy71S82A5y"}
+    # {"admin", "$pbkdf2-sha512$160000$cwDGS9z9xoJrV.wkfFbbqA$GLkyuwlc2hDD2O8BZeaeLbOLESMYSn0pvcCiVMa0jr2TB25Lswg74ReGKAdDQl3wJ.OLd0ggzwp9BJAgWsx9uw"}
   ]
