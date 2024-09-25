@@ -20,4 +20,4 @@ Pull requests are always welcome! Before submitting a pull request, please ensur
 - **Testing and Test Coverage:** All existing tests pass, and new code is accompanied by tests that cover all relevant cases. High test coverage is crucial for maintaining the stability.
 - **Code Quality and Conventions:** Your code is formatted according to the [Elixir style guide](https://github.com/christopheradams/elixir_style_guide) and adheres to the project's conventions.
 - **Documentation:** Functions are well-documented, following the [Elixir documentation conventions](https://hexdocs.pm/elixir/writing-documentation.html).
-- **Quality Checks:** You have passed all necessary quality and reliability checks, including those for compilation warnings, code formatting, linting, security analysis, dependency audits, documentation quality, and static analysis.
+- **Quality Checks:** You have passed all necessary code quality assurance, including those for compilation warnings, code formatting, linting, security analysis, dependency audits, documentation quality, and static analysis.

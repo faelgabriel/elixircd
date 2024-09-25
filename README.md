@@ -11,6 +11,16 @@
 
 ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM (BEAM) and OTP (Open Telecom Platform) principles to deliver an efficient and reliable platform for IRC operations.
 
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Features](#features)
+- [Modes](#modes)
+- [IRCv3 Capabilities](#ircv3-capabilities)
+- [Development](#development)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Getting Started
 
 Running ElixIRCd is simple and straightforward with the [official Docker image](https://hub.docker.com/repository/docker/faelgabriel/elixircd/).
@@ -19,7 +29,9 @@ You can also try the demo server to explore ElixIRCd's capabilities.
 
 ### Demo Server
 
-To connect to the ElixIRCd demo server, you can use an IRC client or a web-based client like [Kiwi IRC](https://kiwiirc.com/nextclient/irc.elixircd.org/#elixircd).
+The ElixIRCd demo server is a live, running instance of the ElixIRCd server, allowing you to test and experience its features and functionality.
+
+To connect to the ElixIRCd demo server, you can use an IRC client like [Smuxi](https://smuxi.im/) or a web-based client like [Kiwi IRC](https://kiwiirc.com/nextclient/irc.elixircd.org/#elixircd)
 
 - **Server**: `irc.elixircd.org`
 - **Ports**: `6667` (plaintext) and `6697` (SSL/TLS)
@@ -76,6 +88,8 @@ docker run \
   -v ./priv/cert/:/app/priv/cert/ \
   faelgabriel/elixircd
 ```
+
+Additional SSL options can be found at the [Ranch documentation](https://ninenines.eu/docs/en/ranch/2.1/manual/ranch_ssl/).
 
 ### Remote Commands
 
@@ -257,9 +271,9 @@ To install the project dependencies, run:
 mix deps.get
 ```
 
-### Quality and Reliability Checks
+### Code Quality Assurance
 
-Ensuring high code quality and reliability is essential for the stability of the project. You can run all the necessary checks, including compilation warnings, code formatting, linting, security analysis, dependency audits, documentation checks, and static analysis, with a single command:
+Ensuring code quality assurance is essential for the stability of the project. You can run all the necessary checks, including compilation warnings, code formatting, linting, security analysis, dependency audits, documentation checks, and static analysis, with a single command:
 
 ```bash
 mix check.all
@@ -273,7 +287,7 @@ To run the test suite with code coverage, use:
 mix test --cover
 ```
 
-### Running the Server in Interactive Mode
+### Running Server in Interactive Mode
 
 To start ElixIRCd in interactive mode, which is useful for development and debugging, run:
 
