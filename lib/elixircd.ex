@@ -11,22 +11,18 @@ defmodule ElixIRCd do
 
   @impl true
   def start(_type, _args) do
-    version_info()
+    Logger.info("ElixIRCd version #{Application.spec(:elixircd, :vsn)}")
+    Logger.info("Powered by Elixir #{System.version()} (Erlang/OTP #{:erlang.system_info(:otp_release)})")
+
     init_config()
     init_database()
     generate_certificate()
 
     :persistent_term.put(:app_start_time, DateTime.utc_now())
 
-    logger_with_time(:info, "starting server supervisor", fn ->
+    logger_with_time(:info, "linking server supervisor", fn ->
       Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
     end)
-  end
-
-  @spec version_info :: :ok
-  defp version_info do
-    Logger.info("ElixIRCd version #{Application.spec(:elixircd, :vsn)}")
-    Logger.info("Powered by Elixir #{System.version()} (Erlang/OTP #{:erlang.system_info(:otp_release)})")
   end
 
   @spec init_config :: :ok
