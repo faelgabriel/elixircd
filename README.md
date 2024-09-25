@@ -37,18 +37,16 @@ docker run \
 
 ### Configuration
 
-You can configure ElixIRCd by placing the `elixircd.exs` file in your local `config` folder and mounting it into the Docker container at `/app/config/`.
+You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/config/`.
 
-1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs), and customize it as needed. Place this file in your local `config` folder.
+1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) and customize it as needed.
 
-2. Start the ElixIRCd server with your configuration file by mounting the `config` folder to the Docker container:
+2. Start the ElixIRCd server with your configuration file by mounting it into the Docker container:
 
 ```bash
 docker run \
   -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./config:/app/config/ \
-  # or mount the configuration file directly:
-  # -v ./config/elixircd.exs:/app/config/elixircd.exs \
+  -v ./config/elixircd.exs:/app/config/elixircd.exs \
   faelgabriel/elixircd
 ```
 
@@ -60,12 +58,12 @@ For production environments, you should configure SSL listeners with a valid cer
 
 1. Obtain an SSL certificate and key from a trusted Certificate Authority (CA), such as [Let's Encrypt](https://letsencrypt.org/).
 
-2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate and key (e.g., `trusted_key.pem` and `trusted_cert.pem`), and ensure these files are located in your local `priv/cert` folder.
+2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate files (e.g., `fullchain.pem`, `privkey.pem`, and `chain.pem`), and ensure these files are located in your local `priv/cert` folder.
 
 ```elixir
 # ... other configurations
-{:ssl, [port: 6697, keyfile: "priv/cert/trusted_key.pem", certfile: "priv/cert/trusted_cert.pem"]},
-{:ssl, [port: 6698, keyfile: "priv/cert/trusted_key.pem", certfile: "priv/cert/trusted_cert.pem"]}
+{:ssl, [port: 6697, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]},
+{:ssl, [port: 6698, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]}
 # ... other configurations
 ```
 
@@ -74,7 +72,7 @@ For production environments, you should configure SSL listeners with a valid cer
 ```bash
 docker run \
   -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./config:/app/config/ \
+  -v ./config/elixircd.exs:/app/config/elixircd.exs \
   -v ./priv/cert/:/app/priv/cert/ \
   faelgabriel/elixircd
 ```
@@ -100,10 +98,8 @@ You can set the Message of the Day by placing a `motd.txt` file in your local `c
 ```bash
 docker run \
   -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./config:/app/config/ \
-  # or mount the MOTD file directly:
-  # -v ./config/motd.txt:/app/config/motd.txt \
   # ... other volume mounts
+  -v ./config/motd.txt:/app/config/motd.txt \
   faelgabriel/elixircd
 ```
 
