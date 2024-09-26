@@ -1,4 +1,7 @@
-<h1 align="center">ElixIRCd</h1>
+<div align="center">
+  <img src="docs/images/elixircd.png" alt="ElixIRCd" width="200">
+  <h1>ElixIRCd</h1>
+</div>
 
 <p align="center">
   <a href="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml?query=branch%3Amain"><img src="https://github.com/faelgabriel/elixircd/actions/workflows/elixir-ci.yml/badge.svg?branch=main&event=push" alt="Elixir CI"></a>
