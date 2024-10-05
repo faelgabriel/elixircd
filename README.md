@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="docs/images/elixircd.png" alt="ElixIRCd" width="200">
+  <img src="docs/images/elixircd.png" alt="ElixIRCd" width="180">
   <h1>ElixIRCd</h1>
 </div>
 
@@ -12,29 +12,33 @@
 
 ## Introduction
 
-ElixIRCd is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM (BEAM) and OTP (Open Telecom Platform) principles to deliver an efficient and reliable platform for IRC operations.
+**ElixIRCd** is an IRCd (Internet Relay Chat daemon) server implemented in Elixir. It is designed to provide a robust and highly concurrent IRC server environment. Its implementation makes use of the functional nature of Elixir and leverages the built-in concurrency and memory database capabilities of the Erlang VM (BEAM) and OTP (Open Telecom Platform) principles to deliver an efficient and reliable platform for IRC operations.
 
 ## Table of Contents
 
 - [Getting Started](#getting-started)
+  - [Demo Server](#demo-server)
+  - [Quick Start with Docker](#quick-start-with-docker)
+  - [Start from the Source Code](#start-from-the-source-code)
 - [Features](#features)
-- [Modes](#modes)
-- [IRCv3 Capabilities](#ircv3-capabilities)
+  - [Commands](#commands)
+  - [Modes](#modes)
+  - [Services](#services)
+  - [IRCv3 Specifications](#ircv3-specifications)
+  - [Server Capabilities](#server-capabilities)
 - [Development](#development)
 - [Contributing](#contributing)
 - [License](#license)
 
 ## Getting Started
 
-Running ElixIRCd is simple and straightforward with the [official Docker image](https://hub.docker.com/repository/docker/faelgabriel/elixircd/).
-
-You can also try the demo server to explore ElixIRCd's capabilities.
+Running ElixIRCd with the official Docker image is straightforward. Alternatively, you can connect to the demo server to explore its features or build your own release package from the source code.
 
 ### Demo Server
 
-The ElixIRCd demo server is a live, running instance of the ElixIRCd server, allowing you to test and experience its features and functionality.
+The ElixIRCd demo server is a live instance of the server, allowing you to test and experience its features.
 
-To connect to the ElixIRCd demo server, you can use an IRC client like [Smuxi](https://smuxi.im/) or a web-based client like [Kiwi IRC](https://kiwiirc.com/nextclient/irc.elixircd.org/#elixircd)
+You can connect using any IRC client like [Smuxi](https://smuxi.im/) or a web-based client such as [Kiwi IRC](https://kiwiirc.com/nextclient/irc.elixircd.org/#elixircd)
 
 - **Server**: `irc.elixircd.org`
 - **Ports**: `6667` (plaintext) and `6697` (SSL/TLS)
@@ -42,7 +46,7 @@ To connect to the ElixIRCd demo server, you can use an IRC client like [Smuxi](h
 
 ### Quick Start with Docker
 
-To quickly start the ElixIRCd server using [Docker](https://docs.docker.com/get-docker/), run the following command:
+To quickly start the ElixIRCd server using [Docker](https://docs.docker.com/get-docker/) with the official [ElixIRCd image](https://hub.docker.com/r/faelgabriel/elixircd), run the following command:
 
 ```bash
 docker run \
@@ -50,51 +54,7 @@ docker run \
   faelgabriel/elixircd
 ```
 
-### Configuration
-
-You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/config/`.
-
-1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) and customize it as needed.
-
-2. Start the ElixIRCd server with your configuration file by mounting it into the Docker container:
-
-```bash
-docker run \
-  -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./config/elixircd.exs:/app/config/elixircd.exs \
-  faelgabriel/elixircd
-```
-
-### SSL Certificates
-
-For development and testing environments, ElixIRCd automatically generates self-signed certificates by default for SSL listeners configured with `keyfile: "priv/cert/selfsigned_key.pem"` and `certfile: "priv/cert/selfsigned.pem"`.
-
-For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and place them in your local `priv/cert` folder before mounting them into the Docker container at `/app/priv/cert/`.
-
-1. Obtain an SSL certificate and key from a trusted Certificate Authority (CA), such as [Let's Encrypt](https://letsencrypt.org/).
-
-2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate files (e.g., `fullchain.pem`, `privkey.pem`, and `chain.pem`), and ensure these files are located in your local `priv/cert` folder.
-
-```elixir
-# ... other configurations
-{:ssl, [port: 6697, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]},
-{:ssl, [port: 6698, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]}
-# ... other configurations
-```
-
-3. Start the ElixIRCd server with your configuration and certificate files by mounting the `priv/cert` folder into the Docker container:
-
-```bash
-docker run \
-  -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  -v ./config/elixircd.exs:/app/config/elixircd.exs \
-  -v ./priv/cert/:/app/priv/cert/ \
-  faelgabriel/elixircd
-```
-
-Additional SSL options can be found at the [Ranch documentation](https://ninenines.eu/docs/en/ranch/2.1/manual/ranch_ssl/).
-
-### Remote Commands
+#### Remote Commands
 
 ```bash
 # Connects to the running system via a remote shell
@@ -104,29 +64,95 @@ docker exec -it <container_name> ./bin/elixircd remote
 docker exec -it <container_name> ./bin/elixircd stop
 ```
 
-### MOTD (Message of the Day)
+#### Configuration
 
-You can set the Message of the Day by placing a `motd.txt` file in your local `config` folder and mounting it into the Docker container at `/app/config/`.
+You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/config/`.
 
-1. Create a `motd.txt` file with your desired message and save it in your local `config` folder.
+1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) and customize it as desired.
 
-2. Start the ElixIRCd server with your MOTD file by mounting the `config` folder to the Docker container:
+2. Start the ElixIRCd server with your configuration file by mounting it into the Docker container:
 
-```bash
-docker run \
-  -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-  # ... other volume mounts
-  -v ./config/motd.txt:/app/config/motd.txt \
-  faelgabriel/elixircd
-```
+   ```bash
+   docker run \
+     -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
+     -v ./elixircd.exs:/app/config/elixircd.exs \
+     faelgabriel/elixircd
+   ```
+
+#### SSL Certificates
+
+For development and testing environments, ElixIRCd automatically generates self-signed certificates by default for SSL listeners configured with `keyfile: "priv/cert/selfsigned_key.pem"` and `certfile: "priv/cert/selfsigned.pem"`.
+
+For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and place them in your local `priv/cert` folder before mounting them into the Docker container at `/app/priv/cert/`.
+
+1. Obtain an SSL certificate and key from a trusted Certificate Authority (CA), such as [Let's Encrypt](https://letsencrypt.org/).
+
+2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate files (e.g., `priv/cert/fullchain.pem`, `priv/cert/privkey.pem`, and `priv/cert/chain.pem`), and ensure these files are located in your local `cert/` folder:
+
+   ```elixir
+   # ... other configurations
+   {:ssl, [port: 6697, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]},
+   {:ssl, [port: 6698, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]}
+   # ... other configurations
+   ```
+
+3. Start the ElixIRCd server with your configuration and certificate files by mounting the `cert/` folder into the Docker container at `/app/priv/cert/`:
+
+   ```bash
+   docker run \
+     -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
+     -v ./elixircd.exs:/app/config/elixircd.exs \
+     -v ./cert/:/app/priv/cert/ \
+     faelgabriel/elixircd
+   ```
+
+Additional SSL options can be found at the [Ranch documentation](https://ninenines.eu/docs/en/ranch/2.1/manual/ranch_ssl/).
+
+#### MOTD (Message of the Day)
+
+You can set the Message of the Day by creating a `motd.txt` file mounting it into the Docker container at `/app/config/`.
+
+1. Create a `motd.txt` file with your desired message of the day.
+
+2. Start the ElixIRCd server with your MOTD file by mounting it into the Docker container:
+
+   ```bash
+   docker run \
+     -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
+     # ... other volume mounts
+     -v ./motd.txt:/app/config/motd.txt \
+     faelgabriel/elixircd
+   ```
+
+### Start from the Source Code
+
+To build your own ElixIRCd release from the source code and run the server, follow these steps:
+
+1. Set up your development environment by following the instructions in the [Development - Setting Up Your Environment](#setting-up-your-environment) section.
+
+2. Build a release package by running the following command, replacing `0.0.1` with the desired version:
+
+   ```bash
+   APP_VERSION=0.0.1 MIX_ENV=prod mix release
+   ```
+
+3. Start the ElixIRCd server by running the generated release:
+
+   ```bash
+   _build/prod/rel/elixircd/bin/elixircd start
+   ```
 
 ## Features
 
-These features are based on traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol. Key RFCs include [RFC 1459](https://datatracker.ietf.org/doc/html/rfc1459) (Internet Relay Chat Protocol), [RFC 2810](https://datatracker.ietf.org/doc/html/rfc2810) (IRC: Architecture), [RFC 2811](https://datatracker.ietf.org/doc/html/rfc2811) (IRC: Channel Management), [RFC 2812](https://datatracker.ietf.org/doc/html/rfc2812) (IRC: Client Protocol), [RFC 2813](https://datatracker.ietf.org/doc/html/rfc2813) (IRC: Server Protocol), and [RFC 7194](https://datatracker.ietf.org/doc/html/rfc7194) (Default Port for IRC via TLS/SSL).
+ElixiRCd adheres to the traditional IRC protocols as outlined in the foundational RFCs for the IRC protocol, includes integrated IRC services, and supports IRCv3 specifications.
+
+Key RFCs include [RFC 1459](https://datatracker.ietf.org/doc/html/rfc1459) (Internet Relay Chat Protocol), [RFC 2810](https://datatracker.ietf.org/doc/html/rfc2810) (IRC: Architecture), [RFC 2811](https://datatracker.ietf.org/doc/html/rfc2811) (IRC: Channel Management), [RFC 2812](https://datatracker.ietf.org/doc/html/rfc2812) (IRC: Client Protocol), [RFC 2813](https://datatracker.ietf.org/doc/html/rfc2813) (IRC: Server Protocol), and [RFC 7194](https://datatracker.ietf.org/doc/html/rfc7194) (Default Port for IRC via TLS/SSL).
 
 > ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
 
-### Server Commands (Client-to-Server)
+### Commands
+
+The commands are essential to the functionality of the ElixIRCd server, following standard IRC protocol for communication between clients and the server.
 
 - **PASS**: Set a password for the connection. ✅
 - **NICK**: Set or change a user's nickname. ✅
@@ -135,7 +161,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **PART**: Leave a channel. ✅
 - **MODE**: Set or unset user or channel modes. ✅
 - **TOPIC**: Set or get the topic of a channel. ✅
-- **NAMES**: List all visible nicknames on a channel. ✅
+- **NAMES**: List all visible nicknames on a channel. ❌
 - **LIST**: List channels and their topics. ✅
 - **INVITE**: Invite a user to a channel. ✅
 - **KICK**: Eject a user from a channel. ✅
@@ -152,7 +178,7 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **QUIT**: Disconnect from the server. ✅
 - **LUSERS**: Get statistics about the size of the network. ✅
 - **ISON**: Check if specified users are online. ✅
-- **VERSION**: Respond to queries about the server's version. ✅
+- **VERSION**: Respond to queries about the server's version. ✴️
 - **STATS**: Provide server statistics. ✅
 - **INFO**: Provide information about the server. ✅
 - **TIME**: Provide the server's local time. ✅
@@ -164,32 +190,19 @@ These features are based on traditional IRC protocols as outlined in the foundat
 - **REHASH**: Enable operators to reload the server's configuration. ✅
 - **RESTART**: Allow operators to restart the server. ✅
 - **DIE**: Allow operators to shut down the server. ✅
-- **SERVICE**: Allow operators to register services on the network. ❌
 
-### Server Commands (Server-to-Server)
-
-- **SERVLIST**: List services currently connected to the network. ❌
-- **LINKS**: List all server links in the IRC network. ❌
-- **CONNECT**: Allow operators to connect a server to the network. ❌
-- **SQUIT**: Allow operators to disconnect a server from the network gracefully. ❌
-- **SQUERY**: Allow servers to send queries to other servers. ❌
-- **ERROR**: Allow servers to report errors to other servers. Also used before ending client connections. ❌
-- **SERVER**: Allow servers to introduce themselves to other servers on the network. ❌
-
-## Modes
+### Modes
 
 Modes can be applied to channels or users to modify their behaviors. These can be set by users who have the appropriate permissions or automatically by the server.
 
-> ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
-
-### User Modes
+#### User Modes
 
 - **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
 
-### Channel Modes
+#### Channel Modes
 
 - **+b (Ban)**: Prevents a user or host from joining the channel. ✅
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
@@ -203,13 +216,18 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 - **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
 - **+v (Voice)**: Grants voice status to a user. ✅
 
-## IRCv3 Capabilities
+### Services
 
-These features are based on the IRCv3 specifications, providing modern capabilities. More information at [ircv3.net](https://ircv3.net/).
+ElixIRCd includes integrated IRC services, so there is no need to connect external services.
 
-> ✅ Implemented - ✴️ Partially implemented - ❌ Not implemented
+- **NickServ**: Register and manage nicknames. ❌
+- **ChanServ**: Register and manage channels. ❌
 
-### Enhanced Commands and Extensions
+### IRCv3 Specifications
+
+The IRCv3 specifications add modern capabilities to the server. For more details, visit [ircv3.net](https://ircv3.net/).
+
+#### Enhanced Commands and Extensions
 
 - **Capability Negotiation**: Capability negotiation mechanism between clients and servers. ✴️
 - **Message Tags**: Additional metadata in messages. ❌
@@ -233,7 +251,7 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ❌
 
-### Server Commands (Client-to-Server)
+#### Commands
 
 - **CAP**: Negotiate client capabilities with the server. ✴️
 - **AUTHENTICATE**: Log in to a client account using SASL authentication. ❌
@@ -247,15 +265,39 @@ These features are based on the IRCv3 specifications, providing modern capabilit
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
 - **WHO**: Extended to allow clients to request additional information. ❌
 
+### Server Capabilities
+
+- **Connection Pooling**: Efficient management of a pool of connections. ✅
+- **High Concurrency**: Efficient handling of multiple connections and messages. ✅
+- **Horizontal Scalability**: Ability to scale out by adding more servers to a cluster. ❌
+- **Server Linking**: Ability to connect multiple servers to form a network. ❌
+- **SSL/TLS Support**: Secure communication using SSL or TLS. ✅
+- **IPv6 Compatibility**: Support for both IPv4 and IPv6 connections. ✅
+- **Rate Limiting**: Prevent abuse by controlling message rates. ❌
+- **Connection Cloaking**: Mask users' IP addresses to enhance privacy. ❌
+
 ## Development
 
-ElixIRCd is written in Elixir, so you'll need to have Elixir and Erlang installed on your machine.
+ElixIRCd is written in Elixir, so you'll need to have Elixir and Erlang installed on your machine. We recommend using [asdf](https://asdf-vm.com/) to easily install and manage Elixir and Erlang versions. Additionally, you need to have Git installed to clone the repository.
 
-We recommend using [asdf](https://asdf-vm.com/) to easily install and manage the required versions.
+### Setting Up Your Environment
 
-### Install Elixir and Erlang with asdf
+#### Clone the Git Repository
 
-First, install `asdf` by following the instructions on the [asdf website](https://asdf-vm.com/). Then, add the necessary plugins and install the required versions:
+If you don't have `Git` installed, follow the GitHub's [Install Git](https://github.com/git-guides/install-git) guide.
+
+Clone the ElixIRCd Git repository and navigate to the project directory:
+
+```bash
+git clone https://github.com/faelgabriel/elixircd.git
+cd elixircd
+```
+
+#### Install Elixir and Erlang with asdf
+
+If you don't have `asdf` installed, follow the instructions on the [asdf website](https://asdf-vm.com/).
+
+Add the necessary plugins and install the required versions:
 
 ```bash
 # Add the Erlang plugin to asdf
@@ -266,7 +308,7 @@ asdf plugin-add elixir
 asdf install
 ```
 
-### Install Dependencies
+#### Install Dependencies
 
 To install the project dependencies, run:
 
