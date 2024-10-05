@@ -95,6 +95,9 @@ defmodule ElixIRCd.Command.List do
   defp parse_filter("T<" <> value), do: parse_numeric_filter(:topic_newer, value)
   defp parse_filter("#" <> value), do: {:exact_name, "#" <> value}
 
+  # This code is tested but intentionally excluded from coverage due to a bug in OTP 27.1:
+  # https://github.com/erlang/otp/issues/8867
+  # coveralls-ignore-start
   defp parse_filter(value) do
     cond do
       # Regex to match string that starts and ends with "*"
@@ -105,6 +108,8 @@ defmodule ElixIRCd.Command.List do
       true -> {:exact_name, "#" <> value}
     end
   end
+
+  # coveralls-ignore-stop
 
   @spec parse_numeric_filter(atom(), String.t()) :: {atom(), integer()} | nil
   defp parse_numeric_filter(type, value) do

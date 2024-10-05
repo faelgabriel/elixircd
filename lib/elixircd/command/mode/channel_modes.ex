@@ -94,6 +94,9 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   defp prefix_mode_string_if_needed("-" <> _ = mode_string), do: mode_string
   defp prefix_mode_string_if_needed(mode_string), do: "+#{mode_string}"
 
+  # This code is tested but intentionally excluded from coverage due to a bug in OTP 27.1:
+  # https://github.com/erlang/otp/issues/8867
+  # coveralls-ignore-start
   @spec handle_changed_modes(String.t(), [String.t()]) :: [mode_change()]
   defp handle_changed_modes(mode_string, values) do
     mode_string
@@ -119,6 +122,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
     end)
     |> then(fn {_, modes, _} -> Enum.reverse(modes) end)
   end
+
+  # coveralls-ignore-stop
 
   @spec filter_changed_modes([mode_change()]) :: {[mode_change()], [String.t()]}
   defp filter_changed_modes(changed_modes) do
