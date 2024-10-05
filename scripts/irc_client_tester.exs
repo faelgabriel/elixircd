@@ -85,8 +85,7 @@ defmodule IrcClientTester do
   end
 
   defp random_nick() do
-    :crypto.strong_rand_bytes(6)
-    |> Base.encode16(case: :lower)
+    "n" <> Base.encode16(:crypto.strong_rand_bytes(6), case: :lower)
   end
 end
 
