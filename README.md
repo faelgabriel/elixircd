@@ -218,7 +218,7 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 ### Services
 
-ElixIRCd includes integrated IRC services, so there is no need to connect external services.
+ElixIRCd includes integrated IRC services, eliminating the need to connect external services to the server.
 
 - **NickServ**: Register and manage nicknames. ❌
 - **ChanServ**: Register and manage channels. ❌
