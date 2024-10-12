@@ -86,26 +86,15 @@ defmodule ElixIRCd.Server do
     transport.setopts(socket, active: :once)
 
     receive do
-      {:tcp, ^socket, data} ->
+      {protocol, ^socket, data} when protocol in [:tcp, :ssl] ->
         handle_packet(socket, data)
         |> handle_packet_result(socket, transport)
 
-      {:ssl, ^socket, data} ->
-        handle_packet(socket, data)
-        |> handle_packet_result(socket, transport)
-
-      {:tcp_closed, ^socket} ->
+      {protocol_closed, ^socket} when protocol_closed in [:tcp_closed, :ssl_closed] ->
         handle_disconnect(socket, transport, "Connection Closed")
 
-      {:ssl_closed, ^socket} ->
-        handle_disconnect(socket, transport, "Connection Closed")
-
-      {:tcp_error, ^socket, reason} ->
-        Logger.warning("TCP connection error: #{inspect(reason)}")
-        handle_disconnect(socket, transport, "Connection Error")
-
-      {:ssl_error, ^socket, reason} ->
-        Logger.warning("SSL connection error: #{inspect(reason)}")
+      {protocol_error, ^socket, reason} when protocol_error in [:tcp_error, :ssl_error] ->
+        Logger.warning("Connection error [#{protocol_error}]: #{inspect(reason)}")
         handle_disconnect(socket, transport, "Connection Error")
 
       {:disconnect, ^socket, reason} ->

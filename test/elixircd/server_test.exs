@@ -203,7 +203,7 @@ defmodule ElixIRCd.ServerTest do
           assert [] = wait_for_records(UserChannel, 0)
         end)
 
-      assert log =~ "TCP connection error: :any_error"
+      assert log =~ "Connection error [tcp_error]: :any_error"
       assert {:error, :closed} == Client.recv(socket)
     end
 
@@ -225,7 +225,7 @@ defmodule ElixIRCd.ServerTest do
           assert [] = wait_for_records(UserChannel, 0)
         end)
 
-      assert log =~ "SSL connection error: :any_error"
+      assert log =~ "Connection error [ssl_error]: :any_error"
       assert {:error, :closed} == Client.recv(socket)
     end
 
