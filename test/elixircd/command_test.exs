@@ -9,7 +9,7 @@ defmodule ElixIRCd.CommandTest do
   alias ElixIRCd.Command
   alias ElixIRCd.Message
 
-  @supported_commands [
+  @commands [
     {"ADMIN", Command.Admin},
     {"AWAY", Command.Away},
     {"CAP", Command.Cap},
@@ -48,14 +48,14 @@ defmodule ElixIRCd.CommandTest do
     {"WHOWAS", Command.Whowas}
   ]
 
-  describe "handle/2" do
+  describe "dispatch/2" do
     setup do
       user = build(:user)
       {:ok, user: user}
     end
 
-    test "handles and dispatches message for command module", %{user: user} do
-      for {command, module} <- @supported_commands do
+    test "dispatches message to the appropriate command module", %{user: user} do
+      for {command, module} <- @commands do
         message = %Message{command: command, params: []}
 
         module
@@ -65,14 +65,14 @@ defmodule ElixIRCd.CommandTest do
           :ok
         end)
 
-        assert :ok = Command.handle(user, message)
+        assert :ok = Command.dispatch(user, message)
       end
     end
 
     test "handles unknown command", %{user: user} do
       message = %Message{command: "UNKNOWN", params: []}
 
-      assert :ok = Command.handle(user, message)
+      assert :ok = Command.dispatch(user, message)
 
       assert_sent_messages([
         {user.socket, ":server.example.com 421 #{user.nick} #{message.command} :Unknown command\r\n"}

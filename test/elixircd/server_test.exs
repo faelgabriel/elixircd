@@ -99,7 +99,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles valid tcp packet" do
       Command
-      |> expect(:handle, 1, fn _user, message ->
+      |> expect(:dispatch, 1, fn _user, message ->
         assert message == %Message{command: "COMMAND", params: ["test"]}
         :ok
       end)
@@ -113,7 +113,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles valid ssl packet" do
       Command
-      |> expect(:handle, 1, fn _user, message ->
+      |> expect(:dispatch, 1, fn _user, message ->
         assert message == %Message{command: "COMMAND", params: ["test"]}
         :ok
       end)
@@ -127,7 +127,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles invalid tcp packet" do
       Command
-      |> reject(:handle, 2)
+      |> reject(:dispatch, 2)
 
       {:ok, socket} = Client.connect(:tcp)
       Client.send(socket, "\r\n")
@@ -140,7 +140,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles invalid ssl packet" do
       Command
-      |> reject(:handle, 2)
+      |> reject(:dispatch, 2)
 
       {:ok, socket} = Client.connect(:ssl)
       Client.send(socket, "\r\n")
@@ -244,7 +244,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles successful tcp disconnect by unexpected error rescued" do
       Command
-      |> expect(:handle, 1, fn _user, _message ->
+      |> expect(:dispatch, 1, fn _user, _message ->
         raise "An error has occurred"
       end)
 
@@ -271,7 +271,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles successful ssl disconnect by unexpected error rescued" do
       Command
-      |> expect(:handle, 1, fn _user, _message ->
+      |> expect(:dispatch, 1, fn _user, _message ->
         raise "An error has occurred"
       end)
 
@@ -321,7 +321,7 @@ defmodule ElixIRCd.ServerTest do
 
     test "handles successful disconnect by command quit result" do
       Command
-      |> expect(:handle, 1, fn _user, _message ->
+      |> expect(:dispatch, 1, fn _user, _message ->
         {:quit, "Bye!"}
       end)
 

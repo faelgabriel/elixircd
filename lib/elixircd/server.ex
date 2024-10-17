@@ -118,7 +118,7 @@ defmodule ElixIRCd.Server do
       with {:ok, user} <- Users.get_by_port(get_socket_port(socket)),
            {:ok, message} <- Message.parse(data) do
         updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
-        Command.handle(updated_user, message)
+        Command.dispatch(updated_user, message)
       else
         {:error, error} -> Logger.debug("Failed to handle packet #{inspect(data)}: #{error}")
       end
