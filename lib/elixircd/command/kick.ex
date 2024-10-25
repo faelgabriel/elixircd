@@ -43,7 +43,7 @@ defmodule ElixIRCd.Command.Kick do
 
   def handle(user, %{command: "KICK", params: [channel_name, target_nick | _rest], trailing: reason}) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
          {:ok, target_user} <- get_target_user(target_nick),
          {:ok, target_user_channel} <- get_target_user_channel(target_user, channel) do
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.Kick do
   @spec get_target_user_channel(User.t(), Channel.t()) ::
           {:ok, UserChannel.t()} | {:error, :target_user_channel_not_found}
   defp get_target_user_channel(target_user, channel) do
-    case UserChannels.get_by_user_port_and_channel_name(target_user.port, channel.name) do
+    case UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel.name) do
       {:ok, target_user_channel} -> {:ok, target_user_channel}
       {:error, :user_channel_not_found} -> {:error, :target_user_channel_not_found}
     end

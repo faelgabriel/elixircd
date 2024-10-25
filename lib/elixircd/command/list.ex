@@ -122,7 +122,7 @@ defmodule ElixIRCd.Command.List do
   @spec filter_out_hidden_channels([Channel.t()], User.t()) :: [Channel.t()]
   defp filter_out_hidden_channels(channels, user) do
     user_channel_names =
-      UserChannels.get_by_user_port(user.port)
+      UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name)
 
     Enum.reject(channels, fn channel ->

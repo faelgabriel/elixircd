@@ -46,7 +46,7 @@ defmodule ElixIRCd.Command.PassTest do
 
         assert_sent_messages([])
 
-        {:ok, updated_user} = Users.get_by_port(user.port)
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.password == "password"
       end)
     end

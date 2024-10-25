@@ -56,7 +56,7 @@ defmodule ElixIRCd.Command.Mode do
   @spec handle_channel_mode(User.t(), String.t(), String.t() | nil, list(String.t()) | nil) :: :ok
   defp handle_channel_mode(user, channel_name, nil, nil) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
       Message.build(%{
         prefix: get_user_mask(user),
         command: "MODE",
@@ -70,7 +70,7 @@ defmodule ElixIRCd.Command.Mode do
 
   defp handle_channel_mode(user, channel_name, mode_string, values) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel) do
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)

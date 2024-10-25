@@ -58,12 +58,14 @@ defmodule ElixIRCd.Server.Messaging do
   end
 
   @spec transport_send(:inet.socket(), :ranch_tcp | :ranch_ssl, String.t()) :: :ok
+  # With Ranch, we send the message directly to the socket.
   defp transport_send(socket, transport, raw_message) do
     Logger.debug("-> #{inspect(raw_message)}")
     transport.send(socket, raw_message <> "\r\n")
   end
 
   @spec process_send(pid(), String.t()) :: :ok
+  # With Bandit, we send the message to the connection process.
   defp process_send(pid, raw_message) do
     Logger.debug("-> #{inspect(raw_message)}")
     WsServer.send_message(pid, raw_message)

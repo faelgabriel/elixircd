@@ -4,8 +4,8 @@ defmodule ElixIRCd.MessageCaseTest do
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
 
-  alias ElixIRCd.WsServer
   alias ElixIRCd.Client
+  alias ElixIRCd.WsServer
   alias ExUnit.AssertionError
 
   describe "assert_sent_messages_amount/2" do

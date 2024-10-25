@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.Privmsg do
          :ok <- check_channel_modes(channel, user) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
-        |> Enum.reject(&(&1.user_port == user.port))
+        |> Enum.reject(&(&1.user_pid == user.pid))
 
       Message.build(%{prefix: get_user_mask(user), command: "PRIVMSG", params: [channel.name], trailing: message_text})
       |> Messaging.broadcast(channel_users_without_user)
@@ -120,7 +120,7 @@ defmodule ElixIRCd.Command.Privmsg do
   @spec check_channel_modes(Channel.t(), User.t()) :: :ok | {:error, :user_can_not_send}
   defp check_channel_modes(channel, user) do
     with true <- "m" in channel.modes or "n" in channel.modes,
-         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_channel_moderated(channel, user_channel) do
       :ok
     else

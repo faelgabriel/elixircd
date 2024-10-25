@@ -126,13 +126,13 @@ defmodule ElixIRCd.Server.MessagingTest do
       message: message
     } do
       user = insert(:user, %{pid: self(), transport: :ws, socket: nil})
-      user_channel = insert(:user_channel, %{user_pid: self(), user_transport: :ws, user_socket: nil})
+      user_channel = insert(:user_channel, %{user: user})
 
       assert :ok == Messaging.broadcast(message, user)
-      assert_receive ":server.example.com PING target", 1000
+      assert_receive {:broadcast, ":server.example.com PING target"}, 1000
 
       assert :ok == Messaging.broadcast(message, user_channel)
-      assert_receive ":server.example.com PING target", 1000
+      assert_receive {:broadcast, ":server.example.com PING target"}, 1000
     end
   end
 end

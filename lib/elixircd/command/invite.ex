@@ -46,7 +46,7 @@ defmodule ElixIRCd.Command.Invite do
   def handle(user, %{command: "INVITE", params: [target_nick, channel_name | _rest]}) do
     with {:ok, target_user} <- get_target_user(target_nick),
          {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
          :ok <- check_target_user_on_channel(target_user, channel) do
       maybe_add_channel_invite(user, target_user, channel)
@@ -75,7 +75,7 @@ defmodule ElixIRCd.Command.Invite do
 
   @spec check_target_user_on_channel(User.t(), Channel.t()) :: :ok | {:error, :user_already_on_channel}
   defp check_target_user_on_channel(target_user, channel) do
-    case UserChannels.get_by_user_port_and_channel_name(target_user.port, channel.name) do
+    case UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel.name) do
       {:ok, _target_user_channel} -> {:error, :user_already_on_channel}
       {:error, :user_channel_not_found} -> :ok
     end
@@ -84,7 +84,7 @@ defmodule ElixIRCd.Command.Invite do
   @spec maybe_add_channel_invite(User.t(), User.t(), Channel.t()) :: :ok
   defp maybe_add_channel_invite(user, target_user, channel) do
     if "i" in channel.modes do
-      ChannelInvites.create(%{user_port: target_user.port, channel_name: channel.name, setter: get_user_mask(user)})
+      ChannelInvites.create(%{user_pid: target_user.pid, channel_name: channel.name, setter: get_user_mask(user)})
     end
 
     :ok

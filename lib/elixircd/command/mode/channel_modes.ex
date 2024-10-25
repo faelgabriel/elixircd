@@ -272,7 +272,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   @spec user_channel_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
   defp user_channel_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name) do
     with {:ok, target_user} <- Users.get_by_nick(mode_value),
-         {:ok, target_user_channel} <- UserChannels.get_by_user_port_and_channel_name(target_user.port, channel_name) do
+         {:ok, target_user_channel} <- UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel_name) do
       user_channel_mode_changed?(mode_change, target_user_channel)
     else
       {:error, :user_channel_not_found} ->

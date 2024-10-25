@@ -23,6 +23,7 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:user, attrs) do
+    pid = spawn(fn -> :ok end)
     port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
     registered_at =
@@ -31,7 +32,7 @@ defmodule ElixIRCd.Factory do
         else: Map.get(attrs, :registered_at, DateTime.utc_now())
 
     %User{
-      port: Map.get(attrs, :port, port),
+      pid: Map.get(attrs, :pid, pid),
       socket: Map.get(attrs, :socket, port),
       transport: Map.get(attrs, :transport, :ranch_tcp),
       ip_address: Map.get(attrs, :ip_address, {127, 0, 0, 1}),
@@ -68,10 +69,11 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:user_channel, attrs) do
+    pid = spawn(fn -> :ok end)
     port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
     %UserChannel{
-      user_port: Map.get(attrs, :user_port, port),
+      user_pid: Map.get(attrs, :user_pid, pid),
       user_socket: Map.get(attrs, :user_socket, port),
       user_transport: Map.get(attrs, :user_transport, :ranch_tcp),
       channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
@@ -90,11 +92,11 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:channel_invite, attrs) do
-    port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+    pid = spawn(fn -> :ok end)
 
     %ChannelInvite{
+      user_pid: Map.get(attrs, :user_pid, pid),
       channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
-      user_port: Map.get(attrs, :user_port, port),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
@@ -157,7 +159,7 @@ defmodule ElixIRCd.Factory do
 
     updated_attrs =
       attrs
-      |> Map.put(:user_port, user.port)
+      |> Map.put(:user_pid, user.pid)
       |> Map.put(:user_socket, user.socket)
       |> Map.put(:user_transport, user.transport)
       |> Map.put(:channel_name, channel.name)
@@ -200,7 +202,7 @@ defmodule ElixIRCd.Factory do
 
     updated_attrs =
       attrs
-      |> Map.put(:user_port, user.port)
+      |> Map.put(:user_pid, user.pid)
       |> Map.put(:channel_name, channel.name)
 
     Memento.transaction!(fn ->

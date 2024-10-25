@@ -10,10 +10,11 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
 
   describe "create/1" do
     test "creates a new user channel" do
+      pid = spawn(fn -> :ok end)
       port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
       attrs = %{
-        user_port: port,
+        user_pid: pid,
         user_socket: port,
         user_transport: :ranch_tcp,
         channel_name: "#elixir",
@@ -22,7 +23,7 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
 
       user_channel = Memento.transaction!(fn -> UserChannels.create(attrs) end)
 
-      assert user_channel.user_port == port
+      assert user_channel.user_pid == pid
       assert user_channel.user_socket == port
       assert user_channel.user_transport == :ranch_tcp
       assert user_channel.channel_name == "#elixir"
@@ -42,32 +43,32 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
     test "deletes a user channel" do
       user_channel = insert(:user_channel)
       Memento.transaction!(fn -> UserChannels.delete(user_channel) end)
-      assert nil == Memento.transaction!(fn -> Memento.Query.read(UserChannel, user_channel.user_port) end)
+      assert nil == Memento.transaction!(fn -> Memento.Query.read(UserChannel, user_channel.user_pid) end)
     end
   end
 
-  describe "delete_by_user_port/1" do
-    test "deletes user channels by user port" do
+  describe "delete_by_user_pid/1" do
+    test "deletes user channels by user pid" do
       user = insert(:user)
       insert(:user_channel, user: user)
       insert(:user_channel, user: user)
 
-      Memento.transaction!(fn -> UserChannels.delete_by_user_port(user.port) end)
+      Memento.transaction!(fn -> UserChannels.delete_by_user_pid(user.pid) end)
 
       assert [] ==
                Memento.transaction!(fn ->
-                 Memento.Query.select(UserChannel, {:==, :user_port, user.port})
+                 Memento.Query.select(UserChannel, {:==, :user_pid, user.pid})
                end)
     end
   end
 
-  describe "get_by_user_port_and_channel_name/2" do
-    test "returns a user channel by user port and channel name" do
+  describe "get_by_user_pid_and_channel_name/2" do
+    test "returns a user channel by user pid and channel name" do
       user_channel = insert(:user_channel)
 
       assert {:ok, user_channel} ==
                Memento.transaction!(fn ->
-                 UserChannels.get_by_user_port_and_channel_name(user_channel.user_port, user_channel.channel_name)
+                 UserChannels.get_by_user_pid_and_channel_name(user_channel.user_pid, user_channel.channel_name)
                end)
     end
 
@@ -76,18 +77,18 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
 
       assert {:error, :user_channel_not_found} ==
                Memento.transaction!(fn ->
-                 UserChannels.get_by_user_port_and_channel_name(user.port, "#elixir")
+                 UserChannels.get_by_user_pid_and_channel_name(user.pid, "#elixir")
                end)
     end
   end
 
-  describe "get_by_user_port/1" do
-    test "returns user channels by user port" do
+  describe "get_by_user_pid/1" do
+    test "returns user channels by user pid" do
       user = insert(:user)
       insert(:user_channel, user: user)
       insert(:user_channel, user: user)
 
-      assert [%UserChannel{}, %UserChannel{}] = Memento.transaction!(fn -> UserChannels.get_by_user_port(user.port) end)
+      assert [%UserChannel{}, %UserChannel{}] = Memento.transaction!(fn -> UserChannels.get_by_user_pid(user.pid) end)
     end
   end
 

@@ -3,10 +3,10 @@ defmodule ElixIRCd.Tables.User do
   Module for the User table.
   """
 
-  @enforce_keys [:pid, :transport, :registered, :modes, :last_activity, :created_at]
+  @enforce_keys [:pid, :socket, :transport, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
     attributes: [
-      :port,
+      :pid,
       :socket,
       :transport,
       :ip_address,

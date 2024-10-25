@@ -149,7 +149,7 @@ defmodule ElixIRCd.Command.InviteTest do
           {target_user.socket, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
 
-        assert ChannelInvites.get_by_user_port_and_channel_name(target_user.port, channel.name) != nil
+        assert ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name) != nil
       end)
     end
 

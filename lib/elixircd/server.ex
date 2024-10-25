@@ -52,38 +52,40 @@ defmodule ElixIRCd.Server do
     end
   end
 
-  @spec handle_listening(:inet.socket(), atom()) :: :ok
-  defp handle_listening(socket, transport) do
+  @spec handle_listening(pid(), :inet.socket(), atom()) :: :ok
+  defp handle_listening(pid, socket, transport) do
     transport.setopts(socket, active: :once)
 
     receive do
       {protocol, ^socket, data} when protocol in [:tcp, :ssl] ->
-        Connection.handle_packet(pid, data)
-        |> handle_packet_result(pid, socket, transport)
+        Connection.handle_packet(pid, data) |> handle_packet_result(pid, socket, transport)
 
       {protocol_closed, ^socket} when protocol_closed in [:tcp_closed, :ssl_closed] ->
-        handle_disconnect(socket, transport, "Connection Closed")
+        handle_disconnect(pid, socket, transport, "Connection Closed")
 
       {protocol_error, ^socket, reason} when protocol_error in [:tcp_error, :ssl_error] ->
         Logger.warning("Connection error [#{protocol_error}]: #{inspect(reason)}")
-        handle_disconnect(socket, transport, "Connection Error")
+        handle_disconnect(pid, socket, transport, "Connection Error")
 
       {:disconnect, ^socket, reason} ->
-        handle_disconnect(socket, transport, reason)
+        handle_disconnect(pid, socket, transport, reason)
     after
       Application.get_env(:elixircd, :user)[:timeout] ->
-        handle_disconnect(socket, transport, "Connection Timeout")
+        handle_disconnect(pid, socket, transport, "Connection Timeout")
     end
   rescue
     exception ->
       stacktrace = __STACKTRACE__ |> Exception.format_stacktrace()
       Logger.critical("Error handling connection: #{inspect(exception)}\nStacktrace:\n#{stacktrace}")
-      handle_disconnect(socket, transport, "Server Error")
+      handle_disconnect(pid, socket, transport, "Server Error")
   end
 
-  @spec handle_packet_result(:ok | {:quit, String.t()}, :inet.socket(), atom()) :: :ok
-  defp handle_packet_result(:ok, socket, transport), do: handle_listening(socket, transport)
-  defp handle_packet_result({:quit, reason}, socket, transport), do: handle_disconnect(socket, transport, reason)
+  @spec handle_packet_result(:ok | {:quit, String.t()}, pid(), :inet.socket(), atom()) :: :ok
+  defp handle_packet_result(:ok, pid, socket, transport),
+    do: handle_listening(pid, socket, transport)
+
+  defp handle_packet_result({:quit, reason}, pid, socket, transport),
+    do: handle_disconnect(pid, socket, transport, reason)
 
   @spec handle_disconnect(pid(), :inet.socket(), atom(), String.t()) :: :ok
   defp handle_disconnect(pid, socket, transport, reason) do

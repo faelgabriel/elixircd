@@ -96,6 +96,5 @@ defmodule ElixIRCd.WsServer do
   @spec handle_packet_result(:ok | {:quit, String.t()}, state()) ::
           {:ok, state()} | {:stop, {:disconnect, String.t()}, state()}
   defp handle_packet_result(:ok, state), do: {:ok, state}
-
   defp handle_packet_result({:quit, reason}, state), do: {:stop, {:disconnect, reason}, state}
 end

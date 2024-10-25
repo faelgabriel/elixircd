@@ -646,8 +646,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       {{:ok, user_channel_operator}, {:ok, user_channel_voice}} =
         Memento.transaction!(fn ->
-          {UserChannels.get_by_user_port_and_channel_name(user_operator.port, channel.name),
-           UserChannels.get_by_user_port_and_channel_name(user_voice.port, channel.name)}
+          {UserChannels.get_by_user_pid_and_channel_name(user_operator.pid, channel.name),
+           UserChannels.get_by_user_pid_and_channel_name(user_voice.pid, channel.name)}
         end)
 
       assert user_channel_operator.modes == ["o"]
@@ -715,8 +715,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       {{:ok, user_channel_operator}, {:ok, user_channel_voice}} =
         Memento.transaction!(fn ->
-          {UserChannels.get_by_user_port_and_channel_name(user_operator.port, channel.name),
-           UserChannels.get_by_user_port_and_channel_name(user_voice.port, channel.name)}
+          {UserChannels.get_by_user_pid_and_channel_name(user_operator.pid, channel.name),
+           UserChannels.get_by_user_pid_and_channel_name(user_voice.pid, channel.name)}
         end)
 
       assert user_channel_operator.modes == []
