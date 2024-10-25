@@ -1,6 +1,6 @@
 defmodule ElixIRCd.Server do
   @moduledoc """
-  Module for the server protocol.
+  Module for handling IRC connections over TCP and SSL.
   """
 
   @behaviour :ranch_protocol

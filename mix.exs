@@ -52,6 +52,7 @@ defmodule ElixIRCd.MixProject do
 
   defp deps do
     [
+      {:bandit, "~> 1.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:doctor, "~> 0.21", only: :dev},
@@ -62,7 +63,8 @@ defmodule ElixIRCd.MixProject do
       {:pbkdf2_elixir, "~> 2.2"},
       {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:wait_for_it, "~> 2.1", only: [:dev, :test]}
+      {:wait_for_it, "~> 2.1", only: [:dev, :test]},
+      {:websock_adapter, "~> 0.5"}
     ]
   end
 

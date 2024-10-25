@@ -9,6 +9,13 @@ defmodule ElixIRCd.Server.Supervisor do
 
   import ElixIRCd.Utils, only: [logger_with_time: 3]
 
+  @type bandit_transport :: :ws | :wss
+  @type ranch_transport :: :tcp | :ssl
+  @type transport :: bandit_transport() | ranch_transport()
+
+  @bandit_transports [:ws, :wss]
+  @ranch_transports [:ssl, :tcp]
+
   @doc """
   Starts the server supervisor.
   """
@@ -20,22 +27,40 @@ defmodule ElixIRCd.Server.Supervisor do
 
   @impl true
   def init(server_listeners) do
-    Enum.map(server_listeners, &create_child_spec/1)
+    server_listeners
+    |> Enum.map(&build_child_spec/1)
     |> Supervisor.init(strategy: :one_for_one)
   end
 
-  @spec create_child_spec({:tcp | :ssl, keyword()}) :: Supervisor.child_spec()
-  defp create_child_spec({transport, server_opts} = listener_opts) do
+  @spec build_child_spec({transport(), keyword()}) :: Supervisor.child_spec()
+  defp build_child_spec({transport, server_opts} = listener_opts) do
+    formatted_transport = String.upcase(to_string(transport))
+
     logger_with_time(
       :info,
-      "creating server listener at port #{Keyword.get(server_opts, :port)}#{if transport == :ssl, do: " (SSL)", else: ""}",
-      fn ->
-        :ranch.child_spec({__MODULE__, listener_opts}, convert_to_ranch(transport), server_opts, ElixIRCd.Server, [])
-      end
+      "creating #{formatted_transport} server listener at port #{Keyword.get(server_opts, :port)}",
+      fn -> create_child_spec(listener_opts) end
     )
   end
 
-  @spec convert_to_ranch(:tcp | :ssl) :: :ranch_tcp | :ranch_ssl
+  @spec create_child_spec({transport(), keyword()}) :: Supervisor.child_spec()
+  defp create_child_spec({transport, server_opts}) when transport in @ranch_transports do
+    :ranch.child_spec({__MODULE__, server_opts}, convert_to_ranch(transport), server_opts, ElixIRCd.Server, [])
+  end
+
+  defp create_child_spec({transport, server_opts}) when transport in @bandit_transports do
+    scheme = if transport == :ws, do: :http, else: :https
+
+    options =
+      server_opts
+      |> Keyword.put(:scheme, scheme)
+      |> Keyword.put(:plug, ElixIRCd.Server.BanditPlug)
+      |> Keyword.put(:otp_app, :elixircd)
+
+    {Bandit, options}
+  end
+
+  @spec convert_to_ranch(ranch_transport()) :: :ranch_tcp | :ranch_ssl
   defp convert_to_ranch(:tcp), do: :ranch_tcp
   defp convert_to_ranch(:ssl), do: :ranch_ssl
 end
