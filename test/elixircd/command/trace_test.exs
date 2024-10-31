@@ -5,10 +5,8 @@ defmodule ElixIRCd.Command.TraceTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Command.Trace
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
 
   describe "handle/2" do
@@ -26,9 +24,6 @@ defmodule ElixIRCd.Command.TraceTest do
     end
 
     test "handles TRACE command without target" do
-      Helper
-      |> expect(:get_socket_ip, 2, fn _socket -> {:ok, {127, 0, 0, 1}} end)
-
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "TRACE", params: []}
@@ -44,9 +39,6 @@ defmodule ElixIRCd.Command.TraceTest do
     end
 
     test "handles TRACE command with target user" do
-      Helper
-      |> expect(:get_socket_ip, 2, fn _socket -> {:ok, {127, 0, 0, 1}} end)
-
       Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target")
@@ -71,23 +63,6 @@ defmodule ElixIRCd.Command.TraceTest do
 
         assert_sent_messages([
           {user.socket, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
-        ])
-      end)
-    end
-
-    test "handle TRACE command wth target user socket is not connected (user disconnected in the meantime)" do
-      Helper
-      |> expect(:get_socket_ip, 2, fn _socket -> {:error, "anyerror"} end)
-
-      Memento.transaction!(fn ->
-        user = insert(:user)
-        target_user = insert(:user)
-        message = %Message{command: "TRACE", params: [target_user.nick]}
-
-        assert :ok = Trace.handle(user, message)
-
-        assert_sent_messages([
-          {user.socket, ":server.example.com 401 #{user.nick} #{target_user.nick} :No such nick\r\n"}
         ])
       end)
     end

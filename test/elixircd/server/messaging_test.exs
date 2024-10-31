@@ -1,7 +1,7 @@
 defmodule ElixIRCd.Server.MessagingTest do
   @moduledoc false
 
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   import ElixIRCd.Factory
   import Mimic
@@ -120,6 +120,19 @@ defmodule ElixIRCd.Server.MessagingTest do
       |> reject(:send, 2)
 
       assert :ok == Messaging.broadcast([message, message], [user, user_channel])
+    end
+
+    test "broadcasts message to user connected through WS or WSS transports", %{
+      message: message
+    } do
+      user = insert(:user, %{pid: self(), transport: :ws, socket: nil})
+      user_channel = insert(:user_channel, %{user_pid: self(), user_transport: :ws, user_socket: nil})
+
+      assert :ok == Messaging.broadcast(message, user)
+      assert_receive ":server.example.com PING target", 1000
+
+      assert :ok == Messaging.broadcast(message, user_channel)
+      assert_receive ":server.example.com PING target", 1000
     end
   end
 end

@@ -66,11 +66,11 @@ defmodule ElixIRCd.Utils do
   # Mimic library does not support mocking of sticky modules (e.g. :gen_tcp),
   # we need to ignore this module from the test coverage for now.
   # coveralls-ignore-start
-  @spec query_identd_userid(tuple(), integer()) :: {:ok, String.t()} | {:error, String.t()}
-  def query_identd_userid(ip, irc_server_port) do
+  @spec query_identd_userid(:inet.ip_address(), integer()) :: {:ok, String.t()} | {:error, String.t()}
+  def query_identd_userid(ip_address, irc_server_port) do
     timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
 
-    with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}], timeout),
+    with {:ok, socket} <- :gen_tcp.connect(ip_address, 113, [:binary, {:active, false}], timeout),
          :ok <- :gen_tcp.send(socket, "#{irc_server_port}, 113\r\n"),
          {:ok, data} <- :gen_tcp.recv(socket, 0, timeout),
          :ok <- :gen_tcp.close(socket),

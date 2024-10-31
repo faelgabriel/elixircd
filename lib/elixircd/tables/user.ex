@@ -3,13 +3,14 @@ defmodule ElixIRCd.Tables.User do
   Module for the User table.
   """
 
-  @enforce_keys [:port, :socket, :transport, :pid, :registered, :modes, :last_activity, :created_at]
+  @enforce_keys [:pid, :transport, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
     attributes: [
       :port,
       :socket,
       :transport,
-      :pid,
+      :ip_address,
+      :port_connected,
       :nick,
       :hostname,
       :ident,
@@ -26,10 +27,11 @@ defmodule ElixIRCd.Tables.User do
     type: :set
 
   @type t :: %__MODULE__{
-          port: port(),
-          socket: :inet.socket(),
-          transport: :ranch_tcp | :ranch_ssl,
           pid: pid(),
+          socket: :inet.socket() | nil,
+          transport: :ranch_tcp | :ranch_ssl | :ws | :wss,
+          ip_address: :inet.ip_address(),
+          port_connected: :inet.port_number(),
           nick: String.t() | nil,
           hostname: String.t() | nil,
           ident: String.t() | nil,
@@ -44,10 +46,11 @@ defmodule ElixIRCd.Tables.User do
         }
 
   @type t_attrs :: %{
-          optional(:port) => port(),
-          optional(:socket) => :inet.socket(),
-          optional(:transport) => :ranch_tcp | :ranch_ssl,
           optional(:pid) => pid(),
+          optional(:socket) => :inet.socket() | nil,
+          optional(:transport) => :ranch_tcp | :ranch_ssl | :ws | :wss,
+          optional(:ip_address) => :inet.ip_address(),
+          optional(:port_connected) => :inet.port_number(),
           optional(:nick) => String.t() | nil,
           optional(:hostname) => String.t() | nil,
           optional(:ident) => String.t() | nil,

@@ -68,17 +68,13 @@ defmodule ElixIRCd.ServerTest do
       :ranch_tcp
       |> reject(:setopts, 2)
 
-      log =
-        capture_log(fn ->
-          assert {:ok, socket} = Client.connect(:tcp)
-          assert {:error, :closed} == Client.recv(socket)
-        end)
-
-      assert log =~ "Error initializing connection: :error"
+      assert {:ok, socket} = Client.connect(:tcp)
+      assert {:error, :closed} == Client.recv(socket)
 
       assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
     end
 
+    @tag capture_log: true
     test "handles ranch handshake error on ssl connect" do
       :ranch
       |> expect(:handshake, 1, fn _ref -> :error end)
@@ -86,13 +82,8 @@ defmodule ElixIRCd.ServerTest do
       :ranch_ssl
       |> reject(:setopts, 2)
 
-      log =
-        capture_log(fn ->
-          # ssl socket is not returned if the handshake erroed
-          assert {:error, :closed} = Client.connect(:ssl)
-        end)
-
-      assert log =~ "Error initializing connection: :error"
+      # ssl socket is not returned if the handshake erroed
+      assert {:error, :closed} = Client.connect(:ssl)
 
       assert [] = Memento.transaction!(fn -> Memento.Query.all(User) end)
     end

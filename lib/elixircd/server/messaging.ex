@@ -8,6 +8,7 @@ defmodule ElixIRCd.Server.Messaging do
   alias ElixIRCd.Message
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.WsServer
 
   @doc """
   Broadcasts messages to the given users.
@@ -36,17 +37,35 @@ defmodule ElixIRCd.Server.Messaging do
   end
 
   @spec send_packet(User.t() | UserChannel.t(), String.t()) :: :ok
-  defp send_packet(%UserChannel{user_socket: socket, user_transport: transport}, raw_message) do
+  # Ranch
+  defp send_packet(%UserChannel{user_socket: socket, user_transport: transport}, raw_message)
+       when transport in [:ranch_tcp, :ranch_ssl] do
     transport_send(socket, transport, raw_message)
   end
 
-  defp send_packet(%User{socket: socket, transport: transport}, raw_message) do
+  defp send_packet(%User{socket: socket, transport: transport}, raw_message)
+       when transport in [:ranch_tcp, :ranch_ssl] do
     transport_send(socket, transport, raw_message)
+  end
+
+  # Bandit
+  defp send_packet(%UserChannel{user_pid: pid}, raw_message) do
+    process_send(pid, raw_message)
+  end
+
+  defp send_packet(%User{pid: pid}, raw_message) do
+    process_send(pid, raw_message)
   end
 
   @spec transport_send(:inet.socket(), :ranch_tcp | :ranch_ssl, String.t()) :: :ok
   defp transport_send(socket, transport, raw_message) do
     Logger.debug("-> #{inspect(raw_message)}")
     transport.send(socket, raw_message <> "\r\n")
+  end
+
+  @spec process_send(pid(), String.t()) :: :ok
+  defp process_send(pid, raw_message) do
+    Logger.debug("-> #{inspect(raw_message)}")
+    WsServer.send_message(pid, raw_message)
   end
 end

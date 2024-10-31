@@ -7,6 +7,7 @@ defmodule ElixIRCd.Server.Supervisor do
 
   require Logger
 
+  import ElixIRCd.Helper, only: [format_transport: 1]
   import ElixIRCd.Utils, only: [logger_with_time: 3]
 
   @type bandit_transport :: :ws | :wss
@@ -34,11 +35,9 @@ defmodule ElixIRCd.Server.Supervisor do
 
   @spec build_child_spec({transport(), keyword()}) :: Supervisor.child_spec()
   defp build_child_spec({transport, server_opts} = listener_opts) do
-    formatted_transport = String.upcase(to_string(transport))
-
     logger_with_time(
       :info,
-      "creating #{formatted_transport} server listener at port #{Keyword.get(server_opts, :port)}",
+      "creating #{format_transport(transport)} server listener at port #{Keyword.get(server_opts, :port)}",
       fn -> create_child_spec(listener_opts) end
     )
   end
@@ -53,9 +52,9 @@ defmodule ElixIRCd.Server.Supervisor do
 
     options =
       server_opts
-      |> Keyword.put(:scheme, scheme)
-      |> Keyword.put(:plug, ElixIRCd.Server.BanditPlug)
+      |> Keyword.put(:plug, ElixIRCd.Server.WsPlug)
       |> Keyword.put(:otp_app, :elixircd)
+      |> Keyword.put_new(:scheme, scheme)
 
     {Bandit, options}
   end

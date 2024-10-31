@@ -13,17 +13,6 @@ defmodule ElixIRCd.Helper do
   def channel_name?(target), do: String.starts_with?(target, "#")
 
   @doc """
-  Checks if a socket is connected.
-  """
-  @spec socket_connected?(socket :: :inet.socket()) :: boolean()
-  def socket_connected?(socket) do
-    case :inet.peername(get_socket_port(socket)) do
-      {:ok, _peer} -> true
-      {:error, _} -> false
-    end
-  end
-
-  @doc """
   Checks if a user is an IRC operator.
   """
   @spec irc_operator?(User.t()) :: boolean()
@@ -84,20 +73,9 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
-  Gets the hostname for an IP address.
-  """
-  @spec get_socket_hostname(ip_address :: tuple()) :: {:ok, String.t()} | {:error, String.t()}
-  def get_socket_hostname(ip_address) do
-    case :inet.gethostbyaddr(ip_address) do
-      {:ok, {:hostent, hostname, _, _, _, _}} -> {:ok, to_string(hostname)}
-      {:error, error} -> {:error, "Unable to get hostname for #{inspect(ip_address)}: #{inspect(error)}"}
-    end
-  end
-
-  @doc """
   Gets the IP address for a socket connection.
   """
-  @spec get_socket_ip(socket :: :inet.socket()) :: {:ok, tuple()} | {:error, String.t()}
+  @spec get_socket_ip(socket :: :inet.socket()) :: {:ok, :inet.ip_address()} | {:error, String.t()}
   def get_socket_ip(socket) do
     case :inet.peername(get_socket_port(socket)) do
       {:ok, {ip, _port}} -> {:ok, ip}
@@ -108,7 +86,7 @@ defmodule ElixIRCd.Helper do
   @doc """
   Gets the port that a socket is connected to.
   """
-  @spec get_socket_port_connected(:inet.socket()) :: {:ok, integer()} | {:error, String.t()}
+  @spec get_socket_port_connected(:inet.socket()) :: {:ok, :inet.port_number()} | {:error, String.t()}
   def get_socket_port_connected(socket) do
     case :inet.sockname(get_socket_port(socket)) do
       {:ok, {_, port}} -> {:ok, port}
@@ -135,9 +113,20 @@ defmodule ElixIRCd.Helper do
   def get_user_mask(%{registered: false}), do: "*"
 
   @doc """
+  Lookups the hostname for an IP address.
+  """
+  @spec lookup_hostname(ip_address :: :inet.ip_address()) :: {:ok, String.t()} | {:error, String.t()}
+  def lookup_hostname(ip_address) do
+    case :inet.gethostbyaddr(ip_address) do
+      {:ok, {:hostent, hostname, _, _, _, _}} -> {:ok, to_string(hostname)}
+      {:error, error} -> {:error, "Unable to get hostname for #{inspect(ip_address)}: #{inspect(error)}"}
+    end
+  end
+
+  @doc """
   Formats an IP address.
   """
-  @spec format_ip_address(ip_address :: tuple()) :: String.t()
+  @spec format_ip_address(ip_address :: :inet.ip_address()) :: String.t()
   def format_ip_address({a, b, c, d}) do
     [a, b, c, d]
     |> Enum.map_join(".", &Integer.to_string/1)
@@ -150,6 +139,15 @@ defmodule ElixIRCd.Helper do
 
     Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
   end
+
+  @doc """
+  Formats a transport for display.
+  """
+  @spec format_transport(atom()) :: String.t()
+  def format_transport(transport) when transport in [:ranch_tcp, :tcp], do: "TCP"
+  def format_transport(transport) when transport in [:ranch_ssl, :ssl], do: "SSL"
+  def format_transport(:ws), do: "WS"
+  def format_transport(:wss), do: "WSS"
 
   @doc """
   Normalizes a mask to the *!*@* IRC format.
