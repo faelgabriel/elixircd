@@ -45,7 +45,7 @@ defmodule ElixIRCd.Command.Part do
   @spec handle_channel(User.t(), String.t(), String.t()) :: :ok
   defp handle_channel(user, channel_name, part_message) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
       all_user_channels = UserChannels.get_by_channel_name(channel.name)
 
       UserChannels.delete(user_channel)

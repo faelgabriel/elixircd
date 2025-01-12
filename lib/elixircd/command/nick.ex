@@ -75,11 +75,11 @@ defmodule ElixIRCd.Command.Nick do
     updated_user = Users.update(user, %{nick: nick})
 
     all_channel_users =
-      UserChannels.get_by_user_port(user.port)
+      UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name)
       |> UserChannels.get_by_channel_names()
-      |> Enum.reject(fn user_channel -> user_channel.user_port == updated_user.port end)
-      |> Enum.group_by(& &1.user_port)
+      |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
+      |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
     Message.build(%{prefix: old_user_mask, command: "NICK", params: [nick]})

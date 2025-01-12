@@ -66,7 +66,8 @@ defmodule ElixIRCd.Command.KillTest do
     test "handles KILL command with target user found and reason" do
       Memento.transaction!(fn ->
         user = insert(:user, modes: ["o"])
-        target_user = insert(:user)
+        # self() as the pid for the target user because of the `assert_received` assertion
+        target_user = insert(:user, pid: self())
         message = %Message{command: "KILL", params: [target_user.nick], trailing: "Kill reason"}
 
         assert :ok = Kill.handle(user, message)
@@ -86,7 +87,8 @@ defmodule ElixIRCd.Command.KillTest do
     test "handles KILL command with target user found and no reason" do
       Memento.transaction!(fn ->
         user = insert(:user, modes: ["o"])
-        target_user = insert(:user)
+        # self() as the pid for the target user because of the `assert_received` assertion
+        target_user = insert(:user, pid: self())
         message = %Message{command: "KILL", params: [target_user.nick]}
 
         assert :ok = Kill.handle(user, message)

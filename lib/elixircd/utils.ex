@@ -48,11 +48,11 @@ defmodule ElixIRCd.Utils do
   @spec should_generate_certificate?() :: boolean()
   def should_generate_certificate? do
     Enum.any?(Application.get_env(:elixircd, :listeners), fn
-      {:ssl, ssl_opts} ->
+      {protocol, ssl_opts} when protocol in [:ssl, :wss] ->
         keyfile = Keyword.get(ssl_opts, :keyfile)
         certfile = Keyword.get(ssl_opts, :certfile)
 
-        keyfile == "priv/cert/selfsigned_key.pem" and certfile == "priv/cert/selfsigned.pem" and
+        keyfile == "data/certs/selfsigned_key.pem" and certfile == "data/certs/selfsigned.pem" and
           (!File.exists?(keyfile) or !File.exists?(certfile))
 
       _ ->
@@ -66,11 +66,11 @@ defmodule ElixIRCd.Utils do
   # Mimic library does not support mocking of sticky modules (e.g. :gen_tcp),
   # we need to ignore this module from the test coverage for now.
   # coveralls-ignore-start
-  @spec query_identd_userid(tuple(), integer()) :: {:ok, String.t()} | {:error, String.t()}
-  def query_identd_userid(ip, irc_server_port) do
+  @spec query_identd_userid(:inet.ip_address(), integer()) :: {:ok, String.t()} | {:error, String.t()}
+  def query_identd_userid(ip_address, irc_server_port) do
     timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
 
-    with {:ok, socket} <- :gen_tcp.connect(ip, 113, [:binary, {:active, false}], timeout),
+    with {:ok, socket} <- :gen_tcp.connect(ip_address, 113, [:binary, {:active, false}], timeout),
          :ok <- :gen_tcp.send(socket, "#{irc_server_port}, 113\r\n"),
          {:ok, data} <- :gen_tcp.recv(socket, 0, timeout),
          :ok <- :gen_tcp.close(socket),

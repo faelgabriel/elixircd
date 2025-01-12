@@ -18,23 +18,6 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
-  describe "socket_connected?/1" do
-    test "returns true for connected tcp socket" do
-      {:ok, socket} = Client.connect(:tcp)
-      assert true == Helper.socket_connected?(socket)
-    end
-
-    test "returns true for connected ssl socket" do
-      {:ok, socket} = Client.connect(:ssl)
-      assert true == Helper.socket_connected?(socket)
-    end
-
-    test "returns false for disconnected tcp socket" do
-      virtual_user = build(:user)
-      assert false == Helper.socket_connected?(virtual_user.socket)
-    end
-  end
-
   describe "irc_operator?/1" do
     test "returns true for irc operator" do
       user = build(:user, %{modes: ["o"]})
@@ -134,24 +117,6 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
-  describe "get_socket_hostname/1" do
-    test "gets hostname from an ipv4 address" do
-      assert {:ok, _hostname} = Helper.get_socket_hostname({127, 0, 0, 1})
-    end
-
-    test "gets hostname from an ipv6 address" do
-      assert {:ok, _hostname} = Helper.get_socket_hostname({0, 0, 0, 0, 0, 0, 0, 1})
-    end
-
-    test "returns error for invalid address" do
-      assert {:error, "Unable to get hostname for {300, 0, 0, 0}: :einval"} ==
-               Helper.get_socket_hostname({300, 0, 0, 0})
-
-      assert {:error, "Unable to get hostname for {999, 0, 0, 0, 0, 0, 0}: :einval"} ==
-               Helper.get_socket_hostname({999, 0, 0, 0, 0, 0, 0})
-    end
-  end
-
   describe "get_socket_ip/1" do
     test "gets ip from tcp socket" do
       {:ok, socket} = Client.connect(:tcp)
@@ -239,6 +204,24 @@ defmodule ElixIRCd.HelperTest do
     test "builds a user mask for unregistered user" do
       user = build(:user, registered: false)
       assert "*" == Helper.get_user_mask(user)
+    end
+  end
+
+  describe "lookup_hostname/1" do
+    test "gets hostname from an ipv4 address" do
+      assert {:ok, _hostname} = Helper.lookup_hostname({127, 0, 0, 1})
+    end
+
+    test "gets hostname from an ipv6 address" do
+      assert {:ok, _hostname} = Helper.lookup_hostname({0, 0, 0, 0, 0, 0, 0, 1})
+    end
+
+    test "returns error for invalid address" do
+      assert {:error, "Unable to get hostname for {300, 0, 0, 0}: :einval"} ==
+               Helper.lookup_hostname({300, 0, 0, 0})
+
+      assert {:error, "Unable to get hostname for {999, 0, 0, 0, 0, 0, 0}: :einval"} ==
+               Helper.lookup_hostname({999, 0, 0, 0, 0, 0, 0})
     end
   end
 

@@ -60,7 +60,7 @@ defmodule ElixIRCd.Command.Join do
          :ok <- check_modes(channel_state, channel, user, join_value) do
       user_channel =
         UserChannels.create(%{
-          user_port: user.port,
+          user_pid: user.pid,
           user_socket: user.socket,
           user_transport: user.transport,
           channel_name: channel.name,
@@ -223,7 +223,7 @@ defmodule ElixIRCd.Command.Join do
   @spec check_user_invited(Channel.t(), User.t()) :: :ok | {:error, :user_not_invited}
   defp check_user_invited(channel, user) do
     if "i" in channel.modes do
-      ChannelInvites.get_by_user_port_and_channel_name(user.port, channel.name)
+      ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name)
       |> case do
         {:ok, _channel_invite} -> :ok
         {:error, :channel_invite_not_found} -> {:error, :user_not_invited}
@@ -268,14 +268,14 @@ defmodule ElixIRCd.Command.Join do
 
   @spec get_user_channels_nicks([UserChannel.t()]) :: String.t()
   defp get_user_channels_nicks(user_channels) do
-    users_by_port =
-      Enum.map(user_channels, & &1.user_port)
-      |> Users.get_by_ports()
-      |> Map.new(fn user -> {user.port, user} end)
+    users_by_pid =
+      Enum.map(user_channels, & &1.user_pid)
+      |> Users.get_by_pids()
+      |> Map.new(fn user -> {user.pid, user} end)
 
     user_channels
     |> Enum.map(fn user_channel ->
-      user = Map.get(users_by_port, user_channel.user_port)
+      user = Map.get(users_by_pid, user_channel.user_pid)
       {user, user_channel}
     end)
     |> Enum.sort_by(fn {_user, user_channel} -> user_channel.created_at end, :desc)

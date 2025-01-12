@@ -56,15 +56,15 @@ defmodule ElixIRCd.Command.Who do
     |> case do
       {:ok, channel} ->
         user_channels = UserChannels.get_by_channel_name(channel_name)
-        users = Enum.map(user_channels, & &1.user_port) |> Users.get_by_ports()
-        user_shares_channel? = Enum.any?(users, &(&1.port == user.port))
+        users = Enum.map(user_channels, & &1.user_pid) |> Users.get_by_pids()
+        user_shares_channel? = Enum.any?(users, &(&1.pid == user.pid))
 
         users
         |> filter_out_hidden_channel(channel, user_shares_channel?)
         |> filter_out_invisible_users_for_channel(user_shares_channel?)
         |> maybe_filter_operators(filters)
         |> Enum.map(fn user_target ->
-          user_channel = Enum.find(user_channels, fn user_channel -> user_channel.user_port == user_target.port end)
+          user_channel = Enum.find(user_channels, fn user_channel -> user_channel.user_pid == user_target.pid end)
           build_message(user, user_target, user_channel)
         end)
         |> Messaging.broadcast(user)
@@ -76,17 +76,17 @@ defmodule ElixIRCd.Command.Who do
 
   @spec handle_who_mask(User.t(), String.t(), [String.t()]) :: :ok
   defp handle_who_mask(user, mask, filters) do
-    user_ports_sharing_channel =
-      UserChannels.get_by_user_port(user.port)
+    user_pids_sharing_channel =
+      UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name)
       |> UserChannels.get_by_channel_names()
-      |> Enum.map(& &1.user_port)
+      |> Enum.map(& &1.user_pid)
       |> Enum.uniq()
 
     users =
       normalize_mask(mask)
       |> Users.get_by_match_mask()
-      |> filter_out_invisible_users_for_mask(user_ports_sharing_channel)
+      |> filter_out_invisible_users_for_mask(user_pids_sharing_channel)
       |> maybe_filter_operators(filters)
 
     users
@@ -94,8 +94,8 @@ defmodule ElixIRCd.Command.Who do
       user_channel =
         case length(users) == 1 do
           true ->
-            UserChannels.get_by_user_port(user_target.port)
-            |> filter_not_hidden_channel(user_ports_sharing_channel)
+            UserChannels.get_by_user_pid(user_target.pid)
+            |> filter_not_hidden_channel(user_pids_sharing_channel)
 
           false ->
             nil
@@ -113,9 +113,9 @@ defmodule ElixIRCd.Command.Who do
   end
 
   @spec filter_out_invisible_users_for_mask([User.t()], [:inet.socket()]) :: [User.t()]
-  defp filter_out_invisible_users_for_mask(users, user_ports_sharing_channel) do
+  defp filter_out_invisible_users_for_mask(users, user_pids_sharing_channel) do
     users
-    |> Enum.reject(&("i" in &1.modes and &1.port not in user_ports_sharing_channel))
+    |> Enum.reject(&("i" in &1.modes and &1.pid not in user_pids_sharing_channel))
   end
 
   @spec filter_out_hidden_channel([User.t()], Channel.t(), boolean()) :: [User.t()]
@@ -128,9 +128,9 @@ defmodule ElixIRCd.Command.Who do
   end
 
   @spec filter_not_hidden_channel([UserChannel.t()], [:inet.socket()]) :: UserChannel.t() | nil
-  defp filter_not_hidden_channel(user_channels, user_ports_sharing_channel) do
+  defp filter_not_hidden_channel(user_channels, user_pids_sharing_channel) do
     Enum.find(user_channels, fn user_channel ->
-      user_shares_channel? = user_channel.user_port in user_ports_sharing_channel
+      user_shares_channel? = user_channel.user_pid in user_pids_sharing_channel
 
       user_shares_channel? or
         with {:ok, channel} <- Channels.get_by_name(user_channel.channel_name),

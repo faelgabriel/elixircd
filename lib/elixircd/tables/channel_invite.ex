@@ -3,10 +3,10 @@ defmodule ElixIRCd.Tables.ChannelInvite do
   Module for the ChannelInvite table.
   """
 
-  @enforce_keys [:user_port, :channel_name, :setter, :created_at]
+  @enforce_keys [:user_pid, :channel_name, :setter, :created_at]
   use Memento.Table,
     attributes: [
-      :user_port,
+      :user_pid,
       :channel_name,
       :setter,
       :created_at
@@ -15,14 +15,14 @@ defmodule ElixIRCd.Tables.ChannelInvite do
     type: :bag
 
   @type t :: %__MODULE__{
-          user_port: port(),
+          user_pid: pid(),
           channel_name: String.t(),
           setter: String.t(),
           created_at: DateTime.t()
         }
 
   @type t_attrs :: %{
-          optional(:user_port) => port(),
+          optional(:user_pid) => pid(),
           optional(:channel_name) => String.t(),
           optional(:setter) => String.t(),
           optional(:created_at) => DateTime.t()

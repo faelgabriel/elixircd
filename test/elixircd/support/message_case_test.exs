@@ -5,19 +5,23 @@ defmodule ElixIRCd.MessageCaseTest do
   use ElixIRCd.MessageCase
 
   alias ElixIRCd.Client
+  alias ElixIRCd.WsServer
   alias ExUnit.AssertionError
 
   describe "assert_sent_messages_amount/2" do
     test "passes if the amount of messages sent is correct" do
       {:ok, tcp_socket} = Client.connect(:tcp)
       {:ok, ssl_socket} = Client.connect(:ssl)
+      ws_pid = self()
 
       :ranch_tcp.send(tcp_socket, "PING :test")
       :ranch_tcp.send(tcp_socket, "PING :test")
       :ranch_ssl.send(ssl_socket, "PING :test")
+      WsServer.send_message(ws_pid, "PING :test")
 
       assert_sent_messages_amount(tcp_socket, 2)
       assert_sent_messages_amount(ssl_socket, 1)
+      assert_sent_messages_amount(ws_pid, 1)
     end
 
     test "raises an error if the amount of messages sent is incorrect" do

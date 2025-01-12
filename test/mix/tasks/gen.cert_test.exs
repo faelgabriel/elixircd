@@ -26,17 +26,17 @@ defmodule Mix.Tasks.Gen.CertTest do
     in_tmp("mix_gen_cert", fn ->
       Gen.Cert.run([])
 
-      assert_file("priv/cert/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
-      assert_file("priv/cert/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
+      assert_file("data/certs/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
+      assert_file("data/certs/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
     end)
   end
 
   test "write certificate and key with custom filename" do
     in_tmp("mix_gen_cert", fn ->
-      Gen.Cert.run(["-o", "priv/cert/localhost"])
+      Gen.Cert.run(["-o", "data/certs/localhost"])
 
-      assert_file("priv/cert/localhost_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
-      assert_file("priv/cert/localhost.pem", "-----BEGIN CERTIFICATE-----")
+      assert_file("data/certs/localhost_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
+      assert_file("data/certs/localhost.pem", "-----BEGIN CERTIFICATE-----")
     end)
   end
 
@@ -44,8 +44,8 @@ defmodule Mix.Tasks.Gen.CertTest do
     in_tmp("mix_gen_cert", fn ->
       Gen.Cert.run(["my-app", "my-app.local"])
 
-      assert_file("priv/cert/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
-      assert_file("priv/cert/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
+      assert_file("data/certs/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
+      assert_file("data/certs/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
     end)
   end
 
@@ -58,8 +58,8 @@ defmodule Mix.Tasks.Gen.CertTest do
       assert {:ok, server} =
                :ssl.listen(
                  0,
-                 certfile: "priv/cert/selfsigned.pem",
-                 keyfile: "priv/cert/selfsigned_key.pem"
+                 certfile: "data/certs/selfsigned.pem",
+                 keyfile: "data/certs/selfsigned_key.pem"
                )
 
       {:ok, {_, port}} = :ssl.sockname(server)

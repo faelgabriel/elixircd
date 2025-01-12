@@ -7,11 +7,12 @@ defmodule ElixIRCd.Tables.UserChannelTest do
 
   describe "new/1" do
     test "creates a new user channel with default values" do
+      pid = spawn(fn -> :ok end)
       port = Port.open({:spawn, "cat /dev/null"}, [:binary])
       utc_now = DateTime.utc_now()
 
       attrs = %{
-        user_port: port,
+        user_pid: pid,
         user_socket: port,
         user_transport: :ranch_tcp,
         channel_name: "test"
@@ -19,7 +20,7 @@ defmodule ElixIRCd.Tables.UserChannelTest do
 
       user_channel = UserChannel.new(attrs)
 
-      assert user_channel.user_port == port
+      assert user_channel.user_pid == pid
       assert user_channel.user_socket == port
       assert user_channel.user_transport == :ranch_tcp
       assert user_channel.channel_name == "test"
@@ -28,11 +29,12 @@ defmodule ElixIRCd.Tables.UserChannelTest do
     end
 
     test "creates a new user channel with custom values" do
-      utc_now = DateTime.utc_now()
+      pid = spawn(fn -> :ok end)
       port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+      utc_now = DateTime.utc_now()
 
       attrs = %{
-        user_port: port,
+        user_pid: pid,
         user_socket: port,
         user_transport: :ranch_tcp,
         channel_name: "test",
@@ -42,7 +44,7 @@ defmodule ElixIRCd.Tables.UserChannelTest do
 
       user_channel = UserChannel.new(attrs)
 
-      assert user_channel.user_port == port
+      assert user_channel.user_pid == pid
       assert user_channel.user_socket == port
       assert user_channel.user_transport == :ranch_tcp
       assert user_channel.channel_name == "test"
@@ -53,11 +55,12 @@ defmodule ElixIRCd.Tables.UserChannelTest do
 
   describe "update/2" do
     test "updates a user channel with new values" do
+      pid = spawn(fn -> :ok end)
       port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
       user_channel =
         UserChannel.new(%{
-          user_port: port,
+          user_pid: pid,
           user_socket: port,
           user_transport: :ranch_tcp,
           channel_name: "test"
@@ -65,7 +68,7 @@ defmodule ElixIRCd.Tables.UserChannelTest do
 
       updated_user_channel = UserChannel.update(user_channel, %{modes: [{:a, "test"}]})
 
-      assert updated_user_channel.user_port == port
+      assert updated_user_channel.user_pid == pid
       assert updated_user_channel.user_socket == port
       assert updated_user_channel.user_transport == :ranch_tcp
       assert updated_user_channel.channel_name == "test"
