@@ -50,6 +50,7 @@ defmodule Mix.Tasks.Gen.Cert do
 
   @doc false
   def run(all_args) do
+    IO.inspect(all_args)
     {opts, args} =
       OptionParser.parse!(
         all_args,
