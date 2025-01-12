@@ -14,11 +14,15 @@
 # If the VM crashes, it generates a dump, let's ignore it too.
 erl_crash.dump
 
+# Private data
+/data/
+
 # Temporary files, for example, from tests.
 /tmp/
 
-# Private files: certificates, Dialyzer PLT files, etc.
-/priv/
+# Dialyzer PLT files
+/priv/plts/*.plt
+/priv/plts/*.plt.hash
 
 # ElixirLS
 /.elixir_ls/

@@ -1,5 +1,7 @@
 import Config
 
+config :mnesia, :dir, ~c"data/mnesia/#{Mix.env()}"
+
 config :elixircd,
   # Server Configuration
   server: [
@@ -19,13 +21,18 @@ config :elixircd,
     # Alternative IRC port (6668)
     {:tcp, [port: 6668]},
     # SSL-enabled IRC port (6697); paths to SSL key and certificate files
-    {:ssl, [port: 6697, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"]},
+    {:ssl, [port: 6697, keyfile: "data/certs/selfsigned_key.pem", certfile: "data/certs/selfsigned.pem"]},
     # Additional SSL-enabled IRC port (6698)
-    {:ssl, [port: 6698, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"]},
+    {:ssl, [port: 6698, keyfile: "data/certs/selfsigned_key.pem", certfile: "data/certs/selfsigned.pem"]},
     # WebSocket port (8080)
     {:ws, [port: 8080]},
     # WebSocket SSL port (4443); paths to SSL key and certificate files
-    {:wss, [port: 4443, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"]}
+    {:wss,
+     [
+       port: 4443,
+       keyfile: Path.expand("data/certs/selfsigned_key.pem"),
+       certfile: Path.expand("data/certs/selfsigned.pem")
+     ]}
   ],
   # User Configuration
   user: [

@@ -81,28 +81,28 @@ You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it int
 
 #### SSL Certificates
 
-For development and testing environments, ElixIRCd automatically generates self-signed certificates by default for SSL listeners configured with `keyfile: "priv/cert/selfsigned_key.pem"` and `certfile: "priv/cert/selfsigned.pem"`.
+For development and testing environments, ElixIRCd automatically generates self-signed certificates by default for SSL listeners configured with `keyfile: "data/certs/selfsigned_key.pem"` and `certfile: "data/certs/selfsigned.pem"`.
 
-For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and place them in your local `priv/cert` folder before mounting them into the Docker container at `/app/priv/cert/`.
+For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and place them in your local `data/certs` folder before mounting them into the Docker container at `/app/data/certs/`.
 
 1. Obtain an SSL certificate and key from a trusted Certificate Authority (CA), such as [Let's Encrypt](https://letsencrypt.org/).
 
-2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate files (e.g., `priv/cert/fullchain.pem`, `priv/cert/privkey.pem`, and `priv/cert/chain.pem`), and ensure these files are located in your local `cert/` folder:
+2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate files (e.g., `data/certs/fullchain.pem`, `data/certs/privkey.pem`, and `data/certs/chain.pem`), and ensure these files are located in your local `cert/` folder:
 
    ```elixir
    # ... other configurations
-   {:ssl, [port: 6697, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]},
-   {:ssl, [port: 6698, certfile: "priv/cert/fullchain.pem", keyfile: "priv/cert/privkey.pem", cacertfile: "priv/cert/chain.pem"]}
+   {:ssl, [port: 6697, certfile: "data/certs/fullchain.pem", keyfile: "data/certs/privkey.pem", cacertfile: "data/certs/chain.pem"]},
+   {:ssl, [port: 6698, certfile: "data/certs/fullchain.pem", keyfile: "data/certs/privkey.pem", cacertfile: "data/certs/chain.pem"]}
    # ... other configurations
    ```
 
-3. Start the ElixIRCd server with your configuration and certificate files by mounting the `cert/` folder into the Docker container at `/app/priv/cert/`:
+3. Start the ElixIRCd server with your configuration and certificate files by mounting the `cert/` folder into the Docker container at `/app/data/certs/`:
 
    ```bash
    docker run \
      -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
      -v ./elixircd.exs:/app/config/elixircd.exs \
-     -v ./cert/:/app/priv/cert/ \
+     -v ./cert/:/app/data/certs/ \
      faelgabriel/elixircd
    ```
 
