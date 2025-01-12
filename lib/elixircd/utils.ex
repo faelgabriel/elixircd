@@ -48,7 +48,7 @@ defmodule ElixIRCd.Utils do
   @spec should_generate_certificate?() :: boolean()
   def should_generate_certificate? do
     Enum.any?(Application.get_env(:elixircd, :listeners), fn
-      {:ssl, ssl_opts} ->
+      {protocol, ssl_opts} when protocol in [:ssl, :wss] ->
         keyfile = Keyword.get(ssl_opts, :keyfile)
         certfile = Keyword.get(ssl_opts, :certfile)
 

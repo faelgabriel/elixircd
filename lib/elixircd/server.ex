@@ -58,7 +58,8 @@ defmodule ElixIRCd.Server do
 
     receive do
       {protocol, ^socket, data} when protocol in [:tcp, :ssl] ->
-        Connection.handle_packet(pid, data) |> handle_packet_result(pid, socket, transport)
+        Connection.handle_packet(pid, data)
+        |> handle_packet_result(pid, socket, transport)
 
       {protocol_closed, ^socket} when protocol_closed in [:tcp_closed, :ssl_closed] ->
         handle_disconnect(pid, socket, transport, "Connection Closed")

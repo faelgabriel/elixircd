@@ -17,7 +17,7 @@ erl_crash.dump
 # Temporary files, for example, from tests.
 /tmp/
 
-# Private dir files: certs, Dialyzer, Mnesia database.
+# Private files: certificates, Dialyzer PLT files, etc.
 /priv/
 
 # ElixirLS
