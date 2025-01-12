@@ -51,7 +51,7 @@ defmodule ElixIRCd.Utils do
       {protocol, ssl_opts} when protocol in [:ssl, :wss] ->
         keyfile = Keyword.get(ssl_opts, :keyfile)
         certfile = Keyword.get(ssl_opts, :certfile)
-
+IO.inspect(Path.expand(keyfile))
         keyfile == "priv/cert/selfsigned_key.pem" and certfile == "priv/cert/selfsigned.pem" and
           (!File.exists?(keyfile) or !File.exists?(certfile))
 
