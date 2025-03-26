@@ -25,22 +25,22 @@ defmodule ElixIRCd.Server.MessagingTest do
       user_channel: user_channel,
       message: message
     } do
-      :ranch_tcp
-      |> expect(:send, fn socket, raw_message ->
-        assert socket == user.socket
+      Messaging
+      |> expect(:send_message, fn pid, raw_message ->
+        assert pid == user.pid
         assert raw_message == ":server.example.com PING target\r\n"
         :ok
       end)
 
-      :ranch_tcp
-      |> expect(:send, fn socket, raw_message ->
-        assert socket == user_channel.user_socket
+      Messaging
+      |> expect(:send_message, fn pid, raw_message ->
+        assert pid == user_channel.user_pid
         assert raw_message == ":server.example.com PING target\r\n"
         :ok
       end)
 
-      :ranch_tcp
-      |> reject(:send, 2)
+      Messaging
+      |> reject(:send_message, 2)
 
       assert :ok == Messaging.broadcast(message, user)
       assert :ok == Messaging.broadcast(message, user_channel)
@@ -51,22 +51,22 @@ defmodule ElixIRCd.Server.MessagingTest do
       user_channel: user_channel,
       message: message
     } do
-      :ranch_tcp
-      |> expect(:send, fn socket, raw_message ->
-        assert socket == user.socket
+      Messaging
+      |> expect(:send_message, fn pid, raw_message ->
+        assert pid == user.pid
         assert raw_message == ":server.example.com PING target\r\n"
         :ok
       end)
 
-      :ranch_tcp
-      |> expect(:send, fn socket, raw_message ->
-        assert socket == user_channel.user_socket
+      Messaging
+      |> expect(:send_message, fn pid, raw_message ->
+        assert pid == user_channel.user_pid
         assert raw_message == ":server.example.com PING target\r\n"
         :ok
       end)
 
-      :ranch_tcp
-      |> reject(:send, 2)
+      Messaging
+      |> reject(:send_message, 2)
 
       assert :ok == Messaging.broadcast(message, [user, user_channel])
     end
@@ -76,22 +76,22 @@ defmodule ElixIRCd.Server.MessagingTest do
       user_channel: user_channel,
       message: message
     } do
-      :ranch_tcp
-      |> expect(:send, 2, fn socket, raw_message ->
-        assert socket == user.socket
+      Messaging
+      |> expect(:send_message, 2, fn pid, raw_message ->
+        assert pid == user.pid
         assert raw_message == ":server.example.com PING target\r\n"
         :ok
       end)
 
-      :ranch_tcp
-      |> expect(:send, 2, fn socket, raw_message ->
-        assert socket == user_channel.user_socket
+      Messaging
+      |> expect(:send_message, 2, fn pid, raw_message ->
+        assert pid == user_channel.user_pid
         assert raw_message == ":server.example.com PING target\r\n"
         :ok
       end)
 
-      :ranch_tcp
-      |> reject(:send, 2)
+      Messaging
+      |> reject(:send_message, 2)
 
       assert :ok == Messaging.broadcast([message, message], user)
       assert :ok == Messaging.broadcast([message, message], user_channel)
@@ -103,21 +103,23 @@ defmodule ElixIRCd.Server.MessagingTest do
       message: message
     } do
       for _ <- 1..2 do
-        :ranch_tcp
-        |> expect(:send, fn socket, raw_message ->
-          assert socket == user.socket
+        Messaging
+        |> expect(:send_message, fn pid, raw_message ->
+          assert pid == user.pid
           assert raw_message == ":server.example.com PING target\r\n"
+          :ok
         end)
 
-        :ranch_tcp
-        |> expect(:send, fn socket, raw_message ->
-          assert socket == user_channel.user_socket
+        Messaging
+        |> expect(:send_message, fn pid, raw_message ->
+          assert pid == user_channel.user_pid
           assert raw_message == ":server.example.com PING target\r\n"
+          :ok
         end)
       end
 
-      :ranch_tcp
-      |> reject(:send, 2)
+      Messaging
+      |> reject(:send_message, 2)
 
       assert :ok == Messaging.broadcast([message, message], [user, user_channel])
     end
@@ -125,14 +127,14 @@ defmodule ElixIRCd.Server.MessagingTest do
     test "broadcasts message to user connected through WS or WSS transports", %{
       message: message
     } do
-      user = insert(:user, %{pid: self(), transport: :ws, socket: nil})
+      user = insert(:user, %{pid: self(), transport: :ws})
       user_channel = insert(:user_channel, %{user: user})
 
       assert :ok == Messaging.broadcast(message, user)
-      assert_receive {:broadcast, ":server.example.com PING target"}, 1000
+      assert_receive {:broadcast, ":server.example.com PING target\r\n"}, 1000
 
       assert :ok == Messaging.broadcast(message, user_channel)
-      assert_receive {:broadcast, ":server.example.com PING target"}, 1000
+      assert_receive {:broadcast, ":server.example.com PING target\r\n"}, 1000
     end
   end
 end

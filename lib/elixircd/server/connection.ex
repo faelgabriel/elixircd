@@ -18,12 +18,8 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
-  @type transport :: :ranch_tcp | :ranch_ssl | :ws | :wss
-  @type connection_data :: %{
-          optional(:socket) => :inet.socket() | nil,
-          ip_address: :inet.ip_address(),
-          port_connected: :inet.port_number()
-        }
+  @type transport :: :tcp | :tls | :ws | :wss
+  @type connection_data :: %{ip_address: :inet.ip_address(), port_connected: :inet.port_number()}
 
   @doc """
   Handles the connection establishment.
@@ -33,7 +29,7 @@ defmodule ElixIRCd.Server.Connection do
     Logger.debug("Connection established: #{inspect(pid)}")
 
     Memento.transaction!(fn ->
-      modes = if transport in [:ranch_ssl, :wss], do: ["Z"], else: []
+      modes = if transport in [:tls, :wss], do: ["Z"], else: []
       Users.create(Map.merge(connection_data, %{pid: pid, transport: transport, modes: modes}))
       update_connection_stats()
     end)
@@ -68,7 +64,7 @@ defmodule ElixIRCd.Server.Connection do
       Users.get_by_pid(pid)
       |> case do
         {:ok, user} -> handle_quit(user, reason)
-        {:error, error} -> Logger.critical("Error handling disconnect: #{inspect(error)}")
+        {:error, :user_not_found} -> :ok
       end
     end)
   end
@@ -122,8 +118,6 @@ defmodule ElixIRCd.Server.Connection do
   end
 
   defp handle_quit(user, _quit_message) do
-    ChannelInvites.delete_by_user_pid(user.pid)
-    UserChannels.delete_by_user_pid(user.pid)
     Users.delete(user)
   end
 

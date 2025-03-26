@@ -33,7 +33,7 @@ defmodule ElixIRCd.Repository.ChannelBans do
   @doc """
   Get a channel ban by the channel name and ban mask.
   """
-  @spec get_by_channel_name_and_mask(String.t(), String.t()) :: {:ok, ChannelBan.t()} | {:error, atom()}
+  @spec get_by_channel_name_and_mask(String.t(), String.t()) :: {:ok, ChannelBan.t()} | {:error, :channel_ban_not_found}
   def get_by_channel_name_and_mask(channel_name, mask) do
     conditions = [{:==, :channel_name, channel_name}, {:==, :mask, mask}]
 

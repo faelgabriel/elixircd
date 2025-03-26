@@ -7,7 +7,7 @@ defmodule Mix.Tasks.Gen.Cert do
 
   @shortdoc "Generates a self-signed certificate for SSL testing"
 
-  @default_path "data/certs/selfsigned"
+  @default_path "data/cert/selfsigned"
   @default_name "Self-signed test certificate"
   @default_hostnames ["localhost"]
 

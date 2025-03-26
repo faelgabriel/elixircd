@@ -61,9 +61,8 @@ defmodule ElixIRCd.MixProject do
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.10", only: [:dev, :test]},
       {:pbkdf2_elixir, "~> 2.2"},
-      {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:wait_for_it, "~> 2.1", only: [:dev, :test]},
+      {:thousand_island, "~> 1.3"},
       {:websock_adapter, "~> 0.5"}
     ]
   end
@@ -71,7 +70,7 @@ defmodule ElixIRCd.MixProject do
   defp dialyzer do
     [
       plt_add_apps: [:ex_unit, :mix],
-      plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+      plt_file: {:no_warn, ".dialyzer/dialyzer.plt"}
     ]
   end
 
@@ -88,8 +87,8 @@ defmodule ElixIRCd.MixProject do
   end
 
   defp assemble_config(release) do
-    source_path = Path.join([__DIR__, "config", "elixircd.exs"])
-    destination_path = Path.join([release.path, "config", "elixircd.exs"])
+    source_path = Path.join([__DIR__, "data", "config", "elixircd.exs"])
+    destination_path = Path.join([release.path, "data", "config", "elixircd.exs"])
     File.mkdir_p!(Path.dirname(destination_path))
     File.copy!(source_path, destination_path)
     release

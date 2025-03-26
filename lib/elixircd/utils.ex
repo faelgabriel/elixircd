@@ -15,7 +15,7 @@ defmodule ElixIRCd.Utils do
   """
   @spec load_configurations :: :ok
   def load_configurations do
-    Path.join(["config", "elixircd.exs"])
+    Path.join(["data", "config", "elixircd.exs"])
     |> Config.Reader.read!()
     |> Enum.each(fn {app, custom_app_config} ->
       current_app_config = Application.get_all_env(app)
@@ -45,20 +45,24 @@ defmodule ElixIRCd.Utils do
   Determines if a self-signed certificate should be generated. This is determined by checking if the configured keyfile
   and certfile are set to the default values and if the files do not exist.
   """
+  # We need to ignore this from the test coverage because sometimes the certificate is already generated.
+  # coveralls-ignore-start
   @spec should_generate_certificate?() :: boolean()
   def should_generate_certificate? do
     Enum.any?(Application.get_env(:elixircd, :listeners), fn
-      {protocol, ssl_opts} when protocol in [:ssl, :wss] ->
+      {scheme_transport, ssl_opts} when scheme_transport in [:tls, :https] ->
         keyfile = Keyword.get(ssl_opts, :keyfile)
         certfile = Keyword.get(ssl_opts, :certfile)
 
-        keyfile == "data/certs/selfsigned_key.pem" and certfile == "data/certs/selfsigned.pem" and
+        keyfile == "data/cert/selfsigned_key.pem" and certfile == "data/cert/selfsigned.pem" and
           (!File.exists?(keyfile) or !File.exists?(certfile))
 
       _ ->
         false
     end)
   end
+
+  # coveralls-ignore-stop
 
   @doc """
   Retrieves the user identifier from an Ident server.

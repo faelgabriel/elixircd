@@ -9,6 +9,7 @@ defmodule ElixIRCd.Command.CapTest do
 
   alias ElixIRCd.Command.Cap
   alias ElixIRCd.Message
+  alias ElixIRCd.Server.Messaging
 
   describe "handle/2" do
     test "handles CAP command for listing supported capabilities for IRCv3.2" do
@@ -19,7 +20,7 @@ defmodule ElixIRCd.Command.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com CAP * LS\r\n"}
+          {user.pid, ":server.example.com CAP * LS\r\n"}
         ])
       end)
     end
@@ -39,8 +40,8 @@ defmodule ElixIRCd.Command.CapTest do
 
         for message <- incompatible_cap_commands do
           # Mimic the user's transport rejecting any responses since we don't support CAP yet
-          user.transport
-          |> reject(:send, 2)
+          Messaging
+          |> reject(:send_message, 2)
 
           assert :ok = Cap.handle(user, message)
           verify!()

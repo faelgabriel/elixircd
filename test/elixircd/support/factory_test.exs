@@ -100,7 +100,6 @@ defmodule ElixIRCd.FactoryTest do
 
       assert %UserChannel{} = user_channel = Factory.insert(:user_channel, %{channel: channel, user: user})
       assert user_channel.user_pid == user.pid
-      assert user_channel.user_socket == user.socket
       assert user_channel.user_transport == user.transport
       assert user_channel.channel_name == channel.name
     end
@@ -111,7 +110,6 @@ defmodule ElixIRCd.FactoryTest do
 
       assert %UserChannel{} = user_channel = Factory.insert(:user_channel, channel: channel, user: user)
       assert user_channel.user_pid == user.pid
-      assert user_channel.user_socket == user.socket
       assert user_channel.user_transport == user.transport
       assert user_channel.channel_name == channel.name
     end

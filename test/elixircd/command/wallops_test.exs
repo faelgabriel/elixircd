@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} WALLOPS :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} WALLOPS :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -45,7 +45,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          {user.pid, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
         ])
       end)
     end
@@ -59,7 +59,7 @@ defmodule ElixIRCd.Command.WallopsTest do
         assert :ok = Wallops.handle(user, message)
 
         assert_sent_messages([
-          {target_user.socket, ":#{get_user_mask(user)} WALLOPS :Wallops message\r\n"}
+          {target_user.pid, ":#{get_user_mask(user)} WALLOPS :Wallops message\r\n"}
         ])
       end)
     end

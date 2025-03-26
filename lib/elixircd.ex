@@ -19,10 +19,7 @@ defmodule ElixIRCd do
     generate_certificate()
 
     :persistent_term.put(:app_start_time, DateTime.utc_now())
-
-    logger_with_time(:info, "linking server supervisor", fn ->
-      Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
-    end)
+    Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
   end
 
   @spec init_config :: :ok

@@ -112,7 +112,7 @@ defmodule ElixIRCd.Command.Who do
     |> Enum.reject(&("i" in &1.modes and !user_shares_channel?))
   end
 
-  @spec filter_out_invisible_users_for_mask([User.t()], [:inet.socket()]) :: [User.t()]
+  @spec filter_out_invisible_users_for_mask([User.t()], [pid()]) :: [User.t()]
   defp filter_out_invisible_users_for_mask(users, user_pids_sharing_channel) do
     users
     |> Enum.reject(&("i" in &1.modes and &1.pid not in user_pids_sharing_channel))
@@ -127,7 +127,7 @@ defmodule ElixIRCd.Command.Who do
     end
   end
 
-  @spec filter_not_hidden_channel([UserChannel.t()], [:inet.socket()]) :: UserChannel.t() | nil
+  @spec filter_not_hidden_channel([UserChannel.t()], [pid()]) :: UserChannel.t() | nil
   defp filter_not_hidden_channel(user_channels, user_pids_sharing_channel) do
     Enum.find(user_channels, fn user_channel ->
       user_shares_channel? = user_channel.user_pid in user_pids_sharing_channel

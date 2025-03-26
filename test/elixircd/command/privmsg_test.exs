@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -35,8 +35,8 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
-          {user.socket, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
+          {user.pid, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -49,7 +49,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
+          {user.pid, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
         ])
       end)
     end
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+          {user.pid, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
       end)
     end
@@ -78,7 +78,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+          {user.pid, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
       end)
     end
@@ -95,7 +95,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -129,7 +129,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -145,7 +145,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -162,7 +162,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -175,7 +175,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 401 #{user.nick} another_user :No such nick\r\n"}
+          {user.pid, ":server.example.com 401 #{user.nick} another_user :No such nick\r\n"}
         ])
       end)
     end
@@ -189,7 +189,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {target_user.socket, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"}
+          {target_user.pid, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"}
         ])
       end)
     end
@@ -203,8 +203,22 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {target_user.socket, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"},
-          {user.socket, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
+          {target_user.pid, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"},
+          {user.pid, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command for message without trailing but with extra params" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user)
+
+        message = %Message{command: "PRIVMSG", params: [target_user.nick, "Hello", "World"]}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {target_user.pid, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello World\r\n"}
         ])
       end)
     end

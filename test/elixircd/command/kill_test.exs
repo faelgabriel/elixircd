@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} KILL :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} KILL :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -45,7 +45,7 @@ defmodule ElixIRCd.Command.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          {user.pid, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
         ])
       end)
     end
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Command.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
+          {user.pid, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
         ])
       end)
     end
@@ -73,14 +73,13 @@ defmodule ElixIRCd.Command.KillTest do
         assert :ok = Kill.handle(user, message)
 
         expected_killed_message = "Killed (#{user.nick} (Kill reason))"
-        expected_target_user_socket = target_user.socket
 
         assert_sent_messages([
-          {target_user.socket,
+          {target_user.pid,
            ":server.example.com ERROR :Closing Link: #{get_user_mask(target_user)} (#{expected_killed_message})\r\n"}
         ])
 
-        assert_received {:disconnect, ^expected_target_user_socket, ^expected_killed_message}
+        assert_received {:disconnect, ^expected_killed_message}
       end)
     end
 
@@ -94,14 +93,13 @@ defmodule ElixIRCd.Command.KillTest do
         assert :ok = Kill.handle(user, message)
 
         expected_killed_message = "Killed (#{user.nick})"
-        expected_target_user_socket = target_user.socket
 
         assert_sent_messages([
-          {target_user.socket,
+          {target_user.pid,
            ":server.example.com ERROR :Closing Link: #{get_user_mask(target_user)} (#{expected_killed_message})\r\n"}
         ])
 
-        assert_received {:disconnect, ^expected_target_user_socket, ^expected_killed_message}
+        assert_received {:disconnect, ^expected_killed_message}
       end)
     end
   end

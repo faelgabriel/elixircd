@@ -23,33 +23,23 @@ defmodule ElixIRCd.Command.Privmsg do
     |> Messaging.broadcast(user)
   end
 
-  @impl true
-  def handle(user, %{command: "PRIVMSG", params: []}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user.nick, "PRIVMSG"],
-      trailing: "Not enough parameters"
-    })
-    |> Messaging.broadcast(user)
-  end
+  def handle(user, %{command: "PRIVMSG", params: [target | potential_messages], trailing: trailing})
+      when potential_messages != [] or trailing != nil do
+    message_text = if trailing != nil, do: trailing, else: Enum.join(potential_messages, " ")
 
-  @impl true
-  def handle(user, %{command: "PRIVMSG", trailing: nil}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user.nick, "PRIVMSG"],
-      trailing: "Not enough parameters"
-    })
-    |> Messaging.broadcast(user)
-  end
-
-  @impl true
-  def handle(user, %{command: "PRIVMSG", params: [target], trailing: message_text}) do
     if channel_name?(target),
       do: handle_channel_message(user, target, message_text),
       else: handle_user_message(user, target, message_text)
+  end
+
+  def handle(user, %{command: "PRIVMSG"}) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_needmoreparams,
+      params: [user.nick, "PRIVMSG"],
+      trailing: "Not enough parameters"
+    })
+    |> Messaging.broadcast(user)
   end
 
   @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok

@@ -73,35 +73,6 @@ defmodule ElixIRCd.Helper do
   end
 
   @doc """
-  Gets the IP address for a socket connection.
-  """
-  @spec get_socket_ip(socket :: :inet.socket()) :: {:ok, :inet.ip_address()} | {:error, String.t()}
-  def get_socket_ip(socket) do
-    case :inet.peername(get_socket_port(socket)) do
-      {:ok, {ip, _port}} -> {:ok, ip}
-      {:error, error} -> {:error, "Unable to get IP for #{inspect(socket)}: #{inspect(error)}"}
-    end
-  end
-
-  @doc """
-  Gets the port that a socket is connected to.
-  """
-  @spec get_socket_port_connected(:inet.socket()) :: {:ok, :inet.port_number()} | {:error, String.t()}
-  def get_socket_port_connected(socket) do
-    case :inet.sockname(get_socket_port(socket)) do
-      {:ok, {_, port}} -> {:ok, port}
-      {:error, error} -> {:error, "Unable to get port for #{inspect(socket)}: #{inspect(error)}"}
-    end
-  end
-
-  @doc """
-  Gets the port for a socket.
-  """
-  @spec get_socket_port(:inet.socket()) :: port()
-  def get_socket_port(socket) when is_port(socket), do: socket
-  def get_socket_port({:sslsocket, {:gen_tcp, socket, :tls_connection, _}, _}), do: socket
-
-  @doc """
   Gets the user mask.
   """
   @spec get_user_mask(User.t()) :: String.t()
@@ -143,9 +114,11 @@ defmodule ElixIRCd.Helper do
   @doc """
   Formats a transport for display.
   """
-  @spec format_transport(atom()) :: String.t()
-  def format_transport(transport) when transport in [:ranch_tcp, :tcp], do: "TCP"
-  def format_transport(transport) when transport in [:ranch_ssl, :ssl], do: "SSL"
+  @spec format_transport(:tcp | :tls | :http | :https | :ws | :wss) :: String.t()
+  def format_transport(:tcp), do: "TCP"
+  def format_transport(:tls), do: "TLS"
+  def format_transport(:http), do: "HTTP"
+  def format_transport(:https), do: "HTTPS"
   def format_transport(:ws), do: "WS"
   def format_transport(:wss), do: "WSS"
 

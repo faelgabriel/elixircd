@@ -11,19 +11,16 @@ defmodule ElixIRCd.Repository.UsersTest do
   describe "create/1" do
     test "creates a new user" do
       pid = spawn(fn -> :ok end)
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
       attrs = %{
         pid: pid,
-        socket: port,
-        transport: :ranch_tcp
+        transport: :tcp
       }
 
       user = Memento.transaction!(fn -> Users.create(attrs) end)
 
       assert user.pid == pid
-      assert user.socket == port
-      assert user.transport == :ranch_tcp
+      assert user.transport == :tcp
     end
   end
 

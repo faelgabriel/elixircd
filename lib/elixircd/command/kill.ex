@@ -38,7 +38,7 @@ defmodule ElixIRCd.Command.Kill do
       killed_message = "Killed (#{user.nick}#{formatted_reason})"
 
       closing_link_message(target_user, killed_message)
-      send(target_user.pid, {:disconnect, target_user.socket, killed_message})
+      send(target_user.pid, {:disconnect, killed_message})
 
       :ok
     else

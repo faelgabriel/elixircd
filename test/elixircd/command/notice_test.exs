@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -35,8 +35,8 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} NOTICE :Not enough parameters\r\n"},
-          {user.socket, ":server.example.com 461 #{user.nick} NOTICE :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} NOTICE :Not enough parameters\r\n"},
+          {user.pid, ":server.example.com 461 #{user.nick} NOTICE :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -49,7 +49,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
+          {user.pid, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
         ])
       end)
     end
@@ -63,7 +63,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+          {user.pid, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
       end)
     end
@@ -80,7 +80,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{get_user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{get_user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -93,7 +93,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 401 #{user.nick} another_user :No such nick\r\n"}
+          {user.pid, ":server.example.com 401 #{user.nick} another_user :No such nick\r\n"}
         ])
       end)
     end
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.socket, ":#{get_user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
+          {another_user.pid, ":#{get_user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
         ])
       end)
     end

@@ -21,7 +21,7 @@ defmodule ElixIRCd.Command.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -36,7 +36,7 @@ defmodule ElixIRCd.Command.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
+          {user.pid, ":server.example.com 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
         ])
       end)
     end
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Command.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
+          {user.pid, ":server.example.com 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
         ])
       end)
     end
@@ -67,7 +67,7 @@ defmodule ElixIRCd.Command.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
+          {user.pid, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
         ])
       end)
     end
@@ -81,7 +81,7 @@ defmodule ElixIRCd.Command.NickTest do
 
         assert :ok = Nick.handle(user, message)
 
-        assert_sent_messages([{user.socket, ":#{get_user_mask(user)} NICK #{nick}\r\n"}])
+        assert_sent_messages([{user.pid, ":#{get_user_mask(user)} NICK #{nick}\r\n"}])
       end)
     end
 
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Command.NickTest do
 
         assert :ok = Nick.handle(user, message)
 
-        assert_sent_messages([{user.socket, ":#{get_user_mask(user)} NICK new_nick\r\n"}])
+        assert_sent_messages([{user.pid, ":#{get_user_mask(user)} NICK new_nick\r\n"}])
       end)
     end
 
@@ -123,8 +123,8 @@ defmodule ElixIRCd.Command.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} NICK new_nick\r\n"},
-          {another_user.socket, ":#{get_user_mask(user)} NICK new_nick\r\n"}
+          {user.pid, ":#{get_user_mask(user)} NICK new_nick\r\n"},
+          {another_user.pid, ":#{get_user_mask(user)} NICK new_nick\r\n"}
         ])
       end)
     end

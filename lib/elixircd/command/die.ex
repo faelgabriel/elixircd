@@ -38,7 +38,7 @@ defmodule ElixIRCd.Command.Die do
 
     Enum.each(all_users, fn user ->
       closing_link_message(user, shutdown_message)
-      send(user.pid, {:disconnect, user.socket, shutdown_message})
+      send(user.pid, {:disconnect, shutdown_message})
     end)
 
     Process.sleep(1000)

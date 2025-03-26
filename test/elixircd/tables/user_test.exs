@@ -8,19 +8,16 @@ defmodule ElixIRCd.Tables.UserTest do
   describe "new/1" do
     test "creates a new user with default values" do
       pid = spawn(fn -> :ok end)
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
       attrs = %{
         pid: pid,
-        socket: port,
-        transport: :ranch_tcp
+        transport: :tcp
       }
 
       user = User.new(attrs)
 
       assert user.pid == pid
-      assert user.socket == port
-      assert user.transport == :ranch_tcp
+      assert user.transport == :tcp
       assert user.nick == nil
       assert user.hostname == nil
       assert user.ident == nil
@@ -36,14 +33,12 @@ defmodule ElixIRCd.Tables.UserTest do
 
     test "creates a new user with custom values" do
       pid = spawn(fn -> :ok end)
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
       time_now = :erlang.system_time(:second)
       utc_now = DateTime.utc_now()
 
       attrs = %{
         pid: pid,
-        socket: port,
-        transport: :ranch_tcp,
+        transport: :tcp,
         nick: "test",
         hostname: "test",
         ident: "test",
@@ -60,8 +55,7 @@ defmodule ElixIRCd.Tables.UserTest do
       user = User.new(attrs)
 
       assert user.pid == pid
-      assert user.socket == port
-      assert user.transport == :ranch_tcp
+      assert user.transport == :tcp
       assert user.nick == "test"
       assert user.hostname == "test"
       assert user.ident == "test"
@@ -79,8 +73,7 @@ defmodule ElixIRCd.Tables.UserTest do
   describe "update/2" do
     test "updates a user with new values" do
       pid = spawn(fn -> :ok end)
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
-      user = User.new(%{pid: pid, socket: port, transport: :ranch_tcp})
+      user = User.new(%{pid: pid, transport: :tcp})
       utc_now = DateTime.utc_now()
 
       updated_user =
@@ -98,8 +91,7 @@ defmodule ElixIRCd.Tables.UserTest do
         })
 
       assert updated_user.pid == pid
-      assert updated_user.socket == port
-      assert updated_user.transport == :ranch_tcp
+      assert updated_user.transport == :tcp
       assert updated_user.nick == "test"
       assert updated_user.hostname == "test"
       assert updated_user.ident == "test"

@@ -18,7 +18,7 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -33,9 +33,9 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -50,8 +50,8 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #anything1 0 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #anything1 0 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -66,9 +66,9 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #anything1 0 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 322 #{user.nick} #anything2 0 :#{channel2.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #anything1 0 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 322 #{user.nick} #anything2 0 :#{channel2.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -91,9 +91,9 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 2 :#{channel2.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel2.name} 2 :#{channel2.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -108,8 +108,8 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -124,8 +124,8 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -142,8 +142,8 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -160,8 +160,8 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -176,8 +176,8 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -192,8 +192,8 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -206,7 +206,7 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -221,7 +221,7 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end
@@ -238,9 +238,9 @@ defmodule ElixIRCd.Command.ListTest do
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},
-          {user.socket, ":server.example.com 322 #{user.nick} #{channel2.name} 1 :#{channel2.topic.text}\r\n"},
-          {user.socket, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},
+          {user.pid, ":server.example.com 322 #{user.nick} #{channel2.name} 1 :#{channel2.topic.text}\r\n"},
+          {user.pid, ":server.example.com 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
     end

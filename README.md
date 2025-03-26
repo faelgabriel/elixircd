@@ -42,7 +42,7 @@ You can connect using any IRC client like [Smuxi](https://smuxi.im/) or a web-ba
 
 - **Server**: `irc.elixircd.org`
 - **Ports**: `6667` (plaintext) and `6697` (SSL/TLS)
-- **Alternative Ports**: `6668` (plaintext) and `6698` (SSL/TLS)
+- **WebSocket**: `8080` (HTTP) and `8443` (HTTPS)
 
 ### Quick Start with Docker
 
@@ -50,7 +50,7 @@ To quickly start the ElixIRCd server using [Docker](https://docs.docker.com/get-
 
 ```bash
 docker run \
-  -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
+  -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
   faelgabriel/elixircd
 ```
 
@@ -66,51 +66,92 @@ docker exec -it <container_name> ./bin/elixircd stop
 
 #### Configuration
 
-You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/config/`.
+You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/data/config/`.
 
-1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) and customize it as desired.
+1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/data/config/elixircd.exs) and customize it as desired.
 
 2. Start the ElixIRCd server with your configuration file by mounting it into the Docker container:
 
    ```bash
    docker run \
-     -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-     -v ./elixircd.exs:/app/config/elixircd.exs \
+     -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
+     -v ./elixircd.exs:/app/data/config/elixircd.exs \
      faelgabriel/elixircd
    ```
 
 #### SSL Certificates
 
-For development and testing environments, ElixIRCd automatically generates self-signed certificates by default for SSL listeners configured with `keyfile: "data/certs/selfsigned_key.pem"` and `certfile: "data/certs/selfsigned.pem"`.
+For development and testing environments, ElixIRCd automatically generates self-signed certificates by default for SSL listeners configured with `keyfile: "data/cert/selfsigned_key.pem"` and `certfile: "data/cert/selfsigned.pem"`.
 
-For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and place them in your local `data/certs` folder before mounting them into the Docker container at `/app/data/certs/`.
+For production environments, you should configure SSL listeners with a valid certificate and key obtained from a trusted Certificate Authority (CA), and place them in your local `data/cert` folder before mounting them into the Docker container at `/app/data/cert/`.
 
 1. Obtain an SSL certificate and key from a trusted Certificate Authority (CA), such as [Let's Encrypt](https://letsencrypt.org/).
 
-2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate files (e.g., `data/certs/fullchain.pem`, `data/certs/privkey.pem`, and `data/certs/chain.pem`), and ensure these files are located in your local `cert/` folder:
+2. Update your `elixircd.exs` configuration file with the paths to the obtained SSL certificate files (e.g., `data/cert/fullchain.pem`, `data/cert/privkey.pem`, and `data/cert/chain.pem`) in the listener configurations, and ensure these files are located in your local `cert/` folder:
 
    ```elixir
    # ... other configurations
-   {:ssl, [port: 6697, certfile: "data/certs/fullchain.pem", keyfile: "data/certs/privkey.pem", cacertfile: "data/certs/chain.pem"]},
-   {:ssl, [port: 6698, certfile: "data/certs/fullchain.pem", keyfile: "data/certs/privkey.pem", cacertfile: "data/certs/chain.pem"]}
+   {:tls, [
+      port: 6697,
+      transport_options: [
+        keyfile: Path.expand("data/cert/privkey.pem"),
+        certfile: Path.expand("data/cert/fullchain.pem")
+      ]
+    ]}
+    {:https, [
+      port: 8443,
+      kiwiirc_client: true,
+      keyfile: Path.expand("data/cert/privkey.pem"),
+      certfile: Path.expand("data/cert/fullchain.pem")
+    ]}
    # ... other configurations
    ```
 
-3. Start the ElixIRCd server with your configuration and certificate files by mounting the `cert/` folder into the Docker container at `/app/data/certs/`:
+3. Start the ElixIRCd server with your configuration and certificate files by mounting the `cert/` folder into the Docker container at `/app/data/cert/`:
 
    ```bash
    docker run \
-     -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
-     -v ./elixircd.exs:/app/config/elixircd.exs \
-     -v ./cert/:/app/data/certs/ \
+     -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
+     -v ./elixircd.exs:/app/data/config/elixircd.exs \
+     -v ./cert/:/app/data/cert/ \
      faelgabriel/elixircd
    ```
 
-Additional SSL options can be found at the [Ranch documentation](https://ninenines.eu/docs/en/ranch/2.1/manual/ranch_ssl/).
+#### Listener Configurations
+
+ElixIRCd uses [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland.html) for TCP and TLS listeners, and [Bandit](https://hexdocs.pm/bandit/Bandit.html) for HTTP (WS) and HTTPS (WSS) listeners.
+
+- **TCP and TLS Listeners** (`:tcp` and `:tls`): These use [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland.html) as the underlying server implementation. You can configure additional options as documented in the [ThousandIsland documentation](https://hexdocs.pm/thousand_island/ThousandIsland.html#t:options/0).
+
+  ```elixir
+  {:tcp, [
+    port: 6667,
+    # Additional ThousandIsland options
+    num_acceptors: 100,
+    num_connections: 10_000,
+  ]}
+  ```
+
+- **HTTP and HTTPS Listeners** (`:http` and `:https`): These use [Bandit](https://hexdocs.pm/bandit/Bandit.html) as the underlying server implementation. You can configure additional options as documented in the [Bandit documentation](https://hexdocs.pm/bandit/Bandit.html#t:options/0).
+
+  ```elixir
+  {:http, [
+    port: 8080,
+    # Enables the built-in KiwiIRC web client
+    kiwiirc_client: true,
+    # Additional Bandit options
+    thousand_island_options: [
+      num_acceptors: 100,
+      num_connections: 10_000,
+    ]
+  ]}
+  ```
+
+  The `kiwiirc_client` option, when set to `true`, enables a built-in web-based IRC client powered by [KiwiIRC](https://kiwiirc.com/). This allows users to connect to your IRC server directly through a web browser without needing to install a dedicated IRC client. When enabled, the web client is accessible by navigating to the HTTP/HTTPS address of your server in a web browser. **This option is available for HTTP and HTTPS listeners only.**
 
 #### MOTD (Message of the Day)
 
-You can set the Message of the Day by creating a `motd.txt` file mounting it into the Docker container at `/app/config/`.
+You can set the Message of the Day by creating a `motd.txt` file mounting it into the Docker container at `/app/data/config/`.
 
 1. Create a `motd.txt` file with your desired message of the day.
 
@@ -118,9 +159,9 @@ You can set the Message of the Day by creating a `motd.txt` file mounting it int
 
    ```bash
    docker run \
-     -p 6667:6667 -p 6668:6668 -p 6697:6697 -p 6698:6698 \
+     -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
      # ... other volume mounts
-     -v ./motd.txt:/app/config/motd.txt \
+     -v ./motd.txt:/app/data/config/motd.txt \
      faelgabriel/elixircd
    ```
 

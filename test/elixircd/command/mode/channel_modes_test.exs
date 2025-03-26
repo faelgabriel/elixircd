@@ -796,7 +796,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert applied_changes == []
 
       assert_sent_messages([
-        {user.socket,
+        {user.pid,
          ":server.example.com 441 #{user.nick} #{channel.name} #{user_operator.nick} :They aren't on that channel\r\n"}
       ])
     end
@@ -814,7 +814,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert applied_changes == []
 
       assert_sent_messages([
-        {user.socket, ":server.example.com 401 #{user.nick} #{channel.name} nonexistent :No such nick\r\n"}
+        {user.pid, ":server.example.com 401 #{user.nick} #{channel.name} nonexistent :No such nick\r\n"}
       ])
     end
 

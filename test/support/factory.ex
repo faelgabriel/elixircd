@@ -24,7 +24,6 @@ defmodule ElixIRCd.Factory do
 
   def build(:user, attrs) do
     pid = spawn(fn -> :ok end)
-    port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
     registered_at =
       if Map.get(attrs, :registered) == false and Map.get(attrs, :registered_at) == nil,
@@ -33,8 +32,7 @@ defmodule ElixIRCd.Factory do
 
     %User{
       pid: Map.get(attrs, :pid, pid),
-      socket: Map.get(attrs, :socket, port),
-      transport: Map.get(attrs, :transport, :ranch_tcp),
+      transport: Map.get(attrs, :transport, :tcp),
       ip_address: Map.get(attrs, :ip_address, {127, 0, 0, 1}),
       port_connected: Map.get(attrs, :port_connected, 6667),
       nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
@@ -70,12 +68,10 @@ defmodule ElixIRCd.Factory do
 
   def build(:user_channel, attrs) do
     pid = spawn(fn -> :ok end)
-    port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
     %UserChannel{
       user_pid: Map.get(attrs, :user_pid, pid),
-      user_socket: Map.get(attrs, :user_socket, port),
-      user_transport: Map.get(attrs, :user_transport, :ranch_tcp),
+      user_transport: Map.get(attrs, :user_transport, :tcp),
       channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
@@ -160,7 +156,6 @@ defmodule ElixIRCd.Factory do
     updated_attrs =
       attrs
       |> Map.put(:user_pid, user.pid)
-      |> Map.put(:user_socket, user.socket)
       |> Map.put(:user_transport, user.transport)
       |> Map.put(:channel_name, channel.name)
 

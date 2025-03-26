@@ -45,7 +45,7 @@ defmodule ElixIRCd.Repository.Users do
   @doc """
   Get a user by the pid.
   """
-  @spec get_by_pid(pid()) :: {:ok, User.t()} | {:error, atom()}
+  @spec get_by_pid(pid()) :: {:ok, User.t()} | {:error, :user_not_found}
   def get_by_pid(pid) do
     Memento.Query.read(User, pid)
     |> case do
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Repository.Users do
   @doc """
   Get a user by the nick.
   """
-  @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, atom()}
+  @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, :user_not_found}
   def get_by_nick(nick) do
     Memento.Query.select(User, {:==, :nick, nick}, limit: 1)
     |> case do

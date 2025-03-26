@@ -10,7 +10,7 @@ defmodule ElixIRCd.MessageCase do
 
   import Mimic
 
-  alias ElixIRCd.WsServer
+  alias ElixIRCd.Server.Messaging
   alias ExUnit.AssertionError
 
   using do
@@ -22,17 +22,7 @@ defmodule ElixIRCd.MessageCase do
       setup do
         {:ok, agent_pid} = Agent.start_link(fn -> [] end, name: @agent_name)
 
-        :ranch_tcp
-        |> stub(:send, fn socket, msg ->
-          Agent.update(@agent_name, fn messages -> [{socket, msg} | messages] end)
-        end)
-
-        :ranch_ssl
-        |> stub(:send, fn socket, msg ->
-          Agent.update(@agent_name, fn messages -> [{socket, msg} | messages] end)
-        end)
-
-        WsServer
+        Messaging
         |> stub(:send_message, fn pid, msg ->
           Agent.update(@agent_name, fn messages -> [{pid, msg} | messages] end)
         end)
@@ -44,7 +34,7 @@ defmodule ElixIRCd.MessageCase do
         :ok
       end
 
-      @spec assert_sent_messages_amount(pid() | :inet.socket(), integer()) :: :ok
+      @spec assert_sent_messages_amount(pid(), integer()) :: :ok
       defp assert_sent_messages_amount(target, amount) do
         sent_messages = Agent.get(@agent_name, & &1)
         sent_messages_for_target = Enum.filter(sent_messages, fn {t, _} -> t == target end)
@@ -110,7 +100,7 @@ defmodule ElixIRCd.MessageCase do
         :ok
       end
 
-      @spec assert_messages_content(pid() | :inet.socket(), [tuple()], [tuple()], validate_order? :: boolean()) :: :ok
+      @spec assert_messages_content(pid(), [tuple()], [tuple()], validate_order? :: boolean()) :: :ok
       defp assert_messages_content(target, expected_msgs, sent_msgs, true = _validate_order) do
         Enum.zip(expected_msgs, sent_msgs)
         |> Enum.with_index()

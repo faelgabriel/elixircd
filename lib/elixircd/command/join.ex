@@ -61,7 +61,6 @@ defmodule ElixIRCd.Command.Join do
       user_channel =
         UserChannels.create(%{
           user_pid: user.pid,
-          user_socket: user.socket,
           user_transport: user.transport,
           channel_name: channel.name,
           modes: determine_user_channel_modes(channel_state)

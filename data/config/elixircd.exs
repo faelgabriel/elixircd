@@ -1,7 +1,5 @@
 import Config
 
-config :mnesia, :dir, ~c"data/mnesia/#{Mix.env()}"
-
 config :elixircd,
   # Server Configuration
   server: [
@@ -12,26 +10,30 @@ config :elixircd,
     # Optional server password; set to `nil` if not required
     password: nil,
     # Message of the Day
-    motd: File.read("config/motd.txt")
+    motd: File.read("data/config/motd.txt")
   ],
   # Network Listeners Configuration
   listeners: [
-    # IRC port
+    # IRC port (Plaintext)
     {:tcp, [port: 6667]},
-    # Alternative IRC port (6668)
-    {:tcp, [port: 6668]},
-    # SSL-enabled IRC port (6697); paths to SSL key and certificate files
-    {:ssl, [port: 6697, keyfile: "data/certs/selfsigned_key.pem", certfile: "data/certs/selfsigned.pem"]},
-    # Additional SSL-enabled IRC port (6698)
-    {:ssl, [port: 6698, keyfile: "data/certs/selfsigned_key.pem", certfile: "data/certs/selfsigned.pem"]},
-    # WebSocket port (8080)
-    {:ws, [port: 8080]},
-    # WebSocket SSL port (4443); paths to SSL key and certificate files
-    {:wss,
+    # TLS-enabled IRC port (SSL)
+    {:tls,
      [
-       port: 4443,
-       keyfile: Path.expand("data/certs/selfsigned_key.pem"),
-       certfile: Path.expand("data/certs/selfsigned.pem")
+       port: 6697,
+       transport_options: [
+         keyfile: Path.expand("data/cert/selfsigned_key.pem"),
+         certfile: Path.expand("data/cert/selfsigned.pem")
+       ]
+     ]},
+    # HTTP port (WebSocket)
+    {:http, [port: 8080, kiwiirc_client: true]},
+    # HTTPS port (WebSocket SSL)
+    {:https,
+     [
+       port: 8443,
+       kiwiirc_client: true,
+       keyfile: Path.expand("data/cert/selfsigned_key.pem"),
+       certfile: Path.expand("data/cert/selfsigned.pem")
      ]}
   ],
   # User Configuration

@@ -44,7 +44,8 @@ defmodule ElixIRCd.Repository.UserChannels do
   @doc """
   Get a user channel by the user pid and channel name.
   """
-  @spec get_by_user_pid_and_channel_name(pid(), String.t()) :: {:ok, UserChannel.t()} | {:error, atom()}
+  @spec get_by_user_pid_and_channel_name(pid(), String.t()) ::
+          {:ok, UserChannel.t()} | {:error, :user_channel_not_found}
   def get_by_user_pid_and_channel_name(user_pid, channel_name) do
     conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name, channel_name}]
 

@@ -11,12 +11,10 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
   describe "create/1" do
     test "creates a new user channel" do
       pid = spawn(fn -> :ok end)
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
 
       attrs = %{
         user_pid: pid,
-        user_socket: port,
-        user_transport: :ranch_tcp,
+        user_transport: :tcp,
         channel_name: "#elixir",
         modes: []
       }
@@ -24,8 +22,7 @@ defmodule ElixIRCd.Repository.UserChannelsTest do
       user_channel = Memento.transaction!(fn -> UserChannels.create(attrs) end)
 
       assert user_channel.user_pid == pid
-      assert user_channel.user_socket == port
-      assert user_channel.user_transport == :ranch_tcp
+      assert user_channel.user_transport == :tcp
       assert user_channel.channel_name == "#elixir"
       assert user_channel.modes == []
     end

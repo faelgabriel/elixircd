@@ -18,7 +18,7 @@ defmodule ElixIRCd.Command.InfoTest do
         assert :ok = Info.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -30,7 +30,7 @@ defmodule ElixIRCd.Command.InfoTest do
 
         assert :ok = Info.handle(user, message)
 
-        assert_sent_messages_amount(user.socket, 24)
+        assert_sent_messages_amount(user.pid, 24)
       end)
     end
   end

@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.AwayTest do
         assert :ok = Away.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.AwayTest do
         assert :ok = Away.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 305 #{user.nick} :You are no longer marked as being away\r\n"}
+          {user.pid, ":server.example.com 305 #{user.nick} :You are no longer marked as being away\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -48,7 +48,7 @@ defmodule ElixIRCd.Command.AwayTest do
         assert :ok = Away.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 306 #{user.nick} :You have been marked as being away\r\n"}
+          {user.pid, ":server.example.com 306 #{user.nick} :You have been marked as being away\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)

@@ -3,11 +3,10 @@ defmodule ElixIRCd.Tables.User do
   Module for the User table.
   """
 
-  @enforce_keys [:pid, :socket, :transport, :registered, :modes, :last_activity, :created_at]
+  @enforce_keys [:pid, :transport, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
     attributes: [
       :pid,
-      :socket,
       :transport,
       :ip_address,
       :port_connected,
@@ -28,8 +27,7 @@ defmodule ElixIRCd.Tables.User do
 
   @type t :: %__MODULE__{
           pid: pid(),
-          socket: :inet.socket() | nil,
-          transport: :ranch_tcp | :ranch_ssl | :ws | :wss,
+          transport: :tcp | :tls | :ws | :wss,
           ip_address: :inet.ip_address(),
           port_connected: :inet.port_number(),
           nick: String.t() | nil,
@@ -47,8 +45,7 @@ defmodule ElixIRCd.Tables.User do
 
   @type t_attrs :: %{
           optional(:pid) => pid(),
-          optional(:socket) => :inet.socket() | nil,
-          optional(:transport) => :ranch_tcp | :ranch_ssl | :ws | :wss,
+          optional(:transport) => :tcp | :tls | :ws | :wss,
           optional(:ip_address) => :inet.ip_address(),
           optional(:port_connected) => :inet.port_number(),
           optional(:nick) => String.t() | nil,

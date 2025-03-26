@@ -5,7 +5,6 @@ defmodule ElixIRCd.HelperTest do
 
   import ElixIRCd.Factory
 
-  alias ElixIRCd.Client
   alias ElixIRCd.Helper
 
   describe "channel_name?/1" do
@@ -117,77 +116,6 @@ defmodule ElixIRCd.HelperTest do
     end
   end
 
-  describe "get_socket_ip/1" do
-    test "gets ip from tcp socket" do
-      {:ok, socket} = Client.connect(:tcp)
-      assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
-    end
-
-    test "gets ip from ssl socket" do
-      {:ok, socket} = Client.connect(:ssl)
-      assert {:ok, {127, 0, 0, 1}} == Helper.get_socket_ip(socket)
-    end
-
-    test "returns error for tcp socket disconnected" do
-      {:ok, socket} = Client.connect(:tcp)
-      Client.disconnect(socket)
-      assert {:error, error} = Helper.get_socket_ip(socket)
-      assert error =~ "Unable to get IP for"
-    end
-
-    test "returns error for ssl socket disconnected" do
-      {:ok, socket} = Client.connect(:ssl)
-      Client.disconnect(socket)
-      assert {:error, error} = Helper.get_socket_ip(socket)
-      assert error =~ "Unable to get IP for"
-    end
-
-    test "returns error for invalid socket" do
-      virtual_user = build(:user)
-      assert {:error, error} = Helper.get_socket_ip(virtual_user.socket)
-      assert error =~ "Unable to get IP for"
-    end
-  end
-
-  describe "get_socket_port_connected/1" do
-    test "gets port connected from a tcp socket" do
-      {:ok, socket} = Client.connect(:tcp)
-      assert {:ok, _} = Helper.get_socket_port_connected(socket)
-    end
-
-    test "gets port connected from an ssl socket" do
-      {:ok, socket} = Client.connect(:ssl)
-      assert {:ok, _} = Helper.get_socket_port_connected(socket)
-    end
-
-    test "returns error for tcp socket disconnected" do
-      {:ok, socket} = Client.connect(:tcp)
-      Client.disconnect(socket)
-      assert {:error, error} = Helper.get_socket_port_connected(socket)
-      assert error =~ "Unable to get port for"
-    end
-  end
-
-  describe "get_socket_port/1" do
-    test "gets port from tcp socket" do
-      {:ok, socket} = Client.connect(:tcp)
-      Client.disconnect(socket)
-      extracted_socket_port = Helper.get_socket_port(socket)
-
-      assert is_port(socket)
-      assert is_port(extracted_socket_port)
-    end
-
-    test "gets port from ssl socket" do
-      {:ok, socket} = Client.connect(:ssl)
-      Client.disconnect(socket)
-      extracted_socket_port = Helper.get_socket_port(socket)
-
-      refute is_port(socket)
-      assert is_port(extracted_socket_port)
-    end
-  end
-
   describe "get_user_mask/1" do
     test "builds user mask with ident" do
       user = build(:user, nick: "nick", ident: "~username", hostname: "host", registered: true)
@@ -232,6 +160,17 @@ defmodule ElixIRCd.HelperTest do
 
     test "formats ipv6 address" do
       assert "::1" = Helper.format_ip_address({0, 0, 0, 0, 0, 0, 0, 1})
+    end
+  end
+
+  describe "format_transport/1" do
+    test "formats transport" do
+      assert "TCP" = Helper.format_transport(:tcp)
+      assert "TLS" = Helper.format_transport(:tls)
+      assert "HTTP" = Helper.format_transport(:http)
+      assert "HTTPS" = Helper.format_transport(:https)
+      assert "WS" = Helper.format_transport(:ws)
+      assert "WSS" = Helper.format_transport(:wss)
     end
   end
 

@@ -14,15 +14,18 @@
 # If the VM crashes, it generates a dump, let's ignore it too.
 erl_crash.dump
 
-# Private data
-/data/
+# Mnesia database files
+/data/mnesia/
+
+# Certificate files
+/data/cert/
 
 # Temporary files, for example, from tests.
 /tmp/
 
 # Dialyzer PLT files
-/priv/plts/*.plt
-/priv/plts/*.plt.hash
+/.dialyzer/*.plt
+/.dialyzer/*.plt.hash
 
 # ElixirLS
 /.elixir_ls/

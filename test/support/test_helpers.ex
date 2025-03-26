@@ -45,6 +45,7 @@ defmodule ElixIRCd.TestHelpers do
       File.cd!(path, function)
     after
       File.rm_rf!(base)
+      File.rm_rf!(tmp_path)
     end
   end
 end
