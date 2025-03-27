@@ -8,14 +8,14 @@ defmodule ElixIRCd.Command.Stats do
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Metrics
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "STATS"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Command.Stats do
       "u - uptime - Send the server uptime and connection count"
     ]
     |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_stats, params: [user.nick], trailing: &1}))
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     Message.build(%{
       prefix: :server,
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Command.Stats do
       params: [user.nick, "*"],
       trailing: "End of /STATS report"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -47,7 +47,7 @@ defmodule ElixIRCd.Command.Stats do
       params: [user.nick, flag],
       trailing: "End of /STATS report"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec handle_flag(User.t(), String.t()) :: :ok
@@ -56,7 +56,7 @@ defmodule ElixIRCd.Command.Stats do
     uptime = format_uptime(server_start_time)
 
     Message.build(%{prefix: :server, command: :rpl_statsuptime, params: [user.nick], trailing: "Server Up #{uptime}"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     current_connections = Users.count_all()
     highest_connections = Metrics.get(:highest_connections)
@@ -69,7 +69,7 @@ defmodule ElixIRCd.Command.Stats do
       trailing:
         "Highest connection count: #{highest_connections} (#{current_connections} clients) (#{total_connections} connections received)"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp handle_flag(_user, _flag), do: :ok

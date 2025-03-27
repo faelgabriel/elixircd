@@ -7,14 +7,14 @@ defmodule ElixIRCd.Command.Away do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "AWAY"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -27,7 +27,7 @@ defmodule ElixIRCd.Command.Away do
       params: [user.nick],
       trailing: "You are no longer marked as being away"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     :ok
   end
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Command.Away do
       params: [user.nick],
       trailing: "You have been marked as being away"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     :ok
   end

@@ -6,7 +6,7 @@ defmodule ElixIRCd.Command.Info do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @info """
@@ -36,7 +36,7 @@ defmodule ElixIRCd.Command.Info do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "INFO"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -44,7 +44,7 @@ defmodule ElixIRCd.Command.Info do
     @info
     |> String.split("\n")
     |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_info, params: [user.nick], trailing: &1}))
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     app_start_time = :persistent_term.get(:app_start_time) |> Calendar.strftime("%a %b %d %Y at %H:%M:%S %Z")
     server_start_time = :persistent_term.get(:server_start_time) |> Calendar.strftime("%a %b %d %H:%M:%S %Y")
@@ -64,6 +64,6 @@ defmodule ElixIRCd.Command.Info do
       }),
       Message.build(%{prefix: :server, command: :rpl_endofinfo, params: [user.nick], trailing: "End of /INFO list"})
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

@@ -5,25 +5,24 @@ defmodule ElixIRCd.Command.User do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
-  alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: true} = user, %{command: "USER"}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_alreadyregistered,
-      params: [user_reply],
+      params: [user_reply(user)],
       trailing: "You may not reregister"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   def handle(user, %{command: "USER", params: [username, _, _], trailing: realname}) do
@@ -34,14 +33,12 @@ defmodule ElixIRCd.Command.User do
 
   @impl true
   def handle(user, %{command: "USER"}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "USER"],
+      params: [user_reply(user), "USER"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

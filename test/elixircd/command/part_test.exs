@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.PartTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Part
   alias ElixIRCd.Message
@@ -21,7 +21,7 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} PART :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} PART :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -47,7 +47,7 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
+          {user.pid, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
         ])
       end)
     end
@@ -61,7 +61,7 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
+          {user.pid, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
         ])
       end)
     end
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} PART #{channel.name}\r\n"}
+          {user.pid, ":#{user_mask(user)} PART #{channel.name}\r\n"}
         ])
 
         # Channel should be deleted
@@ -96,8 +96,8 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} PART #{channel.name}\r\n"},
-          {another_user.socket, ":#{get_user_mask(user)} PART #{channel.name}\r\n"}
+          {user.pid, ":#{user_mask(user)} PART #{channel.name}\r\n"},
+          {another_user.pid, ":#{user_mask(user)} PART #{channel.name}\r\n"}
         ])
 
         # Channel should not be deleted

@@ -3,67 +3,76 @@ defmodule ElixIRCd.Command do
   Module for handling incoming IRC commands.
   """
 
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+
   alias ElixIRCd.Command
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
-  @doc """
-  Handles the IRC message command.
+  @commands %{
+    "ADMIN" => Command.Admin,
+    "AWAY" => Command.Away,
+    "CAP" => Command.Cap,
+    "DIE" => Command.Die,
+    "INFO" => Command.Info,
+    "INVITE" => Command.Invite,
+    "ISON" => Command.Ison,
+    "JOIN" => Command.Join,
+    "KICK" => Command.Kick,
+    "KILL" => Command.Kill,
+    "LIST" => Command.List,
+    "LUSERS" => Command.Lusers,
+    "MODE" => Command.Mode,
+    "MOTD" => Command.Motd,
+    "NICK" => Command.Nick,
+    "NOTICE" => Command.Notice,
+    "OPER" => Command.Oper,
+    "PART" => Command.Part,
+    "PASS" => Command.Pass,
+    "PING" => Command.Ping,
+    "PRIVMSG" => Command.Privmsg,
+    "QUIT" => Command.Quit,
+    "REHASH" => Command.Rehash,
+    "RESTART" => Command.Restart,
+    "STATS" => Command.Stats,
+    "TIME" => Command.Time,
+    "TOPIC" => Command.Topic,
+    "TRACE" => Command.Trace,
+    "USER" => Command.User,
+    "USERS" => Command.Users,
+    "USERHOST" => Command.Userhost,
+    "VERSION" => Command.Version,
+    "WALLOPS" => Command.Wallops,
+    "WHO" => Command.Who,
+    "WHOIS" => Command.Whois,
+    "WHOWAS" => Command.Whowas
+  }
 
-  Modules that implement this behaviour should define their own logic for handling the IRC message command.
+  @doc """
+  Defines the behaviour for handling incoming IRC commands.
   """
   @callback handle(user :: User.t(), message :: Message.t()) :: :ok | {:quit, String.t()}
 
   @doc """
-  Forwards the IRC message command to the proper module.
+  Dispatches a command to the appropriate module that implements the `ElixIRCd.Command` behaviour.
   """
-  @spec handle(User.t(), Message.t()) :: :ok
-  def handle(user, %{command: "ADMIN"} = message), do: Command.Admin.handle(user, message)
-  def handle(user, %{command: "AWAY"} = message), do: Command.Away.handle(user, message)
-  def handle(user, %{command: "CAP"} = message), do: Command.Cap.handle(user, message)
-  def handle(user, %{command: "DIE"} = message), do: Command.Die.handle(user, message)
-  def handle(user, %{command: "INFO"} = message), do: Command.Info.handle(user, message)
-  def handle(user, %{command: "INVITE"} = message), do: Command.Invite.handle(user, message)
-  def handle(user, %{command: "ISON"} = message), do: Command.Ison.handle(user, message)
-  def handle(user, %{command: "JOIN"} = message), do: Command.Join.handle(user, message)
-  def handle(user, %{command: "KICK"} = message), do: Command.Kick.handle(user, message)
-  def handle(user, %{command: "KILL"} = message), do: Command.Kill.handle(user, message)
-  def handle(user, %{command: "LIST"} = message), do: Command.List.handle(user, message)
-  def handle(user, %{command: "LUSERS"} = message), do: Command.Lusers.handle(user, message)
-  def handle(user, %{command: "MODE"} = message), do: Command.Mode.handle(user, message)
-  def handle(user, %{command: "MOTD"} = message), do: Command.Motd.handle(user, message)
-  def handle(user, %{command: "NICK"} = message), do: Command.Nick.handle(user, message)
-  def handle(user, %{command: "NOTICE"} = message), do: Command.Notice.handle(user, message)
-  def handle(user, %{command: "OPER"} = message), do: Command.Oper.handle(user, message)
-  def handle(user, %{command: "PART"} = message), do: Command.Part.handle(user, message)
-  def handle(user, %{command: "PASS"} = message), do: Command.Pass.handle(user, message)
-  def handle(user, %{command: "PING"} = message), do: Command.Ping.handle(user, message)
-  def handle(user, %{command: "PRIVMSG"} = message), do: Command.Privmsg.handle(user, message)
-  def handle(user, %{command: "QUIT"} = message), do: Command.Quit.handle(user, message)
-  def handle(user, %{command: "REHASH"} = message), do: Command.Rehash.handle(user, message)
-  def handle(user, %{command: "RESTART"} = message), do: Command.Restart.handle(user, message)
-  def handle(user, %{command: "STATS"} = message), do: Command.Stats.handle(user, message)
-  def handle(user, %{command: "TIME"} = message), do: Command.Time.handle(user, message)
-  def handle(user, %{command: "TOPIC"} = message), do: Command.Topic.handle(user, message)
-  def handle(user, %{command: "TRACE"} = message), do: Command.Trace.handle(user, message)
-  def handle(user, %{command: "USER"} = message), do: Command.User.handle(user, message)
-  def handle(user, %{command: "USERS"} = message), do: Command.Users.handle(user, message)
-  def handle(user, %{command: "USERHOST"} = message), do: Command.Userhost.handle(user, message)
-  def handle(user, %{command: "VERSION"} = message), do: Command.Version.handle(user, message)
-  def handle(user, %{command: "WALLOPS"} = message), do: Command.Wallops.handle(user, message)
-  def handle(user, %{command: "WHO"} = message), do: Command.Who.handle(user, message)
-  def handle(user, %{command: "WHOIS"} = message), do: Command.Whois.handle(user, message)
-  def handle(user, %{command: "WHOWAS"} = message), do: Command.Whowas.handle(user, message)
+  @spec dispatch(User.t(), Message.t()) :: :ok | {:quit, String.t()}
+  def dispatch(user, message) do
+    case Map.fetch(@commands, message.command) do
+      {:ok, command_module} -> command_module.handle(user, message)
+      :error -> unknown_command_message(user, message.command)
+    end
+  end
 
-  def handle(user, %{command: command}) do
+  @spec unknown_command_message(User.t(), String.t()) :: :ok
+  defp unknown_command_message(user, command) do
     Message.build(%{
       prefix: :server,
       command: :err_unknowncommand,
-      params: [Helper.get_user_reply(user), command],
+      params: [user_reply(user), command],
       trailing: "Unknown command"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

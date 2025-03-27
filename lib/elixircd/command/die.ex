@@ -5,18 +5,18 @@ defmodule ElixIRCd.Command.Die do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "DIE"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -27,22 +27,27 @@ defmodule ElixIRCd.Command.Die do
     end
   end
 
-  @spec handle_die(String.t() | nil) :: no_return()
+  @dialyzer {:no_return, handle_die: 1}
+  @spec handle_die(String.t() | nil) :: :ok
   defp handle_die(reason) do
     all_users = Users.get_all()
     formatted_reason = if is_nil(reason), do: "", else: ": #{reason}"
     shutdown_message = "Server is shutting down#{formatted_reason}"
 
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: shutdown_message})
-    |> Messaging.broadcast(all_users)
+    |> Dispatcher.broadcast(all_users)
+
+    # The current process will be stopped, so the shutdown needs to be done
+    # in a different process. The shutdown is delayed by 1 second.
+    spawn(fn ->
+      :timer.sleep(1000)
+      System.halt(0)
+    end)
 
     Enum.each(all_users, fn user ->
       closing_link_message(user, shutdown_message)
-      send(user.pid, {:disconnect, user.socket, shutdown_message})
+      send(user.pid, {:disconnect, shutdown_message})
     end)
-
-    Process.sleep(1000)
-    System.halt(0)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
@@ -53,7 +58,7 @@ defmodule ElixIRCd.Command.Die do
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec closing_link_message(User.t(), String.t()) :: :ok
@@ -62,8 +67,8 @@ defmodule ElixIRCd.Command.Die do
       prefix: :server,
       command: "ERROR",
       params: [],
-      trailing: "Closing Link: #{get_user_mask(user)} (#{message})"
+      trailing: "Closing Link: #{user_mask(user)} (#{message})"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

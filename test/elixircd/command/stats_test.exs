@@ -20,7 +20,7 @@ defmodule ElixIRCd.Command.StatsTest do
         assert :ok = Stats.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.StatsTest do
 
         assert :ok = Stats.handle(user, message)
 
-        assert_sent_messages_amount(user.socket, 4)
+        assert_sent_messages_amount(user.pid, 4)
       end)
     end
 
@@ -51,10 +51,10 @@ defmodule ElixIRCd.Command.StatsTest do
         assert :ok = Stats.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 242 #{user.nick} :Server Up 11 days, 13:46:09\r\n"},
-          {user.socket,
+          {user.pid, ":server.example.com 242 #{user.nick} :Server Up 11 days, 13:46:09\r\n"},
+          {user.pid,
            ":server.example.com 250 #{user.nick} :Highest connection count: 10 (1 clients) (50 connections received)\r\n"},
-          {user.socket, ":server.example.com 219 #{user.nick} u :End of /STATS report\r\n"}
+          {user.pid, ":server.example.com 219 #{user.nick} u :End of /STATS report\r\n"}
         ])
       end)
     end
@@ -67,7 +67,7 @@ defmodule ElixIRCd.Command.StatsTest do
         assert :ok = Stats.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 219 #{user.nick} & :End of /STATS report\r\n"}
+          {user.pid, ":server.example.com 219 #{user.nick} & :End of /STATS report\r\n"}
         ])
       end)
     end

@@ -3,7 +3,7 @@ defmodule ElixIRCd.Repository.Users do
   Module for the users repository.
   """
 
-  import ElixIRCd.Helper, only: [user_mask_match?: 2]
+  import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2]
 
   alias ElixIRCd.Tables.User
   alias Memento.Query.Data
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Repository.Users do
   """
   @spec delete(User.t()) :: :ok
   def delete(user) do
-    Memento.Query.delete(User, user.port)
+    Memento.Query.delete(User, user.pid)
   end
 
   @doc """
@@ -43,11 +43,11 @@ defmodule ElixIRCd.Repository.Users do
   end
 
   @doc """
-  Get a user by the port.
+  Get a user by the pid.
   """
-  @spec get_by_port(port()) :: {:ok, User.t()} | {:error, atom()}
-  def get_by_port(port) do
-    Memento.Query.read(User, port)
+  @spec get_by_pid(pid()) :: {:ok, User.t()} | {:error, :user_not_found}
+  def get_by_pid(pid) do
+    Memento.Query.read(User, pid)
     |> case do
       nil -> {:error, :user_not_found}
       user -> {:ok, user}
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Repository.Users do
   @doc """
   Get a user by the nick.
   """
-  @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, atom()}
+  @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, :user_not_found}
   def get_by_nick(nick) do
     Memento.Query.select(User, {:==, :nick, nick}, limit: 1)
     |> case do
@@ -67,14 +67,14 @@ defmodule ElixIRCd.Repository.Users do
   end
 
   @doc """
-  Get all users by the ports.
+  Get all users by the pids.
   """
-  @spec get_by_ports([port()]) :: [User.t()]
-  def get_by_ports([]), do: []
+  @spec get_by_pids([pid()]) :: [User.t()]
+  def get_by_pids([]), do: []
 
-  def get_by_ports(ports) do
+  def get_by_pids(pids) do
     conditions =
-      Enum.map(ports, fn port -> {:==, :port, port} end)
+      Enum.map(pids, fn pid -> {:==, :pid, pid} end)
       |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
 
     Memento.Query.select(User, conditions)
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Repository.Users do
       fn raw_user, acc ->
         user = Data.load(raw_user)
 
-        if user_mask_match?(user, mask) do
+        if match_user_mask?(user, mask) do
           [user | acc]
         else
           acc

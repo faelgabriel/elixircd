@@ -5,12 +5,13 @@ defmodule ElixIRCd.Command.Whois do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @command "WHOIS"
@@ -19,20 +20,18 @@ defmodule ElixIRCd.Command.Whois do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: @command}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: @command, params: []}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, @command],
+      params: [user_reply(user), @command],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -47,7 +46,7 @@ defmodule ElixIRCd.Command.Whois do
       params: [user.nick, target_nick],
       trailing: "End of /WHOIS list."
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @doc """
@@ -61,7 +60,7 @@ defmodule ElixIRCd.Command.Whois do
       params: [user.nick, target_nick],
       trailing: "No such nick"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   def whois_message(user, _target_nick, target_user, target_user_channel_names) when target_user != nil do
@@ -94,7 +93,7 @@ defmodule ElixIRCd.Command.Whois do
         trailing: "seconds idle, signon time"
       })
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     if target_user.away_message != nil do
       Message.build(%{
@@ -103,7 +102,7 @@ defmodule ElixIRCd.Command.Whois do
         params: [user.nick, target_user.nick],
         trailing: target_user.away_message
       })
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     end
 
     if "o" in target_user.modes do
@@ -113,7 +112,7 @@ defmodule ElixIRCd.Command.Whois do
         params: [user.nick, target_user.nick],
         trailing: "is an IRC operator"
       })
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     end
 
     # Feature: account implementation
@@ -124,15 +123,15 @@ defmodule ElixIRCd.Command.Whois do
     #     params: [user.nick, target_user.nick, "target_user.account"],
     #     trailing: "is logged in as target_user.account"
     #   })
-    #   |> Messaging.broadcast(user)
+    #   |> Dispatcher.broadcast(user)
     # end
   end
 
   @spec get_target_user(User.t(), String.t()) :: {User.t() | nil, [String.t()]}
   defp get_target_user(user, target_nick) do
     with {:ok, target_user} <- Users.get_by_nick(target_nick),
-         user_channel_names <- UserChannels.get_by_user_port(user.port) |> Enum.map(& &1.channel_name),
-         target_user_channel_names <- UserChannels.get_by_user_port(target_user.port) |> Enum.map(& &1.channel_name),
+         user_channel_names <- UserChannels.get_by_user_pid(user.pid) |> Enum.map(& &1.channel_name),
+         target_user_channel_names <- UserChannels.get_by_user_pid(target_user.pid) |> Enum.map(& &1.channel_name),
          true <- target_user_visible?(user_channel_names, target_user, target_user_channel_names) do
       {target_user, filter_out_secret_channels(user_channel_names, target_user_channel_names)}
     else

@@ -7,14 +7,14 @@ defmodule ElixIRCd.Command.Oper do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "OPER"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -25,7 +25,7 @@ defmodule ElixIRCd.Command.Oper do
       params: [user.nick, "OPER"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -39,7 +39,7 @@ defmodule ElixIRCd.Command.Oper do
         params: [updated_user.nick],
         trailing: "You are now an IRC operator"
       })
-      |> Messaging.broadcast(updated_user)
+      |> Dispatcher.broadcast(updated_user)
     else
       Message.build(%{
         prefix: :server,
@@ -47,7 +47,7 @@ defmodule ElixIRCd.Command.Oper do
         params: [user.nick],
         trailing: "Password incorrect"
       })
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     end
   end
 

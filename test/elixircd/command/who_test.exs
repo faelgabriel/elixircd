@@ -18,7 +18,7 @@ defmodule ElixIRCd.Command.WhoTest do
         assert :ok = Who.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Command.WhoTest do
         assert :ok = Who.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} WHO :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} WHO :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -44,7 +44,7 @@ defmodule ElixIRCd.Command.WhoTest do
         assert :ok = Who.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 315 #{user.nick} #anything :End of WHO list\r\n"}
+          {user.pid, ":server.example.com 315 #{user.nick} #anything :End of WHO list\r\n"}
         ])
       end)
     end
@@ -69,17 +69,17 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user1.nick} H* :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user2.nick} H*@ :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user3.nick} H@ :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user4.nick} G+ :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{user.nick} H :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -105,13 +105,13 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user1.nick} H* :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user2.nick} H*@ :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user4.nick} G+ :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -134,13 +134,13 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user1.nick} H :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user2.nick} H :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{user.nick} H :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -161,7 +161,7 @@ defmodule ElixIRCd.Command.WhoTest do
         assert :ok = Who.handle(user, message)
 
         assert_sent_messages(
-          [{user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}],
+          [{user.pid, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}],
           validate_order?: false
         )
       end)
@@ -187,17 +187,17 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user1.nick} H* :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user2.nick} H* :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user3.nick} H :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user4.nick} G :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{user.nick} H :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -223,15 +223,15 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user1.nick} H* :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user2.nick} H* :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user4.nick} G :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{user.nick} H :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -254,13 +254,13 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user1.nick} H :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user2.nick} H :0 realname\r\n"},
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{user.nick} H :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -281,9 +281,9 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user1.nick} H*@ :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -303,9 +303,9 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user1.nick} H*@ :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -325,9 +325,9 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user1.nick} H :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} anick* :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -348,9 +348,9 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} * #{user.ident} hostname server.example.com #{another_user.nick} H* :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} * :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} * :End of WHO list\r\n"}
           ],
           validate_order?: false
         )
@@ -373,9 +373,9 @@ defmodule ElixIRCd.Command.WhoTest do
 
         assert_sent_messages(
           [
-            {user.socket,
+            {user.pid,
              ":server.example.com 352 #{user.nick} #{channel.name} #{user.ident} hostname server.example.com #{another_user1.nick} H* :0 realname\r\n"},
-            {user.socket, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+            {user.pid, ":server.example.com 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
           ],
           validate_order?: false
         )

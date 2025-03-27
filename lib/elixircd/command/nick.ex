@@ -7,13 +7,13 @@ defmodule ElixIRCd.Command.Nick do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, get_user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
-  alias ElixIRCd.Server.Messaging
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -22,10 +22,10 @@ defmodule ElixIRCd.Command.Nick do
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [get_user_reply(user), "NICK"],
+      params: [user_reply(user), "NICK"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -41,26 +41,22 @@ defmodule ElixIRCd.Command.Nick do
       change_nick(user, nick)
     else
       {:error, invalid_nick_error} ->
-        user_reply = get_user_reply(user)
-
         Message.build(%{
           prefix: :server,
           command: :err_erroneusnickname,
-          params: [user_reply, nick],
+          params: [user_reply(user), nick],
           trailing: "Nickname is unavailable: #{invalid_nick_error}"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
       {:nick_in_use?, true} ->
-        user_reply = get_user_reply(user)
-
         Message.build(%{
           prefix: :server,
           command: :err_nicknameinuse,
-          params: [user_reply, nick],
+          params: [user_reply(user), nick],
           trailing: "Nickname is already in use"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
     end
   end
 
@@ -71,19 +67,19 @@ defmodule ElixIRCd.Command.Nick do
   end
 
   defp change_nick(user, nick) do
-    old_user_mask = get_user_mask(user)
+    old_user_mask = user_mask(user)
     updated_user = Users.update(user, %{nick: nick})
 
     all_channel_users =
-      UserChannels.get_by_user_port(user.port)
+      UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name)
       |> UserChannels.get_by_channel_names()
-      |> Enum.reject(fn user_channel -> user_channel.user_port == updated_user.port end)
-      |> Enum.group_by(& &1.user_port)
+      |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
+      |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
     Message.build(%{prefix: old_user_mask, command: "NICK", params: [nick]})
-    |> Messaging.broadcast([updated_user | all_channel_users])
+    |> Dispatcher.broadcast([updated_user | all_channel_users])
   end
 
   @spec nick_in_use?(String.t()) :: boolean()

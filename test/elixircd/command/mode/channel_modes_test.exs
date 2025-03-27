@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Mode.ChannelModes
   alias ElixIRCd.Repository.ChannelBans
@@ -517,7 +517,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
       assert channel_ban.mask == "nick!*@mask"
-      assert channel_ban.setter == get_user_mask(user)
+      assert channel_ban.setter == user_mask(user)
       assert channel_ban.created_at != nil
     end
 
@@ -646,8 +646,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       {{:ok, user_channel_operator}, {:ok, user_channel_voice}} =
         Memento.transaction!(fn ->
-          {UserChannels.get_by_user_port_and_channel_name(user_operator.port, channel.name),
-           UserChannels.get_by_user_port_and_channel_name(user_voice.port, channel.name)}
+          {UserChannels.get_by_user_pid_and_channel_name(user_operator.pid, channel.name),
+           UserChannels.get_by_user_pid_and_channel_name(user_voice.pid, channel.name)}
         end)
 
       assert user_channel_operator.modes == ["o"]
@@ -655,7 +655,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
       assert channel_ban.mask == "nick!*@mask"
-      assert channel_ban.setter == get_user_mask(user)
+      assert channel_ban.setter == user_mask(user)
       assert channel_ban.created_at != nil
     end
 
@@ -715,8 +715,8 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
 
       {{:ok, user_channel_operator}, {:ok, user_channel_voice}} =
         Memento.transaction!(fn ->
-          {UserChannels.get_by_user_port_and_channel_name(user_operator.port, channel.name),
-           UserChannels.get_by_user_port_and_channel_name(user_voice.port, channel.name)}
+          {UserChannels.get_by_user_pid_and_channel_name(user_operator.pid, channel.name),
+           UserChannels.get_by_user_pid_and_channel_name(user_voice.pid, channel.name)}
         end)
 
       assert user_channel_operator.modes == []
@@ -796,7 +796,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert applied_changes == []
 
       assert_sent_messages([
-        {user.socket,
+        {user.pid,
          ":server.example.com 441 #{user.nick} #{channel.name} #{user_operator.nick} :They aren't on that channel\r\n"}
       ])
     end
@@ -814,7 +814,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModesTest do
       assert applied_changes == []
 
       assert_sent_messages([
-        {user.socket, ":server.example.com 401 #{user.nick} #{channel.name} nonexistent :No such nick\r\n"}
+        {user.pid, ":server.example.com 401 #{user.nick} #{channel.name} nonexistent :No such nick\r\n"}
       ])
     end
 

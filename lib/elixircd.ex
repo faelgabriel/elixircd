@@ -7,7 +7,9 @@ defmodule ElixIRCd do
 
   require Logger
 
-  import ElixIRCd.Utils, only: [load_configurations: 0, logger_with_time: 3, should_generate_certificate?: 0]
+  import ElixIRCd.Utils.Certificate, only: [create_self_signed_certificate: 0]
+  import ElixIRCd.Utils.Mnesia, only: [setup_mnesia: 0]
+  import ElixIRCd.Utils.System, only: [load_configurations: 0, logger_with_time: 3, should_generate_certificate?: 0]
 
   @impl true
   def start(_type, _args) do
@@ -16,13 +18,10 @@ defmodule ElixIRCd do
 
     init_config()
     init_database()
-    generate_certificate()
+    ensure_certificate_exists()
 
     :persistent_term.put(:app_start_time, DateTime.utc_now())
-
-    logger_with_time(:info, "linking server supervisor", fn ->
-      Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
-    end)
+    Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
   end
 
   @spec init_config :: :ok
@@ -35,19 +34,19 @@ defmodule ElixIRCd do
   @spec init_database :: :ok
   defp init_database do
     logger_with_time(:info, "loading database", fn ->
-      Mix.Task.run("db.prepare", ["--quiet"])
+      setup_mnesia()
     end)
   end
 
   # generates self-signed certificate if it is configured and does not exist yet
   # this is for development and testing purposes only; for real-world use, you should use a trusted certificate
-  @spec generate_certificate :: :ok
-  defp generate_certificate do
-    # Self-signed certificate generation is already tested in the `gen.cert` Mix task.
+  @spec ensure_certificate_exists :: :ok
+  defp ensure_certificate_exists do
+    # Self-signed certificate generation is already tested in the Certificate module.
     # coveralls-ignore-start
     if should_generate_certificate?() do
       logger_with_time(:info, "generating self-signed certificate", fn ->
-        Mix.Task.run("gen.cert", [])
+        create_self_signed_certificate()
       end)
     end
 

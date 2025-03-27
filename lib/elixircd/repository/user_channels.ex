@@ -34,19 +34,20 @@ defmodule ElixIRCd.Repository.UserChannels do
   end
 
   @doc """
-  Delete a user channel by user port from the database.
+  Delete a user channel by user pid from the database.
   """
-  @spec delete_by_user_port(port()) :: :ok
-  def delete_by_user_port(user_port) do
-    Memento.Query.delete(UserChannel, user_port)
+  @spec delete_by_user_pid(pid()) :: :ok
+  def delete_by_user_pid(user_pid) do
+    Memento.Query.delete(UserChannel, user_pid)
   end
 
   @doc """
-  Get a user channel by the user port and channel name.
+  Get a user channel by the user pid and channel name.
   """
-  @spec get_by_user_port_and_channel_name(port(), String.t()) :: {:ok, UserChannel.t()} | {:error, atom()}
-  def get_by_user_port_and_channel_name(user_port, channel_name) do
-    conditions = [{:==, :user_port, user_port}, {:==, :channel_name, channel_name}]
+  @spec get_by_user_pid_and_channel_name(pid(), String.t()) ::
+          {:ok, UserChannel.t()} | {:error, :user_channel_not_found}
+  def get_by_user_pid_and_channel_name(user_pid, channel_name) do
+    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name, channel_name}]
 
     Memento.Query.select(UserChannel, conditions, limit: 1)
     |> case do
@@ -56,11 +57,11 @@ defmodule ElixIRCd.Repository.UserChannels do
   end
 
   @doc """
-  Get all user channels by the user port.
+  Get all user channels by the user pid.
   """
-  @spec get_by_user_port(port()) :: [UserChannel.t()]
-  def get_by_user_port(user_port) do
-    Memento.Query.select(UserChannel, {:==, :user_port, user_port})
+  @spec get_by_user_pid(pid()) :: [UserChannel.t()]
+  def get_by_user_pid(user_pid) do
+    Memento.Query.select(UserChannel, {:==, :user_pid, user_pid})
   end
 
   @doc """

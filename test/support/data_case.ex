@@ -34,7 +34,6 @@ defmodule ElixIRCd.DataCase do
         Memento.Query.all(User)
         |> Enum.each(fn user ->
           if Process.alive?(user.pid), do: capture_log(fn -> Process.exit(user.pid, :kill) end)
-          user.transport.close(user.socket)
         end)
       end)
 

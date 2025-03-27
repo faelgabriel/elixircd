@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.RestartTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Restart
   alias ElixIRCd.Message
@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          {user.pid, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
         ])
       end)
     end
@@ -45,8 +45,8 @@ defmodule ElixIRCd.Command.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com NOTICE * :Server is restarting\r\n"},
-          {user.socket, ":server.example.com ERROR :Closing Link: #{get_user_mask(user)} (Server is restarting)\r\n"}
+          {user.pid, ":server.example.com NOTICE * :Server is restarting\r\n"},
+          {user.pid, ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is restarting)\r\n"}
         ])
       end)
     end
@@ -59,9 +59,9 @@ defmodule ElixIRCd.Command.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com NOTICE * :Server is restarting: Restarting reason\r\n"},
-          {user.socket,
-           ":server.example.com ERROR :Closing Link: #{get_user_mask(user)} (Server is restarting: Restarting reason)\r\n"}
+          {user.pid, ":server.example.com NOTICE * :Server is restarting: Restarting reason\r\n"},
+          {user.pid,
+           ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is restarting: Restarting reason)\r\n"}
         ])
       end)
     end

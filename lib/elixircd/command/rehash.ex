@@ -5,18 +5,18 @@ defmodule ElixIRCd.Command.Rehash do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
+  import ElixIRCd.Utils.System, only: [load_configurations: 0]
 
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
-  alias ElixIRCd.Utils
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "REHASH"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -30,12 +30,12 @@ defmodule ElixIRCd.Command.Rehash do
   @spec process_rehashing(User.t()) :: :ok
   defp process_rehashing(user) do
     Message.build(%{prefix: :server, command: :rpl_rehashing, params: [user.nick, "runtime.exs"], trailing: "Rehashing"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
-    Utils.load_configurations()
+    load_configurations()
 
     Message.build(%{prefix: :server, command: "NOTICE", params: [user.nick], trailing: "Rehashing completed"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
@@ -46,6 +46,6 @@ defmodule ElixIRCd.Command.Rehash do
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

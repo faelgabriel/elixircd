@@ -14,14 +14,27 @@ config :elixircd,
   ],
   # Network Listeners Configuration
   listeners: [
-    # IRC port
+    # IRC port (Plaintext)
     {:tcp, [port: 6667]},
-    # Alternative IRC port (6668)
-    {:tcp, [port: 6668]},
-    # SSL-enabled IRC port (6697); paths to SSL key and certificate files
-    {:ssl, [port: 6697, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"]},
-    # Additional SSL-enabled IRC port (6698)
-    {:ssl, [port: 6698, keyfile: "priv/cert/selfsigned_key.pem", certfile: "priv/cert/selfsigned.pem"]}
+    # TLS-enabled IRC port (SSL)
+    {:tls,
+     [
+       port: 6697,
+       transport_options: [
+         keyfile: Path.expand("data/cert/selfsigned_key.pem"),
+         certfile: Path.expand("data/cert/selfsigned.pem")
+       ]
+     ]},
+    # HTTP port (WebSocket)
+    {:http, [port: 8080, kiwiirc_client: true]},
+    # HTTPS port (WebSocket SSL)
+    {:https,
+     [
+       port: 8443,
+       kiwiirc_client: true,
+       keyfile: Path.expand("data/cert/selfsigned_key.pem"),
+       certfile: Path.expand("data/cert/selfsigned.pem")
+     ]}
   ],
   # User Configuration
   user: [

@@ -24,20 +24,20 @@ defmodule ElixIRCd.Repository.ChannelInvites do
   end
 
   @doc """
-  Delete all user invites by user port from the database.
+  Delete all user invites by user pid from the database.
   """
-  @spec delete_by_user_port(port()) :: :ok
-  def delete_by_user_port(user_port) do
-    Memento.Query.delete(ChannelInvite, user_port)
+  @spec delete_by_user_pid(pid()) :: :ok
+  def delete_by_user_pid(user_pid) do
+    Memento.Query.delete(ChannelInvite, user_pid)
   end
 
   @doc """
-  Get a channel invite by the channel name and user port.
+  Get a channel invite by the channel name and user pid.
   """
-  @spec get_by_user_port_and_channel_name(port(), String.t()) ::
+  @spec get_by_user_pid_and_channel_name(pid(), String.t()) ::
           {:ok, ChannelInvite.t()} | {:error, :channel_invite_not_found}
-  def get_by_user_port_and_channel_name(user_port, channel_name) do
-    conditions = [{:==, :user_port, user_port}, {:==, :channel_name, channel_name}]
+  def get_by_user_pid_and_channel_name(user_pid, channel_name) do
+    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name, channel_name}]
 
     Memento.Query.select(ChannelInvite, conditions, limit: 1)
     |> case do

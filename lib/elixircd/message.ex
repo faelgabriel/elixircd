@@ -155,12 +155,12 @@ defmodule ElixIRCd.Message do
 
   def unparse(%__MODULE__{prefix: nil, command: command, params: params, trailing: trailing}) do
     base = [command | params]
-    {:ok, unparse_message(base, trailing)}
+    {:ok, unparse_message(base, trailing) <> "\r\n"}
   end
 
   def unparse(%__MODULE__{prefix: prefix, command: command, params: params, trailing: trailing}) do
     base = [":" <> prefix, command | params]
-    {:ok, unparse_message(base, trailing)}
+    {:ok, unparse_message(base, trailing) <> "\r\n"}
   end
 
   @doc """

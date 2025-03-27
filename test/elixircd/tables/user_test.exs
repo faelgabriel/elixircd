@@ -7,21 +7,17 @@ defmodule ElixIRCd.Tables.UserTest do
 
   describe "new/1" do
     test "creates a new user with default values" do
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+      pid = spawn(fn -> :ok end)
 
       attrs = %{
-        port: port,
-        socket: port,
-        transport: :ranch_tcp,
-        pid: self()
+        pid: pid,
+        transport: :tcp
       }
 
       user = User.new(attrs)
 
-      assert user.port == port
-      assert user.socket == port
-      assert user.transport == :ranch_tcp
-      assert user.pid == self()
+      assert user.pid == pid
+      assert user.transport == :tcp
       assert user.nick == nil
       assert user.hostname == nil
       assert user.ident == nil
@@ -36,15 +32,13 @@ defmodule ElixIRCd.Tables.UserTest do
     end
 
     test "creates a new user with custom values" do
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+      pid = spawn(fn -> :ok end)
       time_now = :erlang.system_time(:second)
       utc_now = DateTime.utc_now()
 
       attrs = %{
-        port: port,
-        socket: port,
-        transport: :ranch_tcp,
-        pid: self(),
+        pid: pid,
+        transport: :tcp,
         nick: "test",
         hostname: "test",
         ident: "test",
@@ -60,10 +54,8 @@ defmodule ElixIRCd.Tables.UserTest do
 
       user = User.new(attrs)
 
-      assert user.port == port
-      assert user.socket == port
-      assert user.transport == :ranch_tcp
-      assert user.pid == self()
+      assert user.pid == pid
+      assert user.transport == :tcp
       assert user.nick == "test"
       assert user.hostname == "test"
       assert user.ident == "test"
@@ -80,8 +72,8 @@ defmodule ElixIRCd.Tables.UserTest do
 
   describe "update/2" do
     test "updates a user with new values" do
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
-      user = User.new(%{port: port, socket: port, transport: :ranch_tcp, pid: self()})
+      pid = spawn(fn -> :ok end)
+      user = User.new(%{pid: pid, transport: :tcp})
       utc_now = DateTime.utc_now()
 
       updated_user =
@@ -98,10 +90,8 @@ defmodule ElixIRCd.Tables.UserTest do
           registered_at: utc_now
         })
 
-      assert updated_user.port == port
-      assert updated_user.socket == port
-      assert updated_user.transport == :ranch_tcp
-      assert updated_user.pid == self()
+      assert updated_user.pid == pid
+      assert updated_user.transport == :tcp
       assert updated_user.nick == "test"
       assert updated_user.hostname == "test"
       assert updated_user.ident == "test"

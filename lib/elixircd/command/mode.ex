@@ -5,16 +5,15 @@ defmodule ElixIRCd.Command.Mode do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, channel_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1, channel_operator?: 1]
 
   alias ElixIRCd.Command.Mode.ChannelModes
   alias ElixIRCd.Command.Mode.UserModes
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -25,7 +24,7 @@ defmodule ElixIRCd.Command.Mode do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "MODE"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -36,7 +35,7 @@ defmodule ElixIRCd.Command.Mode do
       params: [user.nick, "MODE"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -47,7 +46,7 @@ defmodule ElixIRCd.Command.Mode do
         [mode_string | values] -> [mode_string, values]
       end
 
-    case Helper.channel_name?(target) do
+    case channel_name?(target) do
       true -> handle_channel_mode(user, target, mode_string, values)
       false -> handle_user_mode(user, target, mode_string)
     end
@@ -56,13 +55,13 @@ defmodule ElixIRCd.Command.Mode do
   @spec handle_channel_mode(User.t(), String.t(), String.t() | nil, list(String.t()) | nil) :: :ok
   defp handle_channel_mode(user, channel_name, nil, nil) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name) do
+         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
       Message.build(%{
-        prefix: get_user_mask(user),
+        prefix: user_mask(user),
         command: "MODE",
         params: [channel.name, ChannelModes.display_modes(channel.modes)]
       })
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     else
       {:error, error} -> send_channel_mode_error(error, user, channel_name)
     end
@@ -70,7 +69,7 @@ defmodule ElixIRCd.Command.Mode do
 
   defp handle_channel_mode(user, channel_name, mode_string, values) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, user_channel} <- UserChannels.get_by_user_port_and_channel_name(user.port, channel.name),
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel) do
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
@@ -82,7 +81,7 @@ defmodule ElixIRCd.Command.Mode do
           params: [user.nick, "MODE"],
           trailing: "Not enough parameters"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
       else
         {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
 
@@ -90,11 +89,11 @@ defmodule ElixIRCd.Command.Mode do
           channel_users = UserChannels.get_by_channel_name(updated_channel.name)
 
           Message.build(%{
-            prefix: get_user_mask(user),
+            prefix: user_mask(user),
             command: "MODE",
             params: [updated_channel.name, ChannelModes.display_mode_changes(applied_changes)]
           })
-          |> Messaging.broadcast(channel_users)
+          |> Dispatcher.broadcast(channel_users)
         end
 
         send_channel_mode_listing(listing_modes, user, updated_channel)
@@ -135,7 +134,7 @@ defmodule ElixIRCd.Command.Mode do
           created_timestamp
         ]
       })
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     end)
 
     Message.build(%{
@@ -144,7 +143,7 @@ defmodule ElixIRCd.Command.Mode do
       params: [user.nick, channel.name],
       trailing: "End of channel ban list"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec send_channel_mode_error(channel_mode_errors(), User.t(), String.t()) :: :ok
@@ -155,7 +154,7 @@ defmodule ElixIRCd.Command.Mode do
       params: [user.nick, channel_name],
       trailing: "No such channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_channel_mode_error(:user_channel_not_found, user, channel_name) do
@@ -165,7 +164,7 @@ defmodule ElixIRCd.Command.Mode do
       params: [user.nick, channel_name],
       trailing: "You're not on that channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_channel_mode_error(:user_is_not_operator, user, channel_name) do
@@ -175,13 +174,13 @@ defmodule ElixIRCd.Command.Mode do
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec handle_user_mode(User.t(), String.t(), String.t() | nil) :: :ok
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick == receiver_nick do
     Message.build(%{prefix: :server, command: :rpl_umodeis, params: [user.nick, UserModes.display_modes(user.modes)]})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, _mode_string) when user_nick != receiver_nick do
@@ -191,7 +190,7 @@ defmodule ElixIRCd.Command.Mode do
       params: [user.nick],
       trailing: "Cannot change mode for other users"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp handle_user_mode(user, _receiver_nick, mode_string) do
@@ -200,11 +199,11 @@ defmodule ElixIRCd.Command.Mode do
 
     if length(applied_changes) > 0 do
       Message.build(%{
-        prefix: get_user_mask(user),
+        prefix: user_mask(user),
         command: "MODE",
         params: [updated_user.nick, UserModes.display_mode_changes(applied_changes)]
       })
-      |> Messaging.broadcast(updated_user)
+      |> Dispatcher.broadcast(updated_user)
     end
 
     send_invalid_modes(invalid_modes, updated_user)
@@ -222,7 +221,7 @@ defmodule ElixIRCd.Command.Mode do
         params: [user.nick, mode],
         trailing: "is unknown mode char to me"
       })
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     end)
   end
 end

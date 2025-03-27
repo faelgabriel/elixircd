@@ -8,7 +8,7 @@ defmodule ElixIRCd.Command.List do
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
 
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.List do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "LIST"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -48,10 +48,10 @@ defmodule ElixIRCd.Command.List do
 
       Message.build(%{prefix: :server, command: :rpl_list, params: [user.nick, name, users_count], trailing: topic})
     end)
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     Message.build(%{prefix: :server, command: :rpl_listend, params: [user.nick], trailing: "End of LIST"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec handle_list(String.t(), User.t()) :: [detailed_channel()]
@@ -122,7 +122,7 @@ defmodule ElixIRCd.Command.List do
   @spec filter_out_hidden_channels([Channel.t()], User.t()) :: [Channel.t()]
   defp filter_out_hidden_channels(channels, user) do
     user_channel_names =
-      UserChannels.get_by_user_port(user.port)
+      UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name)
 
     Enum.reject(channels, fn channel ->

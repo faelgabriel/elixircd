@@ -1,41 +1,69 @@
 defmodule ElixIRCd.Server.Supervisor do
   @moduledoc """
-  Supervisor for the SSL server.
+  Supervisor for the IRC servers.
   """
 
   use Supervisor
 
   require Logger
 
-  import ElixIRCd.Utils, only: [logger_with_time: 3]
+  import ElixIRCd.Utils.System, only: [logger_with_time: 3]
+
+  @type scheme_tcp_transport :: :tcp | :tls
+  @type scheme_http_transport :: :http | :https
+  @type scheme_transport :: scheme_tcp_transport() | scheme_http_transport()
+
+  @plug_keys [:kiwiirc_client]
 
   @doc """
   Starts the server supervisor.
   """
   @spec start_link(keyword()) :: Supervisor.on_start()
-  def start_link(_supervisor_opts) do
+  def start_link(_opts) do
     :persistent_term.put(:server_start_time, DateTime.utc_now())
     Supervisor.start_link(__MODULE__, Application.get_env(:elixircd, :listeners), name: __MODULE__)
   end
 
   @impl true
   def init(server_listeners) do
-    Enum.map(server_listeners, &create_child_spec/1)
+    server_listeners
+    |> Enum.map(&build_child_spec/1)
     |> Supervisor.init(strategy: :one_for_one)
   end
 
-  @spec create_child_spec({:tcp | :ssl, keyword()}) :: Supervisor.child_spec()
-  defp create_child_spec({transport, server_opts} = listener_opts) do
+  @spec build_child_spec({scheme_transport(), keyword()}) :: Supervisor.child_spec()
+  defp build_child_spec({scheme_transport, server_opts} = listener_opts) do
     logger_with_time(
       :info,
-      "creating server listener at port #{Keyword.get(server_opts, :port)}#{if transport == :ssl, do: " (SSL)", else: ""}",
-      fn ->
-        :ranch.child_spec({__MODULE__, listener_opts}, convert_to_ranch(transport), server_opts, ElixIRCd.Server, [])
-      end
+      "creating #{scheme_transport} listener at port #{Keyword.get(server_opts, :port)}",
+      fn -> create_child_spec(listener_opts) end
     )
   end
 
-  @spec convert_to_ranch(:tcp | :ssl) :: :ranch_tcp | :ranch_ssl
-  defp convert_to_ranch(:tcp), do: :ranch_tcp
-  defp convert_to_ranch(:ssl), do: :ranch_ssl
+  @spec create_child_spec({scheme_transport(), keyword()}) :: {module(), keyword()}
+  defp create_child_spec({scheme_transport, server_opts}) when scheme_transport in [:tcp, :tls] do
+    transport_module =
+      if scheme_transport == :tls, do: ThousandIsland.Transports.SSL, else: ThousandIsland.Transports.TCP
+
+    options =
+      server_opts
+      |> Keyword.put_new(:handler_module, ElixIRCd.Server.TcpListener)
+      |> Keyword.put_new(:transport_module, transport_module)
+
+    {ThousandIsland, options}
+  end
+
+  defp create_child_spec({scheme_transport, server_opts}) when scheme_transport in [:http, :https] do
+    plug_opts = Keyword.take(server_opts, @plug_keys)
+    server_opts = Keyword.drop(server_opts, @plug_keys)
+
+    options =
+      server_opts
+      |> Keyword.put_new(:plug, {ElixIRCd.Server.HttpPlug, plug_opts})
+      |> Keyword.put_new(:otp_app, :elixircd)
+      |> Keyword.put_new(:scheme, scheme_transport)
+      |> Keyword.put_new(:startup_log, false)
+
+    {Bandit, options}
+  end
 end

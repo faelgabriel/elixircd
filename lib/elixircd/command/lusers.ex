@@ -9,14 +9,14 @@ defmodule ElixIRCd.Command.Lusers do
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.Metrics
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "LUSERS"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -79,6 +79,6 @@ defmodule ElixIRCd.Command.Lusers do
         trailing: "Current global users #{total_users}, max #{highest_connections}"
       })
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

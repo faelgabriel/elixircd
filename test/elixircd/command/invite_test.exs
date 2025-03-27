@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.InviteTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Invite
   alias ElixIRCd.Message
@@ -20,7 +20,7 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -36,8 +36,8 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} INVITE :Not enough parameters\r\n"},
-          {user.socket, ":server.example.com 461 #{user.nick} INVITE :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} INVITE :Not enough parameters\r\n"},
+          {user.pid, ":server.example.com 461 #{user.nick} INVITE :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -50,7 +50,7 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 401 #{user.nick} target :No such nick/channel\r\n"}
+          {user.pid, ":server.example.com 401 #{user.nick} target :No such nick/channel\r\n"}
         ])
       end)
     end
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 403 #{user.nick} #nonexistent :No such channel\r\n"}
+          {user.pid, ":server.example.com 403 #{user.nick} #nonexistent :No such channel\r\n"}
         ])
       end)
     end
@@ -79,7 +79,7 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 442 #{user.nick} #channel :You're not on that channel\r\n"}
+          {user.pid, ":server.example.com 442 #{user.nick} #channel :You're not on that channel\r\n"}
         ])
       end)
     end
@@ -95,7 +95,7 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 482 #{user.nick} #channel :You're not channel operator\r\n"}
+          {user.pid, ":server.example.com 482 #{user.nick} #channel :You're not channel operator\r\n"}
         ])
       end)
     end
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 443 #{user.nick} target #channel :is already on channel\r\n"}
+          {user.pid, ":server.example.com 443 #{user.nick} target #channel :is already on channel\r\n"}
         ])
       end)
     end
@@ -128,8 +128,8 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.socket, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
     end
@@ -145,11 +145,11 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.socket, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
 
-        assert ChannelInvites.get_by_user_port_and_channel_name(target_user.port, channel.name) != nil
+        assert ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name) != nil
       end)
     end
 
@@ -164,9 +164,9 @@ defmodule ElixIRCd.Command.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"},
-          {user.socket, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.socket, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {user.pid, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"},
+          {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
     end

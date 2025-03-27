@@ -10,21 +10,17 @@ defmodule ElixIRCd.Repository.UsersTest do
 
   describe "create/1" do
     test "creates a new user" do
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+      pid = spawn(fn -> :ok end)
 
       attrs = %{
-        port: port,
-        socket: port,
-        transport: :ranch_tcp,
-        pid: self()
+        pid: pid,
+        transport: :tcp
       }
 
       user = Memento.transaction!(fn -> Users.create(attrs) end)
 
-      assert user.port == port
-      assert user.socket == port
-      assert user.transport == :ranch_tcp
-      assert user.pid == self()
+      assert user.pid == pid
+      assert user.transport == :tcp
     end
   end
 
@@ -50,21 +46,21 @@ defmodule ElixIRCd.Repository.UsersTest do
 
       Memento.transaction!(fn -> Users.delete(user) end)
 
-      assert nil == Memento.transaction!(fn -> Memento.Query.read(User, user.port) end)
+      assert nil == Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
     end
   end
 
-  describe "get_by_port/1" do
-    test "returns a user by port" do
+  describe "get_by_pid/1" do
+    test "returns a user by pid" do
       user = insert(:user)
 
-      assert {:ok, user} == Memento.transaction!(fn -> Users.get_by_port(user.port) end)
+      assert {:ok, user} == Memento.transaction!(fn -> Users.get_by_pid(user.pid) end)
     end
 
     test "returns an error when the user is not found" do
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+      pid = spawn(fn -> :ok end)
 
-      assert {:error, :user_not_found} == Memento.transaction!(fn -> Users.get_by_port(port) end)
+      assert {:error, :user_not_found} == Memento.transaction!(fn -> Users.get_by_pid(pid) end)
     end
   end
 
@@ -80,23 +76,23 @@ defmodule ElixIRCd.Repository.UsersTest do
     end
   end
 
-  describe "get_by_ports/1" do
-    test "returns a list of users by ports" do
+  describe "get_by_pids/1" do
+    test "returns a list of users by pids" do
       user1 = insert(:user)
       user2 = insert(:user)
 
       assert [user1, user2] ==
-               Memento.transaction!(fn -> Users.get_by_ports([user1.port, user2.port]) |> Enum.sort() end)
+               Memento.transaction!(fn -> Users.get_by_pids([user1.pid, user2.pid]) |> Enum.sort() end)
     end
 
     test "returns an empty list when no users are found" do
-      port = Port.open({:spawn, "cat /dev/null"}, [:binary])
+      pid = spawn(fn -> :ok end)
 
-      assert [] == Memento.transaction!(fn -> Users.get_by_ports([port, port]) end)
+      assert [] == Memento.transaction!(fn -> Users.get_by_pids([pid, pid]) end)
     end
 
-    test "returns an empty list when no ports are given" do
-      assert [] == Memento.transaction!(fn -> Users.get_by_ports([]) end)
+    test "returns an empty list when no pids are given" do
+      assert [] == Memento.transaction!(fn -> Users.get_by_pids([]) end)
     end
   end
 

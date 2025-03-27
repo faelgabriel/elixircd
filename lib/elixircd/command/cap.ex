@@ -5,9 +5,10 @@ defmodule ElixIRCd.Command.Cap do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -18,10 +19,8 @@ defmodule ElixIRCd.Command.Cap do
 
   @spec handle_cap_command(User.t(), [String.t()]) :: :ok
   defp handle_cap_command(user, ["LS", "302"]) do
-    user_reply = Helper.get_user_reply(user)
-
-    Message.build(%{prefix: :server, command: "CAP", params: [user_reply, "LS"]})
-    |> Messaging.broadcast(user)
+    Message.build(%{prefix: :server, command: "CAP", params: [user_reply(user), "LS"]})
+    |> Dispatcher.broadcast(user)
   end
 
   defp handle_cap_command(_user, _params) do

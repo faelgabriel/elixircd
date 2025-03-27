@@ -12,7 +12,7 @@ defmodule ElixIRCd.Tables.Metric do
     type: :set
 
   @type t :: %__MODULE__{
-          key: atom(),
+          key: key(),
           value: integer()
         }
 

@@ -46,12 +46,13 @@ defmodule ElixIRCd.MixProject do
   def application do
     [
       mod: {ElixIRCd, []},
-      extra_applications: [:logger, :memento, :mix]
+      extra_applications: [:logger, :memento]
     ]
   end
 
   defp deps do
     [
+      {:bandit, "~> 1.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:doctor, "~> 0.21", only: :dev},
@@ -60,16 +61,16 @@ defmodule ElixIRCd.MixProject do
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.10", only: [:dev, :test]},
       {:pbkdf2_elixir, "~> 2.2"},
-      {:ranch, "~> 2.1"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:wait_for_it, "~> 2.1", only: [:dev, :test]}
+      {:thousand_island, "~> 1.3"},
+      {:websock_adapter, "~> 0.5"}
     ]
   end
 
   defp dialyzer do
     [
       plt_add_apps: [:ex_unit, :mix],
-      plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+      plt_file: {:no_warn, ".dialyzer/dialyzer.plt"}
     ]
   end
 

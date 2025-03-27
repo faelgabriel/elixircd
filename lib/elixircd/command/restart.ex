@@ -5,18 +5,18 @@ defmodule ElixIRCd.Command.Restart do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "RESTART"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -34,16 +34,20 @@ defmodule ElixIRCd.Command.Restart do
     restart_message = "Server is restarting#{formatted_reason}"
 
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: restart_message})
-    |> Messaging.broadcast(all_users)
+    |> Dispatcher.broadcast(all_users)
+
+    # The current process will be stopped, so the restart needs to be done
+    # in a different process. The restart is delayed by 5 seconds.
+    spawn(fn ->
+      :timer.sleep(1000)
+      Application.stop(:elixircd)
+      Application.start(:elixircd)
+    end)
 
     Enum.each(all_users, fn user ->
       closing_link_message(user, restart_message)
-      send(user.pid, {:disconnect, user.socket, restart_message})
+      send(user.pid, {:disconnect, restart_message})
     end)
-
-    Process.sleep(1000)
-    Application.stop(:elixircd)
-    Application.start(:elixircd)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
@@ -54,7 +58,7 @@ defmodule ElixIRCd.Command.Restart do
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec closing_link_message(User.t(), String.t()) :: :ok
@@ -63,8 +67,8 @@ defmodule ElixIRCd.Command.Restart do
       prefix: :server,
       command: "ERROR",
       params: [],
-      trailing: "Closing Link: #{get_user_mask(user)} (#{message})"
+      trailing: "Closing Link: #{user_mask(user)} (#{message})"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

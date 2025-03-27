@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.JoinTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Join
   alias ElixIRCd.Message
@@ -19,7 +19,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 461 #{user.nick} JOIN :Not enough parameters\r\n"}
+          {user.pid, ":server.example.com 461 #{user.nick} JOIN :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -45,7 +45,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket,
+          {user.pid,
            ":server.example.com 476 #{user.nick} #invalid.channel.name :Cannot join channel - invalid channel name format\r\n"}
         ])
       end)
@@ -59,11 +59,11 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} JOIN #new_channel\r\n"},
-          {user.socket, ":server.example.com MODE #new_channel +o #{user.nick}\r\n"},
-          {user.socket, ":server.example.com 331 #{user.nick} #new_channel :No topic is set\r\n"},
-          {user.socket, ":server.example.com 353 = #{user.nick} #new_channel :@#{user.nick}\r\n"},
-          {user.socket, ":server.example.com 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
+          {user.pid, ":#{user_mask(user)} JOIN #new_channel\r\n"},
+          {user.pid, ":server.example.com MODE #new_channel +o #{user.nick}\r\n"},
+          {user.pid, ":server.example.com 331 #{user.nick} #new_channel :No topic is set\r\n"},
+          {user.pid, ":server.example.com 353 = #{user.nick} #new_channel :@#{user.nick}\r\n"},
+          {user.pid, ":server.example.com 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
         ])
       end)
     end
@@ -77,7 +77,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
+          {user.pid, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
         ])
       end)
     end
@@ -91,7 +91,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
+          {user.pid, ":server.example.com 475 #{user.nick} #{channel.name} :Cannot join channel (+k) - bad key\r\n"}
         ])
       end)
     end
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket,
+          {user.pid,
            ":server.example.com 471 #{user.nick} #{channel.name} :Cannot join channel (+l) - channel is full\r\n"}
         ])
       end)
@@ -122,7 +122,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket,
+          {user.pid,
            ":server.example.com 474 #{user.nick} #{channel.name} :Cannot join channel (+b) - you are banned\r\n"}
         ])
       end)
@@ -137,7 +137,7 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket,
+          {user.pid,
            ":server.example.com 473 #{user.nick} #{channel.name} :Cannot join channel (+i) - you are not invited\r\n"}
         ])
       end)
@@ -153,10 +153,10 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} JOIN #{channel.name}\r\n"},
-          {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :topic\r\n"},
-          {user.socket, ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
-          {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":server.example.com 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid, ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
     end
@@ -173,12 +173,11 @@ defmodule ElixIRCd.Command.JoinTest do
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
-          {user.socket, ":#{get_user_mask(user)} JOIN #{channel.name}\r\n"},
-          {user.socket, ":server.example.com 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
-          {user.socket,
-           ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
-          {user.socket, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
-          {another_user.socket, ":#{get_user_mask(user)} JOIN #{channel.name}\r\n"}
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":server.example.com 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid, ":server.example.com 353 = #{user.nick} #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
+          {user.pid, ":server.example.com 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
+          {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
         ])
       end)
     end
