@@ -37,6 +37,6 @@ defmodule ElixIRCd.Server.Dispatcher do
   end
 
   @spec send_packet(User.t() | UserChannel.t(), String.t()) :: :ok
-  defp send_packet(%UserChannel{user_pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message <> "\r\n")
-  defp send_packet(%User{pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message <> "\r\n")
+  defp send_packet(%UserChannel{user_pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message)
+  defp send_packet(%User{pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message)
 end

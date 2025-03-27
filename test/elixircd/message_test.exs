@@ -250,7 +250,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: "Server restarting"
       }
 
-      expected = {:ok, ":irc.example.com NOTICE user :Server restarting"}
+      expected = {:ok, ":irc.example.com NOTICE user :Server restarting\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -263,7 +263,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: "Server restarting"
       }
 
-      expected = {:ok, "NOTICE user :Server restarting"}
+      expected = {:ok, "NOTICE user :Server restarting\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -276,7 +276,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: "Welcome to the freenode Internet Relay Chat Network user"
       }
 
-      expected = {:ok, ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"}
+      expected = {:ok, ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -289,7 +289,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: nil
       }
 
-      expected = {:ok, ":irc.example.com PING"}
+      expected = {:ok, ":irc.example.com PING\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -302,7 +302,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: nil
       }
 
-      expected = {:ok, ":irc.example.com JOIN #channel"}
+      expected = {:ok, ":irc.example.com JOIN #channel\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -315,7 +315,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: nil
       }
 
-      expected = {:ok, ":irc.example.com PING"}
+      expected = {:ok, ":irc.example.com PING\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -328,7 +328,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: nil
       }
 
-      expected = {:ok, "PING"}
+      expected = {:ok, "PING\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -341,7 +341,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: nil
       }
 
-      expected = {:ok, "JOIN #channel"}
+      expected = {:ok, "JOIN #channel\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -354,7 +354,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: "Some message: with multiple: colons"
       }
 
-      expected = {:ok, ":user!nick@host PRIVMSG #channel :Some message: with multiple: colons"}
+      expected = {:ok, ":user!nick@host PRIVMSG #channel :Some message: with multiple: colons\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -367,7 +367,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: nil
       }
 
-      expected = {:ok, ":Nick!user@host MODE #channel +o User"}
+      expected = {:ok, ":Nick!user@host MODE #channel +o User\r\n"}
 
       assert Message.unparse(message) == expected
     end
@@ -397,7 +397,7 @@ defmodule ElixIRCd.MessageTest do
         trailing: "Server restarting"
       }
 
-      expected = ":irc.example.com NOTICE user :Server restarting"
+      expected = ":irc.example.com NOTICE user :Server restarting\r\n"
 
       assert Message.unparse!(message) == expected
     end
