@@ -34,7 +34,7 @@ jobs:
           target: runtime
           push: ${{ startsWith(github.ref, 'refs/tags/') }}
           tags: |
-            aelgabriel/elixircd:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'pr-' }}${{ github.event.number }}
+            faelgabriel/elixircd:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'pr-' }}${{ github.event.number }}
             faelgabriel/elixircd:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -9,7 +9,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
-  alias ElixIRCd.Repository.Metrics
+  alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelInvite

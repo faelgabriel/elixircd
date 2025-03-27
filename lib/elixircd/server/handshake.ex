@@ -8,11 +8,11 @@ defmodule ElixIRCd.Server.Handshake do
   import ElixIRCd.Utils.Network,
     only: [format_ip_address: 1, lookup_hostname: 1, query_identd: 2]
 
-  alias ElixIRCd.Command.Lusers
-  alias ElixIRCd.Command.Mode
-  alias ElixIRCd.Command.Motd
+  alias ElixIRCd.Commands.Lusers
+  alias ElixIRCd.Commands.Mode
+  alias ElixIRCd.Commands.Motd
   alias ElixIRCd.Message
-  alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 

@@ -9,12 +9,12 @@ defmodule ElixIRCd.Server.Connection do
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
-  alias ElixIRCd.Repository.ChannelInvites
-  alias ElixIRCd.Repository.Channels
-  alias ElixIRCd.Repository.HistoricalUsers
-  alias ElixIRCd.Repository.Metrics
-  alias ElixIRCd.Repository.UserChannels
-  alias ElixIRCd.Repository.Users
+  alias ElixIRCd.Repositories.ChannelInvites
+  alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.HistoricalUsers
+  alias ElixIRCd.Repositories.Metrics
+  alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 

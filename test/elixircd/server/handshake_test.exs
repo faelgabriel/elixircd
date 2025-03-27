@@ -7,8 +7,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
   import ElixIRCd.Factory
   import Mimic
 
-  alias ElixIRCd.Command.Lusers
-  alias ElixIRCd.Command.Motd
+  alias ElixIRCd.Commands.Lusers
+  alias ElixIRCd.Commands.Motd
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Network

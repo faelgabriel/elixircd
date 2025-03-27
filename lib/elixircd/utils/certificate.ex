@@ -25,11 +25,11 @@ defmodule ElixIRCd.Utils.Certificate do
 
   ## Options
 
-    * `:output` (`-o`): the path and base filename for the certificate and
+    * `:output`: the path and base filename for the certificate and
       key (default: #{@default_path})
-    * `:name` (`-n`): the Common Name value in certificate's subject
+    * `:name`: the Common Name value in certificate's subject
       (default: "#{@default_name}")
-    * `:hostnames` - a list of hostnames for the certificate (default: ["localhost"])
+    * `:hostnames`: a list of hostnames for the certificate (default: ["localhost"])
 
   Requires OTP 21.3 or later.
   """
