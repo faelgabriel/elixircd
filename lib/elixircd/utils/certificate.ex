@@ -1,70 +1,43 @@
-defmodule Mix.Tasks.Gen.Cert do
+defmodule ElixIRCd.Utils.Certificate do
   # It includes code from the Phoenix Framework, which is licensed under the MIT License.
   # The original file can be found at:
   # https://github.com/phoenixframework/phoenix/blob/main/lib/mix/tasks/phx.gen.cert.ex
   #
   # This file is included here with minimal modifications for use in ElixIRCd.
 
-  @shortdoc "Generates a self-signed certificate for SSL testing"
+  @moduledoc """
+  Utility for generating a self-signed certificate for SSL testing.
 
-  @default_path "data/cert/selfsigned"
-  @default_name "Self-signed test certificate"
-  @default_hostnames ["localhost"]
-
-  @warning """
   WARNING: only use the generated certificate for testing in a closed network
   environment, such as running a development server on `localhost`.
   For production, staging, or testing servers on the public internet, obtain a
   proper certificate, for example from [Let's Encrypt](https://letsencrypt.org).
   """
 
-  @moduledoc """
+  require Logger
+
+  @default_path "data/cert/selfsigned"
+  @default_name "Self-signed test certificate"
+  @default_hostnames ["localhost"]
+
+  @doc """
   Generates a self-signed certificate for SSL testing.
 
-      $ mix gen.cert
-      $ mix gen.cert my-app my-app.local my-app.internal.example.com
+  ## Options
 
-  Creates a private key and a self-signed certificate in PEM format. These
-  files can be referenced in the `certfile` and `keyfile` parameters of a
-  SSL Listener.
-
-  #{@warning}
-
-  ## Arguments
-
-  The list of hostnames, if none are specified, defaults to:
-
-    * #{Enum.join(@default_hostnames, "\n  * ")}
-
-  Other (optional) arguments:
-
-    * `--output` (`-o`): the path and base filename for the certificate and
+    * `:output` (`-o`): the path and base filename for the certificate and
       key (default: #{@default_path})
-    * `--name` (`-n`): the Common Name value in certificate's subject
+    * `:name` (`-n`): the Common Name value in certificate's subject
       (default: "#{@default_name}")
+    * `:hostnames` - a list of hostnames for the certificate (default: ["localhost"])
 
   Requires OTP 21.3 or later.
   """
-
-  use Mix.Task
-
-  @doc false
-  def run(all_args) do
-    {opts, args} =
-      OptionParser.parse!(
-        all_args,
-        aliases: [n: :name, o: :output],
-        strict: [name: :string, output: :string]
-      )
-
+  @spec create_self_signed_certificate(keyword()) :: :ok
+  def create_self_signed_certificate(opts \\ []) do
     path = opts[:output] || @default_path
     name = opts[:name] || @default_name
-
-    hostnames =
-      case args do
-        [] -> @default_hostnames
-        list -> list
-      end
+    hostnames = opts[:hostnames] || @default_hostnames
 
     {certificate, private_key} = certificate_and_key(2048, name, hostnames)
 
@@ -80,9 +53,27 @@ defmodule Mix.Tasks.Gen.Cert do
       certfile,
       :public_key.pem_encode([{:Certificate, certificate, :not_encrypted}])
     )
+
+    :ok
   end
 
-  @doc false
+  @doc """
+  Generates a certificate and private key pair.
+
+  Creates an RSA key pair with the specified key size and generates a self-signed
+  certificate with the given common name and hostnames.
+
+  ## Parameters
+
+    * `key_size` - The size of the RSA key in bits
+    * `name` - The common name to use in the certificate
+    * `hostnames` - A list of hostnames to include in the subject alternative name extension
+
+  ## Returns
+
+  A tuple containing the certificate and private key.
+  """
+  @spec certificate_and_key(integer(), String.t(), [String.t()]) :: {term(), term()}
   def certificate_and_key(key_size, name, hostnames) do
     private_key = :public_key.generate_key({:rsa, key_size, 65_537})
     public_key = extract_public_key(private_key)
@@ -111,6 +102,7 @@ defmodule Mix.Tasks.Gen.Cert do
     Record.extract(:RSAPublicKey, from_lib: "public_key/include/OTP-PUB-KEY.hrl")
   )
 
+  @spec extract_public_key(term()) :: term()
   defp extract_public_key(rsa_private_key(modulus: m, publicExponent: e)) do
     rsa_public_key(modulus: m, publicExponent: e)
   end
@@ -181,6 +173,7 @@ defmodule Mix.Tasks.Gen.Cert do
   @server_auth {1, 3, 6, 1, 5, 5, 7, 3, 1}
   @client_auth {1, 3, 6, 1, 5, 5, 7, 3, 2}
 
+  @spec new_cert(term(), String.t(), [String.t()]) :: term()
   defp new_cert(public_key, common_name, hostnames) do
     <<serial::unsigned-64>> = :crypto.strong_rand_bytes(8)
 
@@ -217,6 +210,7 @@ defmodule Mix.Tasks.Gen.Cert do
     )
   end
 
+  @spec rdn(String.t()) :: {:rdnSequence, list()}
   defp rdn(common_name) do
     {:rdnSequence,
      [
@@ -225,6 +219,7 @@ defmodule Mix.Tasks.Gen.Cert do
      ]}
   end
 
+  @spec extensions(term(), [String.t()]) :: list()
   defp extensions(public_key, hostnames) do
     [
       extension(
@@ -255,10 +250,13 @@ defmodule Mix.Tasks.Gen.Cert do
     ]
   end
 
+  @spec key_identifier(term()) :: binary()
   defp key_identifier(public_key) do
     :crypto.hash(:sha, :public_key.der_encode(:RSAPublicKey, public_key))
   end
 
+  # sobelow_skip ["Traversal.FileModule"]
+  @spec create_file(String.t(), iodata()) :: true
   defp create_file(path, contents) do
     File.mkdir_p!(Path.dirname(path))
     File.write!(path, contents)

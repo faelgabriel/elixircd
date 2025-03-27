@@ -7,6 +7,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
   import Mimic
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Dispatcher
 
   describe "broadcast/2" do

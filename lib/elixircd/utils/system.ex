@@ -54,11 +54,13 @@ defmodule ElixIRCd.Utils.System do
         keyfile = Keyword.get(ssl_opts, :keyfile)
         certfile = Keyword.get(ssl_opts, :certfile)
 
-        keyfile == "data/cert/selfsigned_key.pem" and certfile == "data/cert/selfsigned.pem" and
+        keyfile == Path.expand("data/cert/selfsigned_key.pem") and certfile == Path.expand("data/cert/selfsigned.pem") and
           (!File.exists?(keyfile) or !File.exists?(certfile))
 
       _ ->
         false
     end)
   end
+
+  # coveralls-ignore-stop
 end

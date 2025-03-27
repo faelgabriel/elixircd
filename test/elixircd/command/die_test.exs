@@ -6,7 +6,6 @@ defmodule ElixIRCd.Command.DieTest do
 
   import ElixIRCd.Factory
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-  import Mimic
 
   alias ElixIRCd.Command.Die
   alias ElixIRCd.Message
@@ -40,9 +39,6 @@ defmodule ElixIRCd.Command.DieTest do
 
     test "handles DIE command with user operator" do
       Memento.transaction!(fn ->
-        System
-        |> expect(:halt, 1, fn 0 -> :ok end)
-
         user = insert(:user, modes: ["o"])
         message = %Message{command: "DIE", params: []}
 
@@ -57,9 +53,6 @@ defmodule ElixIRCd.Command.DieTest do
 
     test "handles DIE command with user operator and reason" do
       Memento.transaction!(fn ->
-        System
-        |> expect(:halt, 1, fn 0 -> :ok end)
-
         user = insert(:user, modes: ["o"])
         message = %Message{command: "DIE", params: ["#reason"], trailing: "Shutting down reason"}
 

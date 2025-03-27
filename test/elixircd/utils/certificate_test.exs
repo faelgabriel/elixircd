@@ -1,30 +1,17 @@
-# It includes code from the Phoenix Framework, which is licensed under the MIT License.
-# The original file can be found at:
-# https://github.com/phoenixframework/phoenix/blob/main/lib/mix/tasks/phx.gen.cert.ex
-#
-# This file is included here with minimal modifications for use in ElixIRCd.
-
-# Get Mix output sent to the current
-# process to avoid polluting tests.
-Mix.shell(Mix.Shell.Process)
-
-defmodule Mix.Tasks.Gen.CertTest do
+defmodule ElixIRCd.Utils.CertificateTest do
   @moduledoc """
-  This test file was extracted from the Phoenix Framework source code with minimal modifications:
-  https://github.com/phoenixframework/phoenix/blob/main/test/mix/tasks/phx.gen.cert_test.exs
+  Tests for certificate generation functionality.
   """
 
   use ExUnit.Case
 
-  import ElixIRCd.TestHelpers, only: [assert_file: 2, in_tmp: 2]
-
-  alias Mix.Tasks.Gen
+  alias ElixIRCd.Utils.Certificate
 
   @timeout 5_000
 
   test "write certificate and key files" do
-    in_tmp("mix_gen_cert", fn ->
-      Gen.Cert.run([])
+    in_tmp("certificate_test", fn ->
+      Certificate.create_self_signed_certificate()
 
       assert_file("data/cert/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
       assert_file("data/cert/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
@@ -32,8 +19,8 @@ defmodule Mix.Tasks.Gen.CertTest do
   end
 
   test "write certificate and key with custom filename" do
-    in_tmp("mix_gen_cert", fn ->
-      Gen.Cert.run(["-o", "data/cert/localhost"])
+    in_tmp("certificate_test", fn ->
+      Certificate.create_self_signed_certificate(output: "data/cert/localhost")
 
       assert_file("data/cert/localhost_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
       assert_file("data/cert/localhost.pem", "-----BEGIN CERTIFICATE-----")
@@ -41,8 +28,8 @@ defmodule Mix.Tasks.Gen.CertTest do
   end
 
   test "write certificate and key with custom hostnames" do
-    in_tmp("mix_gen_cert", fn ->
-      Gen.Cert.run(["my-app", "my-app.local"])
+    in_tmp("certificate_test", fn ->
+      Certificate.create_self_signed_certificate(hostnames: ["my-app", "my-app.local"])
 
       assert_file("data/cert/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
       assert_file("data/cert/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
@@ -52,8 +39,8 @@ defmodule Mix.Tasks.Gen.CertTest do
   test "TLS connection with generated certificate and key" do
     Application.ensure_all_started(:ssl)
 
-    in_tmp("mix_gen_cert", fn ->
-      Gen.Cert.run([])
+    in_tmp("certificate_test", fn ->
+      Certificate.create_self_signed_certificate()
 
       assert {:ok, server} =
                :ssl.listen(
@@ -77,5 +64,40 @@ defmodule Mix.Tasks.Gen.CertTest do
       :ssl.close(client)
       :ssl.close(server)
     end)
+  end
+
+  @spec assert_file(binary()) :: true
+  defp assert_file(file) do
+    assert File.regular?(file), "Expected #{file} to exist, but does not"
+  end
+
+  @spec assert_file(binary(), binary() | [binary()] | Regex.t() | (binary() -> any())) :: true
+  defp assert_file(file, match) do
+    cond do
+      is_binary(match) or is_struct(match, Regex) ->
+        assert_file(file, &assert(&1 =~ match))
+
+      is_function(match, 1) ->
+        assert_file(file)
+        match.(File.read!(file))
+    end
+  end
+
+  @spec in_tmp(binary(), (-> any())) :: any
+  defp in_tmp(which, function) do
+    tmp_path = Path.expand("../../tmp", __DIR__)
+    random_string = :crypto.strong_rand_bytes(10) |> Base.url_encode64() |> binary_part(0, 10)
+
+    base = Path.join([tmp_path, random_string])
+    path = Path.join([base, to_string(which)])
+
+    try do
+      File.rm_rf!(path)
+      File.mkdir_p!(path)
+      File.cd!(path, function)
+    after
+      File.rm_rf!(base)
+      File.rm_rf!(tmp_path)
+    end
   end
 end

@@ -9,7 +9,7 @@ defmodule ElixIRCd.Command.CapTest do
 
   alias ElixIRCd.Command.Cap
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.Connection
 
   describe "handle/2" do
     test "handles CAP command for listing supported capabilities for IRCv3.2" do

@@ -27,7 +27,8 @@ defmodule ElixIRCd.Command.Die do
     end
   end
 
-  @spec handle_die(String.t() | nil) :: no_return()
+  @dialyzer {:no_return, handle_die: 1}
+  @spec handle_die(String.t() | nil) :: :ok
   defp handle_die(reason) do
     all_users = Users.get_all()
     formatted_reason = if is_nil(reason), do: "", else: ": #{reason}"
@@ -36,13 +37,17 @@ defmodule ElixIRCd.Command.Die do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: shutdown_message})
     |> Dispatcher.broadcast(all_users)
 
+    # The current process will be stopped, so the shutdown needs to be done
+    # in a different process. The shutdown is delayed by 1 second.
+    spawn(fn ->
+      :timer.sleep(1000)
+      System.halt(0)
+    end)
+
     Enum.each(all_users, fn user ->
       closing_link_message(user, shutdown_message)
       send(user.pid, {:disconnect, shutdown_message})
     end)
-
-    Process.sleep(1000)
-    System.halt(0)
   end
 
   @spec noprivileges_message(User.t()) :: :ok

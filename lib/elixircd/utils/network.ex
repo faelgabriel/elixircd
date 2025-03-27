@@ -31,8 +31,6 @@ defmodule ElixIRCd.Utils.Network do
     Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
   end
 
-  # coveralls-ignore-stop
-
   @doc """
   Retrieves the user identifier from an Ident server.
   """

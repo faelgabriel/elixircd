@@ -46,7 +46,7 @@ defmodule ElixIRCd.MixProject do
   def application do
     [
       mod: {ElixIRCd, []},
-      extra_applications: [:logger, :memento, :mix]
+      extra_applications: [:logger, :memento]
     ]
   end
 

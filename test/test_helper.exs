@@ -50,6 +50,6 @@ Mimic.copy(ThousandIsland.Socket)
 Mimic.copy(WebSockAdapter)
 
 # Clean up database
-Mix.Tasks.Db.Prepare.run(["--recreate", "--quiet"])
+ElixIRCd.Utils.Mnesia.setup_mnesia(recreate: true)
 
 ExUnit.start()
