@@ -3,7 +3,7 @@ defmodule ElixIRCd.Repository.Users do
   Module for the users repository.
   """
 
-  import ElixIRCd.Helper, only: [user_mask_match?: 2]
+  import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2]
 
   alias ElixIRCd.Tables.User
   alias Memento.Query.Data
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Repository.Users do
       fn raw_user, acc ->
         user = Data.load(raw_user)
 
-        if user_mask_match?(user, mask) do
+        if match_user_mask?(user, mask) do
           [user | acc]
         else
           acc

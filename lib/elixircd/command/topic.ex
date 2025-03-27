@@ -5,13 +5,12 @@ defmodule ElixIRCd.Command.Topic do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
 
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -22,20 +21,18 @@ defmodule ElixIRCd.Command.Topic do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "TOPIC"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "TOPIC", params: []}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "TOPIC"],
+      params: [user_reply(user), "TOPIC"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -52,7 +49,7 @@ defmodule ElixIRCd.Command.Topic do
           params: [user.nick, channel_name],
           trailing: "No such channel"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
     end
   end
 
@@ -85,7 +82,7 @@ defmodule ElixIRCd.Command.Topic do
   defp normalize_topic(new_topic_text, user) do
     %Channel.Topic{
       text: new_topic_text,
-      setter: get_user_mask(user),
+      setter: user_mask(user),
       set_at: DateTime.utc_now()
     }
   end
@@ -98,7 +95,7 @@ defmodule ElixIRCd.Command.Topic do
       params: [user.nick, channel.name],
       trailing: "No topic is set"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_channel_topic(%{topic: %{text: topic_text}} = channel, user) do
@@ -115,7 +112,7 @@ defmodule ElixIRCd.Command.Topic do
         params: [user.nick, channel.name, channel.topic.setter, DateTime.to_unix(channel.topic.set_at)]
       })
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec send_channel_topic_change(Channel.t(), User.t(), [UserChannel.t()]) :: :ok
@@ -127,12 +124,12 @@ defmodule ElixIRCd.Command.Topic do
       end
 
     Message.build(%{
-      prefix: get_user_mask(user),
+      prefix: user_mask(user),
       command: "TOPIC",
       params: [channel.name],
       trailing: topic_text
     })
-    |> Messaging.broadcast(to_user_channels)
+    |> Dispatcher.broadcast(to_user_channels)
   end
 
   @spec send_channel_topic_error(topic_errors(), User.t(), String.t()) :: :ok
@@ -143,7 +140,7 @@ defmodule ElixIRCd.Command.Topic do
       params: [user.nick, channel_name],
       trailing: "No such channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_channel_topic_error(:user_channel_not_found, user, channel_name) do
@@ -153,7 +150,7 @@ defmodule ElixIRCd.Command.Topic do
       params: [user.nick, channel_name],
       trailing: "You're not on that channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_channel_topic_error(:user_is_not_operator, user, channel_name) do
@@ -163,6 +160,6 @@ defmodule ElixIRCd.Command.Topic do
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.TopicTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Topic
   alias ElixIRCd.Message
@@ -128,12 +128,12 @@ defmodule ElixIRCd.Command.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{get_user_mask(user)} TOPIC #{channel.name} :Topic text!\r\n"}
+          {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :Topic text!\r\n"}
         ])
 
         updated_channel = Memento.Query.read(Channel, channel.name)
         assert updated_channel.topic.text == "Topic text!"
-        assert updated_channel.topic.setter == get_user_mask(user)
+        assert updated_channel.topic.setter == user_mask(user)
         assert DateTime.diff(DateTime.utc_now(), updated_channel.topic.set_at) < 1000
       end)
     end
@@ -148,12 +148,12 @@ defmodule ElixIRCd.Command.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{get_user_mask(user)} TOPIC #{channel.name} :Topic channel text!\r\n"}
+          {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :Topic channel text!\r\n"}
         ])
 
         updated_channel = Memento.Query.read(Channel, channel.name)
         assert updated_channel.topic.text == "Topic channel text!"
-        assert updated_channel.topic.setter == get_user_mask(user)
+        assert updated_channel.topic.setter == user_mask(user)
         assert DateTime.diff(DateTime.utc_now(), updated_channel.topic.set_at) < 1000
       end)
     end
@@ -168,7 +168,7 @@ defmodule ElixIRCd.Command.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{get_user_mask(user)} TOPIC #{channel.name} :\r\n"}
+          {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :\r\n"}
         ])
 
         updated_channel = Memento.Query.read(Channel, channel.name)

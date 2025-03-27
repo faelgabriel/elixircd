@@ -1,18 +1,18 @@
-defmodule ElixIRCd.UtilsTest do
+defmodule ElixIRCd.Utils.SystemTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
 
   import ExUnit.CaptureLog
 
-  alias ElixIRCd.Utils
+  alias ElixIRCd.Utils.System
 
   describe "logger_with_time/3" do
     @tag :capture_log
     test "logger_with_time logs start and finish messages" do
       log =
         capture_log(fn ->
-          Utils.logger_with_time(:warning, "ansi color log", fn ->
+          System.logger_with_time(:warning, "ansi color log", fn ->
             :timer.sleep(70)
             "colorful result"
           end)
@@ -30,7 +30,7 @@ defmodule ElixIRCd.UtilsTest do
     test "logger_with_time logs start and finish messages" do
       log =
         capture_log(fn ->
-          Utils.logger_with_time(
+          System.logger_with_time(
             :warning,
             "ansi color log",
             fn ->

@@ -5,11 +5,11 @@ defmodule ElixIRCd.Command.Userhost do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, get_user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @command "USERHOST"
@@ -18,20 +18,18 @@ defmodule ElixIRCd.Command.Userhost do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: @command}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: @command, params: []}) do
-    user_reply = get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, @command],
+      params: [user_reply(user), @command],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -43,13 +41,13 @@ defmodule ElixIRCd.Command.Userhost do
       |> Enum.join(" ")
 
     Message.build(%{prefix: :server, command: :rpl_userhost, params: [user.nick], trailing: userhosts_detailed})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec fetch_userhost_info(String.t()) :: String.t() | nil
   defp fetch_userhost_info(nick) do
     case Users.get_by_nick(nick) do
-      {:ok, user} -> "#{user.nick}=#{get_user_mask(user)}"
+      {:ok, user} -> "#{user.nick}=#{user_mask(user)}"
       {:error, _} -> nil
     end
   end

@@ -5,13 +5,13 @@ defmodule ElixIRCd.Command.Who do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [channel_name?: 1, get_user_reply: 1, normalize_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_reply: 1, normalize_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -20,7 +20,7 @@ defmodule ElixIRCd.Command.Who do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "WHO"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -28,10 +28,10 @@ defmodule ElixIRCd.Command.Who do
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [get_user_reply(user), "WHO"],
+      params: [user_reply(user), "WHO"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -47,7 +47,7 @@ defmodule ElixIRCd.Command.Who do
       params: [user.nick, target],
       trailing: "End of WHO list"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec handle_who_channel(User.t(), String.t(), [String.t()]) :: :ok
@@ -67,7 +67,7 @@ defmodule ElixIRCd.Command.Who do
           user_channel = Enum.find(user_channels, fn user_channel -> user_channel.user_pid == user_target.pid end)
           build_message(user, user_target, user_channel)
         end)
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
       {:error, :channel_not_found} ->
         :ok
@@ -103,7 +103,7 @@ defmodule ElixIRCd.Command.Who do
 
       build_message(user, user_target, user_channel)
     end)
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec filter_out_invisible_users_for_channel([User.t()], boolean()) :: [User.t()]
@@ -162,7 +162,7 @@ defmodule ElixIRCd.Command.Who do
       prefix: :server,
       command: :rpl_whoreply,
       params: [
-        get_user_reply(user),
+        user_reply(user),
         user_channel_name,
         user_target.ident,
         user_target.hostname,

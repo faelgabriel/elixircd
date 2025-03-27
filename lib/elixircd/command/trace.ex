@@ -5,18 +5,19 @@ defmodule ElixIRCd.Command.Trace do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, format_ip_address: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+  import ElixIRCd.Utils.Network, only: [format_ip_address: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "TRACE"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -34,7 +35,7 @@ defmodule ElixIRCd.Command.Trace do
 
   @spec send_trace(User.t(), User.t()) :: :ok
   defp send_trace(user, target_user) do
-    mask = get_user_mask(target_user)
+    mask = user_mask(target_user)
     formatted_ip_address = format_ip_address(target_user.ip_address)
     idle_seconds = (:erlang.system_time(:second) - target_user.last_activity) |> to_string()
     signon_seconds = DateTime.diff(DateTime.utc_now(), target_user.registered_at, :second) |> to_string()
@@ -60,7 +61,7 @@ defmodule ElixIRCd.Command.Trace do
         trailing: "End of TRACE"
       })
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec send_target_not_found(User.t(), String.t()) :: :ok
@@ -71,6 +72,6 @@ defmodule ElixIRCd.Command.Trace do
       params: [user.nick, target],
       trailing: "No such nick"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

@@ -5,14 +5,14 @@ defmodule ElixIRCd.Command.Invite do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -28,7 +28,7 @@ defmodule ElixIRCd.Command.Invite do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "INVITE"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -39,7 +39,7 @@ defmodule ElixIRCd.Command.Invite do
       params: [user.nick, "INVITE"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -84,7 +84,7 @@ defmodule ElixIRCd.Command.Invite do
   @spec maybe_add_channel_invite(User.t(), User.t(), Channel.t()) :: :ok
   defp maybe_add_channel_invite(user, target_user, channel) do
     if "i" in channel.modes do
-      ChannelInvites.create(%{user_pid: target_user.pid, channel_name: channel.name, setter: get_user_mask(user)})
+      ChannelInvites.create(%{user_pid: target_user.pid, channel_name: channel.name, setter: user_mask(user)})
     end
 
     :ok
@@ -99,7 +99,7 @@ defmodule ElixIRCd.Command.Invite do
         params: [user.nick, target_user.nick],
         trailing: target_user.away_message
       })
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     end
 
     Message.build(%{
@@ -107,14 +107,14 @@ defmodule ElixIRCd.Command.Invite do
       command: :rpl_inviting,
       params: [user.nick, target_user.nick, channel.name]
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     Message.build(%{
-      prefix: get_user_mask(user),
+      prefix: user_mask(user),
       command: "INVITE",
       params: [target_user.nick, channel.name]
     })
-    |> Messaging.broadcast(target_user)
+    |> Dispatcher.broadcast(target_user)
   end
 
   @spec send_user_invite_error(invite_errors(), User.t(), String.t(), String.t()) :: :ok
@@ -125,7 +125,7 @@ defmodule ElixIRCd.Command.Invite do
       params: [user.nick, target_nick],
       trailing: "No such nick/channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_user_invite_error(:channel_not_found, user, _target_nick, channel_name) do
@@ -135,7 +135,7 @@ defmodule ElixIRCd.Command.Invite do
       params: [user.nick, channel_name],
       trailing: "No such channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_user_invite_error(:user_channel_not_found, user, _target_nick, channel_name) do
@@ -145,7 +145,7 @@ defmodule ElixIRCd.Command.Invite do
       params: [user.nick, channel_name],
       trailing: "You're not on that channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_user_invite_error(:user_is_not_operator, user, _target_nick, channel_name) do
@@ -155,7 +155,7 @@ defmodule ElixIRCd.Command.Invite do
       params: [user.nick, channel_name],
       trailing: "You're not channel operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_user_invite_error(:user_already_on_channel, user, target_nick, channel_name) do
@@ -165,6 +165,6 @@ defmodule ElixIRCd.Command.Invite do
       params: [user.nick, target_nick, channel_name],
       trailing: "is already on channel"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

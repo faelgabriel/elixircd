@@ -7,7 +7,7 @@ defmodule ElixIRCd.Command.Whowas do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.HistoricalUsers
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.User
 
@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.Whowas do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "WHOWAS"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Command.Whowas do
       params: [user.nick, "WHOWAS"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Command.Whowas do
       params: [user.nick, target_nick],
       trailing: "End of WHOWAS list"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec handle_whowas(User.t(), String.t(), non_neg_integer() | nil) :: :ok
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Command.Whowas do
       params: [user.nick, target_nick],
       trailing: "There was no such nickname"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp whowasuser_message(user, historical_users, _target_nick) do
@@ -99,7 +99,7 @@ defmodule ElixIRCd.Command.Whowas do
           params: [user.nick, historical_user.nick, server_hostname, created_at_time]
         })
       ]
-      |> Messaging.broadcast(user)
+      |> Dispatcher.broadcast(user)
     end)
   end
 end

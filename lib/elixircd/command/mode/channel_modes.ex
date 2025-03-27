@@ -3,14 +3,14 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
   This module includes the channel modes handler.
   """
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, normalize_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, normalize_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.User
@@ -282,7 +282,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
           params: [user.nick, channel_name, mode_value],
           trailing: "They aren't on that channel"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
         false
 
@@ -293,7 +293,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
           params: [user.nick, channel_name, mode_value],
           trailing: "No such nick"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
         false
     end
@@ -331,7 +331,7 @@ defmodule ElixIRCd.Command.Mode.ChannelModes do
 
   @spec channel_ban_mode_changed?(User.t(), mode_change(), ChannelBan.t(), String.t()) :: boolean()
   defp channel_ban_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name) do
-    ChannelBans.create(%{channel_name: channel_name, mask: mode_value, setter: get_user_mask(user)})
+    ChannelBans.create(%{channel_name: channel_name, mask: mode_value, setter: user_mask(user)})
     true
   end
 

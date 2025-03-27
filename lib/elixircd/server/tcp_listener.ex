@@ -42,7 +42,7 @@ defmodule ElixIRCd.Server.TcpListener do
 
   @impl ThousandIsland.Handler
   def handle_data(data, _socket, state) do
-    case Connection.handle_packet(self(), data) do
+    case Connection.handle_recv(self(), data) do
       :ok -> {:continue, state}
       {:quit, reason} -> {:close, Map.put(state, :quit_reason, reason)}
     end

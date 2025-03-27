@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Privmsg
   alias ElixIRCd.Message
@@ -95,7 +95,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -129,7 +129,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -145,7 +145,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -162,7 +162,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{get_user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -189,7 +189,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {target_user.pid, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"}
+          {target_user.pid, ":#{user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"}
         ])
       end)
     end
@@ -203,7 +203,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {target_user.pid, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"},
+          {target_user.pid, ":#{user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"},
           {user.pid, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
         ])
       end)
@@ -218,7 +218,7 @@ defmodule ElixIRCd.Command.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {target_user.pid, ":#{get_user_mask(user)} PRIVMSG #{target_user.nick} :Hello World\r\n"}
+          {target_user.pid, ":#{user_mask(user)} PRIVMSG #{target_user.nick} :Hello World\r\n"}
         ])
       end)
     end

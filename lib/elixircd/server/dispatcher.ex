@@ -1,11 +1,12 @@
-defmodule ElixIRCd.Server.Messaging do
+defmodule ElixIRCd.Server.Dispatcher do
   @moduledoc """
-  Module for the server messaging.
+  Module for dispatching messages to users.
   """
 
   require Logger
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Server.Connection
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -36,16 +37,6 @@ defmodule ElixIRCd.Server.Messaging do
   end
 
   @spec send_packet(User.t() | UserChannel.t(), String.t()) :: :ok
-  defp send_packet(%UserChannel{user_pid: pid}, raw_message), do: __MODULE__.send_message(pid, raw_message <> "\r\n")
-  defp send_packet(%User{pid: pid}, raw_message), do: __MODULE__.send_message(pid, raw_message <> "\r\n")
-
-  @doc """
-  Sends a message to the given user connected at the PID.
-  """
-  @spec send_message(pid(), String.t()) :: :ok
-  def send_message(pid, raw_message) do
-    Logger.debug("-> #{inspect(raw_message)}")
-    send(pid, {:broadcast, raw_message})
-    :ok
-  end
+  defp send_packet(%UserChannel{user_pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message <> "\r\n")
+  defp send_packet(%User{pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message <> "\r\n")
 end

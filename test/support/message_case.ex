@@ -10,7 +10,7 @@ defmodule ElixIRCd.MessageCase do
 
   import Mimic
 
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Connection
   alias ExUnit.AssertionError
 
   using do
@@ -22,8 +22,8 @@ defmodule ElixIRCd.MessageCase do
       setup do
         {:ok, agent_pid} = Agent.start_link(fn -> [] end, name: @agent_name)
 
-        Messaging
-        |> stub(:send_message, fn pid, msg ->
+        Connection
+        |> stub(:handle_send, fn pid, msg ->
           Agent.update(@agent_name, fn messages -> [{pid, msg} | messages] end)
         end)
 

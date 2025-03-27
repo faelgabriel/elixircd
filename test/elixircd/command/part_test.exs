@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.PartTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Part
   alias ElixIRCd.Message
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{get_user_mask(user)} PART #{channel.name}\r\n"}
+          {user.pid, ":#{user_mask(user)} PART #{channel.name}\r\n"}
         ])
 
         # Channel should be deleted
@@ -96,8 +96,8 @@ defmodule ElixIRCd.Command.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{get_user_mask(user)} PART #{channel.name}\r\n"},
-          {another_user.pid, ":#{get_user_mask(user)} PART #{channel.name}\r\n"}
+          {user.pid, ":#{user_mask(user)} PART #{channel.name}\r\n"},
+          {another_user.pid, ":#{user_mask(user)} PART #{channel.name}\r\n"}
         ])
 
         # Channel should not be deleted

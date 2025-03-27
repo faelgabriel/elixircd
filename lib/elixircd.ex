@@ -7,7 +7,7 @@ defmodule ElixIRCd do
 
   require Logger
 
-  import ElixIRCd.Utils, only: [load_configurations: 0, logger_with_time: 3, should_generate_certificate?: 0]
+  import ElixIRCd.Utils.System, only: [load_configurations: 0, logger_with_time: 3, should_generate_certificate?: 0]
 
   @impl true
   def start(_type, _args) do

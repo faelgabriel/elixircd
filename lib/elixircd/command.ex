@@ -3,10 +3,11 @@ defmodule ElixIRCd.Command do
   Module for handling incoming IRC commands.
   """
 
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+
   alias ElixIRCd.Command
-  alias ElixIRCd.Helper
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @commands %{
@@ -69,9 +70,9 @@ defmodule ElixIRCd.Command do
     Message.build(%{
       prefix: :server,
       command: :err_unknowncommand,
-      params: [Helper.get_user_reply(user), command],
+      params: [user_reply(user), command],
       trailing: "Unknown command"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

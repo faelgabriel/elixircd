@@ -5,7 +5,7 @@ defmodule ElixIRCd.Server.Connection do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [format_transport: 1, get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
@@ -15,7 +15,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repository.Metrics
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @type transport :: :tcp | :tls | :ws | :wss
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Server.Connection do
   """
   @spec handle_connect(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
   def handle_connect(pid, transport, connection_data) do
-    Logger.debug("Connection established: #{inspect(pid)}")
+    Logger.debug("Connection established: #{inspect(pid)} (#{transport})")
 
     Memento.transaction!(fn ->
       modes = if transport in [:tls, :wss], do: ["Z"], else: []
@@ -38,8 +38,8 @@ defmodule ElixIRCd.Server.Connection do
   @doc """
   Handles the incoming data packets.
   """
-  @spec handle_packet(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
-  def handle_packet(pid, data) do
+  @spec handle_recv(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
+  def handle_recv(pid, data) do
     Logger.debug("<- #{inspect(data)}")
 
     Memento.transaction!(fn ->
@@ -54,11 +54,21 @@ defmodule ElixIRCd.Server.Connection do
   end
 
   @doc """
+  Handles the outgoing data packets.
+  """
+  @spec handle_send(pid(), String.t()) :: :ok
+  def handle_send(pid, data) do
+    Logger.debug("-> #{inspect(data)}")
+    send(pid, {:broadcast, data})
+    :ok
+  end
+
+  @doc """
   Handles the connection termination.
   """
   @spec handle_disconnect(pid :: pid(), transport :: transport(), reason :: String.t()) :: :ok
   def handle_disconnect(pid, transport, reason) do
-    Logger.debug("Connection #{inspect(pid)} (#{format_transport(transport)}) terminated: #{inspect(reason)}")
+    Logger.debug("Connection #{inspect(pid)} (#{transport}) terminated: #{inspect(reason)}")
 
     Memento.transaction!(fn ->
       Users.get_by_pid(pid)
@@ -113,8 +123,8 @@ defmodule ElixIRCd.Server.Connection do
       realname: user.realname
     })
 
-    Message.build(%{prefix: get_user_mask(user), command: "QUIT", params: [], trailing: quit_message})
-    |> Messaging.broadcast(all_shared_unique_user_channels)
+    Message.build(%{prefix: user_mask(user), command: "QUIT", params: [], trailing: quit_message})
+    |> Dispatcher.broadcast(all_shared_unique_user_channels)
   end
 
   defp handle_quit(user, _quit_message) do

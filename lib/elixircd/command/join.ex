@@ -7,7 +7,7 @@ defmodule ElixIRCd.Command.Join do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, channel_name?: 1, channel_operator?: 1, user_mask_match?: 2]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, match_user_mask?: 2]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelBans
@@ -15,7 +15,7 @@ defmodule ElixIRCd.Command.Join do
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -27,7 +27,7 @@ defmodule ElixIRCd.Command.Join do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "JOIN"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -38,7 +38,7 @@ defmodule ElixIRCd.Command.Join do
       params: [user.nick, "JOIN"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -94,11 +94,11 @@ defmodule ElixIRCd.Command.Join do
     user_channels = UserChannels.get_by_channel_name(channel.name)
 
     Message.build(%{
-      prefix: get_user_mask(user),
+      prefix: user_mask(user),
       command: "JOIN",
       params: [channel.name]
     })
-    |> Messaging.broadcast(user_channels)
+    |> Dispatcher.broadcast(user_channels)
 
     if channel_operator?(user_channel) do
       Message.build(%{
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Command.Join do
         command: "MODE",
         params: [channel.name, "+o", user.nick]
       })
-      |> Messaging.broadcast(user_channels)
+      |> Dispatcher.broadcast(user_channels)
     end
 
     {topic_reply, topic_trailing} =
@@ -135,7 +135,7 @@ defmodule ElixIRCd.Command.Join do
         trailing: "End of NAMES list."
       })
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec send_join_channel_error(mode_error() | String.t(), User.t(), String.t()) :: :ok
@@ -146,7 +146,7 @@ defmodule ElixIRCd.Command.Join do
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+k) - bad key"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_join_channel_error(:channel_limit_reached, user, channel_name) do
@@ -156,7 +156,7 @@ defmodule ElixIRCd.Command.Join do
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+l) - channel is full"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_join_channel_error(:user_banned, user, channel_name) do
@@ -166,7 +166,7 @@ defmodule ElixIRCd.Command.Join do
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+b) - you are banned"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_join_channel_error(:user_not_invited, user, channel_name) do
@@ -176,7 +176,7 @@ defmodule ElixIRCd.Command.Join do
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+i) - you are not invited"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_join_channel_error(error, user, channel_name) do
@@ -186,7 +186,7 @@ defmodule ElixIRCd.Command.Join do
       params: [user.nick, channel_name],
       trailing: "Cannot join channel - #{error}"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec validate_channel_name(String.t()) :: :ok | {:error, String.t()}
@@ -212,7 +212,7 @@ defmodule ElixIRCd.Command.Join do
   @spec check_user_banned(Channel.t(), User.t()) :: :ok | {:error, :user_banned}
   defp check_user_banned(channel, user) do
     ChannelBans.get_by_channel_name(channel.name)
-    |> Enum.any?(&user_mask_match?(user, &1.mask))
+    |> Enum.any?(&match_user_mask?(user, &1.mask))
     |> case do
       true -> {:error, :user_banned}
       false -> :ok

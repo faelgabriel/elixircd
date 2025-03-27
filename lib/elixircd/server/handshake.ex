@@ -5,17 +5,16 @@ defmodule ElixIRCd.Server.Handshake do
 
   require Logger
 
-  import ElixIRCd.Helper,
-    only: [format_ip_address: 1, lookup_hostname: 1]
+  import ElixIRCd.Utils.Network,
+    only: [format_ip_address: 1, lookup_hostname: 1, query_identd: 2]
 
   alias ElixIRCd.Command.Lusers
   alias ElixIRCd.Command.Mode
   alias ElixIRCd.Command.Motd
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
-  alias ElixIRCd.Utils
 
   @doc """
   Handles the user handshake.
@@ -31,7 +30,7 @@ defmodule ElixIRCd.Server.Handshake do
 
       {:error, :bad_password} ->
         Message.build(%{prefix: :server, command: :err_passwdmismatch, params: ["*"], trailing: "Bad Password"})
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
         {:quit, "Bad Password"}
     end
@@ -89,19 +88,19 @@ defmodule ElixIRCd.Server.Handshake do
   @spec request_ident(user :: User.t()) :: String.t() | nil
   defp request_ident(user) do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
-    Utils.query_identd_userid(user.ip_address, user.port_connected)
+    query_identd(user.ip_address, user.port_connected)
     |> case do
       {:ok, user_id} ->
         Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Got Ident response"})
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
         user_id
 
       {:error, _} ->
         Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** No Ident response"})
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
         nil
     end
@@ -110,7 +109,7 @@ defmodule ElixIRCd.Server.Handshake do
   @spec resolve_hostname(user :: User.t()) :: String.t()
   defp resolve_hostname(user) do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Looking up your hostname..."})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     formatted_ip_address = format_ip_address(user.ip_address)
 
@@ -119,7 +118,7 @@ defmodule ElixIRCd.Server.Handshake do
         Logger.debug("Resolved hostname for #{formatted_ip_address}: #{hostname}")
 
         Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Found your hostname"})
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
         hostname
 
@@ -132,7 +131,7 @@ defmodule ElixIRCd.Server.Handshake do
           params: ["*"],
           trailing: "*** Couldn't look up your hostname"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
         formatted_ip_address
     end
@@ -173,13 +172,13 @@ defmodule ElixIRCd.Server.Handshake do
         trailing: "#{server_hostname} #{app_version} #{usermodes} #{channelmodes}"
       })
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec send_user_modes(User.t()) :: :ok
   defp send_user_modes(%User{nick: nick, modes: modes} = user) when modes != [] do
     Message.build(%{prefix: nick, command: "MODE", params: [nick], trailing: Mode.UserModes.display_modes(modes)})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   defp send_user_modes(_user), do: :ok

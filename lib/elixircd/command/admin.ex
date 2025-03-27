@@ -6,14 +6,14 @@ defmodule ElixIRCd.Command.Admin do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "ADMIN"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -44,6 +44,6 @@ defmodule ElixIRCd.Command.Admin do
         trailing: Application.get_env(:elixircd, :admin_info)[:email]
       })
     ]
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

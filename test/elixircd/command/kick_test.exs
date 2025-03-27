@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.KickTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Kick
   alias ElixIRCd.Message
@@ -127,8 +127,8 @@ defmodule ElixIRCd.Command.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{get_user_mask(user)} KICK #channel target :reason\r\n"},
-          {target_user.pid, ":#{get_user_mask(user)} KICK #channel target :reason\r\n"}
+          {user.pid, ":#{user_mask(user)} KICK #channel target :reason\r\n"},
+          {target_user.pid, ":#{user_mask(user)} KICK #channel target :reason\r\n"}
         ])
       end)
     end
@@ -146,8 +146,8 @@ defmodule ElixIRCd.Command.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{get_user_mask(user)} KICK #channel target\r\n"},
-          {target_user.pid, ":#{get_user_mask(user)} KICK #channel target\r\n"}
+          {user.pid, ":#{user_mask(user)} KICK #channel target\r\n"},
+          {target_user.pid, ":#{user_mask(user)} KICK #channel target\r\n"}
         ])
       end)
     end

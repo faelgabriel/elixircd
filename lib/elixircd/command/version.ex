@@ -6,14 +6,14 @@ defmodule ElixIRCd.Command.Version do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "VERSION"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Command.Version do
       command: :rpl_version,
       params: [user.nick, "ElixIRCd-#{elixircd_version}", server_hostname]
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     # Feature: implements RPL_ISUPPORT - https://modern.ircdocs.horse/#feature-advertisement
     # :irc.example.com 005 MyNick MODES=4 MAXCHANNELS=20 CHANLIMIT=#&:20 PREFIX=(ov)@+ NETWORK=ExampleIRC :are supported by this server

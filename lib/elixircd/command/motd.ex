@@ -6,14 +6,14 @@ defmodule ElixIRCd.Command.Motd do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "MOTD"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Command.Motd do
       params: [user.nick],
       trailing: "#{server_hostname} Message of the Day"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     config_motd_content()
     |> case do
@@ -46,10 +46,10 @@ defmodule ElixIRCd.Command.Motd do
         |> String.split(~r/\R/, trim: true)
         |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_motd, params: [user.nick], trailing: &1}))
     end
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
 
     Message.build(%{prefix: :server, command: :rpl_endofmotd, params: [user.nick], trailing: "End of /MOTD command"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   # the motd config supports a string or a File.read/1 result

@@ -5,18 +5,18 @@ defmodule ElixIRCd.Command.Wallops do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "WALLOPS"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -27,7 +27,7 @@ defmodule ElixIRCd.Command.Wallops do
       params: [user.nick, "WALLOPS"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -43,12 +43,12 @@ defmodule ElixIRCd.Command.Wallops do
     target_users = Users.get_by_mode("w")
 
     Message.build(%{
-      prefix: get_user_mask(user),
+      prefix: user_mask(user),
       command: "WALLOPS",
       params: [],
       trailing: message
     })
-    |> Messaging.broadcast(target_users)
+    |> Dispatcher.broadcast(target_users)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
@@ -59,6 +59,6 @@ defmodule ElixIRCd.Command.Wallops do
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

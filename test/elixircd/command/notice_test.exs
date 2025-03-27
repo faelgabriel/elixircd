@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.NoticeTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Notice
   alias ElixIRCd.Message
@@ -80,7 +80,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{get_user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Command.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{get_user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
         ])
       end)
     end

@@ -1,6 +1,6 @@
-defmodule ElixIRCd.Helper do
+defmodule ElixIRCd.Utils.Protocol do
   @moduledoc """
-  Module for helper functions used throughout the IRC server.
+  Module for utility functions related to the IRC protocol.
   """
 
   alias ElixIRCd.Tables.User
@@ -33,29 +33,40 @@ defmodule ElixIRCd.Helper do
   @doc """
   Determines if a user mask matches a user.
   """
-  @spec user_mask_match?(User.t(), String.t()) :: boolean()
-  def user_mask_match?(user, mask) do
+  @spec match_user_mask?(User.t(), String.t()) :: boolean()
+  def match_user_mask?(user, mask) do
     mask
     |> String.replace(".", "\\.")
     |> String.replace("@", "\\@")
     |> String.replace("!", "\\!")
     |> String.replace("*", ".*")
     |> Regex.compile!()
-    |> Regex.match?(get_user_mask(user))
+    |> Regex.match?(user_mask(user))
   end
 
   @doc """
   Gets the user's reply to a message.
   """
-  @spec get_user_reply(User.t()) :: String.t()
-  def get_user_reply(%{registered: false}), do: "*"
-  def get_user_reply(%{nick: nick}), do: nick
+  @spec user_reply(User.t()) :: String.t()
+  def user_reply(%{registered: false}), do: "*"
+  def user_reply(%{nick: nick}), do: nick
 
   @doc """
-  Gets a list of targets from a comma-separated string.
+  Gets the user mask from a user.
   """
-  @spec get_target_list(String.t()) :: {:channels, [String.t()]} | {:users, [String.t()]} | {:error, String.t()}
-  def get_target_list(targets) do
+  @spec user_mask(User.t()) :: String.t()
+  def user_mask(%{registered: true} = user)
+      when user.nick != nil and user.ident != nil and user.hostname != nil do
+    "#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname}"
+  end
+
+  def user_mask(%{registered: false}), do: "*"
+
+  @doc """
+  Parses a comma-separated list of targets into a list of channels or users.
+  """
+  @spec parse_targets(String.t()) :: {:channels, [String.t()]} | {:users, [String.t()]} | {:error, String.t()}
+  def parse_targets(targets) do
     list_targets =
       targets
       |> String.split(",")
@@ -71,56 +82,6 @@ defmodule ElixIRCd.Helper do
         {:error, "Invalid list of targets"}
     end
   end
-
-  @doc """
-  Gets the user mask.
-  """
-  @spec get_user_mask(User.t()) :: String.t()
-  def get_user_mask(%{registered: true} = user)
-      when user.nick != nil and user.ident != nil and user.hostname != nil do
-    "#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname}"
-  end
-
-  def get_user_mask(%{registered: false}), do: "*"
-
-  @doc """
-  Lookups the hostname for an IP address.
-  """
-  @spec lookup_hostname(ip_address :: :inet.ip_address()) :: {:ok, String.t()} | {:error, String.t()}
-  def lookup_hostname(ip_address) do
-    case :inet.gethostbyaddr(ip_address) do
-      {:ok, {:hostent, hostname, _, _, _, _}} -> {:ok, to_string(hostname)}
-      {:error, error} -> {:error, "Unable to get hostname for #{inspect(ip_address)}: #{inspect(error)}"}
-    end
-  end
-
-  @doc """
-  Formats an IP address.
-  """
-  @spec format_ip_address(ip_address :: :inet.ip_address()) :: String.t()
-  def format_ip_address({a, b, c, d}) do
-    [a, b, c, d]
-    |> Enum.map_join(".", &Integer.to_string/1)
-  end
-
-  def format_ip_address({a, b, c, d, e, f, g, h}) do
-    formatted_ip =
-      [a, b, c, d, e, f, g, h]
-      |> Enum.map_join(":", &Integer.to_string(&1, 16))
-
-    Regex.replace(~r/\b:?(?:0+:?){2,}/, formatted_ip, "::", global: false)
-  end
-
-  @doc """
-  Formats a transport for display.
-  """
-  @spec format_transport(:tcp | :tls | :http | :https | :ws | :wss) :: String.t()
-  def format_transport(:tcp), do: "TCP"
-  def format_transport(:tls), do: "TLS"
-  def format_transport(:http), do: "HTTP"
-  def format_transport(:https), do: "HTTPS"
-  def format_transport(:ws), do: "WS"
-  def format_transport(:wss), do: "WSS"
 
   @doc """
   Normalizes a mask to the *!*@* IRC format.

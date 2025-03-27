@@ -74,7 +74,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
     end
   end
 
-  describe "handle_packet/2" do
+  describe "handle_recv/2" do
     setup do
       user = insert(:user)
       %{user: user}
@@ -88,15 +88,15 @@ defmodule ElixIRCd.Server.ConnectionTest do
         :ok
       end)
 
-      assert :ok = Connection.handle_packet(user.pid, "COMMAND test")
+      assert :ok = Connection.handle_recv(user.pid, "COMMAND test")
     end
 
     test "handles empty packets", %{user: user} do
       Command
       |> reject(:dispatch, 2)
 
-      assert :ok = Connection.handle_packet(user.pid, "\r\n")
-      assert :ok = Connection.handle_packet(user.pid, "  \r\n")
+      assert :ok = Connection.handle_recv(user.pid, "\r\n")
+      assert :ok = Connection.handle_recv(user.pid, "  \r\n")
     end
   end
 

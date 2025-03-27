@@ -50,7 +50,7 @@ defmodule ElixIRCd.Server.WsListenerTest do
     test "processes data and continues when Connection returns :ok" do
       state = ws_state()
 
-      expect(Connection, :handle_packet, fn _pid, data ->
+      expect(Connection, :handle_recv, fn _pid, data ->
         assert data == "PING :test"
         :ok
       end)
@@ -61,7 +61,7 @@ defmodule ElixIRCd.Server.WsListenerTest do
     test "stops connection when Connection returns quit reason" do
       state = ws_state()
 
-      expect(Connection, :handle_packet, fn _pid, _data ->
+      expect(Connection, :handle_recv, fn _pid, _data ->
         {:quit, "Quit: Goodbye"}
       end)
 

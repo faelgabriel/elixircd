@@ -5,37 +5,34 @@ defmodule ElixIRCd.Command.Pass do
 
   @behaviour ElixIRCd.Command
 
-  alias ElixIRCd.Helper
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: true} = user, %{command: "PASS"}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_alreadyregistered,
-      params: [user_reply],
+      params: [user_reply(user)],
       trailing: "You may not reregister"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
   def handle(user, %{command: "PASS", params: []}) do
-    user_reply = Helper.get_user_reply(user)
-
     Message.build(%{
       prefix: :server,
       command: :err_needmoreparams,
-      params: [user_reply, "PASS"],
+      params: [user_reply(user), "PASS"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true

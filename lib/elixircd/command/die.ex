@@ -5,18 +5,18 @@ defmodule ElixIRCd.Command.Die do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "DIE"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Command.Die do
     shutdown_message = "Server is shutting down#{formatted_reason}"
 
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: shutdown_message})
-    |> Messaging.broadcast(all_users)
+    |> Dispatcher.broadcast(all_users)
 
     Enum.each(all_users, fn user ->
       closing_link_message(user, shutdown_message)
@@ -53,7 +53,7 @@ defmodule ElixIRCd.Command.Die do
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec closing_link_message(User.t(), String.t()) :: :ok
@@ -62,8 +62,8 @@ defmodule ElixIRCd.Command.Die do
       prefix: :server,
       command: "ERROR",
       params: [],
-      trailing: "Closing Link: #{get_user_mask(user)} (#{message})"
+      trailing: "Closing Link: #{user_mask(user)} (#{message})"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

@@ -7,8 +7,7 @@ defmodule ElixIRCd.Server.Supervisor do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [format_transport: 1]
-  import ElixIRCd.Utils, only: [logger_with_time: 3]
+  import ElixIRCd.Utils.System, only: [logger_with_time: 3]
 
   @type scheme_tcp_transport :: :tcp | :tls
   @type scheme_http_transport :: :http | :https
@@ -36,7 +35,7 @@ defmodule ElixIRCd.Server.Supervisor do
   defp build_child_spec({scheme_transport, server_opts} = listener_opts) do
     logger_with_time(
       :info,
-      "creating #{format_transport(scheme_transport)} server listener at port #{Keyword.get(server_opts, :port)}",
+      "creating #{scheme_transport} listener at port #{Keyword.get(server_opts, :port)}",
       fn -> create_child_spec(listener_opts) end
     )
   end

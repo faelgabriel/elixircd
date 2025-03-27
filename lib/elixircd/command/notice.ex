@@ -5,20 +5,20 @@ defmodule ElixIRCd.Command.Notice do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, channel_name?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "NOTICE"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Command.Notice do
       params: [user.nick, "NOTICE"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Command.Notice do
       params: [user.nick, "NOTICE"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -58,12 +58,12 @@ defmodule ElixIRCd.Command.Notice do
         |> Enum.reject(&(&1.user_pid == user.pid))
 
       Message.build(%{
-        prefix: get_user_mask(user),
+        prefix: user_mask(user),
         command: "NOTICE",
         params: [channel.name],
         trailing: message
       })
-      |> Messaging.broadcast(channel_users_without_user)
+      |> Dispatcher.broadcast(channel_users_without_user)
     else
       {:error, :user_channel_not_found} ->
         Message.build(%{
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Command.Notice do
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
       {:error, :channel_not_found} ->
         Message.build(%{
@@ -81,7 +81,7 @@ defmodule ElixIRCd.Command.Notice do
           params: [user.nick, channel_name],
           trailing: "No such channel"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
     end
   end
 
@@ -89,12 +89,12 @@ defmodule ElixIRCd.Command.Notice do
     case Users.get_by_nick(receiver_nick) do
       {:ok, receiver_user} ->
         Message.build(%{
-          prefix: get_user_mask(user),
+          prefix: user_mask(user),
           command: "NOTICE",
           params: [receiver_nick],
           trailing: message
         })
-        |> Messaging.broadcast(receiver_user)
+        |> Dispatcher.broadcast(receiver_user)
 
       {:error, _} ->
         Message.build(%{
@@ -103,7 +103,7 @@ defmodule ElixIRCd.Command.Notice do
           params: [user.nick, receiver_nick],
           trailing: "No such nick"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
     end
   end
 end

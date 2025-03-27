@@ -5,18 +5,18 @@ defmodule ElixIRCd.Command.Kill do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.Users
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "KILL"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -27,7 +27,7 @@ defmodule ElixIRCd.Command.Kill do
       params: [user.nick, "KILL"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -53,9 +53,9 @@ defmodule ElixIRCd.Command.Kill do
       prefix: :server,
       command: "ERROR",
       params: [],
-      trailing: "Closing Link: #{get_user_mask(target_user)} (#{killed_message})"
+      trailing: "Closing Link: #{user_mask(target_user)} (#{killed_message})"
     })
-    |> Messaging.broadcast(target_user)
+    |> Dispatcher.broadcast(target_user)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
@@ -66,7 +66,7 @@ defmodule ElixIRCd.Command.Kill do
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @spec target_not_found_message(User.t(), String.t()) :: :ok
@@ -77,6 +77,6 @@ defmodule ElixIRCd.Command.Kill do
       params: [user.nick, target],
       trailing: "No such nick"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 end

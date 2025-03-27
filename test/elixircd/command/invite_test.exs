@@ -5,7 +5,7 @@ defmodule ElixIRCd.Command.InviteTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Command.Invite
   alias ElixIRCd.Message
@@ -129,7 +129,7 @@ defmodule ElixIRCd.Command.InviteTest do
 
         assert_sent_messages([
           {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.pid, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
     end
@@ -146,7 +146,7 @@ defmodule ElixIRCd.Command.InviteTest do
 
         assert_sent_messages([
           {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.pid, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
 
         assert ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name) != nil
@@ -166,7 +166,7 @@ defmodule ElixIRCd.Command.InviteTest do
         assert_sent_messages([
           {user.pid, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"},
           {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.pid, ":#{get_user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
     end

@@ -9,10 +9,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
   alias ElixIRCd.Command.Lusers
   alias ElixIRCd.Command.Motd
-  alias ElixIRCd.Helper
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Tables.User
-  alias ElixIRCd.Utils
+  alias ElixIRCd.Utils.Network
 
   describe "handle/1" do
     setup do
@@ -36,11 +35,11 @@ defmodule ElixIRCd.Server.HandshakeTest do
       app_version: app_version,
       server_start_date: server_start_date
     } do
-      Helper
+      Network
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
-      Utils
-      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
+      Network
+      |> expect(:query_identd, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -80,11 +79,11 @@ defmodule ElixIRCd.Server.HandshakeTest do
       app_version: app_version,
       server_start_date: server_start_date
     } do
-      Helper
+      Network
       |> expect(:lookup_hostname, fn _ip -> {:error, "anyerror"} end)
 
-      Utils
-      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
+      Network
+      |> expect(:query_identd, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -127,7 +126,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Application.put_env(:elixircd, :ident_service, original_config |> Keyword.put(:enabled, false))
       on_exit(fn -> Application.put_env(:elixircd, :ident_service, original_config) end)
 
-      Helper
+      Network
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
       Lusers
@@ -162,11 +161,11 @@ defmodule ElixIRCd.Server.HandshakeTest do
       app_version: app_version,
       server_start_date: server_start_date
     } do
-      Helper
+      Network
       |> expect(:lookup_hostname, fn _ip -> {:error, "anyerror"} end)
 
-      Utils
-      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
+      Network
+      |> expect(:query_identd, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -207,11 +206,11 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Application.put_env(:elixircd, :server, original_config |> Keyword.put(:password, "password"))
       on_exit(fn -> Application.put_env(:elixircd, :server, original_config) end)
 
-      Helper
+      Network
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
-      Utils
-      |> expect(:query_identd_userid, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
+      Network
+      |> expect(:query_identd, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)

@@ -7,20 +7,20 @@ defmodule ElixIRCd.Command.Part do
 
   require Logger
 
-  import ElixIRCd.Helper, only: [get_user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repository.ChannelInvites
   alias ElixIRCd.Repository.Channels
   alias ElixIRCd.Repository.UserChannels
-  alias ElixIRCd.Server.Messaging
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "PART"}) do
     Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Command.Part do
       params: [user.nick, "PART"],
       trailing: "Not enough parameters"
     })
-    |> Messaging.broadcast(user)
+    |> Dispatcher.broadcast(user)
   end
 
   @impl true
@@ -57,12 +57,12 @@ defmodule ElixIRCd.Command.Part do
       end
 
       Message.build(%{
-        prefix: get_user_mask(user),
+        prefix: user_mask(user),
         command: "PART",
         params: [channel.name],
         trailing: part_message
       })
-      |> Messaging.broadcast(all_user_channels)
+      |> Dispatcher.broadcast(all_user_channels)
     else
       {:error, :user_channel_not_found} ->
         Message.build(%{
@@ -71,7 +71,7 @@ defmodule ElixIRCd.Command.Part do
           params: [user.nick, channel_name],
           trailing: "You're not on that channel"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
 
       {:error, :channel_not_found} ->
         Message.build(%{
@@ -80,7 +80,7 @@ defmodule ElixIRCd.Command.Part do
           params: [user.nick, channel_name],
           trailing: "No such channel"
         })
-        |> Messaging.broadcast(user)
+        |> Dispatcher.broadcast(user)
     end
   end
 end
