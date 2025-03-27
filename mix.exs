@@ -87,8 +87,8 @@ defmodule ElixIRCd.MixProject do
   end
 
   defp assemble_config(release) do
-    source_path = Path.join([__DIR__, "data", "config", "elixircd.exs"])
-    destination_path = Path.join([release.path, "data", "config", "elixircd.exs"])
+    source_path = Path.join([__DIR__, "config", "elixircd.exs"])
+    destination_path = Path.join([release.path, "config", "elixircd.exs"])
     File.mkdir_p!(Path.dirname(destination_path))
     File.copy!(source_path, destination_path)
     release

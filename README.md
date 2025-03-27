@@ -66,16 +66,16 @@ docker exec -it <container_name> ./bin/elixircd stop
 
 #### Configuration
 
-You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/data/config/`.
+You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/config/`.
 
-1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/data/config/elixircd.exs) and customize it as desired.
+1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) and customize it as desired.
 
 2. Start the ElixIRCd server with your configuration file by mounting it into the Docker container:
 
    ```bash
    docker run \
      -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
-     -v ./elixircd.exs:/app/data/config/elixircd.exs \
+     -v ./elixircd.exs:/app/config/elixircd.exs \
      faelgabriel/elixircd
    ```
 
@@ -112,7 +112,7 @@ For production environments, you should configure SSL listeners with a valid cer
    ```bash
    docker run \
      -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
-     -v ./elixircd.exs:/app/data/config/elixircd.exs \
+     -v ./elixircd.exs:/app/config/elixircd.exs \
      -v ./cert/:/app/data/cert/ \
      faelgabriel/elixircd
    ```
@@ -151,7 +151,7 @@ ElixIRCd uses [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland
 
 #### MOTD (Message of the Day)
 
-You can set the Message of the Day by creating a `motd.txt` file mounting it into the Docker container at `/app/data/config/`.
+You can set the Message of the Day by creating a `motd.txt` file mounting it into the Docker container at `/app/config/`.
 
 1. Create a `motd.txt` file with your desired message of the day.
 
@@ -161,7 +161,7 @@ You can set the Message of the Day by creating a `motd.txt` file mounting it int
    docker run \
      -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
      # ... other volume mounts
-     -v ./motd.txt:/app/data/config/motd.txt \
+     -v ./motd.txt:/app/config/motd.txt \
      faelgabriel/elixircd
    ```
 
