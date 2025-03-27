@@ -15,7 +15,7 @@ defmodule ElixIRCd.Utils.System do
   """
   @spec load_configurations :: :ok
   def load_configurations do
-    Path.join(["data", "config", "elixircd.exs"])
+    Path.join(["config", "elixircd.exs"])
     |> Config.Reader.read!()
     |> Enum.each(fn {app, custom_app_config} ->
       current_app_config = Application.get_all_env(app)

@@ -10,7 +10,7 @@ config :elixircd,
     # Optional server password; set to `nil` if not required
     password: nil,
     # Message of the Day
-    motd: File.read("data/config/motd.txt")
+    motd: File.read("config/motd.txt")
   ],
   # Network Listeners Configuration
   listeners: [
