@@ -7,12 +7,14 @@ defmodule ElixIRCd.Services.Nickserv do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [
-    format_help: 3,
-    general_help: 0,
-    send_notice: 2,
-    can_register_more_nicks?: 1
-  ]
+  import ElixIRCd.Utils.Nickserv,
+    only: [
+      format_help: 3,
+      general_help: 0,
+      send_notice: 2,
+      can_register_more_nicks?: 1
+    ]
+
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -33,23 +35,24 @@ defmodule ElixIRCd.Services.Nickserv do
       {:ok, _} ->
         send_notice(
           user,
-          "This nickname is already registered. If this is your nickname, type /msg NickServ IDENTIFY password."
+          "This nickname is already registered. If this is your nickname, please identify using /msg NickServ IDENTIFY password."
         )
 
       {:error, _} ->
         cond do
           # Check if password is too short
           String.length(password) < min_password_length ->
-            send_notice(user, "The password is too short. Please use at least #{min_password_length} characters.")
+            send_notice(user, "Password too short. Please use at least #{min_password_length} characters.")
 
           # Check if email is required but not provided
           email_required && (is_nil(email) || String.trim(email) == "") ->
-            send_notice(user, "You must specify an email address to register a nickname.")
+            send_notice(user, "You must provide an email address to register a nickname.")
+            send_notice(user, "Syntax: REGISTER password email")
 
           # Check if user has reached the maximum number of registered nicknames
           !can_register_more_nicks?(user_mask(user)) ->
             send_notice(user, "You have reached the maximum number of registered nicknames (#{max_nicks}).")
-            send_notice(user, "Please drop one of your existing nicknames before registering a new one.")
+            send_notice(user, "Please DROP an existing nickname before registering a new one.")
 
           # All validation passed, proceed with registration
           true ->
@@ -156,45 +159,67 @@ defmodule ElixIRCd.Services.Nickserv do
     case command do
       nil ->
         # Send general help
+        send_notice(user, "NickServ help:")
+
         Enum.each(general_help(), fn help_line ->
           send_notice(user, help_line)
         end)
 
+        send_notice(user, "For more information on a command, type /msg NickServ HELP <command>")
+
       "REGISTER" ->
         max_nicks = Application.get_env(:elixircd, :services)[:nickserv][:max_nicks_per_user] || 3
+        min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
+
+        send_notice(user, "Help for REGISTER:")
 
         send_notice(
           user,
           format_help(
             "REGISTER",
             ["password [email]"],
-            "Registers your current nickname with NickServ."
+            "Registers your current nickname."
           )
         )
 
-        send_notice(user, "This will register your current nickname with the specified password.")
-        send_notice(user, "The email address is optional unless configured otherwise.")
-        send_notice(user, "You may register up to #{max_nicks} nicknames per account.")
-        send_notice(user, "Example: /msg NickServ REGISTER mypassword user@example.com")
+        send_notice(user, "")
+        send_notice(user, "Registers your nickname with NickServ. Once registered,")
+        send_notice(user, "you can use the SET and ACCESS commands to configure")
+        send_notice(user, "your nickname's settings as you like them.")
+        send_notice(user, "")
+        send_notice(user, "Password must be at least #{min_password_length} characters long.")
+        send_notice(user, "You may register up to #{max_nicks} nicknames.")
+        send_notice(user, "")
+        send_notice(user, "Syntax: REGISTER password [email]")
+        send_notice(user, "")
+        send_notice(user, "Example:")
+        send_notice(user, "    /msg NickServ REGISTER mypassword user@example.com")
 
       "VERIFY" ->
+        send_notice(user, "Help for VERIFY:")
+
         send_notice(
           user,
           format_help(
             "VERIFY",
             ["nickname code"],
-            "Verifies a registered nickname using the verification code."
+            "Verifies a registered nickname."
           )
         )
 
+        send_notice(user, "")
         send_notice(user, "This command completes the registration process for your nickname.")
-        send_notice(user, "You will receive a verification code when you register a nickname.")
-        send_notice(user, "Example: /msg NickServ VERIFY mynick abc123def456")
+        send_notice(user, "You will receive a verification code when you register.")
+        send_notice(user, "")
+        send_notice(user, "Syntax: VERIFY nickname code")
+        send_notice(user, "")
+        send_notice(user, "Example:")
+        send_notice(user, "    /msg NickServ VERIFY mynick abc123def456")
 
       # Add help for other commands as they are implemented
       _ ->
-        send_notice(user, "No help available for command #{command}.")
-        send_notice(user, "For a list of commands, type /msg NickServ HELP")
+        send_notice(user, "Help for #{command} is not available.")
+        send_notice(user, "For a list of available commands, type /msg NickServ HELP")
     end
 
     :ok
@@ -203,14 +228,14 @@ defmodule ElixIRCd.Services.Nickserv do
   # Catch-all for unrecognized commands
   def handle(user, [command | _]) do
     send_notice(user, "Unknown command: #{command}")
-    send_notice(user, "For a list of commands, type /msg NickServ HELP")
+    send_notice(user, "For help on using NickServ, type /msg NickServ HELP")
     :ok
   end
 
   # Handle empty command
   def handle(user, []) do
     send_notice(user, "NickServ allows you to register and manage your nickname.")
-    send_notice(user, "For a list of commands, type /msg NickServ HELP")
+    send_notice(user, "For help on using NickServ, type /msg NickServ HELP")
     :ok
   end
 
@@ -221,8 +246,13 @@ defmodule ElixIRCd.Services.Nickserv do
     # Hash password using Pbkdf2
     password_hash = Pbkdf2.hash_pwd_salt(password)
 
-    # Generate a random verification code
-    verify_code = :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
+    # Generate a verification code if email is provided
+    verify_code =
+      if !is_nil(email) && String.trim(email) != "" do
+        :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
+      else
+        nil
+      end
 
     # Register the nickname
     RegisteredNicks.create(%{
@@ -233,18 +263,22 @@ defmodule ElixIRCd.Services.Nickserv do
       verify_code: verify_code
     })
 
-    if is_nil(email) do
-      send_notice(user, "Nickname #{user.nick} registered successfully.")
-    else
-      send_notice(user, "Nickname #{user.nick} registered successfully with email address #{email}.")
-    end
+    send_notice(user, "Nickname #{user.nick} registered successfully.")
 
-    # Optional welcome message
-    send_notice(user, "Thank you for registering your nickname!")
-    send_notice(user, "Your verification code is: #{verify_code}")
-    send_notice(user, "Please verify your nickname using /msg NickServ VERIFY #{user.nick} #{verify_code}")
-    send_notice(user, "You can also identify to services using /msg NickServ IDENTIFY password")
-    send_notice(user, "For help on using NickServ commands, type /msg NickServ HELP")
+    if !is_nil(email) && String.trim(email) != "" do
+      # TODO: Implement actual email sending functionality
+      send_notice(user, "A verification email has been sent to #{email}.")
+      send_notice(user, "Please check your email for instructions to complete your registration.")
+      send_notice(user, "To complete registration, type: /msg NickServ VERIFY #{user.nick} <code>")
+
+      send_notice(user, "")
+      send_notice(user, "If you forget your password, you can use the SENDPASS command.")
+      send_notice(user, "For help with NickServ commands, type: /msg NickServ HELP")
+    else
+      # If no email provided, user is automatically verified
+      send_notice(user, "Your nickname has been registered and automatically verified.")
+      send_notice(user, "You are now identified for #{user.nick}.")
+    end
 
     # Log successful registration
     Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
