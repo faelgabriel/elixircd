@@ -125,7 +125,7 @@ defmodule ElixIRCd.Commands.Privmsg do
   # 2. Alternative client format: message in params
   @spec extract_message_text(Message.t()) :: String.t()
   defp extract_message_text(%{trailing: trailing}) when trailing != nil, do: trailing
-  defp extract_message_text(%{params: [_, rest_params]}) when rest_params != [], do: Enum.join(rest_params, " ")
+  defp extract_message_text(%{params: [_ | rest_params]}) when rest_params != [], do: Enum.join(rest_params, " ")
 
   # Extracts the command list from a PRIVMSG message
   # This function handles two different formats:
@@ -133,7 +133,7 @@ defmodule ElixIRCd.Commands.Privmsg do
   # 2. Alternative client format: uses the params list directly
   @spec extract_command_list(Message.t()) :: [String.t()]
   defp extract_command_list(%{trailing: trailing}) when trailing != nil, do: String.split(trailing, " ")
-  defp extract_command_list(%{params: [_, rest_params]}) when rest_params != [], do: rest_params
+  defp extract_command_list(%{params: [_ | rest_params]}) when rest_params != [], do: rest_params
 
   @spec check_channel_modes(Channel.t(), User.t()) :: :ok | {:error, :user_can_not_send}
   defp check_channel_modes(channel, user) do

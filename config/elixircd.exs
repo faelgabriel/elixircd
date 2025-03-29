@@ -48,7 +48,7 @@ config :elixircd,
       enabled: true,
       # Minimum password length for registering nicks
       min_password_length: 6,
-      # Days until an unused registered nickname expires
+      # Days until an unused registered nickname expires due to inactivity
       nick_expire_days: 90,
       # Whether email is required for registration
       email_required: false,
