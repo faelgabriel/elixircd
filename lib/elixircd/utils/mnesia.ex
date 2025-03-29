@@ -10,6 +10,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Metric
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -21,6 +22,10 @@ defmodule ElixIRCd.Utils.Mnesia do
     Metric,
     User,
     UserChannel
+  ]
+
+  @disk_tables [
+    RegisteredNick
   ]
 
   @doc """
@@ -82,13 +87,17 @@ defmodule ElixIRCd.Utils.Mnesia do
     @memory_tables
     |> Enum.each(&handle_table_create/1)
 
+    @disk_tables
+    |> Enum.each(&handle_disk_table_create/1)
+
     if opts[:verbose], do: Logger.info("Mnesia table create: :ok")
     :ok
   end
 
   @spec wait_for_tables(keyword()) :: :ok
   defp wait_for_tables(opts) do
-    result = Memento.wait(@memory_tables, 30_000)
+    all_tables = @memory_tables ++ @disk_tables
+    result = Memento.wait(all_tables, 30_000)
 
     if opts[:verbose], do: Logger.info("Mnesia wait tables: #{inspect(result)}")
 
@@ -123,6 +132,16 @@ defmodule ElixIRCd.Utils.Mnesia do
       :ok -> :ok
       {:error, {:already_exists, _}} -> :ok
       {:error, error} -> raise "Failed to create Mnesia table:\n#{inspect(error, pretty: true)}"
+    end
+  end
+
+  @spec handle_disk_table_create(atom) :: :ok
+  defp handle_disk_table_create(table) do
+    Memento.Table.create(table, disc_copies: [node()])
+    |> case do
+      :ok -> :ok
+      {:error, {:already_exists, _}} -> :ok
+      {:error, error} -> raise "Failed to create Mnesia disk table:\n#{inspect(error, pretty: true)}"
     end
   end
 end

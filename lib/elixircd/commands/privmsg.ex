@@ -5,13 +5,15 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
+  import ElixIRCd.Utils.Protocol,
+    only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1, service_name?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Service
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -23,13 +25,17 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(user)
   end
 
-  def handle(user, %{command: "PRIVMSG", params: [target | potential_messages], trailing: trailing})
-      when potential_messages != [] or trailing != nil do
-    message_text = if trailing != nil, do: trailing, else: Enum.join(potential_messages, " ")
-
-    if channel_name?(target),
-      do: handle_channel_message(user, target, message_text),
-      else: handle_user_message(user, target, message_text)
+  def handle(user, %{command: "PRIVMSG", params: [target | _], trailing: trailing} = message)
+      # Handle PRIVMSG when either:
+      # 1. A trailing message is provided (standard IRC format)
+      # 2. The message is included in params (alternative client format)
+      # The extract_message_text/1 function normalizes these different formats
+      when trailing != nil or length(message.params) > 1 do
+    cond do
+      channel_name?(target) -> handle_channel_message(user, target, message)
+      service_name?(target) -> handle_service_message(user, target, message)
+      true -> handle_user_message(user, target, message)
+    end
   end
 
   def handle(user, %{command: "PRIVMSG"}) do
@@ -42,13 +48,15 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(user)
   end
 
-  @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok
-  defp handle_channel_message(user, channel_name, message_text) do
+  @spec handle_channel_message(User.t(), String.t(), Message.t()) :: :ok
+  defp handle_channel_message(user, channel_name, message) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          :ok <- check_channel_modes(channel, user) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
+
+      message_text = extract_message_text(message)
 
       Message.build(%{prefix: user_mask(user), command: "PRIVMSG", params: [channel.name], trailing: message_text})
       |> Dispatcher.broadcast(channel_users_without_user)
@@ -73,15 +81,19 @@ defmodule ElixIRCd.Commands.Privmsg do
     end
   end
 
-  defp handle_user_message(user, target_nick, message_text) do
+  @spec handle_service_message(User.t(), String.t(), Message.t()) :: :ok
+  defp handle_service_message(user, target_service, message) do
+    command_list = extract_command_list(message)
+    Service.dispatch(user, target_service, command_list)
+  end
+
+  @spec handle_user_message(User.t(), String.t(), Message.t()) :: :ok
+  defp handle_user_message(user, target_nick, message) do
     case Users.get_by_nick(target_nick) do
       {:ok, target_user} ->
-        Message.build(%{
-          prefix: user_mask(user),
-          command: "PRIVMSG",
-          params: [target_nick],
-          trailing: message_text
-        })
+        message_text = extract_message_text(message)
+
+        Message.build(%{prefix: user_mask(user), command: "PRIVMSG", params: [target_nick], trailing: message_text})
         |> Dispatcher.broadcast(target_user)
 
         if target_user.away_message do
@@ -106,6 +118,22 @@ defmodule ElixIRCd.Commands.Privmsg do
         |> Dispatcher.broadcast(user)
     end
   end
+
+  # Extracts the message text from a PRIVMSG message
+  # This function handles two different formats:
+  # 1. Standard IRC format: trailing message
+  # 2. Alternative client format: message in params
+  @spec extract_message_text(Message.t()) :: String.t()
+  defp extract_message_text(%{trailing: trailing}) when trailing != nil, do: trailing
+  defp extract_message_text(%{params: [_, rest_params]}) when rest_params != [], do: Enum.join(rest_params, " ")
+
+  # Extracts the command list from a PRIVMSG message
+  # This function handles two different formats:
+  # 1. Standard IRC format: splits the trailing message into a list of words
+  # 2. Alternative client format: uses the params list directly
+  @spec extract_command_list(Message.t()) :: [String.t()]
+  defp extract_command_list(%{trailing: trailing}) when trailing != nil, do: String.split(trailing, " ")
+  defp extract_command_list(%{params: [_, rest_params]}) when rest_params != [], do: rest_params
 
   @spec check_channel_modes(Channel.t(), User.t()) :: :ok | {:error, :user_can_not_send}
   defp check_channel_modes(channel, user) do
