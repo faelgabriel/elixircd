@@ -23,6 +23,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "IDENTIFY" -> send_identify_help(user)
       "GHOST" -> send_ghost_help(user)
       "RECOVER" -> send_recover_help(user)
+      "RELEASE" -> send_release_help(user)
       "FAQ" -> send_faq_help(user)
       _ -> send_unknown_command_help(user, command)
     end
@@ -198,6 +199,32 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "    \x02/msg NickServ RECOVER MyNick MyPassword\x02")
   end
 
+  @spec send_release_help(User.t()) :: :ok
+  defp send_release_help(user) do
+    send_notice(user, "Help for \x02RELEASE\x02:")
+
+    send_notice(
+      user,
+      format_help(
+        "RELEASE",
+        ["<nickname> <password>"],
+        "Releases a held nickname."
+      )
+    )
+
+    send_notice(user, "")
+    send_notice(user, "This command releases a nickname that was reserved by the")
+    send_notice(user, "RECOVER command, making it available for anyone to use.")
+    send_notice(user, "")
+    send_notice(user, "You must be identified to the nickname or provide its")
+    send_notice(user, "correct password to release it.")
+    send_notice(user, "")
+    send_notice(user, "Syntax: \x02RELEASE <nickname> <password>\x02")
+    send_notice(user, "")
+    send_notice(user, "Example:")
+    send_notice(user, "    \x02/msg NickServ RELEASE MyNick MyPassword\x02")
+  end
+
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
     send_notice(user, "Help for \x02FAQ\x02:")
@@ -224,10 +251,16 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
     # Add information about unverified nickname expiration if enabled
     unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
+
     if unverified_expire_days > 0 do
       send_notice(user, "")
       send_notice(user, "Q: How long do I have to verify my nickname after registration?")
-      send_notice(user, "A: You must verify your nickname within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}")
+
+      send_notice(
+        user,
+        "A: You must verify your nickname within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}"
+      )
+
       send_notice(user, "   after registration or it will expire and you'll need to register again.")
     end
 
@@ -268,6 +301,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02VERIFY\x02       - Verify a registered nickname",
       "\x02GHOST\x02        - Kill a ghost session using your nickname",
       "\x02RECOVER\x02      - Recover your nickname from another user",
+      "\x02RELEASE\x02      - Release a held nickname",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]

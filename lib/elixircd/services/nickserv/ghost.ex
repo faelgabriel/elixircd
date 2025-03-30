@@ -22,6 +22,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
     case Users.get_by_nick(target_nick) do
       {:ok, target_user} ->
         disconnect_ghost(user, target_user, password)
+
       {:error, :user_not_found} ->
         send_notice(user, "Nick \x02#{target_nick}\x02 is not online.")
     end
