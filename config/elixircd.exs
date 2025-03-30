@@ -76,7 +76,7 @@ config :elixircd,
       allow_password_recovery: true,
       # TODO: Authentication session timeout in minutes (0 = session never expires)
       auth_session_timeout: 0,
-      # TODO: Duration (in seconds) a nickname remains reserved after RECOVER command
+      # Duration (in seconds) a nickname remains reserved after RECOVER command
       recover_reservation_duration: 60,
       # TODO: Maximum failed password attempts before temporary lockout
       max_failed_logins: 5,

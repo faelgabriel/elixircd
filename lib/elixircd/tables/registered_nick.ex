@@ -13,6 +13,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       :verify_code,
       :verified_at,
       :last_seen_at,
+      :reserved_until,
       :created_at
     ],
     index: [],
@@ -26,6 +27,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           verify_code: String.t() | nil,
           verified_at: DateTime.t() | nil,
           last_seen_at: DateTime.t() | nil,
+          reserved_until: DateTime.t() | nil,
           created_at: DateTime.t()
         }
 
@@ -37,6 +39,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           optional(:verify_code) => String.t() | nil,
           optional(:verified_at) => DateTime.t() | nil,
           optional(:last_seen_at) => DateTime.t() | nil,
+          optional(:reserved_until) => DateTime.t() | nil,
           optional(:created_at) => DateTime.t()
         }
 
