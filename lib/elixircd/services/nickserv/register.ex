@@ -7,6 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
 
   require Logger
 
+  import ElixIRCd.Utils.Mailer, only: [send_verification_email: 3]
   import ElixIRCd.Utils.Nickserv, only: [send_notice: 2, email_required_format: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
@@ -77,8 +78,8 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   @spec validate_email(String.t() | nil, boolean()) :: :ok | {:error, :missing_email} | {:error, :invalid_email}
   defp validate_email(email, email_required?) do
     cond do
-      email_required? && (is_nil(email) || String.trim(email) == "") -> {:error, :missing_email}
-      !is_nil(email) && String.trim(email) != "" && !valid_email?(email) -> {:error, :invalid_email}
+      email_required? && is_nil(email) -> {:error, :missing_email}
+      !is_nil(email) && !valid_email?(email) -> {:error, :invalid_email}
       true -> :ok
     end
   end
@@ -96,10 +97,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   defp register_nickname(user, password, email) do
     password_hash = Pbkdf2.hash_pwd_salt(password)
 
-    verify_code =
-      if !is_nil(email) && String.trim(email) != "",
-        do: :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower),
-        else: nil
+    verify_code = if !is_nil(email), do: :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower), else: nil
 
     RegisteredNicks.create(%{
       nickname: user.nick,
@@ -109,24 +107,23 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       verify_code: verify_code
     })
 
-    send_notice(user, "Nickname #{user.nick} has been registered to #{user_mask(user)}.")
+    if !is_nil(email) do
+      # Send verification email
+      send_verification_email(email, user.nick, verify_code)
 
-    if !is_nil(email) && String.trim(email) != "" do
-      # Future: Implement actual email sending functionality
-      send_notice(user, "A verification email has been sent to #{email}.")
-      send_notice(user, "To complete registration, type: /msg NickServ VERIFY #{user.nick} <code>")
-      send_notice(user, "Please check your email for instructions.")
-
-      Logger.info("Email verification required for nickname: #{user.nick}")
+      send_notice(user, "An email containing nickname activation instructions has been sent to #{email}.")
+      send_notice(user, "Please check the address if you don't receive it.")
+      send_notice(user, "If it is incorrect, DROP then REGISTER again.")
+      send_notice(user, "If you do not complete registration within one day, your nickname will expire.")
+      send_notice(user, "#{user.nick} is now registered to #{email}.")
+      # Future: Identify user if auto_identify is true
     else
-      # If no email provided and not required, user is automatically verified
-      send_notice(user, "Your nickname has been registered and automatically verified.")
+      send_notice(user, "Your nickname has been successfully registered.")
       send_notice(user, "You are now identified for #{user.nick}.")
+      # Future: Identify user if auto_identify is true
     end
 
-    send_notice(user, "Please note that, by registering your nick, you agree to the")
-    send_notice(user, "network policies. For details, type /msg NickServ HELP POLICY")
-    send_notice(user, "For frequently-asked questions about NickServ, see /msg NickServ HELP FAQ")
+    send_notice(user, "To identify in the future, type: /msg NickServ IDENTIFY #{user.nick} your_password")
 
     Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
   end

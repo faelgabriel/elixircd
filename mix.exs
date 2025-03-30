@@ -52,6 +52,8 @@ defmodule ElixIRCd.MixProject do
 
   defp deps do
     [
+      {:bamboo, "~> 2.4"},
+      {:bamboo_mua, "~> 0.2"},
       {:bandit, "~> 1.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},

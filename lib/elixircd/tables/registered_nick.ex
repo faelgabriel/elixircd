@@ -23,6 +23,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           email: String.t() | nil,
           registered_by: String.t(),
           verify_code: String.t() | nil,
+          verified_at: DateTime.t() | nil,
           last_seen_at: DateTime.t() | nil,
           created_at: DateTime.t()
         }
@@ -33,6 +34,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           optional(:email) => String.t() | nil,
           optional(:registered_by) => String.t(),
           optional(:verify_code) => String.t() | nil,
+          optional(:verified_at) => DateTime.t() | nil,
           optional(:last_seen_at) => DateTime.t() | nil,
           optional(:created_at) => DateTime.t()
         }

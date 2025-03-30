@@ -21,7 +21,6 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "REGISTER" -> send_register_help(user)
       "VERIFY" -> send_verify_help(user)
       "FAQ" -> send_faq_help(user)
-      "POLICY" -> send_policy_help(user)
       _ -> send_unknown_command_help(user, command)
     end
 
@@ -134,31 +133,6 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     )
 
     send_notice(user, "   Use the GROUP command to add nicknames to your account.")
-  end
-
-  @spec send_policy_help(User.t()) :: :ok
-  defp send_policy_help(user) do
-    send_notice(user, "Help for POLICY:")
-    send_notice(user, "")
-    send_notice(user, "Network Policy for Nickname Registration:")
-    send_notice(user, "")
-    send_notice(user, "By registering a nickname on this network, you agree to abide")
-    send_notice(user, "by the following terms:")
-    send_notice(user, "")
-    send_notice(user, "1. Nicknames are allocated on a first-come, first-served basis.")
-    send_notice(user, "2. Network administrators reserve the right to remove or reclaim")
-    send_notice(user, "   nicknames that violate network policies or are inactive.")
-    send_notice(user, "3. Harassment, hate speech, or illegal activities conducted under")
-    send_notice(user, "   registered nicknames may result in the nickname being removed.")
-    send_notice(user, "4. If you provide an email address, it will only be used for account")
-    send_notice(user, "   verification and password recovery purposes.")
-
-    send_notice(
-      user,
-      "5. Nicknames inactive for #{Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90} days may be"
-    )
-
-    send_notice(user, "   automatically expired and become available for registration again.")
   end
 
   @spec send_unknown_command_help(User.t(), String.t()) :: :ok

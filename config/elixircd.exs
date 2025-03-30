@@ -150,3 +150,9 @@ config :elixircd,
     # Example operator with nick "admin" and hashed "admin" password:
     # {"admin", "$pbkdf2-sha512$160000$cwDGS9z9xoJrV.wkfFbbqA$GLkyuwlc2hDD2O8BZeaeLbOLESMYSn0pvcCiVMa0jr2TB25Lswg74ReGKAdDQl3wJ.OLd0ggzwp9BJAgWsx9uw"}
   ]
+
+# Mailer Configuration
+config :elixircd, ElixIRCd.Utils.Mailer,
+  # See shipped adapters at https://github.com/beam-community/bamboo#available-adapters
+  # For SMTP, use Bamboo.MuaAdapter which is included with ElixIRCd: https://hexdocs.pm/bamboo_mua/Bamboo.Mua.html
+  adapter: Bamboo.LocalAdapter
