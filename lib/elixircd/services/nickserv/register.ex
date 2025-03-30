@@ -132,7 +132,8 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       password_hash: password_hash,
       email: email,
       registered_by: user_mask(user),
-      verify_code: verify_code
+      verify_code: verify_code,
+      last_seen_at: DateTime.utc_now()
     })
 
     if !is_nil(email) do
@@ -145,7 +146,12 @@ defmodule ElixIRCd.Services.Nickserv.Register do
         "Please check the address if you don't receive it. If it is incorrect, \x02DROP\x02 then \x02REGISTER\x02 again."
       )
 
-      send_notice(user, "If you do not complete registration within one day, your nickname will expire.")
+      unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
+
+      if unverified_expire_days > 0 do
+        send_notice(user, "If you do not complete registration within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}, your nickname will expire.")
+      end
+
       send_notice(user, "\x02#{user.nick}\x02 is now registered to \x02#{email}\x02.")
       # Future: Identify user if auto_identify is true
     else
@@ -158,6 +164,10 @@ defmodule ElixIRCd.Services.Nickserv.Register do
 
     Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
   end
+
+  @spec pluralize_days(integer()) :: String.t()
+  defp pluralize_days(1), do: "day"
+  defp pluralize_days(_), do: "days"
 
   @spec valid_email?(String.t()) :: boolean()
   defp valid_email?(email) do

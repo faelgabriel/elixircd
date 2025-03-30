@@ -25,7 +25,8 @@ defmodule ElixIRCd do
     Supervisor.start_link(
       [
         ElixIRCd.Server.Supervisor,
-        ElixIRCd.Schedulers.RegisteredNickExpiration
+        ElixIRCd.Schedulers.RegisteredNickExpiration,
+        ElixIRCd.Schedulers.UnverifiedNickExpiration
       ],
       strategy: :one_for_one,
       name: __MODULE__

@@ -53,7 +53,9 @@ config :elixircd,
       # Whether email is required for registration
       email_required: false,
       # Time in seconds that a user must be connected before registering (0 = disabled)
-      waitreg_time: 0,
+      waitreg_time: 120,
+      # Days until an unverified nickname registration expires (0 = never expires)
+      unverified_expire_days: 1,
       # TODO: Can be set via NickServ SET command
       enforce_nick: false,
       # TODO: Can be set via NickServ SET command

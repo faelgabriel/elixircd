@@ -125,6 +125,15 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "   #{Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90} days of inactivity."
     )
 
+    # Add information about unverified nickname expiration if enabled
+    unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
+    if unverified_expire_days > 0 do
+      send_notice(user, "")
+      send_notice(user, "Q: How long do I have to verify my nickname after registration?")
+      send_notice(user, "A: You must verify your nickname within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}")
+      send_notice(user, "   after registration or it will expire and you'll need to register again.")
+    end
+
     send_notice(user, "")
     send_notice(user, "Q: What does it mean to \x02identify\x02?")
     send_notice(user, "A: Identifying means proving to NickServ that you are the")
@@ -179,4 +188,8 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     syntax_str = Enum.join(syntax, " or ")
     "\x02#{command} #{syntax_str}\x02 - #{description}"
   end
+
+  @spec pluralize_days(integer()) :: String.t()
+  defp pluralize_days(1), do: "day"
+  defp pluralize_days(_), do: "days"
 end

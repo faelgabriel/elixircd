@@ -59,7 +59,8 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
   defp complete_verification(user, reg_nick) do
     RegisteredNicks.update(reg_nick, %{
       verify_code: nil,
-      verified_at: DateTime.utc_now()
+      verified_at: DateTime.utc_now(),
+      last_seen_at: DateTime.utc_now()
     })
 
     send_notice(user, "Nickname \x02#{reg_nick.nickname}\x02 has been successfully verified.")
