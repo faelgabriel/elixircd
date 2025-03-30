@@ -25,8 +25,11 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
 
     case RegisteredNicks.get_by_nickname(user.nick) do
-      {:ok, _} -> send_notice(user, "This nick is already registered. Please choose a different nick.")
-      {:error, _} -> validate_registration(user, password, email, min_password_length, email_required?, max_nicks, waitreg_time)
+      {:ok, _} ->
+        send_notice(user, "This nick is already registered. Please choose a different nick.")
+
+      {:error, _} ->
+        validate_registration(user, password, email, min_password_length, email_required?, max_nicks, waitreg_time)
     end
 
     :ok
@@ -94,6 +97,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       :ok
     else
       connected_for = DateTime.diff(DateTime.utc_now(), user.created_at)
+
       if connected_for >= waitreg_time do
         :ok
       else
@@ -132,7 +136,6 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     })
 
     if !is_nil(email) do
-      # Send verification email
       send_verification_email(email, user.nick, verify_code)
 
       send_notice(user, "An email containing nickname activation instructions has been sent to \x02#{email}\x02.")

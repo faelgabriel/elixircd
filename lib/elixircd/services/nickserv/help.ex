@@ -167,6 +167,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "",
       "The following commands are available:",
       "\x02REGISTER\x02     - Register a nickname",
+      "\x02VERIFY\x02       - Verify a registered nickname",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
