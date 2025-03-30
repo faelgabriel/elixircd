@@ -3,6 +3,8 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   Module for the RegisteredNick table.
   """
 
+  alias ElixIRCd.Tables.RegisteredNick.Settings
+
   @enforce_keys [:nickname, :password_hash, :registered_by, :created_at]
   use Memento.Table,
     attributes: [
@@ -14,6 +16,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       :verified_at,
       :last_seen_at,
       :reserved_until,
+      :settings,
       :created_at
     ],
     index: [],
@@ -28,6 +31,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           verified_at: DateTime.t() | nil,
           last_seen_at: DateTime.t() | nil,
           reserved_until: DateTime.t() | nil,
+          settings: Settings.t(),
           created_at: DateTime.t()
         }
 
@@ -40,6 +44,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           optional(:verified_at) => DateTime.t() | nil,
           optional(:last_seen_at) => DateTime.t() | nil,
           optional(:reserved_until) => DateTime.t() | nil,
+          optional(:settings) => Settings.t(),
           optional(:created_at) => DateTime.t()
         }
 
@@ -51,6 +56,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
     new_attrs =
       attrs
       |> Map.put_new(:created_at, DateTime.utc_now())
+      |> Map.put_new(:settings, Settings.new())
 
     struct!(__MODULE__, new_attrs)
   end

@@ -45,89 +45,89 @@ config :elixircd,
   services: [
     # NickServ Configuration
     nickserv: [
+      # Enable/Disable NickServ service
       enabled: true,
+
       # Minimum password length for registering nicks
       min_password_length: 6,
+
       # Days until an unused registered nickname expires due to inactivity
       nick_expire_days: 90,
+
       # Whether email is required for registration
       email_required: false,
+
       # Time in seconds that a user must be connected before registering (0 = disabled)
-      waitreg_time: 120,
+      wait_register_time: 120,
+
       # Days until an unverified nickname registration expires (0 = never expires)
       unverified_expire_days: 1,
-      # TODO: Can be set via NickServ SET command
-      enforce_nick: false,
-      # TODO: Can be set via NickServ SET command
-      auto_identify: true,
-      # TODO: Can be set via NickServ SET command
-      private_info: false,
-      # TODO:Maximum number of nicks a user can register
-      max_nicks_per_user: 3,
-      # TODO: Whether to allow nick grouping
-      allow_nick_grouping: true,
-      # TODO: Can be set via NickServ SET command
-      kill_protection: true,
-      # TODO: Grace period (in seconds) for identifying before nick enforcement
-      enforce_delay: 60,
-      # TODO: Whether users must be authenticated to change account settings
-      require_auth_for_changes: true,
-      # TODO: Allow password recovery via email (requires email to be set)
-      allow_password_recovery: true,
-      # TODO: Authentication session timeout in minutes (0 = session never expires)
-      auth_session_timeout: 0,
-      # Duration (in seconds) a nickname remains reserved after REGAIN command
-      regain_reservation_duration: 60,
-      # TODO: Maximum failed password attempts before temporary lockout
-      max_failed_logins: 5,
-      # TODO: Lockout period (in minutes) after exceeding failed attempts
-      failed_login_block_duration: 15,
-      # TODO: Allow nickname authentication via SSL/TLS certificates
-      allow_cert_auth: false,
-      # TODO: Maximum number of hosts in ACCESS list
-      max_access_hosts: 10
-    ],
-    # ChanServ Configuration
-    chanserv: [
-      enabled: true,
-      # TODO: Maximum channels a user can register
-      max_channels_per_user: 10,
-      # TODO: Whether channel founders automatically get operator status
-      auto_op_founder: true,
-      # TODO: Whether channels can be transferred between users
-      allow_channel_transfer: true,
-      # TODO: Can be set via ChanServ SET command
-      mlock_enabled: false,
-      # TODO: Can be set via ChanServ SET command
-      topic_lock: false,
-      # TODO: Can be set via ChanServ SET command
-      guard_channel: false,
-      # TODO: Can be set via ChanServ SET command
-      private_info: false,
-      # TODO: Can be set via ChanServ SET command
-      restricted_access: false,
-      # TODO: Days until an unused channel expires
-      channel_expire_days: 90,
-      # TODO: Whether to enforce channel registration limits
-      enforce_registration_limits: true,
-      # TODO: Default ban expiry time in days (0 = no expiry)
-      default_ban_expiry: 0,
-      # TODO: Maximum number of access entries per channel
-      max_access_entries: 50,
-      # TODO: Default modes for newly registered channels
-      default_channel_modes: "+nt",
-      # TODO: Allow auto-kick list (AKICK) functionality
-      allow_akick: true,
-      # TODO: Maximum entries in AKICK list per channel
-      max_akick_entries: 30,
-      # TODO: Minimum time (in days) between founder transfers
-      founder_transfer_cooldown: 30,
-      # TODO: Whether auto-voice can be set for specific users
-      allow_auto_voice: true,
-      # TODO: Enable fantasy commands (commands in channel prefixed with !)
-      fantasy_commands: false,
-      # TODO: Maximum number of entrances in the successor list
-      max_successors: 3
+
+      # # TODO: Maximum number of nicks a user can register/group
+      # max_nicks_per_user: 3,
+
+      # # TODO: Whether to allow nick grouping features (GROUP, UNGROUP, SET NEVERGROUP etc.)
+      # allow_nick_grouping: true,
+
+      # # TODO: Whether users must be authenticated (identified) to change account settings
+      # require_auth_for_changes: true,
+
+      # # TODO: Allow password recovery via email (requires email server config and email_required or user SET EMAIL)
+      # allow_password_recovery: true,
+
+      # # TODO: Authentication session timeout in minutes (0 = session never expires)
+      # auth_session_timeout: 0,
+
+      # # Duration (in seconds) a nickname remains reserved after REGAIN command
+      # regain_reservation_duration: 60,
+
+      # # TODO: Maximum failed password attempts before temporary lockout
+      # max_failed_logins: 5,
+
+      # # TODO: Lockout period (in minutes) after exceeding failed attempts
+      # failed_login_block_duration: 15,
+
+      # # TODO: Allow nickname authentication via SSL/TLS certificates (using CERT command)
+      # allow_cert_auth: false,
+
+      # # TODO: Maximum number of hosts allowed in a user's ACCESS list
+      # max_access_hosts: 10,
+
+      # Default User Settings (Users can change these via /msg NickServ SET)
+      settings: [
+        # # TODO: Default for: SET EMAILMEMOS {ON|OFF|ONLY}
+        # email_memos: :off,
+        # # TODO: Default for: SET ENFORCE {ON|OFF} (Master switch for KILL etc.)
+        # enforce: true,
+        # # TODO: Default for: SET ENFORCETIME <seconds> (Delay for KILL ON)
+        # enforce_time: 60,
+        # Default for: SET HIDE EMAIL {ON|OFF}
+        hide_email: false
+        # # TODO: Default for: SET HIDE STATUS {ON|OFF}
+        # hide_status: false,
+        # # TODO: Default for: SET HIDE USERMASK {ON|OFF}
+        # hide_usermask: false,
+        # # TODO: Default for: SET HIDE QUIT {ON|OFF}
+        # hide_quit: false,
+        # # TODO: Default for: SET KILL {ON|QUICK|IMMED|OFF}
+        # kill: :on,
+        # # TODO: Default for: SET LANGUAGE <language_code>
+        # language: "en",
+        # # TODO: Default for: SET MSG {ON|OFF} (true=PRIVMSG, false=NOTICE)
+        # msg: false,
+        # # TODO: Default for: SET NEVERGROUP {ON|OFF}
+        # never_group: false,
+        # # TODO: Default for: SET NEVEROP {ON|OFF}
+        # never_op: false,
+        # # TODO: Default for: SET NOGREET {ON|OFF}
+        # no_greet: false,
+        # # TODO: Default for: SET PRIVATE {ON|OFF}
+        # private: false,
+        # # TODO: Default for: SET QUIETCHG {ON|OFF}
+        # quiet_chg: false,
+        # # TODO: Default for: SET SECURE {ON|OFF}
+        # secure: false
+      ]
     ]
   ],
   # Ident Service Configuration

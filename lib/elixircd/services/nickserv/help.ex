@@ -46,7 +46,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_register_help(user) do
     min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
-    waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
+    wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
 
     send_notice(user, "Help for \x02REGISTER\x02:")
 
@@ -65,9 +65,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "and to be added to access lists. Furthermore, NickServ will warn")
     send_notice(user, "users using your nick without identifying and allow you to kill ghosts.")
 
-    if waitreg_time > 0 do
+    if wait_register_time > 0 do
       send_notice(user, "")
-      send_notice(user, "You must be connected for at least #{waitreg_time} seconds")
+      send_notice(user, "You must be connected for at least #{wait_register_time} seconds")
       send_notice(user, "before you can register your nickname.")
     end
 
@@ -330,13 +330,13 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "   owner of a registered nickname by providing the correct")
     send_notice(user, "   password with the \x02IDENTIFY\x02 command.")
 
-    waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
+    wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
 
-    if waitreg_time > 0 do
+    if wait_register_time > 0 do
       send_notice(user, "")
       send_notice(user, "Q: Why can't I register my nickname immediately after connecting?")
       send_notice(user, "A: This server requires you to be connected for at least")
-      send_notice(user, "   #{waitreg_time} seconds before you can register a nickname.")
+      send_notice(user, "   #{wait_register_time} seconds before you can register a nickname.")
       send_notice(user, "   This is to prevent abuse of the registration system.")
     end
   end

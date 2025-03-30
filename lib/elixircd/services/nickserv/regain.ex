@@ -102,6 +102,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
       # This will be processed by the normal NICK command handler
       send(user.pid, {:raw_command, "NICK #{registered_nick.nickname}"})
     end
+
     :ok
   end
 
