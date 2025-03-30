@@ -24,11 +24,8 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     max_nicks = Application.get_env(:elixircd, :services)[:nickserv][:max_nicks_per_user] || 3
 
     case RegisteredNicks.get_by_nickname(user.nick) do
-      {:ok, _} ->
-        send_notice(user, "This nick is already registered. Please choose a different nick.")
-
-      {:error, _} ->
-        validate_registration(user, password, email, min_password_length, email_required?, max_nicks)
+      {:ok, _} -> send_notice(user, "This nick is already registered. Please choose a different nick.")
+      {:error, _} -> validate_registration(user, password, email, min_password_length, email_required?, max_nicks)
     end
 
     :ok
@@ -37,8 +34,8 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   def handle(user, ["REGISTER" | _rest_params]) do
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
 
-    send_notice(user, "Insufficient parameters for REGISTER.")
-    send_notice(user, "Syntax: REGISTER <password> #{email_required_format(email_required?)}")
+    send_notice(user, "Insufficient parameters for \x02REGISTER\x02.")
+    send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
   end
 
   @spec validate_registration(User.t(), String.t(), String.t() | nil, integer(), boolean(), integer()) :: :ok
@@ -50,19 +47,19 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     else
       {:error, :short_password} ->
         send_notice(user, "Password is too short. Please use at least #{min_password_length} characters.")
-        send_notice(user, "Syntax: REGISTER <password> #{email_required_format(email_required?)}")
+        send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
 
       {:error, :missing_email} ->
         send_notice(user, "You must provide an email address to register a nickname.")
-        send_notice(user, "Syntax: REGISTER <password> #{email_required_format(email_required?)}")
+        send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
 
       {:error, :invalid_email} ->
         send_notice(user, "Invalid email address. Please provide a valid email address.")
-        send_notice(user, "Syntax: REGISTER <password> #{email_required_format(email_required?)}")
+        send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
 
       {:error, :max_nicks_reached} ->
         send_notice(user, "You have reached the maximum number of registered nicknames (#{max_nicks}).")
-        send_notice(user, "To drop a nickname, use /msg NickServ DROP <nickname>")
+        send_notice(user, "To drop a nickname, use \x02/msg NickServ DROP <nickname>\x02")
     end
   end
 
@@ -111,19 +108,23 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       # Send verification email
       send_verification_email(email, user.nick, verify_code)
 
-      send_notice(user, "An email containing nickname activation instructions has been sent to #{email}.")
-      send_notice(user, "Please check the address if you don't receive it.")
-      send_notice(user, "If it is incorrect, DROP then REGISTER again.")
+      send_notice(user, "An email containing nickname activation instructions has been sent to \x02#{email}\x02.")
+
+      send_notice(
+        user,
+        "Please check the address if you don't receive it. If it is incorrect, \x02DROP\x02 then \x02REGISTER\x02 again."
+      )
+
       send_notice(user, "If you do not complete registration within one day, your nickname will expire.")
-      send_notice(user, "#{user.nick} is now registered to #{email}.")
+      send_notice(user, "\x02#{user.nick}\x02 is now registered to \x02#{email}\x02.")
       # Future: Identify user if auto_identify is true
     else
       send_notice(user, "Your nickname has been successfully registered.")
-      send_notice(user, "You are now identified for #{user.nick}.")
+      send_notice(user, "You are now identified for \x02#{user.nick}\x02.")
       # Future: Identify user if auto_identify is true
     end
 
-    send_notice(user, "To identify in the future, type: /msg NickServ IDENTIFY #{user.nick} your_password")
+    send_notice(user, "To identify in the future, type: \x02/msg NickServ IDENTIFY #{user.nick} your_password\x02")
 
     Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
   end

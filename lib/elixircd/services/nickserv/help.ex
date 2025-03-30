@@ -31,7 +31,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_general_help(user) do
     send_notice(user, "NickServ help:")
     Enum.each(general_help(), &send_notice(user, &1))
-    send_notice(user, "For more information on a command, type /msg NickServ HELP <command>")
+    send_notice(user, "For more information on a command, type \x02/msg NickServ HELP <command>\x02")
   end
 
   @spec send_register_help(User.t()) :: :ok
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
 
-    send_notice(user, "Help for REGISTER:")
+    send_notice(user, "Help for \x02REGISTER\x02:")
 
     send_notice(
       user,
@@ -74,29 +74,29 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "to change settings. The password is case-sensitive.")
     send_notice(user, "You may register up to #{max_nicks} nicknames per account.")
     send_notice(user, "")
-    send_notice(user, "Syntax: REGISTER <password> #{email_required_format(email_required?)}")
+    send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
     send_notice(user, "")
     send_notice(user, "Example:")
-    send_notice(user, "    /msg NickServ REGISTER mypassword user@example.com")
+    send_notice(user, "    \x02/msg NickServ REGISTER mypassword user@example.com\x02")
   end
 
   @spec send_verify_help(User.t()) :: :ok
   defp send_verify_help(user) do
-    send_notice(user, "Help for VERIFY:")
+    send_notice(user, "Help for \x02VERIFY\x02:")
     send_notice(user, format_help("VERIFY", ["nickname code"], "Verifies a registered nickname."))
     send_notice(user, "")
     send_notice(user, "This command completes the registration process for your nickname.")
     send_notice(user, "You will receive a verification code when you register.")
     send_notice(user, "")
-    send_notice(user, "Syntax: VERIFY nickname code")
+    send_notice(user, "Syntax: \x02VERIFY nickname code\x02")
     send_notice(user, "")
     send_notice(user, "Example:")
-    send_notice(user, "    /msg NickServ VERIFY mynick abc123def456")
+    send_notice(user, "    \x02/msg NickServ VERIFY mynick abc123def456\x02")
   end
 
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
-    send_notice(user, "Help for FAQ:")
+    send_notice(user, "Help for \x02FAQ\x02:")
     send_notice(user, "")
     send_notice(user, "Frequently Asked Questions:")
     send_notice(user, "")
@@ -106,7 +106,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "")
     send_notice(user, "Q: I forgot my password. What can I do?")
     send_notice(user, "A: If you have registered with an email address, you can")
-    send_notice(user, "   use the SENDPASS command to get a reset link. Otherwise,")
+    send_notice(user, "   use the \x02SENDPASS\x02 command to get a reset link. Otherwise,")
     send_notice(user, "   you need to contact a network administrator.")
     send_notice(user, "")
     send_notice(user, "Q: My nickname has expired. Can I get it back?")
@@ -119,10 +119,10 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     )
 
     send_notice(user, "")
-    send_notice(user, "Q: What does it mean to \"identify\"?")
+    send_notice(user, "Q: What does it mean to \x02identify\x02?")
     send_notice(user, "A: Identifying means proving to NickServ that you are the")
     send_notice(user, "   owner of a registered nickname by providing the correct")
-    send_notice(user, "   password with the IDENTIFY command.")
+    send_notice(user, "   password with the \x02IDENTIFY\x02 command.")
     send_notice(user, "")
     send_notice(user, "Q: Can I register multiple nicknames?")
     send_notice(user, "A: Yes, you can register up to")
@@ -137,8 +137,8 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec send_unknown_command_help(User.t(), String.t()) :: :ok
   defp send_unknown_command_help(user, command) do
-    send_notice(user, "Help for #{command} is not available.")
-    send_notice(user, "For a list of available commands, type /msg NickServ HELP")
+    send_notice(user, "Help for \x02#{command}\x02 is not available.")
+    send_notice(user, "For a list of available commands, type \x02/msg NickServ HELP\x02")
   end
 
   @spec general_help() :: [String.t()]
@@ -150,9 +150,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "Nicknames that remain unused for #{nick_expire_days} days may expire.",
       "",
       "The following commands are available:",
-      "REGISTER     - Register a nickname",
+      "\x02REGISTER\x02     - Register a nickname",
       "",
-      "For more information on a command, type /msg NickServ HELP <command>"
+      "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
     |> Enum.reject(&is_nil/1)
   end
@@ -160,6 +160,6 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   @spec format_help(String.t(), [String.t()], String.t()) :: String.t()
   defp format_help(command, syntax, description) do
     syntax_str = Enum.join(syntax, " or ")
-    "#{command} #{syntax_str} - #{description}"
+    "\x02#{command} #{syntax_str}\x02 - #{description}"
   end
 end

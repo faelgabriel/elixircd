@@ -10,9 +10,10 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       :password_hash,
       :email,
       :registered_by,
+      :verify_code,
+      :verified_at,
       :last_seen_at,
-      :created_at,
-      :verify_code
+      :created_at
     ],
     index: [],
     type: :set
