@@ -14,10 +14,12 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
   def handle(user, ["HELP" | rest_params]) do
-    command = Enum.at(rest_params, 0)
+    normalized_command =
+      (Enum.at(rest_params, 0) || "")
+      |> String.upcase()
 
-    case command do
-      nil -> send_general_help(user)
+    case normalized_command do
+      "" -> send_general_help(user)
       "REGISTER" -> send_register_help(user)
       "VERIFY" -> send_verify_help(user)
       "IDENTIFY" -> send_identify_help(user)
@@ -25,8 +27,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "REGAIN" -> send_regain_help(user)
       "RELEASE" -> send_release_help(user)
       "DROP" -> send_drop_help(user)
+      "INFO" -> send_info_help(user)
       "FAQ" -> send_faq_help(user)
-      _ -> send_unknown_command_help(user, command)
+      _ -> send_unknown_command_help(user, normalized_command)
     end
 
     :ok
@@ -251,6 +254,37 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "    \x02/msg NickServ DROP MyOtherNick MyPassword\x02")
   end
 
+  @spec send_info_help(User.t()) :: :ok
+  defp send_info_help(user) do
+    send_notice(user, "Help for \x02INFO\x02:")
+
+    send_notice(
+      user,
+      format_help(
+        "INFO",
+        ["[nickname]"],
+        "Displays information about a registered nickname."
+      )
+    )
+
+    send_notice(user, "")
+    send_notice(user, "This command displays information about a registered nickname,")
+    send_notice(user, "such as its registration date, last seen time, and options.")
+    send_notice(user, "")
+    send_notice(user, "If you don't specify a nickname, information about your")
+    send_notice(user, "current nickname will be displayed.")
+    send_notice(user, "")
+    send_notice(user, "If the server has privacy features enabled, some information")
+    send_notice(user, "may be hidden unless you are identified to the nickname or")
+    send_notice(user, "are an IRC operator.")
+    send_notice(user, "")
+    send_notice(user, "Syntax: \x02INFO [nickname]\x02")
+    send_notice(user, "")
+    send_notice(user, "Examples:")
+    send_notice(user, "    \x02/msg NickServ INFO\x02")
+    send_notice(user, "    \x02/msg NickServ INFO SomeNick\x02")
+  end
+
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
     send_notice(user, "Help for \x02FAQ\x02:")
@@ -329,6 +363,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02REGAIN\x02       - Regain your nickname from another user",
       "\x02RELEASE\x02      - Release a held nickname",
       "\x02DROP\x02         - Unregister a nickname",
+      "\x02INFO\x02         - Display information about a nickname",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]

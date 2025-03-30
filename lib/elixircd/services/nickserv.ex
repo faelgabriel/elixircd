@@ -18,16 +18,17 @@ defmodule ElixIRCd.Services.Nickserv do
     "GHOST" => Nickserv.Ghost,
     "REGAIN" => Nickserv.Regain,
     "RELEASE" => Nickserv.Release,
-    "DROP" => Nickserv.Drop
+    "DROP" => Nickserv.Drop,
+    "INFO" => Nickserv.Info
   }
 
   @impl true
   # Handles the command to the appropriate service module
-  def handle(user, [service_command | _] = command_list) do
+  def handle(user, [service_command | rest_commands]) do
     normalized_service_command = String.upcase(service_command)
 
     case Map.fetch(@service_commands, normalized_service_command) do
-      {:ok, command_module} -> command_module.handle(user, command_list)
+      {:ok, command_module} -> command_module.handle(user, [normalized_service_command | rest_commands])
       :error -> unknown_command_message(user, service_command)
     end
   end
