@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -127,14 +128,17 @@ defmodule ElixIRCd.Services.Nickserv.Register do
 
     verify_code = if !is_nil(email), do: :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower), else: nil
 
-    RegisteredNicks.create(%{
-      nickname: user.nick,
-      password_hash: password_hash,
-      email: email,
-      registered_by: user_mask(user),
-      verify_code: verify_code,
-      last_seen_at: DateTime.utc_now()
-    })
+    registered_nick =
+      RegisteredNicks.create(%{
+        nickname: user.nick,
+        password_hash: password_hash,
+        email: email,
+        registered_by: user_mask(user),
+        verify_code: verify_code,
+        last_seen_at: DateTime.utc_now()
+      })
+
+    Users.update(user, %{identified_as: registered_nick.nickname})
 
     if !is_nil(email) do
       send_verification_email(email, user.nick, verify_code)
@@ -149,17 +153,18 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
 
       if unverified_expire_days > 0 do
-        send_notice(user, "If you do not complete registration within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}, your nickname will expire.")
+        send_notice(
+          user,
+          "If you do not complete registration within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}, your nickname will expire."
+        )
       end
 
       send_notice(user, "\x02#{user.nick}\x02 is now registered to \x02#{email}\x02.")
-      # Future: Identify user if auto_identify is true
     else
       send_notice(user, "Your nickname has been successfully registered.")
-      send_notice(user, "You are now identified for \x02#{user.nick}\x02.")
-      # Future: Identify user if auto_identify is true
     end
 
+    send_notice(user, "You are now identified for \x02#{user.nick}\x02.")
     send_notice(user, "To identify in the future, type: \x02/msg NickServ IDENTIFY #{user.nick} your_password\x02")
 
     Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
