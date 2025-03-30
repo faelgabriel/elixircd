@@ -39,6 +39,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     max_nicks = Application.get_env(:elixircd, :services)[:nickserv][:max_nicks_per_user] || 3
     min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
+    waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
 
     send_notice(user, "Help for \x02REGISTER\x02:")
 
@@ -56,6 +57,12 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "This will allow you to assert some form of identity on the network")
     send_notice(user, "and to be added to access lists. Furthermore, NickServ will warn")
     send_notice(user, "users using your nick without identifying and allow you to kill ghosts.")
+
+    if waitreg_time > 0 do
+      send_notice(user, "")
+      send_notice(user, "You must be connected for at least #{waitreg_time} seconds")
+      send_notice(user, "before you can register your nickname.")
+    end
 
     if email_required? do
       send_notice(user, "")
@@ -133,6 +140,15 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     )
 
     send_notice(user, "   Use the GROUP command to add nicknames to your account.")
+
+    waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
+    if waitreg_time > 0 do
+      send_notice(user, "")
+      send_notice(user, "Q: Why can't I register my nickname immediately after connecting?")
+      send_notice(user, "A: This server requires you to be connected for at least")
+      send_notice(user, "   #{waitreg_time} seconds before you can register a nickname.")
+      send_notice(user, "   This is to prevent abuse of the registration system.")
+    end
   end
 
   @spec send_unknown_command_help(User.t(), String.t()) :: :ok

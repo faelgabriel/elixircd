@@ -22,10 +22,11 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
     max_nicks = Application.get_env(:elixircd, :services)[:nickserv][:max_nicks_per_user] || 3
+    waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
 
     case RegisteredNicks.get_by_nickname(user.nick) do
       {:ok, _} -> send_notice(user, "This nick is already registered. Please choose a different nick.")
-      {:error, _} -> validate_registration(user, password, email, min_password_length, email_required?, max_nicks)
+      {:error, _} -> validate_registration(user, password, email, min_password_length, email_required?, max_nicks, waitreg_time)
     end
 
     :ok
@@ -38,10 +39,11 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
   end
 
-  @spec validate_registration(User.t(), String.t(), String.t() | nil, integer(), boolean(), integer()) :: :ok
-  defp validate_registration(user, password, email, min_password_length, email_required?, max_nicks) do
+  @spec validate_registration(User.t(), String.t(), String.t() | nil, integer(), boolean(), integer(), integer()) :: :ok
+  defp validate_registration(user, password, email, min_password_length, email_required?, max_nicks, waitreg_time) do
     with :ok <- validate_password(password, min_password_length),
          :ok <- validate_email(email, email_required?),
+         :ok <- validate_connection_time(user, waitreg_time),
          :ok <- validate_nick_limit(user) do
       register_nickname(user, password, email)
     else
@@ -56,6 +58,11 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       {:error, :invalid_email} ->
         send_notice(user, "Invalid email address. Please provide a valid email address.")
         send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
+
+      {:error, :waitreg_time} ->
+        time_left = calculate_time_left(user, waitreg_time)
+        send_notice(user, "You must be connected for at least #{waitreg_time} seconds before you can register.")
+        send_notice(user, "Please wait #{time_left} more seconds and try again.")
 
       {:error, :max_nicks_reached} ->
         send_notice(user, "You have reached the maximum number of registered nicknames (#{max_nicks}).")
@@ -79,6 +86,26 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       !is_nil(email) && !valid_email?(email) -> {:error, :invalid_email}
       true -> :ok
     end
+  end
+
+  @spec validate_connection_time(User.t(), integer()) :: :ok | {:error, :waitreg_time}
+  defp validate_connection_time(user, waitreg_time) do
+    if waitreg_time <= 0 do
+      :ok
+    else
+      connected_for = DateTime.diff(DateTime.utc_now(), user.created_at)
+      if connected_for >= waitreg_time do
+        :ok
+      else
+        {:error, :waitreg_time}
+      end
+    end
+  end
+
+  @spec calculate_time_left(User.t(), integer()) :: integer()
+  defp calculate_time_left(user, waitreg_time) do
+    connected_for = DateTime.diff(DateTime.utc_now(), user.created_at)
+    max(waitreg_time - connected_for, 0)
   end
 
   @spec validate_nick_limit(User.t()) :: :ok | {:error, :max_nicks_reached}

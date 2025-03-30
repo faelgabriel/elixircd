@@ -11,8 +11,9 @@ defmodule ElixIRCd.Services.Nickserv do
   alias ElixIRCd.Tables.User
 
   @service_commands %{
+    "HELP" => Nickserv.Help,
     "REGISTER" => Nickserv.Register,
-    "HELP" => Nickserv.Help
+    "VERIFY" => Nickserv.Verify
   }
 
   @impl true
