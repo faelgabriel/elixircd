@@ -21,6 +21,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "REGISTER" -> send_register_help(user)
       "VERIFY" -> send_verify_help(user)
       "IDENTIFY" -> send_identify_help(user)
+      "GHOST" -> send_ghost_help(user)
       "FAQ" -> send_faq_help(user)
       _ -> send_unknown_command_help(user, command)
     end
@@ -133,6 +134,35 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "    \x02/msg NickServ IDENTIFY MyNick mypassword\x02")
   end
 
+  @spec send_ghost_help(User.t()) :: :ok
+  defp send_ghost_help(user) do
+    send_notice(user, "Help for \x02GHOST\x02:")
+
+    send_notice(
+      user,
+      format_help(
+        "GHOST",
+        ["<nick> [password]"],
+        "Kills a ghost session using your nickname."
+      )
+    )
+
+    send_notice(user, "")
+    send_notice(user, "The GHOST command allows you to disconnect an old or")
+    send_notice(user, "unauthorized session that's using your registered nickname.")
+    send_notice(user, "")
+    send_notice(user, "If you're identified to a nickname, you can use this command")
+    send_notice(user, "without a password to ghost anyone using that nickname.")
+    send_notice(user, "")
+    send_notice(user, "If you're not identified, you'll need to provide the correct")
+    send_notice(user, "password for the nickname you're trying to ghost.")
+    send_notice(user, "")
+    send_notice(user, "Syntax: \x02GHOST <nick> [password]\x02")
+    send_notice(user, "")
+    send_notice(user, "Example:")
+    send_notice(user, "    \x02/msg NickServ GHOST MyNick MyPassword\x02")
+  end
+
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
     send_notice(user, "Help for \x02FAQ\x02:")
@@ -201,6 +231,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02REGISTER\x02     - Register a nickname",
       "\x02IDENTIFY\x02     - Identify to your nickname",
       "\x02VERIFY\x02       - Verify a registered nickname",
+      "\x02GHOST\x02        - Kill a ghost session using your nickname",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]

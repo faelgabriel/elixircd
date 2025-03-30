@@ -14,7 +14,8 @@ defmodule ElixIRCd.Services.Nickserv do
     "HELP" => Nickserv.Help,
     "REGISTER" => Nickserv.Register,
     "VERIFY" => Nickserv.Verify,
-    "IDENTIFY" => Nickserv.Identify
+    "IDENTIFY" => Nickserv.Identify,
+    "GHOST" => Nickserv.Ghost
   }
 
   @impl true
