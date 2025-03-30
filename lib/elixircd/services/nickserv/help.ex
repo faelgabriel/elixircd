@@ -22,7 +22,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "VERIFY" -> send_verify_help(user)
       "IDENTIFY" -> send_identify_help(user)
       "GHOST" -> send_ghost_help(user)
-      "RECOVER" -> send_recover_help(user)
+      "REGAIN" -> send_regain_help(user)
       "RELEASE" -> send_release_help(user)
       "FAQ" -> send_faq_help(user)
       _ -> send_unknown_command_help(user, command)
@@ -165,38 +165,31 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "    \x02/msg NickServ GHOST MyNick MyPassword\x02")
   end
 
-  @spec send_recover_help(User.t()) :: :ok
-  defp send_recover_help(user) do
-    reservation_duration = Application.get_env(:elixircd, :services)[:nickserv][:recover_reservation_duration] || 60
-
-    send_notice(user, "Help for \x02RECOVER\x02:")
+  @spec send_regain_help(User.t()) :: :ok
+  defp send_regain_help(user) do
+    send_notice(user, "Help for \x02REGAIN\x02:")
 
     send_notice(
       user,
       format_help(
-        "RECOVER",
+        "REGAIN",
         ["<nickname> <password>"],
-        "Recovers a nickname you own from another user."
+        "Regains a nickname you own and are not currently using."
       )
     )
 
     send_notice(user, "")
     send_notice(user, "This command disconnects another user who is using your")
-    send_notice(user, "nickname and places it in a held state, allowing you to recover it.")
+    send_notice(user, "nickname and then changes your nickname to it.")
     send_notice(user, "")
-    send_notice(user, "The nickname will be held for #{reservation_duration} seconds,")
-    send_notice(user, "during which time only you can use it after identifying.")
+    send_notice(user, "If the nickname is not currently in use, it simply changes")
+    send_notice(user, "your nickname. If you are already identified to the nickname,")
+    send_notice(user, "you don't need to specify a password.")
     send_notice(user, "")
-    send_notice(user, "If you are already identified to the nickname, you don't")
-    send_notice(user, "need to specify a password.")
-    send_notice(user, "")
-    send_notice(user, "To claim the nickname, identify to NickServ and then change")
-    send_notice(user, "your nick to the recovered nickname.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02RECOVER <nickname> <password>\x02")
+    send_notice(user, "Syntax: \x02REGAIN <nickname> <password>\x02")
     send_notice(user, "")
     send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ RECOVER MyNick MyPassword\x02")
+    send_notice(user, "    \x02/msg NickServ REGAIN MyNick MyPassword\x02")
   end
 
   @spec send_release_help(User.t()) :: :ok
@@ -214,7 +207,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
     send_notice(user, "")
     send_notice(user, "This command releases a nickname that was reserved by the")
-    send_notice(user, "RECOVER command, making it available for anyone to use.")
+    send_notice(user, "REGAIN command, making it available for anyone to use.")
     send_notice(user, "")
     send_notice(user, "You must be identified to the nickname or provide its")
     send_notice(user, "correct password to release it.")
@@ -300,7 +293,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02IDENTIFY\x02     - Identify to your nickname",
       "\x02VERIFY\x02       - Verify a registered nickname",
       "\x02GHOST\x02        - Kill a ghost session using your nickname",
-      "\x02RECOVER\x02      - Recover your nickname from another user",
+      "\x02REGAIN\x02       - Regain your nickname from another user",
       "\x02RELEASE\x02      - Release a held nickname",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
