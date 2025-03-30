@@ -24,6 +24,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "GHOST" -> send_ghost_help(user)
       "REGAIN" -> send_regain_help(user)
       "RELEASE" -> send_release_help(user)
+      "DROP" -> send_drop_help(user)
       "FAQ" -> send_faq_help(user)
       _ -> send_unknown_command_help(user, command)
     end
@@ -218,6 +219,38 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "    \x02/msg NickServ RELEASE MyNick MyPassword\x02")
   end
 
+  @spec send_drop_help(User.t()) :: :ok
+  defp send_drop_help(user) do
+    send_notice(user, "Help for \x02DROP\x02:")
+
+    send_notice(
+      user,
+      format_help(
+        "DROP",
+        ["<nickname> [password]"],
+        "Unregisters a nickname."
+      )
+    )
+
+    send_notice(user, "")
+    send_notice(user, "This command deletes the registration for a nickname,")
+    send_notice(user, "removing it and all related access, making it available")
+    send_notice(user, "for registration by anyone again.")
+    send_notice(user, "")
+    send_notice(user, "If you are identified to the nickname you want to drop,")
+    send_notice(user, "you don't need to provide a password. Otherwise, you must")
+    send_notice(user, "provide the nickname's password.")
+    send_notice(user, "")
+    send_notice(user, "If you don't specify a nickname, your current nick will be dropped.")
+    send_notice(user, "")
+    send_notice(user, "Syntax: \x02DROP <nickname> [password]\x02")
+    send_notice(user, "")
+    send_notice(user, "Examples:")
+    send_notice(user, "    \x02/msg NickServ DROP\x02")
+    send_notice(user, "    \x02/msg NickServ DROP MyNick\x02")
+    send_notice(user, "    \x02/msg NickServ DROP MyOtherNick MyPassword\x02")
+  end
+
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
     send_notice(user, "Help for \x02FAQ\x02:")
@@ -295,6 +328,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02GHOST\x02        - Kill a ghost session using your nickname",
       "\x02REGAIN\x02       - Regain your nickname from another user",
       "\x02RELEASE\x02      - Release a held nickname",
+      "\x02DROP\x02         - Unregister a nickname",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
