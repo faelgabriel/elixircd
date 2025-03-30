@@ -13,7 +13,8 @@ defmodule ElixIRCd.Services.Nickserv do
   @service_commands %{
     "HELP" => Nickserv.Help,
     "REGISTER" => Nickserv.Register,
-    "VERIFY" => Nickserv.Verify
+    "VERIFY" => Nickserv.Verify,
+    "IDENTIFY" => Nickserv.Identify
   }
 
   @impl true

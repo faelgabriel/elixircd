@@ -20,6 +20,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       nil -> send_general_help(user)
       "REGISTER" -> send_register_help(user)
       "VERIFY" -> send_verify_help(user)
+      "IDENTIFY" -> send_identify_help(user)
       "FAQ" -> send_faq_help(user)
       _ -> send_unknown_command_help(user, command)
     end
@@ -36,7 +37,6 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec send_register_help(User.t()) :: :ok
   defp send_register_help(user) do
-    max_nicks = Application.get_env(:elixircd, :services)[:nickserv][:max_nicks_per_user] || 3
     min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
     waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
@@ -79,7 +79,6 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "Your password must be at least #{min_password_length} characters long.")
     send_notice(user, "Please write down or memorize your password! You will need it later")
     send_notice(user, "to change settings. The password is case-sensitive.")
-    send_notice(user, "You may register up to #{max_nicks} nicknames per account.")
     send_notice(user, "")
     send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
     send_notice(user, "")
@@ -99,6 +98,39 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "")
     send_notice(user, "Example:")
     send_notice(user, "    \x02/msg NickServ VERIFY mynick abc123def456\x02")
+  end
+
+  @spec send_identify_help(User.t()) :: :ok
+  defp send_identify_help(user) do
+    send_notice(user, "Help for \x02IDENTIFY\x02:")
+
+    send_notice(
+      user,
+      format_help(
+        "IDENTIFY",
+        ["[nickname] <password>"],
+        "Identifies you with your account."
+      )
+    )
+
+    send_notice(user, "")
+    send_notice(user, "This will identify your current session to NickServ, giving you")
+    send_notice(user, "access to all privileges granted to your account.")
+
+    send_notice(user, "")
+    send_notice(user, "If you specify a nickname, you will identify to that account")
+    send_notice(user, "instead of the account matching your current nickname.")
+
+    send_notice(user, "")
+    send_notice(user, "When identifying to a nickname that doesn't match your current nick,")
+    send_notice(user, "your current nick will be recognized as belonging to that account.")
+
+    send_notice(user, "")
+    send_notice(user, "Syntax: \x02IDENTIFY [nickname] <password>\x02")
+    send_notice(user, "")
+    send_notice(user, "Examples:")
+    send_notice(user, "    \x02/msg NickServ IDENTIFY mypassword\x02")
+    send_notice(user, "    \x02/msg NickServ IDENTIFY MyNick mypassword\x02")
   end
 
   @spec send_faq_help(User.t()) :: :ok
@@ -139,18 +171,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     send_notice(user, "A: Identifying means proving to NickServ that you are the")
     send_notice(user, "   owner of a registered nickname by providing the correct")
     send_notice(user, "   password with the \x02IDENTIFY\x02 command.")
-    send_notice(user, "")
-    send_notice(user, "Q: Can I register multiple nicknames?")
-    send_notice(user, "A: Yes, you can register up to")
-
-    send_notice(
-      user,
-      "   #{Application.get_env(:elixircd, :services)[:nickserv][:max_nicks_per_user] || 3} nicknames per account."
-    )
-
-    send_notice(user, "   Use the GROUP command to add nicknames to your account.")
 
     waitreg_time = Application.get_env(:elixircd, :services)[:nickserv][:waitreg_time] || 0
+
     if waitreg_time > 0 do
       send_notice(user, "")
       send_notice(user, "Q: Why can't I register my nickname immediately after connecting?")
@@ -176,6 +199,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "",
       "The following commands are available:",
       "\x02REGISTER\x02     - Register a nickname",
+      "\x02IDENTIFY\x02     - Identify to your nickname",
       "\x02VERIFY\x02       - Verify a registered nickname",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"

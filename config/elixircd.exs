@@ -62,9 +62,9 @@ config :elixircd,
       auto_identify: true,
       # TODO: Can be set via NickServ SET command
       private_info: false,
-      # Maximum number of nicks a user can register
+      # TODO:Maximum number of nicks a user can register
       max_nicks_per_user: 3,
-      # Whether to allow nick grouping
+      # TODO: Whether to allow nick grouping
       allow_nick_grouping: true,
       # TODO: Can be set via NickServ SET command
       kill_protection: true,
