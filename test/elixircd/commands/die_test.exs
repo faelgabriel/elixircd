@@ -6,11 +6,14 @@ defmodule ElixIRCd.Commands.DieTest do
 
   import ElixIRCd.Factory
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+  import Mimic
 
   alias ElixIRCd.Commands.Die
   alias ElixIRCd.Message
 
   describe "handle/2" do
+    setup :set_mimic_global
+
     test "handles DIE command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -42,12 +45,20 @@ defmodule ElixIRCd.Commands.DieTest do
         user = insert(:user, modes: ["o"])
         message = %Message{command: "DIE", params: []}
 
+        System
+        |> expect(:halt, 1, fn 0 -> :ok end)
+
         assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
           {user.pid, ":server.example.com NOTICE * :Server is shutting down\r\n"},
           {user.pid, ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is shutting down)\r\n"}
         ])
+
+        # waits for the server to shutdown
+        Process.sleep(125)
+
+        verify!()
       end)
     end
 
@@ -56,6 +67,9 @@ defmodule ElixIRCd.Commands.DieTest do
         user = insert(:user, modes: ["o"])
         message = %Message{command: "DIE", params: ["#reason"], trailing: "Shutting down reason"}
 
+        System
+        |> expect(:halt, 1, fn 0 -> :ok end)
+
         assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
@@ -63,6 +77,11 @@ defmodule ElixIRCd.Commands.DieTest do
           {user.pid,
            ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is shutting down: Shutting down reason)\r\n"}
         ])
+
+        # waits for the server to shutdown
+        Process.sleep(125)
+
+        verify!()
       end)
     end
   end

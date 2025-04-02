@@ -1,3 +1,4 @@
+Mimic.copy(Application)
 Mimic.copy(DateTime)
 Mimic.copy(ElixIRCd.Command)
 Mimic.copy(ElixIRCd.Commands.Admin)
