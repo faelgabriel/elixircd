@@ -22,24 +22,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     # Check if the nickname is registered
     case RegisteredNicks.get_by_nickname(target_nick) do
       {:ok, registered_nick} ->
-        # Check if user has permission to drop this nickname
-        if user.identified_as == registered_nick.nickname do
-          # User is identified as the nickname owner
-          drop_nickname(user, registered_nick)
-        else
-          # User is not identified - check password
-          if is_nil(password) do
-            send_notice(user, "Insufficient parameters for \x02DROP\x02.")
-            send_notice(user, "Syntax: \x02DROP <nickname> <password>\x02")
-          else
-            if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
-              drop_nickname(user, registered_nick)
-            else
-              send_notice(user, "Authentication failed. Invalid password for \x02#{target_nick}\x02.")
-              Logger.warning("Failed DROP attempt for #{target_nick} from #{user_mask(user)}")
-            end
-          end
-        end
+        handle_registered_nick(user, registered_nick, password)
 
       {:error, _} ->
         send_notice(user, "Nick \x02#{target_nick}\x02 is not registered.")
@@ -57,6 +40,33 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     send_notice(user, "Insufficient parameters for \x02DROP\x02.")
     send_notice(user, "Syntax: \x02DROP <nickname> [password]\x02")
     :ok
+  end
+
+  @spec handle_registered_nick(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp handle_registered_nick(user, registered_nick, password) do
+    # Check if user has permission to drop this nickname
+    if user.identified_as == registered_nick.nickname do
+      # User is identified as the nickname owner
+      drop_nickname(user, registered_nick)
+    else
+      # User is not identified - check password
+      verify_password_for_drop(user, registered_nick, password)
+    end
+  end
+
+  @spec verify_password_for_drop(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp verify_password_for_drop(user, registered_nick, password) do
+    if is_nil(password) do
+      send_notice(user, "Insufficient parameters for \x02DROP\x02.")
+      send_notice(user, "Syntax: \x02DROP <nickname> <password>\x02")
+    else
+      if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
+        drop_nickname(user, registered_nick)
+      else
+        send_notice(user, "Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.")
+        Logger.warning("Failed DROP attempt for #{registered_nick.nickname} from #{user_mask(user)}")
+      end
+    end
   end
 
   @spec drop_nickname(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok

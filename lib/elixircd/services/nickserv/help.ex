@@ -18,22 +18,24 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       (Enum.at(rest_params, 0) || "")
       |> String.upcase()
 
-    case normalized_command do
-      "" -> send_general_help(user)
-      "REGISTER" -> send_register_help(user)
-      "VERIFY" -> send_verify_help(user)
-      "IDENTIFY" -> send_identify_help(user)
-      "GHOST" -> send_ghost_help(user)
-      "REGAIN" -> send_regain_help(user)
-      "RELEASE" -> send_release_help(user)
-      "DROP" -> send_drop_help(user)
-      "INFO" -> send_info_help(user)
-      "FAQ" -> send_faq_help(user)
-      _ -> send_unknown_command_help(user, normalized_command)
-    end
-
+    send_help_for_command(user, normalized_command)
     :ok
   end
+
+  @spec send_help_for_command(User.t(), String.t()) :: :ok
+  defp send_help_for_command(user, ""), do: send_general_help(user)
+  defp send_help_for_command(user, "REGISTER"), do: send_register_help(user)
+  defp send_help_for_command(user, "VERIFY"), do: send_verify_help(user)
+  defp send_help_for_command(user, "IDENTIFY"), do: send_identify_help(user)
+  defp send_help_for_command(user, "GHOST"), do: send_ghost_help(user)
+  defp send_help_for_command(user, "REGAIN"), do: send_regain_help(user)
+  defp send_help_for_command(user, "RELEASE"), do: send_release_help(user)
+  defp send_help_for_command(user, "DROP"), do: send_drop_help(user)
+  defp send_help_for_command(user, "INFO"), do: send_info_help(user)
+  defp send_help_for_command(user, "SET"), do: send_set_help(user)
+  defp send_help_for_command(user, "SET HIDEMAIL"), do: send_set_hidemail_help(user)
+  defp send_help_for_command(user, "FAQ"), do: send_faq_help(user)
+  defp send_help_for_command(user, command), do: send_unknown_command_help(user, command)
 
   @spec send_general_help(User.t()) :: :ok
   defp send_general_help(user) do
@@ -364,6 +366,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02RELEASE\x02      - Release a held nickname",
       "\x02DROP\x02         - Unregister a nickname",
       "\x02INFO\x02         - Display information about a nickname",
+      "\x02SET\x02          - Set nickname options and information",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
@@ -379,4 +382,61 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   @spec pluralize_days(integer()) :: String.t()
   defp pluralize_days(1), do: "day"
   defp pluralize_days(_), do: "days"
+
+  @spec send_set_help(User.t()) :: :ok
+  defp send_set_help(user) do
+    send_notice(user, "Help for \x02SET\x02:")
+
+    send_notice(
+      user,
+      format_help(
+        "SET",
+        ["<option> <parameters>"],
+        "Sets various nickname options."
+      )
+    )
+
+    send_notice(user, "")
+    send_notice(user, "This command allows you to set various options for your")
+    send_notice(user, "registered nickname. The available options are:")
+    send_notice(user, "")
+    send_notice(user, "\x02HIDEMAIL\x02     - Hide your email address in INFO displays")
+    send_notice(user, "")
+    send_notice(user, "For more information on a specific option, type")
+    send_notice(user, "\x02/msg NickServ HELP SET <option>\x02")
+    send_notice(user, "")
+    send_notice(user, "Syntax: \x02SET <option> <parameters>\x02")
+    send_notice(user, "")
+    send_notice(user, "Example:")
+    send_notice(user, "    \x02/msg NickServ SET HIDEMAIL ON\x02")
+  end
+
+  @spec send_set_hidemail_help(User.t()) :: :ok
+  defp send_set_hidemail_help(user) do
+    send_notice(user, "Help for \x02SET HIDEMAIL\x02:")
+
+    send_notice(
+      user,
+      format_help(
+        "SET HIDEMAIL",
+        ["{ON|OFF}"],
+        "Hides your email address in INFO displays."
+      )
+    )
+
+    send_notice(user, "")
+    send_notice(user, "This option allows you to hide your email address from being")
+    send_notice(user, "displayed when someone requests information about your nickname.")
+    send_notice(user, "")
+    send_notice(user, "When set to ON, your email address will be hidden from everyone")
+    send_notice(user, "except for yourself and IRC operators.")
+    send_notice(user, "")
+    send_notice(user, "When set to OFF, your email address will be visible to anyone who")
+    send_notice(user, "has sufficient privileges to view your nickname information.")
+    send_notice(user, "")
+    send_notice(user, "Syntax: \x02SET HIDEMAIL {ON|OFF}\x02")
+    send_notice(user, "")
+    send_notice(user, "Example:")
+    send_notice(user, "    \x02/msg NickServ SET HIDEMAIL ON\x02")
+  end
 end

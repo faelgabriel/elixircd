@@ -19,7 +19,8 @@ defmodule ElixIRCd.Services.Nickserv do
     "REGAIN" => Nickserv.Regain,
     "RELEASE" => Nickserv.Release,
     "DROP" => Nickserv.Drop,
-    "INFO" => Nickserv.Info
+    "INFO" => Nickserv.Info,
+    "SET" => Nickserv.Set
   }
 
   @impl true

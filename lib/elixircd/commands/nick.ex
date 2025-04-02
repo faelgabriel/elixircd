@@ -75,20 +75,25 @@ defmodule ElixIRCd.Commands.Nick do
   defp check_reserved_nick(user, nick) do
     case RegisteredNicks.get_by_nickname(nick) do
       {:ok, registered_nick} ->
-        if reserved?(registered_nick) do
-          # Nickname is reserved, only the owner can use it
-          if user.identified_as == registered_nick.nickname do
-            :ok
-          else
-            {:error, :nick_reserved}
-          end
-        else
-          :ok
-        end
+        check_nick_reservation(user, registered_nick)
 
       {:error, _} ->
         # Nickname is not registered, so not reserved
         :ok
+    end
+  end
+
+  @spec check_nick_reservation(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok | {:error, :nick_reserved}
+  defp check_nick_reservation(user, registered_nick) do
+    if reserved?(registered_nick) do
+      # Nickname is reserved, only the owner can use it
+      if user.identified_as == registered_nick.nickname do
+        :ok
+      else
+        {:error, :nick_reserved}
+      end
+    else
+      :ok
     end
   end
 

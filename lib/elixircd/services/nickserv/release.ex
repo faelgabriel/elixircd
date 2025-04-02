@@ -21,26 +21,8 @@ defmodule ElixIRCd.Services.Nickserv.Release do
     # Verify if the nickname is registered
     case RegisteredNicks.get_by_nickname(target_nick) do
       {:ok, registered_nick} ->
-        # Check if the nickname is actually reserved
         if reserved?(registered_nick) do
-          # Check if user is identified as the nickname owner
-          if user.identified_as == registered_nick.nickname do
-            # User is identified, no password required
-            release_nickname(user, registered_nick)
-          else
-            # User isn't identified, verify password
-            if is_nil(password) do
-              send_notice(user, "Insufficient parameters for \x02RELEASE\x02.")
-              send_notice(user, "Syntax: \x02RELEASE <nickname> <password>\x02")
-            else
-              if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
-                release_nickname(user, registered_nick)
-              else
-                send_notice(user, "Invalid password for \x02#{target_nick}\x02.")
-                Logger.warning("Failed RELEASE attempt for #{target_nick} from #{user_mask(user)}")
-              end
-            end
-          end
+          handle_reserved_nick(user, registered_nick, password)
         else
           send_notice(user, "Nick \x02#{target_nick}\x02 is not being held.")
         end
@@ -56,6 +38,33 @@ defmodule ElixIRCd.Services.Nickserv.Release do
     send_notice(user, "Insufficient parameters for \x02RELEASE\x02.")
     send_notice(user, "Syntax: \x02RELEASE <nickname> <password>\x02")
     :ok
+  end
+
+  @spec handle_reserved_nick(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp handle_reserved_nick(user, registered_nick, password) do
+    # Check if user is identified as the nickname owner
+    if user.identified_as == registered_nick.nickname do
+      # User is identified, no password required
+      release_nickname(user, registered_nick)
+    else
+      # User isn't identified, verify password
+      verify_password_for_release(user, registered_nick, password)
+    end
+  end
+
+  @spec verify_password_for_release(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp verify_password_for_release(user, registered_nick, password) do
+    if is_nil(password) do
+      send_notice(user, "Insufficient parameters for \x02RELEASE\x02.")
+      send_notice(user, "Syntax: \x02RELEASE <nickname> <password>\x02")
+    else
+      if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
+        release_nickname(user, registered_nick)
+      else
+        send_notice(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
+        Logger.warning("Failed RELEASE attempt for #{registered_nick.nickname} from #{user_mask(user)}")
+      end
+    end
   end
 
   @spec release_nickname(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok

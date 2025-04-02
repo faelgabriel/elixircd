@@ -111,7 +111,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   defp register_nickname(user, password, email) do
     password_hash = Pbkdf2.hash_pwd_salt(password)
 
-    verify_code = if !is_nil(email), do: :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower), else: nil
+    verify_code = if is_nil(email), do: nil, else: :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
 
     registered_nick =
       RegisteredNicks.create(%{
@@ -125,7 +125,9 @@ defmodule ElixIRCd.Services.Nickserv.Register do
 
     Users.update(user, %{identified_as: registered_nick.nickname})
 
-    if !is_nil(email) do
+    if is_nil(email) do
+      send_notice(user, "Your nickname has been successfully registered.")
+    else
       send_verification_email(email, user.nick, verify_code)
 
       send_notice(user, "An email containing nickname activation instructions has been sent to \x02#{email}\x02.")
@@ -145,8 +147,6 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       end
 
       send_notice(user, "\x02#{user.nick}\x02 is now registered to \x02#{email}\x02.")
-    else
-      send_notice(user, "Your nickname has been successfully registered.")
     end
 
     send_notice(user, "You are now identified for \x02#{user.nick}\x02.")

@@ -22,24 +22,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
     # Verify if the nickname is registered
     case RegisteredNicks.get_by_nickname(target_nick) do
       {:ok, registered_nick} ->
-        # Check if user is identified as the nickname owner
-        if user.identified_as == registered_nick.nickname do
-          # User is identified, no password required
-          regain_nickname(user, registered_nick)
-        else
-          # User isn't identified, verify password
-          if is_nil(password) do
-            send_notice(user, "Insufficient parameters for \x02REGAIN\x02.")
-            send_notice(user, "Syntax: \x02REGAIN <nickname> <password>\x02")
-          else
-            if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
-              regain_nickname(user, registered_nick)
-            else
-              send_notice(user, "Invalid password for \x02#{target_nick}\x02.")
-              Logger.warning("Failed REGAIN attempt for #{target_nick} from #{user_mask(user)}")
-            end
-          end
-        end
+        handle_registered_nick(user, registered_nick, password)
 
       {:error, _} ->
         send_notice(user, "Nick \x02#{target_nick}\x02 is not registered.")
@@ -51,6 +34,35 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
   def handle(user, ["REGAIN" | _rest_params]) do
     send_notice(user, "Insufficient parameters for \x02REGAIN\x02.")
     send_notice(user, "Syntax: \x02REGAIN <nickname> <password>\x02")
+    :ok
+  end
+
+  @spec handle_registered_nick(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp handle_registered_nick(user, registered_nick, password) do
+    # Check if user is identified as the nickname owner
+    if user.identified_as == registered_nick.nickname do
+      # User is identified, no password required
+      regain_nickname(user, registered_nick)
+    else
+      # User isn't identified, verify password
+      verify_password_for_regain(user, registered_nick, password)
+    end
+  end
+
+  @spec verify_password_for_regain(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp verify_password_for_regain(user, registered_nick, password) do
+    if is_nil(password) do
+      send_notice(user, "Insufficient parameters for \x02REGAIN\x02.")
+      send_notice(user, "Syntax: \x02REGAIN <nickname> <password>\x02")
+    else
+      if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
+        regain_nickname(user, registered_nick)
+      else
+        send_notice(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
+        Logger.warning("Failed REGAIN attempt for #{registered_nick.nickname} from #{user_mask(user)}")
+      end
+    end
+
     :ok
   end
 

@@ -46,29 +46,40 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
       # Verify if the nickname is registered
       case RegisteredNicks.get_by_nickname(target_user.nick) do
         {:ok, registered_nick} ->
-          # Check if user is identified as the nickname owner
-          if user.identified_as == registered_nick.nickname do
-            # User is identified, no password required
-            perform_disconnect(user, target_user)
-          else
-            # User isn't identified, verify password if provided
-            if is_nil(password) do
-              send_notice(user, "You need to provide a password to ghost \x02#{target_user.nick}\x02.")
-              send_notice(user, "Syntax: \x02GHOST #{target_user.nick} <password>\x02")
-            else
-              if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
-                perform_disconnect(user, target_user)
-              else
-                send_notice(user, "Invalid password for \x02#{target_user.nick}\x02.")
-                Logger.warning("Failed GHOST attempt for #{target_user.nick} from #{user_mask(user)}")
-                :ok
-              end
-            end
-          end
+          handle_registered_ghost(user, target_user, registered_nick, password)
 
         {:error, _} ->
           send_notice(user, "Nick \x02#{target_user.nick}\x02 is not registered.")
           :ok
+      end
+    end
+  end
+
+  @spec handle_registered_ghost(User.t(), User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp handle_registered_ghost(user, target_user, registered_nick, password) do
+    # Check if user is identified as the nickname owner
+    if user.identified_as == registered_nick.nickname do
+      # User is identified, no password required
+      perform_disconnect(user, target_user)
+    else
+      verify_password_for_ghost(user, target_user, registered_nick, password)
+    end
+  end
+
+  @spec verify_password_for_ghost(User.t(), User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  defp verify_password_for_ghost(user, target_user, registered_nick, password) do
+    # User isn't identified, verify password if provided
+    if is_nil(password) do
+      send_notice(user, "You need to provide a password to ghost \x02#{target_user.nick}\x02.")
+      send_notice(user, "Syntax: \x02GHOST #{target_user.nick} <password>\x02")
+      :ok
+    else
+      if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
+        perform_disconnect(user, target_user)
+      else
+        send_notice(user, "Invalid password for \x02#{target_user.nick}\x02.")
+        Logger.warning("Failed GHOST attempt for #{target_user.nick} from #{user_mask(user)}")
+        :ok
       end
     end
   end

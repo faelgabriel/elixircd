@@ -41,43 +41,14 @@ defmodule ElixIRCd.Services.Nickserv.Info do
 
   @spec show_info(User.t(), ElixIRCd.Tables.RegisteredNick.t(), boolean()) :: :ok
   defp show_info(user, registered_nick, show_full_info) do
-    # Future: Read from SET
-    private_info = false
-
     send_notice(user, "\x02\x0312*** \x0304#{registered_nick.nickname}\x0312 ***\x03\x02")
 
-    currently_used =
-      case Users.get_by_nick(registered_nick.nickname) do
-        {:ok, _} -> true
-        {:error, _} -> false
-      end
-
-    # Future: Check if another nick is identified with this registered nickname
-    if currently_used do
-      send_notice(user, "\x02#{registered_nick.nickname}\x02 is currently online.")
-    else
-      send_notice(user, "\x02#{registered_nick.nickname}\x02 is not currently online.")
-    end
+    display_online_status(user, registered_nick)
 
     # Only show registration info and options if full info is allowed
-    if show_full_info || !private_info do
-      send_notice(user, "Registered on: #{format_datetime(registered_nick.created_at)}")
-
-      case registered_nick.last_seen_at do
-        nil ->
-          send_notice(user, "Last seen: never")
-
-        last_seen_at ->
-          last_seen_str = format_datetime(last_seen_at)
-          send_notice(user, "Last seen: #{last_seen_str}")
-      end
-
-      send_notice(user, "Registered from: \x02#{registered_nick.registered_by}\x02")
-
-      if show_full_info && registered_nick.email do
-        send_notice(user, "Email address: \x02#{registered_nick.email}\x02")
-      end
-
+    if show_full_info do
+      display_registration_info(user, registered_nick)
+      display_email_info(user, registered_nick, show_full_info)
       show_options(user, registered_nick, show_full_info)
     else
       send_notice(user, "The information for this nickname is private.")
@@ -87,8 +58,59 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     :ok
   end
 
+  @spec display_online_status(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  defp display_online_status(user, registered_nick) do
+    currently_used =
+      case Users.get_by_nick(registered_nick.nickname) do
+        {:ok, _} -> true
+        {:error, _} -> false
+      end
+
+    if currently_used do
+      send_notice(user, "\x02#{registered_nick.nickname}\x02 is currently online.")
+    else
+      send_notice(user, "\x02#{registered_nick.nickname}\x02 is not currently online.")
+    end
+
+    :ok
+  end
+
+  @spec display_registration_info(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  defp display_registration_info(user, registered_nick) do
+    send_notice(user, "Registered on: #{format_datetime(registered_nick.created_at)}")
+
+    case registered_nick.last_seen_at do
+      nil ->
+        send_notice(user, "Last seen: never")
+
+      last_seen_at ->
+        last_seen_str = format_datetime(last_seen_at)
+        send_notice(user, "Last seen: #{last_seen_str}")
+    end
+
+    send_notice(user, "Registered from: \x02#{registered_nick.registered_by}\x02")
+
+    :ok
+  end
+
+  @spec display_email_info(User.t(), ElixIRCd.Tables.RegisteredNick.t(), boolean()) :: :ok
+  defp display_email_info(user, registered_nick, show_full_info) do
+    should_show_email =
+      show_full_info &&
+        registered_nick.email &&
+        (!registered_nick.settings.hide_email ||
+           user.identified_as == registered_nick.nickname ||
+           irc_operator?(user))
+
+    if should_show_email do
+      send_notice(user, "Email address: \x02#{registered_nick.email}\x02")
+    end
+
+    :ok
+  end
+
   @spec show_options(User.t(), ElixIRCd.Tables.RegisteredNick.t(), boolean()) :: :ok
-  defp show_options(user, registered_nick, _show_full_info) do
+  defp show_options(user, registered_nick, show_full_info) do
     flags = []
 
     flags =
@@ -98,7 +120,12 @@ defmodule ElixIRCd.Services.Nickserv.Info do
         flags
       end
 
-    # Future: Add more flags
+    flags =
+      if show_full_info && registered_nick.settings.hide_email do
+        flags ++ ["HIDEMAIL"]
+      else
+        flags
+      end
 
     unless Enum.empty?(flags) do
       send_notice(user, "Flags: \x02#{Enum.join(flags, ", ")}\x02")
@@ -109,10 +136,8 @@ defmodule ElixIRCd.Services.Nickserv.Info do
 
   @spec format_datetime(DateTime.t()) :: String.t()
   defp format_datetime(datetime) do
-    case DateTime.to_iso8601(datetime) do
-      {:ok, iso_str} -> String.replace(iso_str, "T", " ")
-      _ -> "unknown time"
-    end
+    iso_str = DateTime.to_iso8601(datetime)
+    String.replace(iso_str, "T", " ")
   rescue
     _ -> "unknown time"
   end
