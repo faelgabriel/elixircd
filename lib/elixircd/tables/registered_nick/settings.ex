@@ -152,7 +152,6 @@ defmodule ElixIRCd.Tables.RegisteredNick.Settings do
 
   @doc """
   Update settings struct with new attributes.
-  Accepts a map or a keyword list.
   """
   @spec update(t(), map() | keyword()) :: t()
   def update(settings, attrs) do
