@@ -3,12 +3,14 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Commands.Privmsg
   alias ElixIRCd.Message
+  alias ElixIRCd.Service
 
   describe "handle/2" do
     test "handles PRIVMSG command with user not registered" do
@@ -220,6 +222,66 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert_sent_messages([
           {target_user.pid, ":#{user_mask(user)} PRIVMSG #{target_user.nick} :Hello World\r\n"}
         ])
+      end)
+    end
+
+    test "handles PRIVMSG command directed to a service with trailing message" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "PRIVMSG", params: ["NICKSERV"], trailing: "REGISTER password email@example.com"}
+
+        Service
+        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "NICKSERV"
+          assert command_list == ["REGISTER", "password", "email@example.com"]
+          :ok
+        end)
+
+        assert :ok = Privmsg.handle(user, message)
+
+        verify!()
+      end)
+    end
+
+    test "handles PRIVMSG command directed to a service with params instead of trailing" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "PRIVMSG", params: ["NICKSERV", "IDENTIFY", "password"]}
+
+        Service
+        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "NICKSERV"
+          assert command_list == ["IDENTIFY", "password"]
+          :ok
+        end)
+
+        assert :ok = Privmsg.handle(user, message)
+
+        verify!()
+      end)
+    end
+
+    test "handles PRIVMSG command with case-insensitive service name" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "PRIVMSG", params: ["nickserv"], trailing: "REGISTER password email@example.com"}
+
+        Service
+        |> expect(:service_implemented?, fn "nickserv" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "nickserv"
+          assert command_list == ["REGISTER", "password", "email@example.com"]
+          :ok
+        end)
+
+        assert :ok = Privmsg.handle(user, message)
+
+        verify!()
       end)
     end
   end
