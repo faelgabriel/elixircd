@@ -58,6 +58,16 @@ defmodule ElixIRCd.Utils.MnesiaTest do
       end
     end
 
+    test "raises error if failed to create Mnesia disk tables" do
+      Memento.Table
+      |> stub(:create, fn _table -> :ok end)
+      |> stub(:create, fn _table, _opts -> {:error, :disk_error} end)
+
+      assert_raise RuntimeError, "Failed to create Mnesia disk table:\n:disk_error", fn ->
+        Mnesia.setup_mnesia()
+      end
+    end
+
     test "raises error if failed waiting for Mnesia tables" do
       Memento
       |> stub(:wait, fn _tables, _timeout -> {:error, :any} end)
