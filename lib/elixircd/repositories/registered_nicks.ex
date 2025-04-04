@@ -3,9 +3,6 @@ defmodule ElixIRCd.Repositories.RegisteredNicks do
   Repository module for managing registered nicknames in Mnesia database.
   """
 
-  require Logger
-  require Memento
-
   alias ElixIRCd.Tables.RegisteredNick
 
   @doc """
@@ -22,12 +19,11 @@ defmodule ElixIRCd.Repositories.RegisteredNicks do
   """
   @spec get_by_nickname(String.t()) :: {:ok, RegisteredNick.t()} | {:error, :registered_nick_not_found}
   def get_by_nickname(nickname) do
-    Memento.transaction!(fn ->
-      case Memento.Query.select(RegisteredNick, {:==, :nickname, nickname}) do
-        [registered_nick | _] -> {:ok, registered_nick}
-        [] -> {:error, :registered_nick_not_found}
-      end
-    end)
+    Memento.Query.read(RegisteredNick, nickname)
+    |> case do
+      nil -> {:error, :registered_nick_not_found}
+      registered_nick -> {:ok, registered_nick}
+    end
   end
 
   @doc """
