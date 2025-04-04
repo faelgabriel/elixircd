@@ -20,12 +20,12 @@ defmodule ElixIRCd.Repositories.RegisteredNicks do
   @doc """
   Get a registered nickname by its nickname.
   """
-  @spec get_by_nickname(String.t()) :: {:ok, RegisteredNick.t()} | {:error, String.t()}
+  @spec get_by_nickname(String.t()) :: {:ok, RegisteredNick.t()} | {:error, :registered_nick_not_found}
   def get_by_nickname(nickname) do
     Memento.transaction!(fn ->
       case Memento.Query.select(RegisteredNick, {:==, :nickname, nickname}) do
         [registered_nick | _] -> {:ok, registered_nick}
-        [] -> {:error, "Nickname not found"}
+        [] -> {:error, :registered_nick_not_found}
       end
     end)
   end

@@ -39,7 +39,7 @@ defmodule ElixIRCd.Commands.Nick do
     # Issue: nick needs to be case unsensitive
     with :ok <- validate_nick(nick),
          :ok <- check_reserved_nick(user, nick),
-         {:nick_in_use?, false} <- {:nick_in_use?, nick_in_use?(nick)} do
+         :ok <- check_nick_in_use(nick) do
       change_nick(user, nick)
     else
       {:error, :nick_reserved} ->
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Commands.Nick do
         })
         |> Dispatcher.broadcast(user)
 
-      {:nick_in_use?, true} ->
+      {:error, :nick_in_use} ->
         Message.build(%{
           prefix: :server,
           command: :err_nicknameinuse,
@@ -73,27 +73,14 @@ defmodule ElixIRCd.Commands.Nick do
 
   @spec check_reserved_nick(User.t(), String.t()) :: :ok | {:error, :nick_reserved}
   defp check_reserved_nick(user, nick) do
-    case RegisteredNicks.get_by_nickname(nick) do
-      {:ok, registered_nick} ->
-        check_nick_reservation(user, registered_nick)
-
-      {:error, _} ->
-        # Nickname is not registered, so not reserved
-        :ok
-    end
-  end
-
-  @spec check_nick_reservation(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok | {:error, :nick_reserved}
-  defp check_nick_reservation(user, registered_nick) do
-    if reserved?(registered_nick) do
-      # Nickname is reserved, only the owner can use it
-      if user.identified_as == registered_nick.nickname do
-        :ok
-      else
-        {:error, :nick_reserved}
-      end
+    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(nick),
+         {:reserved, true} <- {:reserved, reserved?(registered_nick)},
+         {:identified, false} <- {:identified, user.identified_as == registered_nick.nickname} do
+      {:error, :nick_reserved}
     else
-      :ok
+      {:error, :registered_nick_not_found} -> :ok
+      {:reserved, false} -> :ok
+      {:identified, true} -> :ok
     end
   end
 
@@ -119,11 +106,11 @@ defmodule ElixIRCd.Commands.Nick do
     |> Dispatcher.broadcast([updated_user | all_channel_users])
   end
 
-  @spec nick_in_use?(String.t()) :: boolean()
-  defp nick_in_use?(nick) do
+  @spec check_nick_in_use(String.t()) :: :ok | {:error, :nick_in_use}
+  defp check_nick_in_use(nick) do
     case Users.get_by_nick(nick) do
-      {:ok, _} -> true
-      {:error, _} -> false
+      {:ok, _user} -> {:error, :nick_in_use}
+      {:error, :user_not_found} -> :ok
     end
   end
 

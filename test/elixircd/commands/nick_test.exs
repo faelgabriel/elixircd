@@ -128,5 +128,56 @@ defmodule ElixIRCd.Commands.NickTest do
         ])
       end)
     end
+
+    test "handles NICK command trying to use reserved nickname without being identified" do
+      reserved_until = DateTime.add(DateTime.utc_now(), 3600, :second)
+      reserved_nick = "reserved"
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick, %{nickname: reserved_nick, reserved_until: reserved_until})
+        user = insert(:user, identified_as: nil)
+        message = %Message{command: "NICK", params: [reserved_nick]}
+
+        assert :ok = Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":server.example.com 433 #{user.nick} #{reserved_nick} :This nickname is reserved. Please identify to NickServ first.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NICK command for user identified as the reserved nickname" do
+      reserved_until = DateTime.add(DateTime.utc_now(), 3600, :second)
+      reserved_nick = "reserved"
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick, %{nickname: reserved_nick, reserved_until: reserved_until})
+        user = insert(:user, nick: "othernick", identified_as: reserved_nick)
+        message = %Message{command: "NICK", params: [reserved_nick]}
+
+        assert :ok = Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} NICK #{reserved_nick}\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NICK command for registered nickname that is not reserved" do
+      nickname = "registered_not_reserved"
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick, %{nickname: nickname, reserved_until: nil})
+        user = insert(:user)
+        message = %Message{command: "NICK", params: [nickname]}
+
+        assert :ok = Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} NICK #{nickname}\r\n"}
+        ])
+      end)
+    end
   end
 end
