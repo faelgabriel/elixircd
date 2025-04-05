@@ -30,6 +30,8 @@ defmodule ElixIRCd.MessageCase do
 
           on_exit(fn ->
             Process.exit(agent_pid, :kill)
+            # race condition with the agent not being terminated immediately
+            if Process.alive?(agent_pid), do: Process.sleep(50)
           end)
         end
 
