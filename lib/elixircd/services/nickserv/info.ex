@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -38,7 +39,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     ])
   end
 
-  @spec show_info(User.t(), ElixIRCd.Tables.RegisteredNick.t(), boolean()) :: :ok
+  @spec show_info(User.t(), RegisteredNick.t(), boolean()) :: :ok
   defp show_info(user, registered_nick, show_full_info) do
     notify(user, "\x02\x0312*** \x0304#{registered_nick.nickname}\x0312 ***\x03\x02")
 
@@ -55,7 +56,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     Logger.info("User #{user_mask(user)} requested INFO for #{registered_nick.nickname}")
   end
 
-  @spec display_online_status(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec display_online_status(User.t(), RegisteredNick.t()) :: :ok
   defp display_online_status(user, registered_nick) do
     currently_used =
       case Users.get_by_nick(registered_nick.nickname) do
@@ -70,7 +71,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     end
   end
 
-  @spec display_registration_info(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec display_registration_info(User.t(), RegisteredNick.t()) :: :ok
   defp display_registration_info(user, registered_nick) do
     notify(user, "Registered on: #{format_datetime(registered_nick.created_at)}")
 
@@ -82,7 +83,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     notify(user, "Registered from: \x02#{registered_nick.registered_by}\x02")
   end
 
-  @spec display_email_info(User.t(), ElixIRCd.Tables.RegisteredNick.t(), boolean()) :: :ok
+  @spec display_email_info(User.t(), RegisteredNick.t(), boolean()) :: :ok
   defp display_email_info(user, registered_nick, show_full_info) do
     should_show_email =
       show_full_info &&
@@ -96,7 +97,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     end
   end
 
-  @spec show_options(User.t(), ElixIRCd.Tables.RegisteredNick.t(), boolean()) :: :ok
+  @spec show_options(User.t(), RegisteredNick.t(), boolean()) :: :ok
   defp show_options(user, registered_nick, show_full_info) do
     flags = []
 

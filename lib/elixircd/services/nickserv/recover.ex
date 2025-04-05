@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -32,7 +33,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
     ])
   end
 
-  @spec handle_registered_nick(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec handle_registered_nick(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_registered_nick(user, registered_nick, password) do
     if user.identified_as == registered_nick.nickname do
       recover_nickname(user, registered_nick)
@@ -41,7 +42,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
     end
   end
 
-  @spec verify_password_for_recover(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec verify_password_for_recover(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp verify_password_for_recover(user, registered_nick, password) do
     if is_nil(password) do
       notify(user, [
@@ -58,7 +59,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
     end
   end
 
-  @spec recover_nickname(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec recover_nickname(User.t(), RegisteredNick.t()) :: :ok
   defp recover_nickname(user, registered_nick) do
     reservation_duration = get_reservation_duration()
 
@@ -103,7 +104,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
     Application.get_env(:elixircd, :services)[:nickserv][:recover_reservation_duration] || 60
   end
 
-  @spec reserve_nickname(ElixIRCd.Tables.RegisteredNick.t(), integer()) :: ElixIRCd.Tables.RegisteredNick.t()
+  @spec reserve_nickname(RegisteredNick.t(), integer()) :: RegisteredNick.t()
   defp reserve_nickname(registered_nick, seconds) do
     reserved_until = DateTime.add(DateTime.utc_now(), seconds, :second)
     RegisteredNicks.update(registered_nick, %{reserved_until: reserved_until})

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -32,7 +33,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
     ])
   end
 
-  @spec handle_registered_nick(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec handle_registered_nick(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_registered_nick(user, registered_nick, password) do
     if user.identified_as == registered_nick.nickname do
       regain_nickname(user, registered_nick)
@@ -41,7 +42,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
     end
   end
 
-  @spec verify_password_for_regain(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec verify_password_for_regain(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp verify_password_for_regain(user, registered_nick, password) do
     if is_nil(password) do
       notify(user, [
@@ -58,7 +59,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
     end
   end
 
-  @spec regain_nickname(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec regain_nickname(User.t(), RegisteredNick.t()) :: :ok
   defp regain_nickname(user, registered_nick) do
     case Users.get_by_nick(registered_nick.nickname) do
       {:ok, target_user} ->
@@ -86,7 +87,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
     end
   end
 
-  @spec handle_immediate_nick_change(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec handle_immediate_nick_change(User.t(), RegisteredNick.t()) :: :ok
   defp handle_immediate_nick_change(user, registered_nick) do
     if user.identified_as == registered_nick.nickname do
       # TODO: change nickname
@@ -96,7 +97,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
     :ok
   end
 
-  @spec reserve_nickname(ElixIRCd.Tables.RegisteredNick.t()) :: ElixIRCd.Tables.RegisteredNick.t()
+  @spec reserve_nickname(RegisteredNick.t()) :: RegisteredNick.t()
   defp reserve_nickname(registered_nick) do
     reservation_duration = Application.get_env(:elixircd, :services)[:nickserv][:regain_reservation_duration] || 60
 

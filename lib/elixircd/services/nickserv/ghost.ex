@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -47,7 +48,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
     end
   end
 
-  @spec handle_registered_ghost(User.t(), User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec handle_registered_ghost(User.t(), User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_registered_ghost(user, target_user, registered_nick, password) do
     if user.identified_as == registered_nick.nickname do
       perform_disconnect(user, target_user)
@@ -56,7 +57,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
     end
   end
 
-  @spec verify_password_for_ghost(User.t(), User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec verify_password_for_ghost(User.t(), User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp verify_password_for_ghost(user, target_user, registered_nick, password) do
     if is_nil(password) do
       notify(user, [

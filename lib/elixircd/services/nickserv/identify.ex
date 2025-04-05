@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -58,7 +59,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     end
   end
 
-  @spec verify_password(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t()) :: :ok
+  @spec verify_password(User.t(), RegisteredNick.t(), String.t()) :: :ok
   defp verify_password(user, registered_nick, password) do
     if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
       complete_identification(user, registered_nick)
@@ -67,7 +68,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     end
   end
 
-  @spec complete_identification(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec complete_identification(User.t(), RegisteredNick.t()) :: :ok
   defp complete_identification(user, registered_nick) do
     RegisteredNicks.update(registered_nick, %{
       last_seen_at: DateTime.utc_now()
@@ -84,7 +85,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     Logger.info("User #{user_mask(user)} identified for nickname #{registered_nick.nickname}")
   end
 
-  @spec handle_failed_identification(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok
   defp handle_failed_identification(user, registered_nick) do
     notify(user, "Password incorrect for \x02#{registered_nick.nickname}\x02.")
     Logger.warning("Failed IDENTIFY attempt for #{registered_nick.nickname} from #{user_mask(user)}")

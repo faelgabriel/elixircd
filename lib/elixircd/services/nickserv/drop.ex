@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -36,7 +37,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     ])
   end
 
-  @spec handle_registered_nick(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec handle_registered_nick(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_registered_nick(user, registered_nick, password) do
     if user.identified_as == registered_nick.nickname do
       drop_nickname(user, registered_nick)
@@ -45,7 +46,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     end
   end
 
-  @spec verify_password_for_drop(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec verify_password_for_drop(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp verify_password_for_drop(user, registered_nick, password) do
     if is_nil(password) do
       notify(user, [
@@ -62,7 +63,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     end
   end
 
-  @spec drop_nickname(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec drop_nickname(User.t(), RegisteredNick.t()) :: :ok
   defp drop_nickname(user, registered_nick) do
     cleared_nickname = RegisteredNicks.update(registered_nick, %{reserved_until: nil})
 

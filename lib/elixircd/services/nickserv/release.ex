@@ -11,6 +11,8 @@ defmodule ElixIRCd.Services.Nickserv.Release do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -38,7 +40,7 @@ defmodule ElixIRCd.Services.Nickserv.Release do
     ])
   end
 
-  @spec handle_reserved_nick(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec handle_reserved_nick(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_reserved_nick(user, registered_nick, password) do
     if user.identified_as == registered_nick.nickname do
       release_nickname(user, registered_nick)
@@ -47,7 +49,7 @@ defmodule ElixIRCd.Services.Nickserv.Release do
     end
   end
 
-  @spec verify_password_for_release(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t() | nil) :: :ok
+  @spec verify_password_for_release(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp verify_password_for_release(user, registered_nick, password) do
     if is_nil(password) do
       notify(user, [
@@ -64,7 +66,7 @@ defmodule ElixIRCd.Services.Nickserv.Release do
     end
   end
 
-  @spec release_nickname(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec release_nickname(User.t(), RegisteredNick.t()) :: :ok
   defp release_nickname(user, registered_nick) do
     RegisteredNicks.update(registered_nick, %{reserved_until: nil})
 
@@ -72,7 +74,7 @@ defmodule ElixIRCd.Services.Nickserv.Release do
     Logger.info("User #{user_mask(user)} released nickname #{registered_nick.nickname}")
   end
 
-  @spec reserved?(ElixIRCd.Tables.RegisteredNick.t()) :: boolean()
+  @spec reserved?(RegisteredNick.t()) :: boolean()
   defp reserved?(registered_nick) do
     case registered_nick.reserved_until do
       nil -> false

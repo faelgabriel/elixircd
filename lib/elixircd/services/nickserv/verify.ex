@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -35,7 +36,7 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
     end
   end
 
-  @spec verify_code_and_state(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t()) :: :ok
+  @spec verify_code_and_state(User.t(), RegisteredNick.t(), String.t()) :: :ok
   defp verify_code_and_state(user, registered_nick, code) do
     cond do
       !is_nil(registered_nick.verified_at) ->
@@ -53,7 +54,7 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
     end
   end
 
-  @spec complete_verification(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  @spec complete_verification(User.t(), RegisteredNick.t()) :: :ok
   defp complete_verification(user, registered_nick) do
     registered_nick =
       RegisteredNicks.update(registered_nick, %{
