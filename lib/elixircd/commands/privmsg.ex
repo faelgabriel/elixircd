@@ -141,7 +141,6 @@ defmodule ElixIRCd.Commands.Privmsg do
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_channel_moderated(channel, user_channel) do
       :ok
-      # TODO: improve else conditions
     else
       # neither m nor n mode
       false -> :ok
