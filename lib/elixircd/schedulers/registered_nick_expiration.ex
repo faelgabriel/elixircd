@@ -72,7 +72,7 @@ defmodule ElixIRCd.Schedulers.RegisteredNickExpiration do
   @spec check_nick_expiration(RegisteredNick.t()) :: boolean()
   defp check_nick_expiration(registered_nick) do
     nick_expire_days =
-      (Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90) * 24 * 60 * 60
+      Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90
 
     case registered_nick.last_seen_at do
       nil ->
