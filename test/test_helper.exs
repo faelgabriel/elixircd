@@ -1,4 +1,5 @@
 Mimic.copy(Application)
+Mimic.copy(Bamboo.Mailer)
 Mimic.copy(DateTime)
 Mimic.copy(ElixIRCd.Command)
 Mimic.copy(ElixIRCd.Commands.Admin)
