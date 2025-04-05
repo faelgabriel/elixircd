@@ -24,6 +24,14 @@ defmodule ElixIRCd.Utils.Nickserv do
     :ok
   end
 
+  @doc """
+  Formats the email required format for a NickServ command.
+  """
+  @spec email_required_format(boolean()) :: String.t()
+  def email_required_format(email_required?) do
+    if email_required?, do: "<email-address>", else: "[email-address]"
+  end
+
   @spec send_notice(User.t(), String.t()) :: :ok
   defp send_notice(user, message) do
     Message.build(%{
@@ -33,13 +41,5 @@ defmodule ElixIRCd.Utils.Nickserv do
       trailing: message
     })
     |> Dispatcher.broadcast(user)
-  end
-
-  @doc """
-  Formats the email required format for a NickServ command.
-  """
-  @spec email_required_format(boolean()) :: String.t()
-  def email_required_format(email_required?) do
-    if email_required?, do: "<email-address>", else: "[email-address]"
   end
 end
