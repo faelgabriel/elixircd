@@ -7,7 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [send_notice: 2, email_required_format: 1]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2, email_required_format: 1]
 
   alias ElixIRCd.Tables.User
 
@@ -39,9 +39,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec send_general_help(User.t()) :: :ok
   defp send_general_help(user) do
-    send_notice(user, "NickServ help:")
-    Enum.each(general_help(), &send_notice(user, &1))
-    send_notice(user, "For more information on a command, type \x02/msg NickServ HELP <command>\x02")
+    notify(user, ["NickServ help:"])
+    notify(user, general_help())
+    notify(user, ["For more information on a command, type \x02/msg NickServ HELP <command>\x02"])
   end
 
   @spec send_register_help(User.t()) :: :ok
@@ -50,303 +50,266 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
     wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
 
-    send_notice(user, "Help for \x02REGISTER\x02:")
-
-    send_notice(
-      user,
+    notify(user, [
+      "Help for \x02REGISTER\x02:",
       format_help(
         "REGISTER",
         ["<password> #{email_required_format(email_required?)}"],
         "Registers your current nickname."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This will register your current nickname with NickServ.")
-    send_notice(user, "This will allow you to assert some form of identity on the network")
-    send_notice(user, "and to be added to access lists. Furthermore, NickServ will warn")
-    send_notice(user, "users using your nick without identifying and allow you to kill ghosts.")
+      ),
+      "",
+      "This will register your current nickname with NickServ.",
+      "This will allow you to assert some form of identity on the network",
+      "and to be added to access lists. Furthermore, NickServ will warn",
+      "users using your nick without identifying and allow you to kill ghosts."
+    ])
 
     if wait_register_time > 0 do
-      send_notice(user, "")
-      send_notice(user, "You must be connected for at least #{wait_register_time} seconds")
-      send_notice(user, "before you can register your nickname.")
+      notify(user, [
+        "",
+        "You must be connected for at least #{wait_register_time} seconds",
+        "before you can register your nickname."
+      ])
     end
 
     if email_required? do
-      send_notice(user, "")
-      send_notice(user, "This server REQUIRES an email address for registration.")
-      send_notice(user, "You have to confirm the email address. To do this, follow")
-      send_notice(user, "the instructions in the message sent to the email address.")
+      notify(user, [
+        "",
+        "This server REQUIRES an email address for registration.",
+        "You have to confirm the email address. To do this, follow",
+        "the instructions in the message sent to the email address."
+      ])
     else
-      send_notice(user, "")
-      send_notice(user, "An email address is optional but recommended. If provided,")
-      send_notice(user, "you can use it to reset your password if you forget it.")
+      notify(user, [
+        "",
+        "An email address is optional but recommended. If provided,",
+        "you can use it to reset your password if you forget it."
+      ])
     end
 
-    send_notice(user, "")
-    send_notice(user, "Your password must be at least #{min_password_length} characters long.")
-    send_notice(user, "Please write down or memorize your password! You will need it later")
-    send_notice(user, "to change settings. The password is case-sensitive.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
-    send_notice(user, "")
-    send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ REGISTER mypassword user@example.com\x02")
+    notify(user, [
+      "",
+      "Your password must be at least #{min_password_length} characters long.",
+      "Please write down or memorize your password! You will need it later",
+      "to change settings. The password is case-sensitive.",
+      "",
+      "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ REGISTER mypassword user@example.com\x02"
+    ])
   end
 
   @spec send_verify_help(User.t()) :: :ok
   defp send_verify_help(user) do
-    send_notice(user, "Help for \x02VERIFY\x02:")
-    send_notice(user, format_help("VERIFY", ["nickname code"], "Verifies a registered nickname."))
-    send_notice(user, "")
-    send_notice(user, "This command completes the registration process for your nickname.")
-    send_notice(user, "You will receive a verification code when you register.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02VERIFY nickname code\x02")
-    send_notice(user, "")
-    send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ VERIFY mynick abc123def456\x02")
+    notify(user, [
+      "Help for \x02VERIFY\x02:",
+      format_help("VERIFY", ["nickname code"], "Verifies a registered nickname."),
+      "",
+      "This command completes the registration process for your nickname.",
+      "You will receive a verification code when you register.",
+      "",
+      "Syntax: \x02VERIFY nickname code\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ VERIFY mynick abc123def456\x02"
+    ])
   end
 
   @spec send_identify_help(User.t()) :: :ok
   defp send_identify_help(user) do
-    send_notice(user, "Help for \x02IDENTIFY\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "IDENTIFY",
-        ["[nickname] <password>"],
-        "Identifies you with your account."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This will identify your current session to NickServ, giving you")
-    send_notice(user, "access to all privileges granted to your account.")
-
-    send_notice(user, "")
-    send_notice(user, "If you specify a nickname, you will identify to that account")
-    send_notice(user, "instead of the account matching your current nickname.")
-
-    send_notice(user, "")
-    send_notice(user, "When identifying to a nickname that doesn't match your current nick,")
-    send_notice(user, "your current nick will be recognized as belonging to that account.")
-
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02IDENTIFY [nickname] <password>\x02")
-    send_notice(user, "")
-    send_notice(user, "Examples:")
-    send_notice(user, "    \x02/msg NickServ IDENTIFY mypassword\x02")
-    send_notice(user, "    \x02/msg NickServ IDENTIFY MyNick mypassword\x02")
+    notify(user, [
+      "Help for \x02IDENTIFY\x02:",
+      format_help("IDENTIFY", ["[nickname] <password>"], "Identifies you with your account."),
+      "",
+      "This will identify your current session to NickServ, giving you",
+      "access to all privileges granted to your account.",
+      "",
+      "If you specify a nickname, you will identify to that account",
+      "instead of the account matching your current nickname.",
+      "",
+      "When identifying to a nickname that doesn't match your current nick,",
+      "your current nick will be recognized as belonging to that account.",
+      "",
+      "Syntax: \x02IDENTIFY [nickname] <password>\x02",
+      "",
+      "Examples:",
+      "    \x02/msg NickServ IDENTIFY mypassword\x02",
+      "    \x02/msg NickServ IDENTIFY MyNick mypassword\x02"
+    ])
   end
 
   @spec send_ghost_help(User.t()) :: :ok
   defp send_ghost_help(user) do
-    send_notice(user, "Help for \x02GHOST\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "GHOST",
-        ["<nick> [password]"],
-        "Kills a ghost session using your nickname."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "The GHOST command allows you to disconnect an old or")
-    send_notice(user, "unauthorized session that's using your registered nickname.")
-    send_notice(user, "")
-    send_notice(user, "If you're identified to a nickname, you can use this command")
-    send_notice(user, "without a password to ghost anyone using that nickname.")
-    send_notice(user, "")
-    send_notice(user, "If you're not identified, you'll need to provide the correct")
-    send_notice(user, "password for the nickname you're trying to ghost.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02GHOST <nick> [password]\x02")
-    send_notice(user, "")
-    send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ GHOST MyNick MyPassword\x02")
+    notify(user, [
+      "Help for \x02GHOST\x02:",
+      format_help("GHOST", ["<nick> [password]"], "Kills a ghost session using your nickname."),
+      "",
+      "The GHOST command allows you to disconnect an old or",
+      "unauthorized session that's using your registered nickname.",
+      "",
+      "If you're identified to a nickname, you can use this command",
+      "without a password to ghost anyone using that nickname.",
+      "",
+      "If you're not identified, you'll need to provide the correct",
+      "password for the nickname you're trying to ghost.",
+      "",
+      "Syntax: \x02GHOST <nick> [password]\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ GHOST MyNick MyPassword\x02"
+    ])
   end
 
   @spec send_regain_help(User.t()) :: :ok
   defp send_regain_help(user) do
-    send_notice(user, "Help for \x02REGAIN\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "REGAIN",
-        ["<nickname> <password>"],
-        "Regains a nickname you own and are not currently using."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This command disconnects another user who is using your")
-    send_notice(user, "nickname and then changes your nickname to it.")
-    send_notice(user, "")
-    send_notice(user, "If the nickname is not currently in use, it simply changes")
-    send_notice(user, "your nickname. If you are already identified to the nickname,")
-    send_notice(user, "you don't need to specify a password.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02REGAIN <nickname> <password>\x02")
-    send_notice(user, "")
-    send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ REGAIN MyNick MyPassword\x02")
+    notify(user, [
+      "Help for \x02REGAIN\x02:",
+      format_help("REGAIN", ["<nickname> <password>"], "Regains a nickname you own and are not currently using."),
+      "",
+      "This command disconnects another user who is using your",
+      "nickname and then changes your nickname to it.",
+      "",
+      "If the nickname is not currently in use, it simply changes",
+      "your nickname. If you are already identified to the nickname,",
+      "you don't need to specify a password.",
+      "",
+      "Syntax: \x02REGAIN <nickname> <password>\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ REGAIN MyNick MyPassword\x02"
+    ])
   end
 
   @spec send_release_help(User.t()) :: :ok
   defp send_release_help(user) do
-    send_notice(user, "Help for \x02RELEASE\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "RELEASE",
-        ["<nickname> <password>"],
-        "Releases a held nickname."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This command releases a nickname that was reserved by the")
-    send_notice(user, "REGAIN command, making it available for anyone to use.")
-    send_notice(user, "")
-    send_notice(user, "You must be identified to the nickname or provide its")
-    send_notice(user, "correct password to release it.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02RELEASE <nickname> <password>\x02")
-    send_notice(user, "")
-    send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ RELEASE MyNick MyPassword\x02")
+    notify(user, [
+      "Help for \x02RELEASE\x02:",
+      format_help("RELEASE", ["<nickname> <password>"], "Releases a held nickname."),
+      "",
+      "This command releases a nickname that was reserved by the",
+      "REGAIN command, making it available for anyone to use.",
+      "",
+      "You must be identified to the nickname or provide its",
+      "correct password to release it.",
+      "",
+      "Syntax: \x02RELEASE <nickname> <password>\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ RELEASE MyNick MyPassword\x02"
+    ])
   end
 
   @spec send_drop_help(User.t()) :: :ok
   defp send_drop_help(user) do
-    send_notice(user, "Help for \x02DROP\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "DROP",
-        ["<nickname> [password]"],
-        "Unregisters a nickname."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This command deletes the registration for a nickname,")
-    send_notice(user, "removing it and all related access, making it available")
-    send_notice(user, "for registration by anyone again.")
-    send_notice(user, "")
-    send_notice(user, "If you are identified to the nickname you want to drop,")
-    send_notice(user, "you don't need to provide a password. Otherwise, you must")
-    send_notice(user, "provide the nickname's password.")
-    send_notice(user, "")
-    send_notice(user, "If you don't specify a nickname, your current nick will be dropped.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02DROP <nickname> [password]\x02")
-    send_notice(user, "")
-    send_notice(user, "Examples:")
-    send_notice(user, "    \x02/msg NickServ DROP\x02")
-    send_notice(user, "    \x02/msg NickServ DROP MyNick\x02")
-    send_notice(user, "    \x02/msg NickServ DROP MyOtherNick MyPassword\x02")
+    notify(user, [
+      "Help for \x02DROP\x02:",
+      format_help("DROP", ["<nickname> [password]"], "Unregisters a nickname."),
+      "",
+      "This command deletes the registration for a nickname,",
+      "removing it and all related access, making it available",
+      "for registration by anyone again.",
+      "",
+      "If you are identified to the nickname you want to drop,",
+      "you don't need to provide a password. Otherwise, you must",
+      "provide the nickname's password.",
+      "",
+      "If you don't specify a nickname, your current nick will be dropped.",
+      "",
+      "Syntax: \x02DROP <nickname> [password]\x02",
+      "",
+      "Examples:",
+      "    \x02/msg NickServ DROP\x02",
+      "    \x02/msg NickServ DROP MyNick\x02",
+      "    \x02/msg NickServ DROP MyOtherNick MyPassword\x02"
+    ])
   end
 
   @spec send_info_help(User.t()) :: :ok
   defp send_info_help(user) do
-    send_notice(user, "Help for \x02INFO\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "INFO",
-        ["[nickname]"],
-        "Displays information about a registered nickname."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This command displays information about a registered nickname,")
-    send_notice(user, "such as its registration date, last seen time, and options.")
-    send_notice(user, "")
-    send_notice(user, "If you don't specify a nickname, information about your")
-    send_notice(user, "current nickname will be displayed.")
-    send_notice(user, "")
-    send_notice(user, "If the server has privacy features enabled, some information")
-    send_notice(user, "may be hidden unless you are identified to the nickname or")
-    send_notice(user, "are an IRC operator.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02INFO [nickname]\x02")
-    send_notice(user, "")
-    send_notice(user, "Examples:")
-    send_notice(user, "    \x02/msg NickServ INFO\x02")
-    send_notice(user, "    \x02/msg NickServ INFO SomeNick\x02")
+    notify(user, [
+      "Help for \x02INFO\x02:",
+      format_help("INFO", ["[nickname]"], "Displays information about a registered nickname."),
+      "",
+      "This command displays information about a registered nickname,",
+      "such as its registration date, last seen time, and options.",
+      "",
+      "If you don't specify a nickname, information about your",
+      "current nickname will be displayed.",
+      "",
+      "If the server has privacy features enabled, some information",
+      "may be hidden unless you are identified to the nickname or",
+      "are an IRC operator.",
+      "",
+      "Syntax: \x02INFO [nickname]\x02",
+      "",
+      "Examples:",
+      "    \x02/msg NickServ INFO\x02",
+      "    \x02/msg NickServ INFO SomeNick\x02"
+    ])
   end
 
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
-    send_notice(user, "Help for \x02FAQ\x02:")
-    send_notice(user, "")
-    send_notice(user, "Frequently Asked Questions:")
-    send_notice(user, "")
-    send_notice(user, "Q: Why should I register my nickname?")
-    send_notice(user, "A: Registering your nickname helps you maintain a unique")
-    send_notice(user, "   identity on the network and prevents others from using it.")
-    send_notice(user, "")
-    send_notice(user, "Q: I forgot my password. What can I do?")
-    send_notice(user, "A: If you have registered with an email address, you can")
-    send_notice(user, "   use the \x02SENDPASS\x02 command to get a reset link. Otherwise,")
-    send_notice(user, "   you need to contact a network administrator.")
-    send_notice(user, "")
-    send_notice(user, "Q: My nickname has expired. Can I get it back?")
-    send_notice(user, "A: If your nickname has expired due to inactivity, you can")
-    send_notice(user, "   simply register it again. Nicknames expire after")
-
-    send_notice(
-      user,
-      "   #{Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90} days of inactivity."
-    )
-
-    # Add information about unverified nickname expiration if enabled
     unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
-
-    if unverified_expire_days > 0 do
-      send_notice(user, "")
-      send_notice(user, "Q: How long do I have to verify my nickname after registration?")
-
-      send_notice(
-        user,
-        "A: You must verify your nickname within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}"
-      )
-
-      send_notice(user, "   after registration or it will expire and you'll need to register again.")
-    end
-
-    send_notice(user, "")
-    send_notice(user, "Q: What does it mean to \x02identify\x02?")
-    send_notice(user, "A: Identifying means proving to NickServ that you are the")
-    send_notice(user, "   owner of a registered nickname by providing the correct")
-    send_notice(user, "   password with the \x02IDENTIFY\x02 command.")
-
     wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
 
+    notify(user, [
+      "Help for \x02FAQ\x02:",
+      "",
+      "Frequently Asked Questions:",
+      "",
+      "Q: Why should I register my nickname?",
+      "A: Registering your nickname helps you maintain a unique",
+      "   identity on the network and prevents others from using it.",
+      "",
+      "Q: I forgot my password. What can I do?",
+      "A: If you have registered with an email address, you can",
+      "   use the \x02SENDPASS\x02 command to get a reset link. Otherwise,",
+      "   you need to contact a network administrator.",
+      "",
+      "Q: My nickname has expired. Can I get it back?",
+      "A: If your nickname has expired due to inactivity, you can",
+      "   simply register it again. Nicknames expire after",
+      "   #{Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90} days of inactivity."
+    ])
+
+    # Add information about unverified nickname expiration if enabled
+    if unverified_expire_days > 0 do
+      notify(user, [
+        "",
+        "Q: How long do I have to verify my nickname after registration?",
+        "A: You must verify your nickname within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}",
+        "   after registration or it will expire and you'll need to register again."
+      ])
+    end
+
+    notify(user, [
+      "",
+      "Q: What does it mean to \x02identify\x02?",
+      "A: Identifying means proving to NickServ that you are the",
+      "   owner of a registered nickname by providing the correct",
+      "   password with the \x02IDENTIFY\x02 command."
+    ])
+
+    # Add information about wait time for registration if enabled
     if wait_register_time > 0 do
-      send_notice(user, "")
-      send_notice(user, "Q: Why can't I register my nickname immediately after connecting?")
-      send_notice(user, "A: This server requires you to be connected for at least")
-      send_notice(user, "   #{wait_register_time} seconds before you can register a nickname.")
-      send_notice(user, "   This is to prevent abuse of the registration system.")
+      notify(user, [
+        "",
+        "Q: Why can't I register my nickname immediately after connecting?",
+        "A: This server requires you to be connected for at least",
+        "   #{wait_register_time} seconds before you can register a nickname.",
+        "   This is to prevent abuse of the registration system."
+      ])
     end
   end
 
   @spec send_unknown_command_help(User.t(), String.t()) :: :ok
   defp send_unknown_command_help(user, command) do
-    send_notice(user, "Help for \x02#{command}\x02 is not available.")
-    send_notice(user, "For a list of available commands, type \x02/msg NickServ HELP\x02")
+    notify(user, [
+      "Help for \x02#{command}\x02 is not available.",
+      "For a list of available commands, type \x02/msg NickServ HELP\x02"
+    ])
   end
 
   @spec general_help() :: [String.t()]
@@ -385,58 +348,44 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec send_set_help(User.t()) :: :ok
   defp send_set_help(user) do
-    send_notice(user, "Help for \x02SET\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "SET",
-        ["<option> <parameters>"],
-        "Sets various nickname options."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This command allows you to set various options for your")
-    send_notice(user, "registered nickname. The available options are:")
-    send_notice(user, "")
-    send_notice(user, "\x02HIDEMAIL\x02     - Hide your email address in INFO displays")
-    send_notice(user, "")
-    send_notice(user, "For more information on a specific option, type")
-    send_notice(user, "\x02/msg NickServ HELP SET <option>\x02")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02SET <option> <parameters>\x02")
-    send_notice(user, "")
-    send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ SET HIDEMAIL ON\x02")
+    notify(user, [
+      "Help for \x02SET\x02:",
+      format_help("SET", ["<option> <parameters>"], "Sets various nickname options."),
+      "",
+      "This command allows you to set various options for your",
+      "registered nickname. The available options are:",
+      "",
+      "\x02HIDEMAIL\x02     - Hide your email address in INFO displays",
+      "",
+      "For more information on a specific option, type",
+      "\x02/msg NickServ HELP SET <option>\x02",
+      "",
+      "Syntax: \x02SET <option> <parameters>\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ SET HIDEMAIL ON\x02"
+    ])
   end
 
   @spec send_set_hidemail_help(User.t()) :: :ok
   defp send_set_hidemail_help(user) do
-    send_notice(user, "Help for \x02SET HIDEMAIL\x02:")
-
-    send_notice(
-      user,
-      format_help(
-        "SET HIDEMAIL",
-        ["{ON|OFF}"],
-        "Hides your email address in INFO displays."
-      )
-    )
-
-    send_notice(user, "")
-    send_notice(user, "This option allows you to hide your email address from being")
-    send_notice(user, "displayed when someone requests information about your nickname.")
-    send_notice(user, "")
-    send_notice(user, "When set to ON, your email address will be hidden from everyone")
-    send_notice(user, "except for yourself and IRC operators.")
-    send_notice(user, "")
-    send_notice(user, "When set to OFF, your email address will be visible to anyone who")
-    send_notice(user, "has sufficient privileges to view your nickname information.")
-    send_notice(user, "")
-    send_notice(user, "Syntax: \x02SET HIDEMAIL {ON|OFF}\x02")
-    send_notice(user, "")
-    send_notice(user, "Example:")
-    send_notice(user, "    \x02/msg NickServ SET HIDEMAIL ON\x02")
+    notify(user, [
+      "Help for \x02SET HIDEMAIL\x02:",
+      format_help("SET HIDEMAIL", ["{ON|OFF}"], "Hides your email address in INFO displays."),
+      "",
+      "This option allows you to hide your email address from being",
+      "displayed when someone requests information about your nickname.",
+      "",
+      "When set to ON, your email address will be hidden from everyone",
+      "except for yourself and IRC operators.",
+      "",
+      "When set to OFF, your email address will be visible to anyone who",
+      "has sufficient privileges to view your nickname information.",
+      "",
+      "Syntax: \x02SET HIDEMAIL {ON|OFF}\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ SET HIDEMAIL ON\x02"
+    ])
   end
 end

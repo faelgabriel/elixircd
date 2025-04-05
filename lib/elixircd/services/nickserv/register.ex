@@ -8,7 +8,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   require Logger
 
   import ElixIRCd.Utils.Mailer, only: [send_verification_email: 3]
-  import ElixIRCd.Utils.Nickserv, only: [send_notice: 2, email_required_format: 1]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2, email_required_format: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -25,21 +25,21 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
 
     case RegisteredNicks.get_by_nickname(user.nick) do
-      {:ok, _} ->
-        send_notice(user, "This nick is already registered. Please choose a different nick.")
+      {:ok, _registered_nick} ->
+        notify(user, "This nick is already registered. Please choose a different nick.")
 
-      {:error, _} ->
+      {:error, :registered_nick_not_found} ->
         validate_registration(user, password, email, min_password_length, email_required?, wait_register_time)
     end
-
-    :ok
   end
 
-  def handle(user, ["REGISTER" | _rest_params]) do
+  def handle(user, ["REGISTER" | _command_params]) do
     email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
 
-    send_notice(user, "Insufficient parameters for \x02REGISTER\x02.")
-    send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
+    notify(user, [
+      "Insufficient parameters for \x02REGISTER\x02.",
+      "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02"
+    ])
   end
 
   @spec validate_registration(User.t(), String.t(), String.t() | nil, integer(), boolean(), integer()) :: :ok
@@ -50,21 +50,22 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       register_nickname(user, password, email)
     else
       {:error, :short_password} ->
-        send_notice(user, "Password is too short. Please use at least #{min_password_length} characters.")
-        send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
+        notify(user, "Password is too short. Please use at least #{min_password_length} characters.")
+        notify(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
 
       {:error, :missing_email} ->
-        send_notice(user, "You must provide an email address to register a nickname.")
-        send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
+        notify(user, "You must provide an email address to register a nickname.")
+        notify(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
 
       {:error, :invalid_email} ->
-        send_notice(user, "Invalid email address. Please provide a valid email address.")
-        send_notice(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
+        notify(user, "Invalid email address. Please provide a valid email address.")
+        notify(user, "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02")
 
       {:error, :wait_register_time} ->
         time_left = calculate_time_left(user, wait_register_time)
-        send_notice(user, "You must be connected for at least #{wait_register_time} seconds before you can register.")
-        send_notice(user, "Please wait #{time_left} more seconds and try again.")
+
+        notify(user, "You must be connected for at least #{wait_register_time} seconds before you can register.")
+        notify(user, "Please wait #{time_left} more seconds and try again.")
     end
   end
 
@@ -126,31 +127,32 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     Users.update(user, %{identified_as: registered_nick.nickname})
 
     if is_nil(email) do
-      send_notice(user, "Your nickname has been successfully registered.")
+      notify(user, "Your nickname has been successfully registered.")
     else
+      # Future: add a task to send the email in the background and ensure it's not missed through a queue
       send_verification_email(email, user.nick, verify_code)
 
-      send_notice(user, "An email containing nickname activation instructions has been sent to \x02#{email}\x02.")
+      unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
 
-      send_notice(
+      notify(user, "An email containing nickname activation instructions has been sent to \x02#{email}\x02.")
+
+      notify(
         user,
         "Please check the address if you don't receive it. If it is incorrect, \x02DROP\x02 then \x02REGISTER\x02 again."
       )
 
-      unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
-
       if unverified_expire_days > 0 do
-        send_notice(
+        notify(
           user,
           "If you do not complete registration within #{unverified_expire_days} #{pluralize_days(unverified_expire_days)}, your nickname will expire."
         )
       end
 
-      send_notice(user, "\x02#{user.nick}\x02 is now registered to \x02#{email}\x02.")
+      notify(user, "\x02#{user.nick}\x02 is now registered to \x02#{email}\x02.")
     end
 
-    send_notice(user, "You are now identified for \x02#{user.nick}\x02.")
-    send_notice(user, "To identify in the future, type: \x02/msg NickServ IDENTIFY #{user.nick} your_password\x02")
+    notify(user, "You are now identified for \x02#{user.nick}\x02.")
+    notify(user, "To identify in the future, type: \x02/msg NickServ IDENTIFY #{user.nick} your_password\x02")
 
     Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
   end

@@ -96,7 +96,7 @@ defmodule ElixIRCd.Commands.Notice do
         })
         |> Dispatcher.broadcast(receiver_user)
 
-      {:error, _} ->
+      {:error, :user_not_found} ->
         Message.build(%{
           prefix: :server,
           command: :err_nosuchnick,

@@ -7,7 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [send_notice: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -18,23 +18,20 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
   @spec handle(User.t(), [String.t()]) :: :ok
   def handle(user, ["VERIFY", nickname, code]) do
     verify_nickname(user, nickname, code)
-    :ok
   end
 
-  def handle(user, ["VERIFY" | _rest_params]) do
-    send_notice(user, "Insufficient parameters for \x02VERIFY\x02.")
-    send_notice(user, "Syntax: \x02VERIFY <nickname> <code>\x02")
-    :ok
+  def handle(user, ["VERIFY" | _command_params]) do
+    notify(user, [
+      "Insufficient parameters for \x02VERIFY\x02.",
+      "Syntax: \x02VERIFY <nickname> <code>\x02"
+    ])
   end
 
   @spec verify_nickname(User.t(), String.t(), String.t()) :: :ok
   defp verify_nickname(user, nickname, code) do
     case RegisteredNicks.get_by_nickname(nickname) do
-      {:ok, registered_nick} ->
-        verify_code_and_state(user, registered_nick, code)
-
-      {:error, _} ->
-        send_notice(user, "Nickname \x02#{nickname}\x02 is not registered.")
+      {:ok, registered_nick} -> verify_code_and_state(user, registered_nick, code)
+      {:error, :registered_nick_not_found} -> notify(user, "Nickname \x02#{nickname}\x02 is not registered.")
     end
   end
 
@@ -42,13 +39,13 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
   defp verify_code_and_state(user, registered_nick, code) do
     cond do
       !is_nil(registered_nick.verified_at) ->
-        send_notice(user, "Nickname \x02#{registered_nick.nickname}\x02 is already verified.")
+        notify(user, "Nickname \x02#{registered_nick.nickname}\x02 is already verified.")
 
       is_nil(registered_nick.verify_code) ->
-        send_notice(user, "Nickname \x02#{registered_nick.nickname}\x02 does not require verification.")
+        notify(user, "Nickname \x02#{registered_nick.nickname}\x02 does not require verification.")
 
       registered_nick.verify_code != code ->
-        send_notice(user, "Verification failed. Invalid code for nickname \x02#{registered_nick.nickname}\x02.")
+        notify(user, "Verification failed. Invalid code for nickname \x02#{registered_nick.nickname}\x02.")
         Logger.warning("Failed verification attempt for #{registered_nick.nickname} by #{user_mask(user)}")
 
       true ->
@@ -65,15 +62,13 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
         last_seen_at: DateTime.utc_now()
       })
 
-    send_notice(user, "Nickname \x02#{registered_nick.nickname}\x02 has been successfully verified.")
+    notify(user, "Nickname \x02#{registered_nick.nickname}\x02 has been successfully verified.")
 
-    # If the user is using this nickname, identify them
     if user.nick == registered_nick.nickname do
       Users.update(user, %{identified_as: registered_nick.nickname})
-
-      send_notice(user, "You are now identified for \x02#{registered_nick.nickname}\x02.")
+      notify(user, "You are now identified for \x02#{registered_nick.nickname}\x02.")
     else
-      send_notice(
+      notify(
         user,
         "You can now identify for this nickname using: \x02/msg NickServ IDENTIFY #{registered_nick.nickname} your_password\x02"
       )

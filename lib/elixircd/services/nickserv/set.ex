@@ -7,7 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Set do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [send_notice: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -25,24 +25,27 @@ defmodule ElixIRCd.Services.Nickserv.Set do
         _ -> unknown_subcommand_message(user, subcommand)
       end
     else
-      send_notice(user, "You must identify to NickServ before using the SET command.")
-      send_notice(user, "Use \x02/msg NickServ IDENTIFY <password>\x02 to identify.")
+      notify(user, [
+        "You must identify to NickServ before using the SET command.",
+        "Use \x02/msg NickServ IDENTIFY <password>\x02 to identify."
+      ])
     end
-
-    :ok
   end
 
   def handle(user, ["SET"]) do
-    send_notice(user, "Insufficient parameters for \x02SET\x02.")
-    send_notice(user, "Syntax: \x02SET <option> <parameters>\x02")
+    notify(user, [
+      "Insufficient parameters for \x02SET\x02.",
+      "Syntax: \x02SET <option> <parameters>\x02"
+    ])
+
     send_available_settings(user)
-    :ok
   end
 
-  def handle(user, ["SET" | _rest_params]) do
-    send_notice(user, "Insufficient parameters for \x02SET\x02.")
-    send_notice(user, "Syntax: \x02SET <option> <parameters>\x02")
-    :ok
+  def handle(user, ["SET" | _command_params]) do
+    notify(user, [
+      "Insufficient parameters for \x02SET\x02.",
+      "Syntax: \x02SET <option> <parameters>\x02"
+    ])
   end
 
   @spec handle_hidemail(User.t(), [String.t()]) :: :ok
@@ -55,17 +58,18 @@ defmodule ElixIRCd.Services.Nickserv.Set do
         update_hidemail_setting(user, false)
 
       _ ->
-        send_notice(user, "Invalid parameter for \x02HIDEMAIL\x02.")
-        send_notice(user, "Syntax: \x02SET HIDEMAIL {ON|OFF}\x02")
+        notify(user, [
+          "Invalid parameter for \x02HIDEMAIL\x02.",
+          "Syntax: \x02SET HIDEMAIL {ON|OFF}\x02"
+        ])
     end
-
-    :ok
   end
 
   defp handle_hidemail(user, []) do
-    send_notice(user, "Insufficient parameters for \x02HIDEMAIL\x02.")
-    send_notice(user, "Syntax: \x02SET HIDEMAIL {ON|OFF}\x02")
-    :ok
+    notify(user, [
+      "Insufficient parameters for \x02HIDEMAIL\x02.",
+      "Syntax: \x02SET HIDEMAIL {ON|OFF}\x02"
+    ])
   end
 
   @spec update_hidemail_setting(User.t(), boolean()) :: :ok
@@ -76,32 +80,30 @@ defmodule ElixIRCd.Services.Nickserv.Set do
         RegisteredNicks.update(registered_nick, %{settings: updated_settings})
 
         if hide_email do
-          send_notice(user, "Your email address will now be hidden from \x02INFO\x02 displays.")
+          notify(user, "Your email address will now be hidden from \x02INFO\x02 displays.")
         else
-          send_notice(user, "Your email address will now be shown in \x02INFO\x02 displays.")
+          notify(user, "Your email address will now be shown in \x02INFO\x02 displays.")
         end
 
         Logger.info("User #{user_mask(user)} set HIDEMAIL to #{if hide_email, do: "ON", else: "OFF"}")
 
-      {:error, reason} ->
-        Logger.error("Error updating settings for #{user.identified_as}: #{inspect(reason)}")
-        send_notice(user, "An error occurred while updating your settings.")
+      {:error, error_reason} ->
+        Logger.error("Error updating settings for #{user.identified_as}: #{inspect(error_reason)}")
+        notify(user, "An error occurred while updating your settings.")
     end
-
-    :ok
   end
 
   @spec unknown_subcommand_message(User.t(), String.t()) :: :ok
   defp unknown_subcommand_message(user, subcommand) do
-    send_notice(user, "Unknown SET option: \x02#{subcommand}\x02")
+    notify(user, "Unknown SET option: \x02#{subcommand}\x02")
     send_available_settings(user)
-    :ok
   end
 
   @spec send_available_settings(User.t()) :: :ok
   defp send_available_settings(user) do
-    send_notice(user, "Available SET options:")
-    send_notice(user, "\x02HIDEMAIL\x02     - Hide your email address in INFO displays")
-    :ok
+    notify(user, [
+      "Available SET options:",
+      "\x02HIDEMAIL\x02     - Hide your email address in INFO displays"
+    ])
   end
 end

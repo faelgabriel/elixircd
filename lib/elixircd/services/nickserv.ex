@@ -5,7 +5,7 @@ defmodule ElixIRCd.Services.Nickserv do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [send_notice: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
 
   alias ElixIRCd.Services.Nickserv
   alias ElixIRCd.Tables.User
@@ -24,7 +24,6 @@ defmodule ElixIRCd.Services.Nickserv do
   }
 
   @impl true
-  # Handles the command to the appropriate service module
   def handle(user, [service_command | rest_commands]) do
     normalized_service_command = String.upcase(service_command)
 
@@ -35,15 +34,17 @@ defmodule ElixIRCd.Services.Nickserv do
   end
 
   def handle(user, []) do
-    send_notice(user, "NickServ allows you to register and manage your nickname.")
-    send_notice(user, "For help on using NickServ, type \x02/msg NickServ HELP\x02")
-    :ok
+    notify(user, [
+      "NickServ allows you to register and manage your nickname.",
+      "For help on using NickServ, type \x02/msg NickServ HELP\x02"
+    ])
   end
 
   @spec unknown_command_message(User.t(), String.t()) :: :ok
   defp unknown_command_message(user, service_command) do
-    send_notice(user, "Unknown command: \x02#{service_command}\x02")
-    send_notice(user, "For help on using NickServ, type \x02/msg NickServ HELP\x02")
-    :ok
+    notify(user, [
+      "Unknown command: \x02#{service_command}\x02",
+      "For help on using NickServ, type \x02/msg NickServ HELP\x02"
+    ])
   end
 end

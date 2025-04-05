@@ -98,7 +98,7 @@ defmodule ElixIRCd.Server.Handshake do
 
         user_id
 
-      {:error, _} ->
+      {:error, _reason} ->
         Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** No Ident response"})
         |> Dispatcher.broadcast(user)
 

@@ -12,10 +12,20 @@ defmodule ElixIRCd.Utils.Nickserv do
   alias ElixIRCd.Tables.User
 
   @doc """
-  Sends a NickServ notice to a user.
+  Sends NickServ notices to a user.
   """
+  @spec notify(User.t(), String.t() | [String.t()]) :: :ok
+  def notify(user, message) when is_binary(message) do
+    send_notice(user, message)
+  end
+
+  def notify(user, messages) when is_list(messages) do
+    Enum.each(messages, fn message -> send_notice(user, message) end)
+    :ok
+  end
+
   @spec send_notice(User.t(), String.t()) :: :ok
-  def send_notice(user, message) do
+  defp send_notice(user, message) do
     Message.build(%{
       prefix: "NickServ!service@#{Application.get_env(:elixircd, :server)[:hostname]}",
       command: "NOTICE",
