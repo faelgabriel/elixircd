@@ -11,7 +11,6 @@ defmodule ElixIRCd.Services.Nickserv.Release do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
-  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
