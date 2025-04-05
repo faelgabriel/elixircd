@@ -100,6 +100,14 @@ defmodule ElixIRCd.Server.ConnectionTest do
     end
   end
 
+  describe "handle_send/2" do
+    @tag :skip_message_agent
+    test "sends a {:broadcast, data} message to the given pid" do
+      assert :ok = Connection.handle_send(self(), "hello")
+      assert_received {:broadcast, "hello"}
+    end
+  end
+
   describe "handle_disconnect/3" do
     test "handles disconnect successfully for unregistered user" do
       user = insert(:user, registered: false)

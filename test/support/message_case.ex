@@ -19,17 +19,19 @@ defmodule ElixIRCd.MessageCase do
 
       @agent_name Module.concat(__MODULE__, "MessageCase")
 
-      setup do
-        {:ok, agent_pid} = Agent.start_link(fn -> [] end, name: @agent_name)
+      setup context do
+        if Map.get(context, :skip_message_agent, false) == false do
+          {:ok, agent_pid} = Agent.start_link(fn -> [] end, name: @agent_name)
 
-        Connection
-        |> stub(:handle_send, fn pid, msg ->
-          Agent.update(@agent_name, fn messages -> [{pid, msg} | messages] end)
-        end)
+          Connection
+          |> stub(:handle_send, fn pid, msg ->
+            Agent.update(@agent_name, fn messages -> [{pid, msg} | messages] end)
+          end)
 
-        on_exit(fn ->
-          Process.exit(agent_pid, :kill)
-        end)
+          on_exit(fn ->
+            Process.exit(agent_pid, :kill)
+          end)
+        end
 
         :ok
       end
