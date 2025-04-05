@@ -69,7 +69,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
         perform_disconnect(user, target_user)
       else
         notify(user, "Invalid password for \x02#{target_user.nick}\x02.")
-        Logger.warning("Failed GHOST attempt for #{target_user.nick} from #{user_mask(user)}")
+        Logger.info("Failed GHOST attempt for #{target_user.nick} from #{user_mask(user)}")
       end
     end
   end
