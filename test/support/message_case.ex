@@ -7,8 +7,7 @@ defmodule ElixIRCd.MessageCase do
   """
 
   use ExUnit.CaseTemplate
-
-  import Mimic
+  use Mimic
 
   alias ElixIRCd.Server.Connection
   alias ExUnit.AssertionError

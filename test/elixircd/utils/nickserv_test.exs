@@ -2,14 +2,12 @@ defmodule ElixIRCd.Utils.NickservTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
+  use Mimic
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Utils.Nickserv
-
-  setup :verify_on_exit!
 
   describe "notify/2" do
     test "sends a single notice message to a user" do

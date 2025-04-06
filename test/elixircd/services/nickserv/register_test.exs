@@ -12,8 +12,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
   alias ElixIRCd.Services.Nickserv.Register
   alias ElixIRCd.Utils.Mailer
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles REGISTER command with insufficient parameters" do
       Memento.transaction!(fn ->

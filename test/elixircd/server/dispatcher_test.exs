@@ -2,17 +2,15 @@ defmodule ElixIRCd.Server.DispatcherTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
+  use Mimic
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Dispatcher
 
   describe "broadcast/2" do
-    setup :verify_on_exit!
-
     setup do
       user = insert(:user)
       user_channel = insert(:user_channel)

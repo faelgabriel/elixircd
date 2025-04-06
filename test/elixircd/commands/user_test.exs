@@ -3,9 +3,9 @@ defmodule ElixIRCd.Commands.UserTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Commands.User
   alias ElixIRCd.Message

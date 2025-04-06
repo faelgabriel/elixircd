@@ -11,8 +11,6 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
   alias ElixIRCd.Services.Nickserv
   alias ElixIRCd.Services.Nickserv.Release
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles RELEASE command with insufficient parameters" do
       Memento.transaction!(fn ->

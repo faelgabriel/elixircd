@@ -10,8 +10,6 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Ghost
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles GHOST command with insufficient parameters" do
       Memento.transaction!(fn ->

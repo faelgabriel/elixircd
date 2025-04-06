@@ -11,8 +11,6 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Drop
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles DROP command with no parameters" do
       Memento.transaction!(fn ->

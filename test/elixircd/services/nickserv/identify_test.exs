@@ -11,8 +11,6 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Identify
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles IDENTIFY command with insufficient parameters" do
       Memento.transaction!(fn ->

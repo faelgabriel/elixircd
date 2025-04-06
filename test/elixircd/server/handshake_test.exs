@@ -3,9 +3,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Commands.Lusers
   alias ElixIRCd.Commands.Motd

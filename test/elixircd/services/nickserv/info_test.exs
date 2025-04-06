@@ -9,8 +9,6 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
 
   alias ElixIRCd.Services.Nickserv.Info
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles INFO command with insufficient parameters" do
       Memento.transaction!(fn ->

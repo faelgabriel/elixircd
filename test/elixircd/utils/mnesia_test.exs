@@ -2,8 +2,7 @@ defmodule ElixIRCd.Utils.MnesiaTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
-
-  import Mimic
+  use Mimic
 
   alias ElixIRCd.Utils.Mnesia
 

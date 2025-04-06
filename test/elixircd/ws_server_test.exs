@@ -2,13 +2,10 @@ defmodule ElixIRCd.Server.WsListenerTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
-
-  import Mimic
+  use Mimic
 
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.WsListener
-
-  setup :verify_on_exit!
 
   describe "init/1" do
     test "initializes connection with WS transport" do

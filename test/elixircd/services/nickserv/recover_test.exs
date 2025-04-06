@@ -10,8 +10,6 @@ defmodule ElixIRCd.Services.Nickserv.RecoverTest do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Services.Nickserv.Recover
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles RECOVER command with insufficient parameters" do
       Memento.transaction!(fn ->

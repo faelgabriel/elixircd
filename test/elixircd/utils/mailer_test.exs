@@ -2,13 +2,10 @@ defmodule ElixIRCd.Utils.MailerTest do
   @moduledoc false
 
   use ExUnit.Case, async: true
-
-  import Mimic
+  use Mimic
 
   alias Bamboo.Mailer, as: BambooMailer
   alias ElixIRCd.Utils.Mailer
-
-  setup :verify_on_exit!
 
   describe "send_verification_email/3" do
     test "sends verification email with correct content" do

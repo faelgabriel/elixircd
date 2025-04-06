@@ -3,10 +3,10 @@ defmodule ElixIRCd.Commands.RestartTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-  import Mimic
 
   alias ElixIRCd.Commands.Restart
   alias ElixIRCd.Message

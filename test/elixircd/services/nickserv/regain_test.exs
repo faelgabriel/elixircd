@@ -12,8 +12,6 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Services.Nickserv.Regain
 
-  setup :verify_on_exit!
-
   describe "handle/2" do
     test "handles REGAIN command with insufficient parameters" do
       Memento.transaction!(fn ->
