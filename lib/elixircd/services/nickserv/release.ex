@@ -60,7 +60,7 @@ defmodule ElixIRCd.Services.Nickserv.Release do
         release_nickname(user, registered_nick)
       else
         notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
-        Logger.warning("Failed RELEASE attempt for #{registered_nick.nickname} from #{user_mask(user)}")
+        Logger.info("Failed RELEASE attempt for #{registered_nick.nickname} from #{user_mask(user)}")
       end
     end
   end

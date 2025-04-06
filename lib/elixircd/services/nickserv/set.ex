@@ -76,7 +76,8 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   defp update_hidemail_setting(user, hide_email) do
     case RegisteredNicks.get_by_nickname(user.identified_as) do
       {:ok, registered_nick} ->
-        updated_settings = RegisteredNick.Settings.update(registered_nick.settings, hide_email: hide_email)
+        updated_settings = RegisteredNick.Settings.update(registered_nick.settings, %{hide_email: hide_email})
+
         RegisteredNicks.update(registered_nick, %{settings: updated_settings})
 
         if hide_email do

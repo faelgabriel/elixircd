@@ -47,7 +47,7 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
       registered_nick.verify_code != code ->
         notify(user, "Verification failed. Invalid code for nickname \x02#{registered_nick.nickname}\x02.")
-        Logger.warning("Failed verification attempt for #{registered_nick.nickname} by #{user_mask(user)}")
+        Logger.info("Failed verification attempt for #{registered_nick.nickname} by #{user_mask(user)}")
 
       true ->
         complete_verification(user, registered_nick)

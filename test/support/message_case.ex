@@ -30,6 +30,7 @@ defmodule ElixIRCd.MessageCase do
 
           on_exit(fn ->
             Process.exit(agent_pid, :kill)
+
             # race condition with the agent not being terminated immediately
             if Process.alive?(agent_pid), do: Process.sleep(50)
           end)
@@ -100,6 +101,50 @@ defmodule ElixIRCd.MessageCase do
 
         # Clean up the agent state after each assertion
         Agent.update(@agent_name, fn _ -> [] end)
+
+        :ok
+      end
+
+      @doc """
+      Asserts that a specific message pattern is present in the messages sent to a target.
+
+      This function checks if any message sent to the given target matches the given pattern
+      (string or regex) without clearing the agent state. This allows checking for multiple
+      patterns in a single test without losing the message history.
+
+      ## Examples
+
+          # Check that messages to the user contain specific patterns
+          assert_sent_message_contains(user.pid, ~r/nickname is currently online/)
+          assert_sent_message_contains(user.pid, ~r/Registered on:/)
+
+          # Then check the total number (will clear the agent state)
+          assert_sent_messages_amount(user.pid, 6)
+      """
+      @spec assert_sent_message_contains(pid(), String.t() | Regex.t()) :: :ok
+      def assert_sent_message_contains(target, pattern) do
+        agent_pid = Process.whereis(@agent_name)
+
+        if not (agent_pid != nil && Process.alive?(agent_pid)) do
+          raise RuntimeError,
+            message: """
+            Message agent is not running. Did you forget to use ElixIRCd.MessageCase?
+            """
+        end
+
+        sent_messages = Agent.get(@agent_name, &Enum.reverse(&1))
+
+        sent_msgs_for_target =
+          Enum.filter(sent_messages, fn {pid, _} -> pid == target end)
+          |> Enum.map(fn {_, msg} -> msg end)
+
+        unless Enum.any?(sent_msgs_for_target, fn msg -> message_match?(pattern, msg) end) do
+          raise AssertionError, """
+          Assertion failed: No message matching pattern was found for target #{inspect(target)}.
+          Pattern: #{inspect(pattern)}
+          Messages sent to target: #{inspect(sent_msgs_for_target)}
+          """
+        end
 
         :ok
       end

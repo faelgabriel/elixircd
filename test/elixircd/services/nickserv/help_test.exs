@@ -9,6 +9,8 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
   alias ElixIRCd.Services.Nickserv.Help
 
+  setup :verify_on_exit!
+
   describe "handle/2" do
     test "handles HELP command with no parameters" do
       Memento.transaction!(fn ->

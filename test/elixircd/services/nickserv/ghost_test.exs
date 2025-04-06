@@ -10,6 +10,8 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Ghost
 
+  setup :verify_on_exit!
+
   describe "handle/2" do
     test "handles GHOST command with insufficient parameters" do
       Memento.transaction!(fn ->
@@ -141,7 +143,6 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end
   end
 
-  # Start a process that will receive the disconnect process message and forward it to the test process
   @spec spawn_test_process() :: pid()
   defp spawn_test_process do
     parent = self()
@@ -153,7 +154,6 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end)
   end
 
-  # Assert that the disconnect process message was sent to the target process
   @spec assert_disconnect_process_message_sent :: :ok
   defp assert_disconnect_process_message_sent do
     Process.sleep(50)

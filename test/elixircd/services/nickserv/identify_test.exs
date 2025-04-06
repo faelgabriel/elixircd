@@ -11,6 +11,8 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Identify
 
+  setup :verify_on_exit!
+
   describe "handle/2" do
     test "handles IDENTIFY command with insufficient parameters" do
       Memento.transaction!(fn ->
@@ -68,7 +70,6 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
            ":NickServ!service@irc.test NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
-        # Check that the user was not identified
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
       end)
@@ -88,11 +89,9 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
            ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
-        # Check that the user was identified
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == registered_nick.nickname
 
-        # Check that the last_seen_at was updated
         {:ok, updated_nick} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
         assert DateTime.compare(updated_nick.last_seen_at, registered_nick.last_seen_at) == :gt
       end)
@@ -114,11 +113,9 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
            ":NickServ!service@irc.test NOTICE #{user.nick} :Your current nickname will now be recognized with your account.\r\n"}
         ])
 
-        # Check that the user was identified
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == registered_nick.nickname
 
-        # Check that the last_seen_at was updated
         {:ok, updated_nick} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
         assert DateTime.compare(updated_nick.last_seen_at, registered_nick.last_seen_at) == :gt
       end)
@@ -136,7 +133,6 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02#{non_registered_nick}\x02 is not registered.\r\n"}
         ])
 
-        # Check that the user was not identified
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
       end)
@@ -156,7 +152,6 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
            ":NickServ!service@irc.test NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
-        # Check that the user was not identified
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
       end)

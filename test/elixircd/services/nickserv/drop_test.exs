@@ -11,6 +11,8 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Drop
 
+  setup :verify_on_exit!
+
   describe "handle/2" do
     test "handles DROP command with no parameters" do
       Memento.transaction!(fn ->
@@ -65,7 +67,6 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
 
-        # Get user and check identified_as is nil
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
       end)
@@ -123,19 +124,15 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
     test "handles DROP command that affects currently connected user with that nick" do
       Memento.transaction!(fn ->
-        # Create proper password hash
         password = "correct_password"
         password_hash = Pbkdf2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
-        # User doing the dropping
         user = insert(:user)
-        # User with the nickname
         target_user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname)
 
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, password])
 
-        # The target user should no longer be identified
         {:ok, updated_target_user} = Users.get_by_pid(target_user.pid)
         assert updated_target_user.identified_as == nil
       end)
