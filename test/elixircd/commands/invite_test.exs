@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -36,8 +36,8 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} INVITE :Not enough parameters\r\n"},
-          {user.pid, ":server.example.com 461 #{user.nick} INVITE :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} INVITE :Not enough parameters\r\n"},
+          {user.pid, ":irc.test 461 #{user.nick} INVITE :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -50,7 +50,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 401 #{user.nick} target :No such nick/channel\r\n"}
+          {user.pid, ":irc.test 401 #{user.nick} target :No such nick/channel\r\n"}
         ])
       end)
     end
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 403 #{user.nick} #nonexistent :No such channel\r\n"}
+          {user.pid, ":irc.test 403 #{user.nick} #nonexistent :No such channel\r\n"}
         ])
       end)
     end
@@ -79,7 +79,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 442 #{user.nick} #channel :You're not on that channel\r\n"}
+          {user.pid, ":irc.test 442 #{user.nick} #channel :You're not on that channel\r\n"}
         ])
       end)
     end
@@ -95,7 +95,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 482 #{user.nick} #channel :You're not channel operator\r\n"}
+          {user.pid, ":irc.test 482 #{user.nick} #channel :You're not channel operator\r\n"}
         ])
       end)
     end
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 443 #{user.nick} target #channel :is already on channel\r\n"}
+          {user.pid, ":irc.test 443 #{user.nick} target #channel :is already on channel\r\n"}
         ])
       end)
     end
@@ -128,7 +128,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
           {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
@@ -145,7 +145,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
           {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
 
@@ -164,8 +164,8 @@ defmodule ElixIRCd.Commands.InviteTest do
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"},
-          {user.pid, ":server.example.com 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :I'm away\r\n"},
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
           {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)

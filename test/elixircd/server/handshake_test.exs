@@ -52,16 +52,15 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert_sent_messages(
         [
-          {user.pid, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** Found your hostname\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** Checking Ident\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** Got Ident response\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Looking up your hostname...\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Found your hostname\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Checking Ident\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Got Ident response\r\n"},
           {user.pid,
-           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
-          {user.pid,
-           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
-          {user.pid, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"}
+           ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+          {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+          {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
           # LUSERS messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
         ],
@@ -96,16 +95,15 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert_sent_messages(
         [
-          {user.pid, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** Couldn't look up your hostname\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** Checking Ident\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** No Ident response\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Looking up your hostname...\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Couldn't look up your hostname\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Checking Ident\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** No Ident response\r\n"},
           {user.pid,
-           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
-          {user.pid,
-           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
-          {user.pid, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"}
+           ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+          {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+          {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
           # LUSERS messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
         ],
@@ -139,14 +137,13 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
       assert_sent_messages([
-        {user.pid, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
-        {user.pid, ":server.example.com NOTICE * :*** Found your hostname\r\n"},
+        {user.pid, ":irc.test NOTICE * :*** Looking up your hostname...\r\n"},
+        {user.pid, ":irc.test NOTICE * :*** Found your hostname\r\n"},
         {user.pid,
-         ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
-        {user.pid,
-         ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
-        {user.pid, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-        {user.pid, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"}
+         ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+        {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+        {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+        {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
         # LUSERS messages are mocked as we don't care about it here
         # MOTD messages are mocked as we don't care about it here
       ])
@@ -178,16 +175,15 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert_sent_messages(
         [
-          {user.pid, ":server.example.com NOTICE * :*** Looking up your hostname...\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** Couldn't look up your hostname\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** Checking Ident\r\n"},
-          {user.pid, ":server.example.com NOTICE * :*** No Ident response\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Looking up your hostname...\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Couldn't look up your hostname\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** Checking Ident\r\n"},
+          {user.pid, ":irc.test NOTICE * :*** No Ident response\r\n"},
           {user.pid,
-           ":server.example.com 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
-          {user.pid,
-           ":server.example.com 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
-          {user.pid, ":server.example.com 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":server.example.com 004 #{user.nick} :server.example.com #{app_version} iowZ biklmnopstv\r\n"},
+           ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
+          {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
+          {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"},
           # LUSERS messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
           {user.pid, ":#{user.nick} MODE #{user.nick} :+Z\r\n"}
@@ -237,7 +233,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert {:quit, "Bad Password"} = Memento.transaction!(fn -> Handshake.handle(user) end)
 
       assert_sent_messages([
-        {user.pid, ":server.example.com 464 * :Bad Password\r\n"}
+        {user.pid, ":irc.test 464 * :Bad Password\r\n"}
       ])
     end
   end

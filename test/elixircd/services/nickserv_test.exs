@@ -74,9 +74,9 @@ defmodule ElixIRCd.Services.NickservTest do
       assert :ok = Nickserv.handle(user, ["UNKNOWN"])
 
       assert_sent_messages([
-        {user.pid, ":NickServ!service@server.example.com NOTICE #{user.nick} :Unknown command: \x02UNKNOWN\x02\r\n"},
+        {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Unknown command: \x02UNKNOWN\x02\r\n"},
         {user.pid,
-         ":NickServ!service@server.example.com NOTICE #{user.nick} :For help on using NickServ, type \x02/msg NickServ HELP\x02\r\n"}
+         ":NickServ!service@irc.test NOTICE #{user.nick} :For help on using NickServ, type \x02/msg NickServ HELP\x02\r\n"}
       ])
     end
 
@@ -85,9 +85,9 @@ defmodule ElixIRCd.Services.NickservTest do
 
       assert_sent_messages([
         {user.pid,
-         ":NickServ!service@server.example.com NOTICE #{user.nick} :NickServ allows you to register and manage your nickname.\r\n"},
+         ":NickServ!service@irc.test NOTICE #{user.nick} :NickServ allows you to register and manage your nickname.\r\n"},
         {user.pid,
-         ":NickServ!service@server.example.com NOTICE #{user.nick} :For help on using NickServ, type \x02/msg NickServ HELP\x02\r\n"}
+         ":NickServ!service@irc.test NOTICE #{user.nick} :For help on using NickServ, type \x02/msg NickServ HELP\x02\r\n"}
       ])
     end
   end

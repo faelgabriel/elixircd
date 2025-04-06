@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Commands.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} PART :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} PART :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -47,7 +47,7 @@ defmodule ElixIRCd.Commands.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
+          {user.pid, ":irc.test 403 #{user.nick} #new_channel :No such channel\r\n"}
         ])
       end)
     end
@@ -61,7 +61,7 @@ defmodule ElixIRCd.Commands.PartTest do
         assert :ok = Part.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
+          {user.pid, ":irc.test 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
         ])
       end)
     end

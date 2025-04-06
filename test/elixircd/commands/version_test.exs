@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.VersionTest do
         assert :ok = Version.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -31,8 +31,7 @@ defmodule ElixIRCd.Commands.VersionTest do
         assert :ok = Version.handle(user, message)
 
         assert_sent_messages([
-          {user.pid,
-           ":server.example.com 351 #{user.nick} ElixIRCd-#{Application.spec(:elixircd, :vsn)} server.example.com\r\n"}
+          {user.pid, ":irc.test 351 #{user.nick} ElixIRCd-#{Application.spec(:elixircd, :vsn)} irc.test\r\n"}
         ])
       end)
     end

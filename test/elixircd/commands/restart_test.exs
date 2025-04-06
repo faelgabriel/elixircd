@@ -22,7 +22,7 @@ defmodule ElixIRCd.Commands.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -35,7 +35,7 @@ defmodule ElixIRCd.Commands.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
         ])
       end)
     end
@@ -52,8 +52,8 @@ defmodule ElixIRCd.Commands.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com NOTICE * :Server is restarting\r\n"},
-          {user.pid, ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is restarting)\r\n"}
+          {user.pid, ":irc.test NOTICE * :Server is restarting\r\n"},
+          {user.pid, ":irc.test ERROR :Closing Link: #{user_mask(user)} (Server is restarting)\r\n"}
         ])
 
         # waits for the server to restart
@@ -75,9 +75,8 @@ defmodule ElixIRCd.Commands.RestartTest do
         assert :ok = Restart.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com NOTICE * :Server is restarting: Restarting reason\r\n"},
-          {user.pid,
-           ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is restarting: Restarting reason)\r\n"}
+          {user.pid, ":irc.test NOTICE * :Server is restarting: Restarting reason\r\n"},
+          {user.pid, ":irc.test ERROR :Closing Link: #{user_mask(user)} (Server is restarting: Restarting reason)\r\n"}
         ])
 
         # waits for the server to restart

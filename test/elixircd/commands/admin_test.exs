@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.AdminTest do
         assert :ok = Admin.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -31,10 +31,10 @@ defmodule ElixIRCd.Commands.AdminTest do
         assert :ok = Admin.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 256 #{user.nick} :Administrative info about Server Example\r\n"},
-          {user.pid, ":server.example.com 257 #{user.nick} :Server Location Here\r\n"},
-          {user.pid, ":server.example.com 258 #{user.nick} :Organization Name Here\r\n"},
-          {user.pid, ":server.example.com 259 #{user.nick} :admin@example.com\r\n"}
+          {user.pid, ":irc.test 256 #{user.nick} :Administrative info about Server Example\r\n"},
+          {user.pid, ":irc.test 257 #{user.nick} :Server Location Here\r\n"},
+          {user.pid, ":irc.test 258 #{user.nick} :Organization Name Here\r\n"},
+          {user.pid, ":irc.test 259 #{user.nick} :admin@example.com\r\n"}
         ])
       end)
     end

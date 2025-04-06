@@ -6,7 +6,7 @@ config :elixircd,
     # Name of your IRC server
     name: "Server Example",
     # Hostname or domain name of your IRC server
-    hostname: "server.example.com",
+    hostname: "irc.test",
     # Optional server password; set to `nil` if not required
     password: nil,
     # Message of the Day

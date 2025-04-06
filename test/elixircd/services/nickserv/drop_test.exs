@@ -19,8 +19,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         assert :ok = Drop.handle(user, ["DROP"])
 
         assert_sent_messages([
-          {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nick \x02#{user.nick}\x02 is not registered.\r\n"}
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{user.nick}\x02 is not registered.\r\n"}
         ])
       end)
     end
@@ -33,10 +32,8 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname])
 
         assert_sent_messages([
-          {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Insufficient parameters for \x02DROP\x02.\r\n"},
-          {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Syntax: \x02DROP <nickname> <password>\x02\r\n"}
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02DROP\x02.\r\n"},
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02DROP <nickname> <password>\x02\r\n"}
         ])
       end)
     end
@@ -49,7 +46,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nick \x02non_registered_nick\x02 is not registered.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02non_registered_nick\x02 is not registered.\r\n"}
         ])
       end)
     end
@@ -63,7 +60,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
 
         assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
@@ -85,7 +82,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
 
         assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
@@ -103,7 +100,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
         assert {:ok, _} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
@@ -118,10 +115,8 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname])
 
         assert_sent_messages([
-          {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Insufficient parameters for \x02DROP\x02.\r\n"},
-          {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Syntax: \x02DROP <nickname> <password>\x02\r\n"}
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02DROP\x02.\r\n"},
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02DROP <nickname> <password>\x02\r\n"}
         ])
       end)
     end

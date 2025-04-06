@@ -29,14 +29,14 @@ defmodule ElixIRCd.Server.DispatcherTest do
       Connection
       |> expect(:handle_send, fn pid, raw_message ->
         assert pid == user.pid
-        assert raw_message == ":server.example.com PING target\r\n"
+        assert raw_message == ":irc.test PING target\r\n"
         :ok
       end)
 
       Connection
       |> expect(:handle_send, fn pid, raw_message ->
         assert pid == user_channel.user_pid
-        assert raw_message == ":server.example.com PING target\r\n"
+        assert raw_message == ":irc.test PING target\r\n"
         :ok
       end)
 
@@ -55,14 +55,14 @@ defmodule ElixIRCd.Server.DispatcherTest do
       Connection
       |> expect(:handle_send, fn pid, raw_message ->
         assert pid == user.pid
-        assert raw_message == ":server.example.com PING target\r\n"
+        assert raw_message == ":irc.test PING target\r\n"
         :ok
       end)
 
       Connection
       |> expect(:handle_send, fn pid, raw_message ->
         assert pid == user_channel.user_pid
-        assert raw_message == ":server.example.com PING target\r\n"
+        assert raw_message == ":irc.test PING target\r\n"
         :ok
       end)
 
@@ -80,14 +80,14 @@ defmodule ElixIRCd.Server.DispatcherTest do
       Connection
       |> expect(:handle_send, 2, fn pid, raw_message ->
         assert pid == user.pid
-        assert raw_message == ":server.example.com PING target\r\n"
+        assert raw_message == ":irc.test PING target\r\n"
         :ok
       end)
 
       Connection
       |> expect(:handle_send, 2, fn pid, raw_message ->
         assert pid == user_channel.user_pid
-        assert raw_message == ":server.example.com PING target\r\n"
+        assert raw_message == ":irc.test PING target\r\n"
         :ok
       end)
 
@@ -107,14 +107,14 @@ defmodule ElixIRCd.Server.DispatcherTest do
         Connection
         |> expect(:handle_send, fn pid, raw_message ->
           assert pid == user.pid
-          assert raw_message == ":server.example.com PING target\r\n"
+          assert raw_message == ":irc.test PING target\r\n"
           :ok
         end)
 
         Connection
         |> expect(:handle_send, fn pid, raw_message ->
           assert pid == user_channel.user_pid
-          assert raw_message == ":server.example.com PING target\r\n"
+          assert raw_message == ":irc.test PING target\r\n"
           :ok
         end)
       end

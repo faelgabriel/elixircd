@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.OperTest do
         assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -34,8 +34,8 @@ defmodule ElixIRCd.Commands.OperTest do
         assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} OPER :Not enough parameters\r\n"},
-          {user.pid, ":server.example.com 461 #{user.nick} OPER :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} OPER :Not enough parameters\r\n"},
+          {user.pid, ":irc.test 461 #{user.nick} OPER :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -59,7 +59,7 @@ defmodule ElixIRCd.Commands.OperTest do
         assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 381 #{user.nick} :You are now an IRC operator\r\n"}
+          {user.pid, ":irc.test 381 #{user.nick} :You are now an IRC operator\r\n"}
         ])
       end)
     end
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Commands.OperTest do
         assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 464 #{user.nick} :Password incorrect\r\n"}
+          {user.pid, ":irc.test 464 #{user.nick} :Password incorrect\r\n"}
         ])
       end)
     end

@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert :ok = Rehash.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert :ok = Rehash.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
         ])
       end)
     end
@@ -44,8 +44,8 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert :ok = Rehash.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 382 #{user.nick} runtime.exs :Rehashing\r\n"},
-          {user.pid, ":server.example.com NOTICE #{user.nick} :Rehashing completed\r\n"}
+          {user.pid, ":irc.test 382 #{user.nick} runtime.exs :Rehashing\r\n"},
+          {user.pid, ":irc.test NOTICE #{user.nick} :Rehashing completed\r\n"}
         ])
       end)
     end

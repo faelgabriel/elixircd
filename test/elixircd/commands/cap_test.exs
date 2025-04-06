@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com CAP * LS\r\n"}
+          {user.pid, ":irc.test CAP * LS\r\n"}
         ])
       end)
     end

@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -33,7 +33,7 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} TOPIC :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} TOPIC :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -49,8 +49,8 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 403 #{user.nick} #non-existing :No such channel\r\n"},
-          {user.pid, ":server.example.com 403 #{user.nick} #non-existing :No such channel\r\n"}
+          {user.pid, ":irc.test 403 #{user.nick} #non-existing :No such channel\r\n"},
+          {user.pid, ":irc.test 403 #{user.nick} #non-existing :No such channel\r\n"}
         ])
       end)
     end
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 331 #{user.nick} #{channel.name} :No topic is set\r\n"}
+          {user.pid, ":irc.test 331 #{user.nick} #{channel.name} :No topic is set\r\n"}
         ])
       end)
     end
@@ -82,9 +82,9 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 332 #{user.nick} #{channel.name} :Channel Topic!\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :Channel Topic!\r\n"},
           {user.pid,
-           ":server.example.com 333 #{user.nick} #{channel.name} user!setter@host #{DateTime.to_unix(channel.topic.set_at)}\r\n"}
+           ":irc.test 333 #{user.nick} #{channel.name} user!setter@host #{DateTime.to_unix(channel.topic.set_at)}\r\n"}
         ])
       end)
     end
@@ -98,7 +98,7 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
+          {user.pid, ":irc.test 442 #{user.nick} #{channel.name} :You're not on that channel\r\n"}
         ])
       end)
     end
@@ -113,7 +113,7 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert :ok = Topic.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 482 #{user.nick} #{channel.name} :You're not a channel operator\r\n"}
+          {user.pid, ":irc.test 482 #{user.nick} #{channel.name} :You're not a channel operator\r\n"}
         ])
       end)
     end

@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -37,8 +37,8 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
-          {user.pid, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
+          {user.pid, ":irc.test 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
+          {user.pid, ":irc.test 403 #{user.nick} #new_channel :No such channel\r\n"}
         ])
       end)
     end
@@ -66,7 +66,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
       end)
     end
@@ -80,7 +80,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
       end)
     end
@@ -177,7 +177,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 401 #{user.nick} another_user :No such nick\r\n"}
+          {user.pid, ":irc.test 401 #{user.nick} another_user :No such nick\r\n"}
         ])
       end)
     end
@@ -206,7 +206,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
         assert_sent_messages([
           {target_user.pid, ":#{user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"},
-          {user.pid, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
+          {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
         ])
       end)
     end

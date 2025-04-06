@@ -22,7 +22,7 @@ defmodule ElixIRCd.Commands.DieTest do
         assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -35,7 +35,7 @@ defmodule ElixIRCd.Commands.DieTest do
         assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
         ])
       end)
     end
@@ -51,8 +51,8 @@ defmodule ElixIRCd.Commands.DieTest do
         assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com NOTICE * :Server is shutting down\r\n"},
-          {user.pid, ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is shutting down)\r\n"}
+          {user.pid, ":irc.test NOTICE * :Server is shutting down\r\n"},
+          {user.pid, ":irc.test ERROR :Closing Link: #{user_mask(user)} (Server is shutting down)\r\n"}
         ])
 
         # waits for the server to shutdown
@@ -73,9 +73,9 @@ defmodule ElixIRCd.Commands.DieTest do
         assert :ok = Die.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com NOTICE * :Server is shutting down: Shutting down reason\r\n"},
+          {user.pid, ":irc.test NOTICE * :Server is shutting down: Shutting down reason\r\n"},
           {user.pid,
-           ":server.example.com ERROR :Closing Link: #{user_mask(user)} (Server is shutting down: Shutting down reason)\r\n"}
+           ":irc.test ERROR :Closing Link: #{user_mask(user)} (Server is shutting down: Shutting down reason)\r\n"}
         ])
 
         # waits for the server to shutdown

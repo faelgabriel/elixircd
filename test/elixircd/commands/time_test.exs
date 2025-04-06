@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.TimeTest do
         assert :ok = Time.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Commands.TimeTest do
 
         assert_sent_messages([
           {user.pid,
-           ~r/^:server.example.com 391 #{user.nick} server.example.com :[A-Za-z]+ [A-Za-z]+ [0-9]{2} [0-9]{4} -- [0-9]{2}:[0-9]{2}:[0-9]{2} UTC\r\n$/}
+           ~r/^:irc.test 391 #{user.nick} irc.test :[A-Za-z]+ [A-Za-z]+ [0-9]{2} [0-9]{4} -- [0-9]{2}:[0-9]{2}:[0-9]{2} UTC\r\n$/}
         ])
       end)
     end

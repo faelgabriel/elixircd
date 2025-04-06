@@ -16,7 +16,7 @@ defmodule ElixIRCd.Utils.MailerTest do
       |> expect(:deliver_now, fn _adapter, email, _config, _opts ->
         # Verify email content
         assert email.to == "test@example.com"
-        assert email.from == "noreply@server.example.com"
+        assert email.from == "noreply@irc.test"
         assert email.subject == "test_nick IRC Nickname Registration Verification"
 
         # Verify HTML content contains the verification code
@@ -38,7 +38,7 @@ defmodule ElixIRCd.Utils.MailerTest do
 
     test "uses configured sender email when available" do
       Application
-      |> expect(:get_env, fn :elixircd, :server -> %{hostname: "server.example.com"} end)
+      |> expect(:get_env, fn :elixircd, :server -> %{hostname: "irc.test"} end)
       |> expect(:get_env, fn :elixircd, :services -> %{email: %{from_address: "custom@example.com"}} end)
 
       BambooMailer
@@ -55,13 +55,13 @@ defmodule ElixIRCd.Utils.MailerTest do
 
     test "uses default sender email when configuration is missing" do
       Application
-      |> expect(:get_env, fn :elixircd, :server -> %{hostname: "server.example.com"} end)
+      |> expect(:get_env, fn :elixircd, :server -> %{hostname: "irc.test"} end)
       |> expect(:get_env, fn :elixircd, :services -> nil end)
 
       BambooMailer
       |> expect(:deliver_now, fn _adapter, email, _config, _opts ->
         # Verify the default from address is used
-        assert email.from == "noreply@server.example.com"
+        assert email.from == "noreply@irc.test"
 
         {:ok, email}
       end)

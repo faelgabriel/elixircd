@@ -19,7 +19,7 @@ defmodule ElixIRCd.Commands.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Commands.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} KILL :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} KILL :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -45,7 +45,7 @@ defmodule ElixIRCd.Commands.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
         ])
       end)
     end
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Commands.KillTest do
         assert :ok = Kill.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
+          {user.pid, ":irc.test 401 #{user.nick} target :No such nick\r\n"}
         ])
       end)
     end
@@ -75,8 +75,7 @@ defmodule ElixIRCd.Commands.KillTest do
         expected_killed_message = "Killed (#{user.nick} (Kill reason))"
 
         assert_sent_messages([
-          {target_user.pid,
-           ":server.example.com ERROR :Closing Link: #{user_mask(target_user)} (#{expected_killed_message})\r\n"}
+          {target_user.pid, ":irc.test ERROR :Closing Link: #{user_mask(target_user)} (#{expected_killed_message})\r\n"}
         ])
 
         assert_received {:disconnect, ^expected_killed_message}
@@ -95,8 +94,7 @@ defmodule ElixIRCd.Commands.KillTest do
         expected_killed_message = "Killed (#{user.nick})"
 
         assert_sent_messages([
-          {target_user.pid,
-           ":server.example.com ERROR :Closing Link: #{user_mask(target_user)} (#{expected_killed_message})\r\n"}
+          {target_user.pid, ":irc.test ERROR :Closing Link: #{user_mask(target_user)} (#{expected_killed_message})\r\n"}
         ])
 
         assert_received {:disconnect, ^expected_killed_message}

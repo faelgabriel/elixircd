@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} NICK :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -36,7 +36,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
+          {user.pid, ":irc.test 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
         ])
       end)
     end
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
+          {user.pid, ":irc.test 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
         ])
       end)
     end
@@ -67,7 +67,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
+          {user.pid, ":irc.test 433 #{user.nick} existing :Nickname is already in use\r\n"}
         ])
       end)
     end
@@ -142,7 +142,7 @@ defmodule ElixIRCd.Commands.NickTest do
 
         assert_sent_messages([
           {user.pid,
-           ":server.example.com 433 #{user.nick} #{reserved_nick} :This nickname is reserved. Please identify to NickServ first.\r\n"}
+           ":irc.test 433 #{user.nick} #{reserved_nick} :This nickname is reserved. Please identify to NickServ first.\r\n"}
         ])
       end)
     end

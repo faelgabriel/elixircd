@@ -18,10 +18,8 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
         assert :ok = Ghost.handle(user, ["GHOST"])
 
         assert_sent_messages([
-          {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Insufficient parameters for \x02GHOST\x02.\r\n"},
-          {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Syntax: \x02GHOST <nick> [password]\x02\r\n"}
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02GHOST\x02.\r\n"},
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02GHOST <nick> [password]\x02\r\n"}
         ])
       end)
     end
@@ -35,7 +33,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nick \x02#{non_existing_nick}\x02 is not online.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{non_existing_nick}\x02 is not online.\r\n"}
         ])
       end)
     end
@@ -47,7 +45,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
         assert :ok = Ghost.handle(user, ["GHOST", user.nick])
 
         assert_sent_messages([
-          {user.pid, ":NickServ!service@server.example.com NOTICE #{user.nick} :You cannot ghost yourself.\r\n"}
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :You cannot ghost yourself.\r\n"}
         ])
       end)
     end
@@ -61,7 +59,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nick \x02#{target_user.nick}\x02 is not registered.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{target_user.nick}\x02 is not registered.\r\n"}
         ])
       end)
     end
@@ -76,9 +74,9 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :You need to provide a password to ghost \x02#{target_user.nick}\x02.\r\n"},
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You need to provide a password to ghost \x02#{target_user.nick}\x02.\r\n"},
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Syntax: \x02GHOST #{target_user.nick} <password>\x02\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02GHOST #{target_user.nick} <password>\x02\r\n"}
         ])
       end)
     end
@@ -95,7 +93,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Invalid password for \x02#{target_user.nick}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Invalid password for \x02#{target_user.nick}\x02.\r\n"}
         ])
 
         assert {:ok, _user} = Users.get_by_pid(target_user.pid)
@@ -116,7 +114,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
         ])
 
         assert_disconnect_process_message_sent()
@@ -135,7 +133,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
         ])
 
         assert_disconnect_process_message_sent()

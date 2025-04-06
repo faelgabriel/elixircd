@@ -19,7 +19,7 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -35,8 +35,8 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} KICK :Not enough parameters\r\n"},
-          {user.pid, ":server.example.com 461 #{user.nick} KICK :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} KICK :Not enough parameters\r\n"},
+          {user.pid, ":irc.test 461 #{user.nick} KICK :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -49,7 +49,7 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 403 #{user.nick} #nonexistent :No such channel\r\n"}
+          {user.pid, ":irc.test 403 #{user.nick} #nonexistent :No such channel\r\n"}
         ])
       end)
     end
@@ -63,7 +63,7 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 441 #{user.nick} #channel :You're not on that channel\r\n"}
+          {user.pid, ":irc.test 441 #{user.nick} #channel :You're not on that channel\r\n"}
         ])
       end)
     end
@@ -78,7 +78,7 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 482 #{user.nick} #channel :You're not channel operator\r\n"}
+          {user.pid, ":irc.test 482 #{user.nick} #channel :You're not channel operator\r\n"}
         ])
       end)
     end
@@ -93,7 +93,7 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 401 #{user.nick} target :No such nick/channel\r\n"}
+          {user.pid, ":irc.test 401 #{user.nick} target :No such nick/channel\r\n"}
         ])
       end)
     end
@@ -109,7 +109,7 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 441 #{user.nick} #channel :They aren't on that channel\r\n"}
+          {user.pid, ":irc.test 441 #{user.nick} #channel :They aren't on that channel\r\n"}
         ])
       end)
     end

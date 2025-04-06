@@ -20,9 +20,9 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Insufficient parameters for \x02IDENTIFY\x02.\r\n"},
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02IDENTIFY\x02.\r\n"},
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Syntax: \x02IDENTIFY [nickname] <password>\x02\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02IDENTIFY [nickname] <password>\x02\r\n"}
         ])
       end)
     end
@@ -36,7 +36,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :You are already identified as \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are already identified as \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
       end)
     end
@@ -49,7 +49,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nickname \x02#{user.nick}\x02 is not registered.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02#{user.nick}\x02 is not registered.\r\n"}
         ])
       end)
     end
@@ -65,7 +65,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
         # Check that the user was not identified
@@ -85,7 +85,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
         # Check that the user was identified
@@ -109,9 +109,9 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Your current nickname will now be recognized with your account.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Your current nickname will now be recognized with your account.\r\n"}
         ])
 
         # Check that the user was identified
@@ -133,7 +133,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Nickname \x02#{non_registered_nick}\x02 is not registered.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02#{non_registered_nick}\x02 is not registered.\r\n"}
         ])
 
         # Check that the user was not identified
@@ -153,7 +153,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@server.example.com NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
         # Check that the user was not identified

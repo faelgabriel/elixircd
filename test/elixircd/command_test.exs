@@ -76,7 +76,7 @@ defmodule ElixIRCd.CommandTest do
       assert :ok = Command.dispatch(user, message)
 
       assert_sent_messages([
-        {user.pid, ":server.example.com 421 #{user.nick} #{message.command} :Unknown command\r\n"}
+        {user.pid, ":irc.test 421 #{user.nick} #{message.command} :Unknown command\r\n"}
       ])
     end
   end

@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.UsersTest do
         assert :ok = Users.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -36,8 +36,8 @@ defmodule ElixIRCd.Commands.UsersTest do
         assert :ok = Users.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 265 #{user.nick} 1 10 :Current local users 1, max 10\r\n"},
-          {user.pid, ":server.example.com 266 #{user.nick} 1 10 :Current global users 1, max 10\r\n"}
+          {user.pid, ":irc.test 265 #{user.nick} 1 10 :Current local users 1, max 10\r\n"},
+          {user.pid, ":irc.test 266 #{user.nick} 1 10 :Current global users 1, max 10\r\n"}
         ])
       end)
     end
