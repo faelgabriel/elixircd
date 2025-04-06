@@ -88,6 +88,6 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok
   defp handle_failed_identification(user, registered_nick) do
     notify(user, "Password incorrect for \x02#{registered_nick.nickname}\x02.")
-    Logger.warning("Failed IDENTIFY attempt for #{registered_nick.nickname} from #{user_mask(user)}")
+    Logger.info("Failed IDENTIFY attempt for #{registered_nick.nickname} from #{user_mask(user)}")
   end
 end
