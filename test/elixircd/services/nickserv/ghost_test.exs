@@ -7,8 +7,8 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
   import ElixIRCd.Factory
 
-  alias ElixIRCd.Services.Nickserv.Ghost
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Services.Nickserv.Ghost
 
   describe "handle/2" do
     test "handles GHOST command with insufficient parameters" do
@@ -156,8 +156,8 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
   end
 
   # Assert that the disconnect process message was sent to the target process
-  @spec assert_disconnect_process_message_sent() :: :ok
-  defp assert_disconnect_process_message_sent() do
+  @spec assert_disconnect_process_message_sent :: :ok
+  defp assert_disconnect_process_message_sent do
     Process.sleep(50)
 
     receive do

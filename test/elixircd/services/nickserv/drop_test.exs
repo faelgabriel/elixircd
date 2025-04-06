@@ -7,9 +7,9 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
   import ElixIRCd.Factory
 
-  alias ElixIRCd.Services.Nickserv.Drop
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Services.Nickserv.Drop
 
   describe "handle/2" do
     test "handles DROP command with no parameters" do

@@ -15,11 +15,11 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   @spec handle(User.t(), [String.t()]) :: :ok
   def handle(user, ["HELP" | rest_params]) do
     normalized_command =
-      (Enum.at(rest_params, 0) || "")
+      rest_params
+      |> Enum.join(" ")
       |> String.upcase()
 
     send_help_for_command(user, normalized_command)
-    :ok
   end
 
   @spec send_help_for_command(User.t(), String.t()) :: :ok

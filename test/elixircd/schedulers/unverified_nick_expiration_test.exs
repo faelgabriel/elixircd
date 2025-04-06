@@ -5,8 +5,8 @@ defmodule ElixIRCd.Schedulers.UnverifiedNickExpirationTest do
 
   import ElixIRCd.Factory
 
-  alias ElixIRCd.Schedulers.UnverifiedNickExpiration
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Schedulers.UnverifiedNickExpiration
 
   describe "handles unverified nick expiration cleanup" do
     setup do
