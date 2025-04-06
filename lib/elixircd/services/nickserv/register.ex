@@ -111,8 +111,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   @spec register_nickname(User.t(), String.t(), String.t() | nil) :: :ok
   defp register_nickname(user, password, email) do
     password_hash = Pbkdf2.hash_pwd_salt(password)
-
-    verify_code = if is_nil(email), do: nil, else: :crypto.strong_rand_bytes(16) |> Base.encode16(case: :lower)
+    verify_code = if is_nil(email), do: nil, else: :rand.bytes(4) |> Base.encode16(case: :lower)
 
     registered_nick =
       RegisteredNicks.create(%{

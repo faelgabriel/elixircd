@@ -49,12 +49,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         user = insert(:user)
         short_password = String.duplicate("a", min_password_length - 1)
 
-        Mailer
-        |> expect(:send_verification_email, fn _email_address, _nickname, _verify_code ->
-          send(self(), {:mailer, :send_verification_email})
-          {:ok, %{}}
-        end)
-
         assert :ok = Register.handle(user, ["REGISTER", short_password, "email@example.com"])
 
         assert_sent_messages([
@@ -69,12 +63,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         invalid_email = "invalid_email"
-
-        Mailer
-        |> expect(:send_verification_email, fn _email_address, _nickname, _verify_code ->
-          send(self(), {:mailer, :send_verification_email})
-          {:ok, %{}}
-        end)
 
         assert :ok = Register.handle(user, ["REGISTER", "password123", invalid_email])
 
@@ -105,12 +93,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       Memento.transaction!(fn ->
         user = insert(:user)
 
-        Mailer
-        |> expect(:send_verification_email, fn _email_address, _nickname, _verify_code ->
-          send(self(), {:mailer, :send_verification_email})
-          {:ok, %{}}
-        end)
-
         assert :ok = Register.handle(user, ["REGISTER", "password123"])
 
         assert_sent_messages([
@@ -139,12 +121,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, created_at: DateTime.utc_now())
-
-        Mailer
-        |> expect(:send_verification_email, fn _email_address, _nickname, _verify_code ->
-          send(self(), {:mailer, :send_verification_email})
-          {:ok, %{}}
-        end)
 
         assert :ok = Register.handle(user, ["REGISTER", "password123", "email@example.com"])
 
@@ -219,14 +195,14 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
     test "successfully registers a nickname with email" do
       # Temporarily override the application config for wait time and unverified expiration
       original_wait_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
-      original_unverified_expiration_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expiration_days]
+      original_unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days]
 
       on_exit(fn ->
         # Reset the config after the test
         new_config =
           Application.get_env(:elixircd, :services)[:nickserv]
           |> Keyword.put(:wait_register_time, original_wait_time)
-          |> Keyword.put(:unverified_expiration_days, original_unverified_expiration_days)
+          |> Keyword.put(:unverified_expire_days, original_unverified_expire_days)
 
         Application.put_env(:elixircd, :services, nickserv: new_config)
       end)
@@ -235,7 +211,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       new_config =
         Application.get_env(:elixircd, :services)[:nickserv]
         |> Keyword.put(:wait_register_time, 0)
-        |> Keyword.put(:unverified_expiration_days, 30)
+        |> Keyword.put(:unverified_expire_days, 30)
 
       Application.put_env(:elixircd, :services, nickserv: new_config)
 
@@ -280,26 +256,22 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       |> expect(:send_verification_email, fn email_address, nickname, code ->
         assert email_address == email
         assert nickname == user.nick
-        assert is_binary(code) && String.length(code) == 6
-        send(self(), {:mailer, :send_verification_email})
+        assert is_binary(code) && String.length(code) == 8
         {:ok, %{}}
       end)
 
       # Call the function
       :ok = Register.handle(user, ["REGISTER", password, email])
 
-      # Check that the mailer was called
-      assert_received({:mailer, :send_verification_email})
-
       # Verify the messages sent to the user
       assert_sent_messages([
         {user.pid,
-         ":NickServ!service@irc.test NOTICE #{user.nick} :Your nickname has been successfully registered.\r\n"},
+         ~r/NickServ.*NOTICE.*An email containing nickname activation instructions has been sent to \x02#{email}\x02/},
+        {user.pid, ~r/NickServ.*NOTICE.*Please check the address if you don't receive it/},
+        {user.pid, ~r/NickServ.*NOTICE.*If you do not complete registration within 30 days, your nickname will expire/},
+        {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
         {user.pid,
          ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{user.nick}\x02.\r\n"},
-        {user.pid, ~r/NickServ.*NOTICE.*A verification email has been sent to.*/},
-        {user.pid, ~r/NickServ.*NOTICE.*Please check your email and follow the instructions.*/},
-        {user.pid, ~r/NickServ.*NOTICE.*You have 30 days to verify your email address.*/},
         {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
       ])
     end
