@@ -19,10 +19,8 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
         assert :ok = Set.handle(user, ["SET"])
 
         assert_sent_messages([
-          {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02SET\x02.\r\n"},
-          {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02SET <option> <parameters>\x02\r\n"},
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02SET\x02.\r\n"},
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02SET <option> <parameters>\x02\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Available SET options:\r\n"},
           {user.pid, ~r/NickServ.*NOTICE.*HIDEMAIL.*/}
         ])
