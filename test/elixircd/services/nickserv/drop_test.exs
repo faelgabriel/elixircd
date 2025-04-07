@@ -24,6 +24,25 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
       end)
     end
 
+    test "handles DROP command with no parameters for a registered nick" do
+      Memento.transaction!(fn ->
+        registered_nick = insert(:registered_nick)
+        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname)
+
+        assert :ok = Drop.handle(user, ["DROP"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
+        ])
+
+        assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.identified_as == nil
+      end)
+    end
+
     test "handles DROP command with insufficient parameters" do
       Memento.transaction!(fn ->
         user = insert(:user)
