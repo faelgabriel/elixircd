@@ -32,13 +32,6 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     handle(user, ["INFO", user.nick])
   end
 
-  def handle(user, ["INFO" | _command_params]) do
-    notify(user, [
-      "Insufficient parameters for \x02INFO\x02.",
-      "Syntax: \x02INFO <nickname>\x02"
-    ])
-  end
-
   @spec show_info(User.t(), RegisteredNick.t(), boolean()) :: :ok
   defp show_info(user, registered_nick, show_full_info) do
     notify(user, "\x02\x0312*** \x0304#{registered_nick.nickname}\x0312 ***\x03\x02")

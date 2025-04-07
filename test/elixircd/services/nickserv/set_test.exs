@@ -6,6 +6,7 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
   use Mimic
 
   import ElixIRCd.Factory
+  import ExUnit.CaptureLog
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Services.Nickserv.Set
@@ -90,18 +91,15 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
 
     test "handles SET HIDEMAIL ON command successfully" do
       Memento.transaction!(fn ->
-        # Create settings with hide_email: false
         settings = %RegisteredNick.Settings{hide_email: false}
         registered_nick = insert(:registered_nick, settings: settings)
         user = insert(:user, identified_as: registered_nick.nickname)
 
         assert :ok = Set.handle(user, ["SET", "HIDEMAIL", "ON"])
 
-        # Verify the setting was updated
         {:ok, updated_nick} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
         assert updated_nick.settings.hide_email == true
 
-        # Verify the message sent to the user
         assert_sent_messages([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Your email address will now be hidden from \x02INFO\x02 displays.\r\n"}
@@ -111,18 +109,15 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
 
     test "handles SET HIDEMAIL OFF command successfully" do
       Memento.transaction!(fn ->
-        # Create settings with hide_email: true
         settings = %RegisteredNick.Settings{hide_email: true}
         registered_nick = insert(:registered_nick, settings: settings)
         user = insert(:user, identified_as: registered_nick.nickname)
 
         assert :ok = Set.handle(user, ["SET", "HIDEMAIL", "OFF"])
 
-        # Verify the setting was updated
         {:ok, updated_nick} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
         assert updated_nick.settings.hide_email == false
 
-        # Verify the message sent to the user
         assert_sent_messages([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Your email address will now be shown in \x02INFO\x02 displays.\r\n"}
@@ -132,18 +127,15 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
 
     test "handles SET HIDEMAIL with case-insensitive values" do
       Memento.transaction!(fn ->
-        # Create settings with hide_email: false
         settings = %RegisteredNick.Settings{hide_email: false}
         registered_nick = insert(:registered_nick, settings: settings)
         user = insert(:user, identified_as: registered_nick.nickname)
 
         assert :ok = Set.handle(user, ["SET", "hidemail", "on"])
 
-        # Verify the setting was updated
         {:ok, updated_nick} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
         assert updated_nick.settings.hide_email == true
 
-        # Verify the message sent to the user
         assert_sent_messages([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Your email address will now be hidden from \x02INFO\x02 displays.\r\n"}
@@ -153,10 +145,8 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
 
     test "preserves existing settings when updating HIDEMAIL" do
       Memento.transaction!(fn ->
-        # Create a settings struct with additional fields if added in the future
         current_settings = RegisteredNick.Settings.new()
 
-        # Mock additional field in the settings (simulating future additions)
         current_settings_with_extras = Map.put(current_settings, :future_setting, "some_value")
 
         registered_nick = insert(:registered_nick, settings: current_settings_with_extras)
@@ -164,14 +154,29 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
 
         assert :ok = Set.handle(user, ["SET", "HIDEMAIL", "ON"])
 
-        # Verify the setting was updated
         {:ok, updated_nick} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
 
-        # Check that the hidemail setting was updated
         assert updated_nick.settings.hide_email == true
-
-        # Check that the future_setting was preserved
         assert Map.get(updated_nick.settings, :future_setting) == "some_value"
+      end)
+    end
+
+    test "handles error when updating settings fails" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "nonexistent_nick")
+
+        log =
+          capture_log(fn ->
+            assert :ok = Set.handle(user, ["SET", "HIDEMAIL", "ON"])
+          end)
+
+        assert log =~ "Error updating settings for nonexistent_nick"
+        assert log =~ ":registered_nick_not_found"
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :An error occurred while updating your settings.\r\n"}
+        ])
       end)
     end
   end

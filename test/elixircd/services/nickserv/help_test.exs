@@ -161,4 +161,69 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
       end)
     end
   end
+
+  describe "email_required notification" do
+    test "displays email required message when email is required" do
+      Memento.transaction!(fn ->
+        original_config = Application.get_env(:elixircd, :services)
+        email_required_config = put_in(original_config, [:nickserv, :email_required], true)
+        Application.put_env(:elixircd, :services, email_required_config)
+        on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
+
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "REGISTER"])
+
+        assert_sent_message_contains(user.pid, ~r/This server REQUIRES an email address for registration/)
+        assert_sent_message_contains(user.pid, ~r/You have to confirm the email address\. To do this, follow/)
+        assert_sent_message_contains(user.pid, ~r/the instructions in the message sent to the email address/)
+      end)
+    end
+
+    test "displays optional email message when email is not required" do
+      Memento.transaction!(fn ->
+        original_config = Application.get_env(:elixircd, :services)
+        email_optional_config = put_in(original_config, [:nickserv, :email_required], false)
+        Application.put_env(:elixircd, :services, email_optional_config)
+        on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
+
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "REGISTER"])
+
+        assert_sent_message_contains(user.pid, ~r/An email address is optional but recommended\. If provided,/)
+        assert_sent_message_contains(user.pid, ~r/you can use it to reset your password if you forget it/)
+      end)
+    end
+  end
+
+  describe "pluralize_days pluralization" do
+    test "uses 'day' for 1 day and 'days' for other values in FAQ help" do
+      Memento.transaction!(fn ->
+        original_config = Application.get_env(:elixircd, :services)
+        one_day_config = put_in(original_config, [:nickserv, :unverified_expire_days], 1)
+        Application.put_env(:elixircd, :services, one_day_config)
+        on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
+
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "FAQ"])
+
+        assert_sent_message_contains(user.pid, ~r/[Yy]ou must verify your nickname within 1 day/)
+      end)
+
+      Memento.transaction!(fn ->
+        original_config = Application.get_env(:elixircd, :services)
+        multiple_days_config = put_in(original_config, [:nickserv, :unverified_expire_days], 2)
+        Application.put_env(:elixircd, :services, multiple_days_config)
+        on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
+
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "FAQ"])
+
+        assert_sent_message_contains(user.pid, ~r/[Yy]ou must verify your nickname within 2 days/)
+      end)
+    end
+  end
 end

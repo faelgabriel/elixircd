@@ -274,4 +274,89 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       ])
     end
   end
+
+  describe "pluralize_days/1" do
+    test "returns 'day' when value is 1" do
+      original_unverified_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days]
+      original_wait_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
+
+      on_exit(fn ->
+        new_config =
+          Application.get_env(:elixircd, :services)[:nickserv]
+          |> Keyword.put(:unverified_expire_days, original_unverified_days)
+          |> Keyword.put(:wait_register_time, original_wait_time)
+
+        Application.put_env(:elixircd, :services, nickserv: new_config)
+      end)
+
+      new_config =
+        Application.get_env(:elixircd, :services)[:nickserv]
+        |> Keyword.put(:unverified_expire_days, 1)
+        |> Keyword.put(:wait_register_time, 0)
+
+      Application.put_env(:elixircd, :services, nickserv: new_config)
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        password = "password123"
+        email = "user@example.com"
+
+        expect(Mailer, :send_verification_email, fn _, _, _ -> {:ok, %{}} end)
+
+        assert :ok = Register.handle(user, ["REGISTER", password, email])
+
+        assert_sent_messages([
+          {user.pid,
+           ~r/NickServ.*NOTICE.*An email containing nickname activation instructions has been sent to \x02#{email}\x02/},
+          {user.pid, ~r/NickServ.*NOTICE.*Please check the address if you don't receive it/},
+          {user.pid, ~r/NickServ.*NOTICE.*If you do not complete registration within 1 day, your nickname will expire/},
+          {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
+          {user.pid, ~r/NickServ.*NOTICE.*You are now identified for \x02#{user.nick}\x02/},
+          {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
+        ])
+      end)
+    end
+
+    test "returns 'days' when value is not 1" do
+      original_unverified_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days]
+      original_wait_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
+
+      on_exit(fn ->
+        new_config =
+          Application.get_env(:elixircd, :services)[:nickserv]
+          |> Keyword.put(:unverified_expire_days, original_unverified_days)
+          |> Keyword.put(:wait_register_time, original_wait_time)
+
+        Application.put_env(:elixircd, :services, nickserv: new_config)
+      end)
+
+      new_config =
+        Application.get_env(:elixircd, :services)[:nickserv]
+        |> Keyword.put(:unverified_expire_days, 2)
+        |> Keyword.put(:wait_register_time, 0)
+
+      Application.put_env(:elixircd, :services, nickserv: new_config)
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        password = "password123"
+        email = "user@example.com"
+
+        expect(Mailer, :send_verification_email, fn _, _, _ -> {:ok, %{}} end)
+
+        assert :ok = Register.handle(user, ["REGISTER", password, email])
+
+        assert_sent_messages([
+          {user.pid,
+           ~r/NickServ.*NOTICE.*An email containing nickname activation instructions has been sent to \x02#{email}\x02/},
+          {user.pid, ~r/NickServ.*NOTICE.*Please check the address if you don't receive it/},
+          {user.pid,
+           ~r/NickServ.*NOTICE.*If you do not complete registration within 2 days, your nickname will expire/},
+          {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
+          {user.pid, ~r/NickServ.*NOTICE.*You are now identified for \x02#{user.nick}\x02/},
+          {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
+        ])
+      end)
+    end
+  end
 end

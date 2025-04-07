@@ -41,13 +41,6 @@ defmodule ElixIRCd.Services.Nickserv.Set do
     send_available_settings(user)
   end
 
-  def handle(user, ["SET" | _command_params]) do
-    notify(user, [
-      "Insufficient parameters for \x02SET\x02.",
-      "Syntax: \x02SET <option> <parameters>\x02"
-    ])
-  end
-
   @spec handle_hidemail(User.t(), [String.t()]) :: :ok
   defp handle_hidemail(user, [value | _rest_params]) do
     case String.upcase(value) do
