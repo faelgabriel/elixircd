@@ -258,10 +258,8 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         {:ok, %{}}
       end)
 
-      # Call the function
       :ok = Register.handle(user, ["REGISTER", password, email])
 
-      # Verify the messages sent to the user
       assert_sent_messages([
         {user.pid,
          ~r/NickServ.*NOTICE.*An email containing nickname activation instructions has been sent to \x02#{email}\x02/},

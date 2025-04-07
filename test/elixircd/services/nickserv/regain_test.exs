@@ -160,6 +160,34 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         assert_received {:regain_test, {:disconnect, ^expected_message}}
       end)
     end
+
+    test "handles REGAIN command when user is in a channel with other users" do
+      Memento.transaction!(fn ->
+        password = "correct_password"
+        password_hash = Pbkdf2.hash_pwd_salt(password)
+        registered_nick = insert(:registered_nick, password_hash: password_hash)
+
+        channel = insert(:channel)
+        user = insert(:user)
+        another_user = insert(:user)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        old_nick = user.nick
+
+        assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname, password])
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.nick == registered_nick.nickname
+
+        assert_sent_messages([
+          {user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK #{registered_nick.nickname}\r\n"},
+          {another_user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK #{registered_nick.nickname}\r\n"},
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You have regained the nickname \x02#{registered_nick.nickname}\x02.\r\n"}
+        ])
+      end)
+    end
   end
 
   @spec spawn_test_process() :: pid()
