@@ -30,13 +30,6 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     handle(user, ["DROP", user.nick])
   end
 
-  def handle(user, ["DROP" | _command_params]) do
-    notify(user, [
-      "Insufficient parameters for \x02DROP\x02.",
-      "Syntax: \x02DROP <nickname> [password]\x02"
-    ])
-  end
-
   @spec handle_registered_nick(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_registered_nick(user, registered_nick, password) do
     if user.identified_as == registered_nick.nickname do
