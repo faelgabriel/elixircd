@@ -10,6 +10,8 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Register
+  alias ElixIRCd.Tables.RegisteredNick
+  alias ElixIRCd.Tables.RegisteredNick.Settings
   alias ElixIRCd.Utils.Mailer
 
   describe "handle/2" do
@@ -151,7 +153,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       password = "password123"
 
       # Mock RegisteredNicks to return a registered nick after create
-      mock_registered_nick = %ElixIRCd.Tables.RegisteredNick{
+      mock_registered_nick = %RegisteredNick{
         nickname: user.nick,
         password_hash: Pbkdf2.hash_pwd_salt(password),
         email: nil,
@@ -160,7 +162,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         verified_at: nil,
         last_seen_at: DateTime.utc_now(),
         reserved_until: nil,
-        settings: ElixIRCd.Tables.RegisteredNick.Settings.new(),
+        settings: Settings.new(),
         created_at: DateTime.utc_now()
       }
 
@@ -220,7 +222,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       verify_code = "123456"
 
       # Mock RegisteredNicks to return a registered nick after create
-      mock_registered_nick = %ElixIRCd.Tables.RegisteredNick{
+      mock_registered_nick = %RegisteredNick{
         nickname: user.nick,
         password_hash: Pbkdf2.hash_pwd_salt(password),
         email: email,
@@ -229,7 +231,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         verified_at: nil,
         last_seen_at: DateTime.utc_now(),
         reserved_until: nil,
-        settings: ElixIRCd.Tables.RegisteredNick.Settings.new(),
+        settings: Settings.new(),
         created_at: DateTime.utc_now()
       }
 
