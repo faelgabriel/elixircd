@@ -20,8 +20,8 @@ defmodule ElixIRCd.Services.Nickserv.Info do
   def handle(user, ["INFO", target_nick | _command_params]) do
     case RegisteredNicks.get_by_nickname(target_nick) do
       {:ok, registered_nick} ->
-        show_full_info = user.identified_as == registered_nick.nickname || irc_operator?(user)
-        show_info(user, registered_nick, show_full_info)
+        has_full_access = user.identified_as == registered_nick.nickname || irc_operator?(user)
+        show_info(user, registered_nick, has_full_access)
 
       {:error, :registered_nick_not_found} ->
         notify(user, "Nick \x02#{target_nick}\x02 is not registered.")
@@ -33,15 +33,15 @@ defmodule ElixIRCd.Services.Nickserv.Info do
   end
 
   @spec show_info(User.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp show_info(user, registered_nick, show_full_info) do
+  defp show_info(user, registered_nick, has_full_access) do
     notify(user, "\x02\x0312*** \x0304#{registered_nick.nickname}\x0312 ***\x03\x02")
 
     display_online_status(user, registered_nick)
 
-    if show_full_info do
+    if has_full_access do
       display_registration_info(user, registered_nick)
-      display_email_info(user, registered_nick, show_full_info)
-      show_options(user, registered_nick, show_full_info)
+      display_email_info(user, registered_nick, has_full_access)
+      show_options(user, registered_nick, has_full_access)
     else
       notify(user, "The information for this nickname is private.")
     end
@@ -77,21 +77,14 @@ defmodule ElixIRCd.Services.Nickserv.Info do
   end
 
   @spec display_email_info(User.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp display_email_info(user, registered_nick, show_full_info) do
-    should_show_email =
-      show_full_info &&
-        registered_nick.email &&
-        (!registered_nick.settings.hide_email ||
-           user.identified_as == registered_nick.nickname ||
-           irc_operator?(user))
-
-    if should_show_email do
+  defp display_email_info(user, registered_nick, has_full_access) do
+    if registered_nick.email && (!registered_nick.settings.hide_email || has_full_access) do
       notify(user, "Email address: \x02#{registered_nick.email}\x02")
     end
   end
 
   @spec show_options(User.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp show_options(user, registered_nick, show_full_info) do
+  defp show_options(user, registered_nick, has_full_access) do
     flags = []
 
     flags =
@@ -102,7 +95,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
       end
 
     flags =
-      if show_full_info && registered_nick.settings.hide_email do
+      if has_full_access && registered_nick.settings.hide_email do
         flags ++ ["HIDEMAIL"]
       else
         flags
