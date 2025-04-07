@@ -154,6 +154,10 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been regained.\r\n"}
         ])
+
+        # Target user should be killed
+        expected_message = "Killed (#{old_nick} (REGAIN command used))"
+        assert_received {:regain_test, {:disconnect, ^expected_message}}
       end)
     end
   end
