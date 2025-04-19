@@ -55,8 +55,8 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   def new(attrs) do
     new_attrs =
       attrs
-      |> Map.put_new(:created_at, DateTime.utc_now())
       |> Map.put_new(:settings, Settings.new())
+      |> Map.put_new(:created_at, DateTime.utc_now())
 
     struct!(__MODULE__, new_attrs)
   end
