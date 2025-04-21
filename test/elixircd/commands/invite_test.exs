@@ -149,7 +149,7 @@ defmodule ElixIRCd.Commands.InviteTest do
           {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
 
-        assert ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name) != nil
+        assert {:ok, _channel_invite} = ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name)
       end)
     end
 
