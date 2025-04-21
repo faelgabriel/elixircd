@@ -44,7 +44,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert :ok = Rehash.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 382 #{user.nick} runtime.exs :Rehashing\r\n"},
+          {user.pid, ":irc.test 382 #{user.nick} elixircd.exs :Rehashing\r\n"},
           {user.pid, ":irc.test NOTICE #{user.nick} :Rehashing completed\r\n"}
         ])
       end)

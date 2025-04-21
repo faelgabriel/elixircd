@@ -42,6 +42,10 @@ Mimic.copy(ElixIRCd.Repositories.Metrics)
 Mimic.copy(ElixIRCd.Repositories.RegisteredNicks)
 Mimic.copy(ElixIRCd.Repositories.Users)
 Mimic.copy(ElixIRCd.Service)
+Mimic.copy(ElixIRCd.Services.Chanserv)
+Mimic.copy(ElixIRCd.Services.Chanserv.Help)
+Mimic.copy(ElixIRCd.Services.Chanserv.Register)
+Mimic.copy(ElixIRCd.Services.Chanserv.Set)
 Mimic.copy(ElixIRCd.Services.Nickserv)
 Mimic.copy(ElixIRCd.Services.Nickserv.Drop)
 Mimic.copy(ElixIRCd.Services.Nickserv.Ghost)
@@ -68,7 +72,7 @@ Mimic.copy(System)
 Mimic.copy(ThousandIsland.Socket)
 Mimic.copy(WebSockAdapter)
 
-# Clean up database
+# Setup database
 ElixIRCd.Utils.Mnesia.setup_mnesia(recreate: true)
 
 ExUnit.start()

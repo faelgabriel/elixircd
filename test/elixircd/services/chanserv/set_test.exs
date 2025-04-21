@@ -8,6 +8,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Services.Chanserv.Set
+  alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
     test "rejects commands from unidentified users" do
@@ -99,7 +100,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
         insert(:registered_channel,
           name: channel_name,
           founder: "founder",
-          settings: %{ElixIRCd.Tables.RegisteredChannel.Settings.new() | description: description}
+          settings: %{Settings.new() | description: description}
         )
 
         assert :ok = Set.handle(user, ["SET", channel_name, "DESCRIPTION", ""])
@@ -701,7 +702,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
         insert(:registered_channel,
           name: channel_name,
           founder: "founder",
-          settings: %{ElixIRCd.Tables.RegisteredChannel.Settings.new() | entry_message: entry_message}
+          settings: %{Settings.new() | entry_message: entry_message}
         )
 
         assert :ok = Set.handle(user, ["SET", channel_name, "ENTRYMSG", ""])

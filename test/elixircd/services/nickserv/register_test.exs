@@ -171,9 +171,11 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       original_config = Application.get_env(:elixircd, :services)
       on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      nickserv_config = original_config[:nickserv]
+      nickserv_config =
+        original_config[:nickserv]
         |> Keyword.put(:wait_register_time, 0)
         |> Keyword.put(:unverified_expire_days, 30)
+
       updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
       Application.put_env(:elixircd, :services, updated_config)
@@ -240,9 +242,11 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       original_config = Application.get_env(:elixircd, :services)
       on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      nickserv_config = original_config[:nickserv]
+      nickserv_config =
+        original_config[:nickserv]
         |> Keyword.put(:unverified_expire_days, 1)
         |> Keyword.put(:wait_register_time, 0)
+
       updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
       Application.put_env(:elixircd, :services, updated_config)
@@ -272,9 +276,11 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       original_config = Application.get_env(:elixircd, :services)
       on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      nickserv_config = original_config[:nickserv]
+      nickserv_config =
+        original_config[:nickserv]
         |> Keyword.put(:unverified_expire_days, 2)
         |> Keyword.put(:wait_register_time, 0)
+
       updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
       Application.put_env(:elixircd, :services, updated_config)
