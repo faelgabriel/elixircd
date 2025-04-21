@@ -104,56 +104,103 @@ defmodule ElixIRCd.Tables.RegisteredNick.Settings do
           # pubkey: String.t() | nil
         }
 
+  @type t_attrs :: %{
+          optional(:hide_email) => boolean()
+          # optional(:email) => String.t() | nil,
+          # optional(:url) => String.t() | nil,
+          # optional(:language) => String.t() | nil,
+          # optional(:property) => %{String.t() => String.t()},
+          # optional(:display) => String.t() | nil,
+          # optional(:hide_status) => boolean(),
+          # optional(:hide_usermask) => boolean(),
+          # optional(:hide_quit) => boolean(),
+          # optional(:private) => boolean(),
+          # optional(:enforce) => boolean(),
+          # optional(:enforce_time) => integer() | nil,
+          # optional(:kill) => :on | :quick | :immed | :off | nil,
+          # optional(:secure) => boolean(),
+          # optional(:email_memos) => :on | :off | :only | nil,
+          # optional(:msg) => boolean(),
+          # optional(:no_greet) => boolean(),
+          # optional(:quiet_chg) => boolean(),
+          # optional(:never_op) => boolean(),
+          # optional(:never_group) => boolean(),
+          # optional(:pubkey) => String.t() | nil
+        }
+
   @doc """
   Create a new settings struct with common default values.
   """
-  @spec new() :: t()
-  def new do
+  @spec new(t_attrs()) :: t()
+  def new(attrs \\ %{}) do
     config_settings = get_config_settings()
 
-    %__MODULE__{
-      # # User Information
-      # email: nil,
-      # url: nil,
-      # language: config_settings[:language] || "en",
-      # property: %{},
-      # display: nil,
+    attrs
+    |> init_user_information(config_settings)
+    |> init_hide_information(config_settings)
+    |> init_enforcement(config_settings)
+    |> init_interaction(config_settings)
+    |> init_permissions_grouping(config_settings)
+    |> init_authentication(config_settings)
+    |> then(&struct!(__MODULE__, &1))
+  end
 
-      # # Hiding Information
-      hide_email: config_settings[:hide_email] || false
-      # hide_status: config_settings[:hide_status] || false,
-      # hide_usermask: config_settings[:hide_usermask] || false,
-      # hide_quit: config_settings[:hide_quit] || false,
-      # private: config_settings[:private] || false,
+  @spec init_user_information(t_attrs(), keyword()) :: t_attrs()
+  defp init_user_information(attrs, _config_settings) do
+    attrs
+    # |> Map.put_new(:email, nil)
+    # |> Map.put_new(:url, nil)
+    # |> Map.put_new(:language, config_settings[:language] || "en")
+    # |> Map.put_new(:property, %{})
+    # |> Map.put_new(:display, nil)
+  end
 
-      # # Enforcement
-      # enforce: config_settings[:enforce] || true,
-      # # Rely on server default if not specified in config
-      # enforce_time: config_settings[:enforce_time],
-      # # Standard delayed kill often default
-      # kill: config_settings[:kill] || :on,
-      # secure: config_settings[:secure] || false,
+  @spec init_hide_information(t_attrs(), keyword()) :: t_attrs()
+  defp init_hide_information(attrs, config_settings) do
+    attrs
+    |> Map.put_new(:hide_email, config_settings[:hide_email] || false)
 
-      # # Interaction
-      # email_memos: config_settings[:email_memos] || :off,
-      # # Default to NOTICE if not in config
-      # msg: config_settings[:msg] || false,
-      # no_greet: config_settings[:no_greet] || false,
-      # quiet_chg: config_settings[:quiet_chg] || false,
+    # |> Map.put_new(:hide_status, config_settings[:hide_status] || false)
+    # |> Map.put_new(:hide_usermask, config_settings[:hide_usermask] || false)
+    # |> Map.put_new(:hide_quit, config_settings[:hide_quit] || false)
+    # |> Map.put_new(:private, config_settings[:private] || false)
+  end
 
-      # # Permissions & Grouping
-      # never_op: config_settings[:never_op] || false,
-      # never_group: config_settings[:never_group] || false,
+  @spec init_enforcement(t_attrs(), keyword()) :: t_attrs()
+  defp init_enforcement(attrs, _config_settings) do
+    attrs
+    # |> Map.put_new(:enforce, config_settings[:enforce] || true)
+    # |> Map.put_new(:enforce_time, config_settings[:enforce_time])
+    # |> Map.put_new(:kill, config_settings[:kill] || :on)
+    # |> Map.put_new(:secure, config_settings[:secure] || false)
+  end
 
-      # # Authentication
-      # pubkey: nil
-    }
+  @spec init_interaction(t_attrs(), keyword()) :: t_attrs()
+  defp init_interaction(attrs, _config_settings) do
+    attrs
+    # |> Map.put_new(:email_memos, config_settings[:email_memos] || :off)
+    # |> Map.put_new(:msg, config_settings[:msg] || false)
+    # |> Map.put_new(:no_greet, config_settings[:no_greet] || false)
+    # |> Map.put_new(:quiet_chg, config_settings[:quiet_chg] || false)
+  end
+
+  @spec init_permissions_grouping(t_attrs(), keyword()) :: t_attrs()
+  defp init_permissions_grouping(attrs, _config_settings) do
+    attrs
+    # |> Map.put_new(:never_op, config_settings[:never_op] || false)
+    # |> Map.put_new(:never_group, config_settings[:never_group] || false)
+  end
+
+  @spec init_authentication(t_attrs(), keyword()) :: t_attrs()
+  defp init_authentication(attrs, _config_settings) do
+    attrs
+    # |> Map.put_new(:pubkey, nil)
   end
 
   @doc """
   Update settings struct with new attributes.
   """
-  @spec update(t(), map() | keyword()) :: t()
+  @spec update(t(), t_attrs()) :: t()
   def update(settings, attrs) do
     struct!(settings, attrs)
   end

@@ -60,42 +60,44 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
           guard: boolean()
         }
 
+  @type t_attrs :: %{
+          optional(:description) => String.t() | nil,
+          optional(:url) => String.t() | nil,
+          optional(:email) => String.t() | nil,
+          optional(:entry_message) => String.t() | nil,
+          optional(:keeptopic) => boolean(),
+          optional(:persistent_topic) => String.t() | nil,
+          optional(:topiclock) => boolean(),
+          optional(:op_notice) => boolean(),
+          optional(:peace) => boolean(),
+          optional(:private) => boolean(),
+          optional(:restricted) => boolean(),
+          optional(:secure) => boolean(),
+          optional(:fantasy) => boolean(),
+          optional(:guard) => boolean()
+        }
+
   @doc """
   Create a new settings struct with default values.
   """
-  @spec new() :: t()
-  def new do
+  @spec new(t_attrs()) :: t()
+  def new(attrs \\ %{}) do
     config_settings = get_config_settings()
 
-    %__MODULE__{
-      # Channel Information
-      description: nil,
-      url: nil,
-      email: nil,
-      entry_message: config_settings[:entry_message],
+    new_attrs =
+      attrs
+      |> init_channel_info(config_settings)
+      |> init_topic_control(config_settings)
+      |> init_security_behavior(config_settings)
+      |> init_bot_presence(config_settings)
 
-      # Topic Control
-      keeptopic: config_settings[:keeptopic] || true,
-      persistent_topic: nil,
-      topiclock: config_settings[:topiclock] || false,
-
-      # Security & Behavior
-      op_notice: config_settings[:op_notice] || true,
-      peace: config_settings[:peace] || false,
-      private: config_settings[:private] || false,
-      restricted: config_settings[:restricted] || false,
-      secure: config_settings[:secure] || false,
-
-      # Bot Presence
-      fantasy: config_settings[:fantasy] || true,
-      guard: config_settings[:guard] || true
-    }
+    struct!(__MODULE__, new_attrs)
   end
 
   @doc """
   Update settings struct with new attributes.
   """
-  @spec update(t(), map() | keyword()) :: t()
+  @spec update(t(), t_attrs()) :: t()
   def update(settings, attrs) do
     struct!(settings, attrs)
   end
@@ -105,5 +107,39 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
     Application.get_env(:elixircd, :services, [])
     |> Keyword.get(:chanserv, [])
     |> Keyword.get(:settings, [])
+  end
+
+  @spec init_channel_info(t_attrs(), keyword()) :: t_attrs()
+  defp init_channel_info(attrs, config_settings) do
+    attrs
+    |> Map.put_new(:description, nil)
+    |> Map.put_new(:url, nil)
+    |> Map.put_new(:email, nil)
+    |> Map.put_new(:entry_message, config_settings[:entry_message])
+  end
+
+  @spec init_topic_control(t_attrs(), keyword()) :: t_attrs()
+  defp init_topic_control(attrs, config_settings) do
+    attrs
+    |> Map.put_new(:keeptopic, config_settings[:keeptopic] || true)
+    |> Map.put_new(:persistent_topic, nil)
+    |> Map.put_new(:topiclock, config_settings[:topiclock] || false)
+  end
+
+  @spec init_security_behavior(t_attrs(), keyword()) :: t_attrs()
+  defp init_security_behavior(attrs, config_settings) do
+    attrs
+    |> Map.put_new(:op_notice, config_settings[:op_notice] || true)
+    |> Map.put_new(:peace, config_settings[:peace] || false)
+    |> Map.put_new(:private, config_settings[:private] || false)
+    |> Map.put_new(:restricted, config_settings[:restricted] || false)
+    |> Map.put_new(:secure, config_settings[:secure] || false)
+  end
+
+  @spec init_bot_presence(t_attrs(), keyword()) :: t_attrs()
+  defp init_bot_presence(attrs, config_settings) do
+    attrs
+    |> Map.put_new(:fantasy, config_settings[:fantasy] || true)
+    |> Map.put_new(:guard, config_settings[:guard] || true)
   end
 end
