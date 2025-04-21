@@ -6,7 +6,7 @@ defmodule ElixIRCd.MixProject do
     [
       app: :elixircd,
       version: app_version() || "0.0.0-dev",
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),

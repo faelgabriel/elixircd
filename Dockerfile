@@ -1,6 +1,6 @@
 # ---- Build Application Stage ----
 # This stage builds the application by compiling the source code and generating a release.
-FROM elixir:1.17.2-otp-27-alpine AS build
+FROM elixir:1.18.3-otp-27-alpine AS build
 
 ENV LANG=C.UTF-8
 
@@ -23,7 +23,7 @@ RUN mix do compile, release
 
 # ---- Runtime Application Stage ----
 # This stage sets up the environment to run the built application with a minimal image size.
-FROM elixir:1.17.2-otp-27-alpine AS runtime
+FROM elixir:1.18.3-otp-27-alpine AS runtime
 
 WORKDIR /app
 RUN mkdir -p /app/priv
