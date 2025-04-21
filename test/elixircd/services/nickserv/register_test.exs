@@ -75,20 +75,13 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
     end
 
     test "handles REGISTER command when email is required but not provided" do
-      # Temporarily override the application config
-      original_config = Application.get_env(:elixircd, :services)[:nickserv][:email_required]
+      original_config = Application.get_env(:elixircd, :services)
+      on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      on_exit(fn ->
-        # Reset the config after the test
-        new_config =
-          Keyword.put(Application.get_env(:elixircd, :services)[:nickserv] || [], :email_required, original_config)
+      nickserv_config = Keyword.put(original_config[:nickserv] || [], :email_required, true)
+      updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
-        Application.put_env(:elixircd, :services, nickserv: new_config)
-      end)
-
-      # Set email as required for this test
-      new_config = Keyword.put(Application.get_env(:elixircd, :services)[:nickserv] || [], :email_required, true)
-      Application.put_env(:elixircd, :services, nickserv: new_config)
+      Application.put_env(:elixircd, :services, updated_config)
 
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -104,20 +97,13 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
     end
 
     test "handles REGISTER command when wait time is required but not met" do
-      # Temporarily override the application config
-      original_config = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
+      original_config = Application.get_env(:elixircd, :services)
+      on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      on_exit(fn ->
-        # Reset the config after the test
-        new_config =
-          Keyword.put(Application.get_env(:elixircd, :services)[:nickserv] || [], :wait_register_time, original_config)
+      nickserv_config = Keyword.put(original_config[:nickserv] || [], :wait_register_time, 60)
+      updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
-        Application.put_env(:elixircd, :services, nickserv: new_config)
-      end)
-
-      # Set wait time to 60 seconds for this test
-      new_config = Keyword.put(Application.get_env(:elixircd, :services)[:nickserv] || [], :wait_register_time, 60)
-      Application.put_env(:elixircd, :services, nickserv: new_config)
+      Application.put_env(:elixircd, :services, updated_config)
 
       Memento.transaction!(fn ->
         user = insert(:user, created_at: DateTime.utc_now())
@@ -133,26 +119,17 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
     end
 
     test "successfully registers a nickname without email" do
-      # Temporarily override the application config for wait time
-      original_config = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
+      original_config = Application.get_env(:elixircd, :services)
+      on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      on_exit(fn ->
-        # Reset the config after the test
-        new_config =
-          Keyword.put(Application.get_env(:elixircd, :services)[:nickserv] || [], :wait_register_time, original_config)
+      nickserv_config = Keyword.put(original_config[:nickserv] || [], :wait_register_time, 0)
+      updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
-        Application.put_env(:elixircd, :services, nickserv: new_config)
-      end)
+      Application.put_env(:elixircd, :services, updated_config)
 
-      # Set wait time to 0 seconds for this test
-      new_config = Keyword.put(Application.get_env(:elixircd, :services)[:nickserv] || [], :wait_register_time, 0)
-      Application.put_env(:elixircd, :services, nickserv: new_config)
-
-      # Create test data
       user = insert(:user, created_at: DateTime.add(DateTime.utc_now(), -3600))
       password = "password123"
 
-      # Mock RegisteredNicks to return a registered nick after create
       mock_registered_nick = %RegisteredNick{
         nickname: user.nick,
         password_hash: Pbkdf2.hash_pwd_salt(password),
@@ -179,10 +156,8 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         Map.merge(user, params)
       end)
 
-      # Call the function
       :ok = Register.handle(user, ["REGISTER", password])
 
-      # Verify the messages sent to the user
       assert_sent_messages([
         {user.pid,
          ":NickServ!service@irc.test NOTICE #{user.nick} :Your nickname has been successfully registered.\r\n"},
@@ -193,35 +168,21 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
     end
 
     test "successfully registers a nickname with email" do
-      # Temporarily override the application config for wait time and unverified expiration
-      original_wait_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
-      original_unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days]
+      original_config = Application.get_env(:elixircd, :services)
+      on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      on_exit(fn ->
-        # Reset the config after the test
-        new_config =
-          Application.get_env(:elixircd, :services)[:nickserv]
-          |> Keyword.put(:wait_register_time, original_wait_time)
-          |> Keyword.put(:unverified_expire_days, original_unverified_expire_days)
-
-        Application.put_env(:elixircd, :services, nickserv: new_config)
-      end)
-
-      # Set wait time to 0 seconds and unverified expiration to 30 days for this test
-      new_config =
-        Application.get_env(:elixircd, :services)[:nickserv]
+      nickserv_config = original_config[:nickserv]
         |> Keyword.put(:wait_register_time, 0)
         |> Keyword.put(:unverified_expire_days, 30)
+      updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
-      Application.put_env(:elixircd, :services, nickserv: new_config)
+      Application.put_env(:elixircd, :services, updated_config)
 
-      # Create test data
       user = insert(:user, created_at: DateTime.add(DateTime.utc_now(), -3600))
       password = "password123"
       email = "user@example.com"
       verify_code = "123456"
 
-      # Mock RegisteredNicks to return a registered nick after create
       mock_registered_nick = %RegisteredNick{
         nickname: user.nick,
         password_hash: Pbkdf2.hash_pwd_salt(password),
@@ -243,7 +204,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       RegisteredNicks
       |> expect(:create, fn params ->
         assert params[:email] == email
-        # Return the mock with the matching verify_code
         %{mock_registered_nick | verify_code: params[:verify_code]}
       end)
 
@@ -277,24 +237,15 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
 
   describe "pluralize_days/1" do
     test "returns 'day' when value is 1" do
-      original_unverified_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days]
-      original_wait_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
+      original_config = Application.get_env(:elixircd, :services)
+      on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      on_exit(fn ->
-        new_config =
-          Application.get_env(:elixircd, :services)[:nickserv]
-          |> Keyword.put(:unverified_expire_days, original_unverified_days)
-          |> Keyword.put(:wait_register_time, original_wait_time)
-
-        Application.put_env(:elixircd, :services, nickserv: new_config)
-      end)
-
-      new_config =
-        Application.get_env(:elixircd, :services)[:nickserv]
+      nickserv_config = original_config[:nickserv]
         |> Keyword.put(:unverified_expire_days, 1)
         |> Keyword.put(:wait_register_time, 0)
+      updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
-      Application.put_env(:elixircd, :services, nickserv: new_config)
+      Application.put_env(:elixircd, :services, updated_config)
 
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -318,24 +269,15 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
     end
 
     test "returns 'days' when value is not 1" do
-      original_unverified_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days]
-      original_wait_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time]
+      original_config = Application.get_env(:elixircd, :services)
+      on_exit(fn -> Application.put_env(:elixircd, :services, original_config) end)
 
-      on_exit(fn ->
-        new_config =
-          Application.get_env(:elixircd, :services)[:nickserv]
-          |> Keyword.put(:unverified_expire_days, original_unverified_days)
-          |> Keyword.put(:wait_register_time, original_wait_time)
-
-        Application.put_env(:elixircd, :services, nickserv: new_config)
-      end)
-
-      new_config =
-        Application.get_env(:elixircd, :services)[:nickserv]
+      nickserv_config = original_config[:nickserv]
         |> Keyword.put(:unverified_expire_days, 2)
         |> Keyword.put(:wait_register_time, 0)
+      updated_config = Keyword.put(original_config, :nickserv, nickserv_config)
 
-      Application.put_env(:elixircd, :services, nickserv: new_config)
+      Application.put_env(:elixircd, :services, updated_config)
 
       Memento.transaction!(fn ->
         user = insert(:user)

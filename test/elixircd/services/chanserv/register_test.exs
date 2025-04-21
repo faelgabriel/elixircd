@@ -69,7 +69,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
 
     test "handles REGISTER command with password that is too short" do
       Memento.transaction!(fn ->
-        min_password_length = Application.get_env(:elixircd, :services)[:chanserv][:min_password_length] || 8
+        min_password_length = 8
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
         short_password = String.duplicate("a", min_password_length - 1)
@@ -118,8 +118,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
 
     test "handles REGISTER command when max registered channels per user is reached" do
       Memento.transaction!(fn ->
-        config = Application.get_env(:elixircd, :services)[:chanserv] || []
-        max_channels = config[:max_registered_channels_per_user] || 1
+        max_channels = 10
 
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
