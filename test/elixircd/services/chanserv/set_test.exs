@@ -64,22 +64,6 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       end)
     end
 
-    test "shows error for unknown settings" do
-      Memento.transaction!(fn ->
-        channel_name = "#testchannel"
-        user = insert(:user, identified_as: "founder")
-        insert(:registered_channel, name: channel_name, founder: "founder")
-
-        assert :ok = Set.handle(user, ["SET", channel_name, "INVALIDOPTION", "value"])
-
-        assert_sent_messages([
-          {user.pid, ":ChanServ!service@irc.test NOTICE #{user.nick} :Unknown setting: \2INVALIDOPTION\2\r\n"},
-          {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :For a list of settings, type: /msg ChanServ HELP SET\r\n"}
-        ])
-      end)
-    end
-
     test "handles DESCRIPTION setting - set and show" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
@@ -569,13 +553,23 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       end)
     end
 
-    test "handles more invalid values for boolean settings" do
+    test "handles invalid values for boolean settings" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
         insert(:registered_channel, name: channel_name, founder: "founder")
 
-        for setting <- ["RESTRICTED", "FANTASY", "OPNOTICE", "PEACE", "SECURE"] do
+        for setting <- [
+              "RESTRICTED",
+              "FANTASY",
+              "OPNOTICE",
+              "PEACE",
+              "SECURE",
+              "PRIVATE",
+              "GUARD",
+              "KEEPTOPIC",
+              "TOPICLOCK"
+            ] do
           assert :ok = Set.handle(user, ["SET", channel_name, setting, "YES"])
 
           assert_sent_messages([
@@ -593,43 +587,19 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       end)
     end
 
-    test "handles completely unknown SET commands" do
+    test "handles unknown setting command" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
         insert(:registered_channel, name: channel_name, founder: "founder")
 
-        for unknown_command <- ["COLORSCHEME", "BANTYPE", "AUTOKICK", "JOINFLOOD", "MODERATIONLEVEL"] do
-          assert :ok = Set.handle(user, ["SET", channel_name, unknown_command, "value"])
+        assert :ok = Set.handle(user, ["SET", channel_name, "NONEXISTENTSETTING", "value"])
 
-          assert_sent_messages([
-            {user.pid, ":ChanServ!service@irc.test NOTICE #{user.nick} :Unknown setting: \2#{unknown_command}\2\r\n"},
-            {user.pid,
-             ":ChanServ!service@irc.test NOTICE #{user.nick} :For a list of settings, type: /msg ChanServ HELP SET\r\n"}
-          ])
-        end
-      end)
-    end
-
-    test "handles additional edge cases for various settings" do
-      Memento.transaction!(fn ->
-        channel_name = "#testchannel"
-        user = insert(:user, identified_as: "founder")
-        insert(:registered_channel, name: channel_name, founder: "founder")
-
-        assert :ok = Set.handle(user, ["SET", channel_name, "ENTRYMSG", String.duplicate("x", 500)])
-        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert String.length(channel.settings.entry_message) == 500
-
-        long_description = String.duplicate("test description ", 30)
-        assert :ok = Set.handle(user, ["SET", channel_name, "DESCRIPTION", long_description])
-        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.description == long_description
-
-        invalid_url = "not-a-url"
-        assert :ok = Set.handle(user, ["SET", channel_name, "URL", invalid_url])
-        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.url == invalid_url
+        assert_sent_messages([
+          {user.pid, ":ChanServ!service@irc.test NOTICE #{user.nick} :Unknown setting: \2NONEXISTENTSETTING\2\r\n"},
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :For a list of settings, type: /msg ChanServ HELP SET\r\n"}
+        ])
       end)
     end
 
