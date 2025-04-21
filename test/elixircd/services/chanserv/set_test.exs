@@ -87,7 +87,6 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
         user = insert(:user, identified_as: "founder")
         insert(:registered_channel, name: channel_name, founder: "founder")
 
-        # Set description
         assert :ok = Set.handle(user, ["SET", channel_name, "DESCRIPTION", description])
 
         assert_sent_messages([

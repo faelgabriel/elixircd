@@ -147,7 +147,6 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
             settings: %{hide_email: false}
           )
 
-        # User is an IRC operator but not identified as the nick
         user = insert(:user, modes: ["o"])
 
         assert :ok = Info.handle(user, ["INFO", registered_nick.nickname])
@@ -199,7 +198,6 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
       regular_user = insert(:user)
 
       Memento.transaction!(fn ->
-        # User is identified as the nick - should see email despite hide_email
         assert :ok = Info.handle(identified_user, ["INFO", registered_nick.nickname])
 
         assert_sent_messages([
@@ -215,7 +213,6 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
           {identified_user.pid, ~r/:NickServ!service@irc.test NOTICE #{identified_user.nick} :Flags:.*HIDEMAIL/}
         ])
 
-        # User is an operator - should see email despite hide_email
         assert :ok = Info.handle(operator_user, ["INFO", registered_nick.nickname])
 
         assert_sent_messages([
@@ -231,8 +228,6 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
           {operator_user.pid, ~r/:NickServ!service@irc.test NOTICE #{operator_user.nick} :Flags:.*HIDEMAIL/}
         ])
 
-        # Regular user with non-hidden email - would see email if they had full info
-        # but they don't because they're not identified, so they get private view
         assert :ok = Info.handle(regular_user, ["INFO", visible_nick.nickname])
 
         assert_sent_messages([

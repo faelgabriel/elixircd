@@ -78,7 +78,6 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
         assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname, password])
 
-        # User's nick should be updated
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.nick == registered_nick.nickname
 
@@ -98,7 +97,6 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
         assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname])
 
-        # User's nick should be updated
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.nick == registered_nick.nickname
 
@@ -139,23 +137,18 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
         assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname, password])
 
-        # Check the registered nick is now reserved
         {:ok, updated_registered_nick} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
         assert not is_nil(updated_registered_nick.reserved_until)
 
-        # User's nick should be updated
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.nick == registered_nick.nickname
 
-        # Since we can't reliably test message delivery to the killed user's process,
-        # we'll only verify the messages to the remaining user
         assert_sent_messages([
           {user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK #{registered_nick.nickname}\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been regained.\r\n"}
         ])
 
-        # Target user should be killed
         expected_message = "Killed (#{old_nick} (REGAIN command used))"
         assert_received {:regain_test, {:disconnect, ^expected_message}}
       end)
