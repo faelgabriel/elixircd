@@ -7,27 +7,10 @@ defmodule ElixIRCd.DataCase do
 
   use ExUnit.CaseTemplate
 
+  import ElixIRCd.Utils.Mnesia, only: [all_tables: 0]
   import ExUnit.CaptureLog
 
-  alias ElixIRCd.Tables.Channel
-  alias ElixIRCd.Tables.ChannelBan
-  alias ElixIRCd.Tables.ChannelInvite
-  alias ElixIRCd.Tables.HistoricalUser
-  alias ElixIRCd.Tables.Metric
-  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
-  alias ElixIRCd.Tables.UserChannel
-
-  @tables [
-    Channel,
-    ChannelBan,
-    ChannelInvite,
-    HistoricalUser,
-    Metric,
-    RegisteredNick,
-    User,
-    UserChannel
-  ]
 
   setup tags do
     unless tags[:async] do
@@ -39,13 +22,13 @@ defmodule ElixIRCd.DataCase do
         end)
       end)
 
-      Enum.map(@tables, &Memento.Table.clear/1)
+      Enum.map(all_tables(), &Memento.Table.clear/1)
       |> Enum.each(fn
         :ok -> :ok
         {:error, reason} -> raise "Failed to clear table: #{inspect(reason)}"
       end)
 
-      Memento.wait(@tables)
+      Memento.wait(all_tables())
       |> case do
         :ok -> :ok
         {:timeout, tables} -> raise "Failed to wait for tables: #{inspect(tables)}"

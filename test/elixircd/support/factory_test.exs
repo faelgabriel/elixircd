@@ -7,6 +7,8 @@ defmodule ElixIRCd.FactoryTest do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Metric
+  alias ElixIRCd.Tables.RegisteredChannel
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -62,6 +64,31 @@ defmodule ElixIRCd.FactoryTest do
     test "builds a metric with custom attributes as a map" do
       assert %Metric{key: :highest_connections, value: 50} =
                Factory.build(:metric, %{key: :highest_connections, value: 50})
+    end
+
+    test "builds a registered nick with default attributes" do
+      assert %RegisteredNick{} = Factory.build(:registered_nick)
+    end
+
+    test "builds a registered nick with custom attributes as a map" do
+      assert %RegisteredNick{nickname: "custom_nick"} = Factory.build(:registered_nick, %{nickname: "custom_nick"})
+    end
+
+    test "builds a registered nick with custom attributes as a keyword list" do
+      assert %RegisteredNick{nickname: "custom_nick"} = Factory.build(:registered_nick, nickname: "custom_nick")
+    end
+
+    test "builds a registered channel with default attributes" do
+      assert %RegisteredChannel{} = Factory.build(:registered_channel)
+    end
+
+    test "builds a registered channel with custom attributes as a map" do
+      assert %RegisteredChannel{name: "#custom_channel"} =
+               Factory.build(:registered_channel, %{name: "#custom_channel"})
+    end
+
+    test "builds a registered channel with custom attributes as a keyword list" do
+      assert %RegisteredChannel{name: "#custom_channel"} = Factory.build(:registered_channel, name: "#custom_channel")
     end
   end
 
@@ -131,6 +158,34 @@ defmodule ElixIRCd.FactoryTest do
       assert %Metric{} = metric = Factory.insert(:metric, %{key: :highest_connections, value: 50})
       assert metric.key == :highest_connections
       assert metric.value == 50
+    end
+
+    test "inserts a registered nick into the database with default attributes" do
+      assert %RegisteredNick{} = Factory.insert(:registered_nick)
+    end
+
+    test "inserts a registered nick into the database with custom attributes as a map" do
+      assert %RegisteredNick{} = nick = Factory.insert(:registered_nick, %{nickname: "custom_nick"})
+      assert nick.nickname == "custom_nick"
+    end
+
+    test "inserts a registered nick into the database with custom attributes as a keyword list" do
+      assert %RegisteredNick{} = nick = Factory.insert(:registered_nick, nickname: "custom_nick")
+      assert nick.nickname == "custom_nick"
+    end
+
+    test "inserts a registered channel into the database with default attributes" do
+      assert %RegisteredChannel{} = Factory.insert(:registered_channel)
+    end
+
+    test "inserts a registered channel into the database with custom attributes as a map" do
+      assert %RegisteredChannel{} = channel = Factory.insert(:registered_channel, %{name: "#custom_channel"})
+      assert channel.name == "#custom_channel"
+    end
+
+    test "inserts a registered channel into the database with custom attributes as a keyword list" do
+      assert %RegisteredChannel{} = channel = Factory.insert(:registered_channel, name: "#custom_channel")
+      assert channel.name == "#custom_channel"
     end
   end
 end

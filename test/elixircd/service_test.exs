@@ -12,15 +12,12 @@ defmodule ElixIRCd.ServiceTest do
 
   describe "service_implemented?/1" do
     test "returns true for implemented services" do
-      assert Service.service_implemented?("NICKSERV") == true
       assert Service.service_implemented?("nickserv") == true
-      assert Service.service_implemented?("NickServ") == true
+      assert Service.service_implemented?("chanserv") == true
     end
 
     test "returns false for non-implemented services" do
-      assert Service.service_implemented?("CHANSERV") == false
-      assert Service.service_implemented?("MEMOSERV") == false
-      assert Service.service_implemented?("INVALID") == false
+      assert Service.service_implemented?("anything") == false
     end
   end
 

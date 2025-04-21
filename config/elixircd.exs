@@ -128,6 +128,74 @@ config :elixircd,
         # # TODO: Default for: SET SECURE {ON|OFF}
         # secure: false
       ]
+    ],
+
+    # ChanServ Configuration
+    chanserv: [
+      # Enable/Disable ChanServ service
+      enabled: true,
+
+      # Minimum password length for channel registration
+      min_password_length: 8,
+
+      # Maximum number of channels a single user (NickServ account) can register
+      max_registered_channels_per_user: 10,
+
+      # List of channel names or patterns that cannot be registered
+      forbidden_channel_names: [
+        "#services",
+        ~r/^#opers$/
+      ],
+
+      # Days until an unused registered channel expires due to inactivity
+      channel_expire_days: 90,
+
+      # # TODO: Should dropping a channel require a confirmation code/step?
+      # require_drop_confirmation: true,
+
+      # Default Channel Settings (Applied when a channel is first registered)
+      settings: [
+        # Default for: SET ENTRYMSG <message>
+        entry_message: nil,
+        # TODO: Default for: SET MODELOCK <modes>
+        # mode_lock: nil,
+        # Default for: SET KEEPTOPIC {ON|OFF}
+        keeptopic: true,
+        # Default for: SET OPNOTICE {ON|OFF}
+        op_notice: true,
+        # Default for: SET PEACE {ON|OFF}
+        peace: false,
+        # Default for: SET PRIVATE {ON|OFF}
+        private: false,
+        # Default for: SET RESTRICTED {ON|OFF}
+        restricted: false,
+        # Default for: SET SECURE {ON|OFF}
+        secure: false,
+        # Default for: SET FANTASY {ON|OFF}
+        fantasy: true,
+        # Default for: SET GUARD {ON|OFF}
+        guard: true,
+        # Default for: SET TOPICLOCK {ON|OFF}
+        topiclock: false
+      ]
+
+      # # TODO: Flag mappings for predefined XOP levels
+      # xop_levels: [
+      #   # SOP - Superior Operator Preset
+      #   sop: "+AFORsekbhituav",
+      #   # AOP - Administrator/Advanced Operator Preset
+      #   aop: "+AORehkbituv",
+      #   # HOP - Half Operator Preset
+      #   hop: "+HRehkitv",
+      #   # VOP - Voice Preset
+      #   vop: "+Vv"
+      # ]
+
+      # # TODO: Define custom roles here if implementing the ROLE command
+      # custom_roles: [
+      #   moderator: "+HRehkbituv",
+      #   helper: "+Vv"
+      # ]
     ]
   ],
   # Ident Service Configuration

@@ -7,6 +7,7 @@ defmodule ElixIRCd.Service do
   alias ElixIRCd.Tables.User
 
   @services %{
+    "CHANSERV" => Services.Chanserv,
     "NICKSERV" => Services.Nickserv
   }
 

@@ -8,6 +8,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Metric
+  alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -114,6 +115,17 @@ defmodule ElixIRCd.Factory do
     %Metric{
       key: Map.get(attrs, :key, :total_connections),
       value: Map.get(attrs, :value, 10)
+    }
+  end
+
+  def build(:registered_channel, attrs) do
+    %RegisteredChannel{
+      name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
+      founder: Map.get(attrs, :founder, "Nick_#{random_string(5)}"),
+      password_hash: Map.get(attrs, :password_hash, "hash"),
+      registered_by: Map.get(attrs, :registered_by, "user@host"),
+      settings: Map.get(attrs, :settings, RegisteredChannel.Settings.new()),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
 
@@ -233,6 +245,13 @@ defmodule ElixIRCd.Factory do
   def insert(:metric, attrs) do
     Memento.transaction!(fn ->
       build(:metric, attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:registered_channel, attrs) do
+    Memento.transaction!(fn ->
+      build(:registered_channel, attrs)
       |> Memento.Query.write()
     end)
   end

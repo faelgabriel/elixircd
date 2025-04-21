@@ -10,6 +10,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Metric
+  alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -25,8 +26,17 @@ defmodule ElixIRCd.Utils.Mnesia do
   ]
 
   @disk_tables [
+    RegisteredChannel,
     RegisteredNick
   ]
+
+  @doc """
+  Returns a list of all table modules.
+  """
+  @spec all_tables() :: [atom()]
+  def all_tables do
+    @memory_tables ++ @disk_tables
+  end
 
   @doc """
   Sets up the Mnesia database.

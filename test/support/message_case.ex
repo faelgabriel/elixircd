@@ -7,7 +7,6 @@ defmodule ElixIRCd.MessageCase do
   """
 
   use ExUnit.CaseTemplate
-  use Mimic
 
   alias ElixIRCd.MessageCase.Assertions
   alias ElixIRCd.Server.Connection
@@ -22,8 +21,7 @@ defmodule ElixIRCd.MessageCase do
         if Map.get(context, :skip_message_agent, false) == false do
           {:ok, agent_pid} = Agent.start_link(fn -> [] end, name: @agent_name)
 
-          Connection
-          |> stub(:handle_send, fn pid, msg ->
+          Mimic.stub(Connection, :handle_send, fn pid, msg ->
             Agent.update(@agent_name, fn messages -> [{pid, msg} | messages] end)
           end)
 
@@ -38,49 +36,21 @@ defmodule ElixIRCd.MessageCase do
         :ok
       end
 
-      @doc """
-      Asserts that a specific number of messages were sent to a target PID.
-
-      This function verifies that exactly `amount` messages were sent to the specified `target` PID.
-      After the assertion, it removes the verified messages from the agent state.
-
-      ## Parameters
-        * `target` - The PID to check messages for
-        * `amount` - The expected number of messages
-      """
+      # Asserts that a specific number of messages were sent to a target PID.
       @spec assert_sent_messages_amount(pid(), integer()) :: :ok
-      def assert_sent_messages_amount(target, amount) do
+      defp assert_sent_messages_amount(target, amount) do
         Assertions.assert_sent_messages_amount(@agent_name, target, amount)
       end
 
-      @doc """
-      Asserts that specific messages were sent to their respective targets.
-
-      This function verifies that the expected messages were sent to their targets.
-      By default, it validates both the content and order of the messages.
-
-      ## Parameters
-        * `expected_messages` - A list of tuples in the format `{target_pid, message}`
-        * `opts` - Options for validation:
-          * `:validate_order?` - Boolean that determines if message order should be validated (default: true)
-      """
+      # Asserts that specific messages were sent to their respective targets.
       @spec assert_sent_messages([tuple()], opts :: [validate_order?: boolean()]) :: :ok
-      def assert_sent_messages(expected_messages, opts \\ []) do
+      defp assert_sent_messages(expected_messages, opts \\ []) do
         Assertions.assert_sent_messages(@agent_name, expected_messages, opts)
       end
 
-      @doc """
-      Asserts that at least one message sent to a target contains a specified pattern.
-
-      This function verifies that at least one message sent to the specified `target` PID matches
-      the given pattern, which can be either a string or a regex.
-
-      ## Parameters
-        * `target` - The PID to check messages for
-        * `pattern` - A string or regex pattern to match against messages
-      """
+      # Asserts that at least one message sent to a target contains a specified pattern.
       @spec assert_sent_message_contains(pid(), String.t() | Regex.t()) :: :ok
-      def assert_sent_message_contains(target, pattern) do
+      defp assert_sent_message_contains(target, pattern) do
         Assertions.assert_sent_message_contains(@agent_name, target, pattern)
       end
     end
@@ -94,17 +64,7 @@ defmodule ElixIRCd.MessageCase.Assertions do
 
   alias ExUnit.AssertionError
 
-  @doc """
-  Asserts that a specific number of messages were sent to a target PID.
-
-  This function verifies that exactly `amount` messages were sent to the specified `target` PID.
-  After the assertion, it removes the verified messages from the agent state.
-
-  ## Parameters
-    * `agent_name` - The name of the agent storing the messages
-    * `target` - The PID to check messages for
-    * `amount` - The expected number of messages
-  """
+  @doc false
   @spec assert_sent_messages_amount(atom(), pid(), integer()) :: :ok
   def assert_sent_messages_amount(agent_name, target, amount) do
     ensure_agent_running!(agent_name)
@@ -126,19 +86,7 @@ defmodule ElixIRCd.MessageCase.Assertions do
     :ok
   end
 
-  @doc """
-  Asserts that specific messages were sent to their respective targets.
-
-  This function verifies that the expected messages were sent to their targets.
-  By default, it validates both the content and order of the messages.
-  After the assertion, it clears the agent state.
-
-  ## Parameters
-    * `agent_name` - The name of the agent storing the messages
-    * `expected_messages` - A list of tuples in the format `{target_pid, message}`
-    * `opts` - Options for validation:
-      * `:validate_order?` - Boolean that determines if message order should be validated (default: true)
-  """
+  @doc false
   @spec assert_sent_messages(atom(), [tuple()], opts :: [validate_order?: boolean()]) :: :ok
   def assert_sent_messages(agent_name, expected_messages, opts \\ []) do
     ensure_agent_running!(agent_name)
@@ -158,28 +106,20 @@ defmodule ElixIRCd.MessageCase.Assertions do
       if length(expected_msgs) > length(sent_msgs) do
         raise AssertionError, """
         Assertion failed: Number of expected messages exceeds the number of messages sent for target #{inspect(target)}.
-        Expected message sequence for target: #{inspect(expected_msgs)}
-        Actual message sequence for target: #{inspect(sent_msgs)}
+        Expected message sequence for target: #{inspect(expected_msgs, binaries: :as_strings, limit: :infinity)}
+        Actual message sequence for target: #{inspect(sent_msgs, binaries: :as_strings, limit: :infinity)}
         """
       end
 
       if length(sent_msgs) > length(expected_msgs) do
         raise AssertionError, """
         Assertion failed: Number of expected messages is less than the number of messages sent for target #{inspect(target)}.
-        Expected message sequence for target: #{inspect(expected_msgs)}
-        Actual message sequence for target: #{inspect(sent_msgs)}
+        Expected message sequence for target: #{inspect(expected_msgs, binaries: :as_strings, limit: :infinity)}
+        Actual message sequence for target: #{inspect(sent_msgs, binaries: :as_strings, limit: :infinity)}
         """
       end
 
       validate_messages_content(target, expected_msgs, sent_msgs, validate_order?)
-    end
-
-    if length(sent_messages) > length(expected_messages) do
-      raise AssertionError, """
-      Assertion failed: Number of expected messages is less than the number of messages sent.
-      Expected message: #{inspect(expected_messages)}
-      Actual message: #{inspect(sent_messages)}
-      """
     end
 
     # Clean up the agent state after each assertion
@@ -188,17 +128,7 @@ defmodule ElixIRCd.MessageCase.Assertions do
     :ok
   end
 
-  @doc """
-  Asserts that at least one message sent to a target contains a specified pattern.
-
-  This function verifies that at least one message sent to the specified `target` PID matches
-  the given pattern, which can be either a string or a regex.
-
-  ## Parameters
-    * `agent_name` - The name of the agent storing the messages
-    * `target` - The PID to check messages for
-    * `pattern` - A string or regex pattern to match against messages
-  """
+  @doc false
   @spec assert_sent_message_contains(atom(), pid(), String.t() | Regex.t()) :: :ok
   def assert_sent_message_contains(agent_name, target, pattern) do
     ensure_agent_running!(agent_name)
@@ -213,7 +143,7 @@ defmodule ElixIRCd.MessageCase.Assertions do
       raise AssertionError, """
       Assertion failed: No message matching pattern was found for target #{inspect(target)}.
       Pattern: #{inspect(pattern)}
-      Messages sent to target: #{inspect(sent_msgs_for_target)}
+      Messages sent to target: #{inspect(sent_msgs_for_target, binaries: :as_strings, limit: :infinity)}
       """
     end
 
@@ -243,10 +173,10 @@ defmodule ElixIRCd.MessageCase.Assertions do
         raise AssertionError, """
         Assertion failed: Message order or content does not match.
         At position #{index + 1}:
-        Expected message: '{#{inspect(target)}, #{inspect(expected_msg)}}'
-        Sent message: '{#{inspect(target)}, #{inspect(sent_msg)}'
-        Full expected message sequence for target: #{inspect(expected_msgs)}
-        Full actual message sequence for target: #{inspect(sent_msgs)}
+        Expected message: '{#{inspect(target)}, #{inspect(expected_msg, binaries: :as_strings, limit: :infinity)}}'
+        Sent message: '{#{inspect(target)}, #{inspect(sent_msg, binaries: :as_strings, limit: :infinity)}}'
+        Full expected message sequence for target: #{inspect(expected_msgs, binaries: :as_strings, limit: :infinity)}
+        Full actual message sequence for target: #{inspect(sent_msgs, binaries: :as_strings, limit: :infinity)}
         """
       end
     end)
@@ -261,8 +191,8 @@ defmodule ElixIRCd.MessageCase.Assertions do
       unless message_match?(expected_msg, sent_msg) do
         raise AssertionError, """
         Assertion failed: Message content does not match.
-        Expected message sequence for target: #{inspect(expected_msgs)}
-        Actual message sequence for target: #{inspect(sent_msgs)}
+        Expected message sequence for target: #{inspect(expected_msgs, binaries: :as_strings, limit: :infinity)}
+        Actual message sequence for target: #{inspect(sent_msgs, binaries: :as_strings, limit: :infinity)}
         """
       end
     end)
