@@ -13,6 +13,7 @@ defmodule ElixIRCd.Services.Chanserv do
   @service_commands %{
     "HELP" => Chanserv.Help,
     "REGISTER" => Chanserv.Register,
+    "DROP" => Chanserv.Drop,
     "SET" => Chanserv.Set
   }
 

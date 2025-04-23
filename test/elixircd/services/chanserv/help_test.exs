@@ -16,7 +16,7 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP"])
 
-        assert_sent_messages_amount(user.pid, 14)
+        assert_sent_messages_amount(user.pid, 15)
       end)
     end
 
@@ -27,6 +27,16 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
         assert :ok = Help.handle(user, ["HELP", "REGISTER"])
 
         assert_sent_messages_amount(user.pid, 18)
+      end)
+    end
+
+    test "handles HELP command for DROP" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "DROP"])
+
+        assert_sent_messages_amount(user.pid, 20)
       end)
     end
 

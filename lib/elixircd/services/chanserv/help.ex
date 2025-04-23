@@ -23,6 +23,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   @spec send_help_for_command(User.t(), String.t()) :: :ok
   defp send_help_for_command(user, ""), do: send_general_help(user)
   defp send_help_for_command(user, "REGISTER"), do: send_register_help(user)
+  defp send_help_for_command(user, "DROP"), do: send_drop_help(user)
   defp send_help_for_command(user, "SET"), do: send_set_help(user)
   defp send_help_for_command(user, "SET GUARD"), do: send_set_guard_help(user)
   defp send_help_for_command(user, "SET KEEPTOPIC"), do: send_set_keeptopic_help(user)
@@ -51,12 +52,43 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02ChanServ commands\x02:",
       "\x02HELP         \x02- Displays this help message.",
       "\x02REGISTER     \x02- Register a channel.",
+      "\x02DROP         \x02- Unregister a channel.",
       "\x02SET          \x02- Set channel options and access levels.",
       " ",
       "For more information on a command, type:",
       "\x02/msg ChanServ HELP <command>\x02",
       " ",
       "For example: \x02/msg ChanServ HELP REGISTER\x02"
+    ])
+  end
+
+  @spec send_drop_help(User.t()) :: :ok
+  defp send_drop_help(user) do
+    notify(user, [
+      "Help for \x02DROP\x02:",
+      format_help(
+        "DROP",
+        ["<channel>"],
+        "Unregisters a channel."
+      ),
+      "",
+      "This command completely removes a channel's registration from",
+      "ChanServ. All associated channel data will be permanently deleted,",
+      "including settings, access lists, and other channel-specific",
+      "information.",
+      "",
+      "Only the channel founder (the user who registered the channel",
+      "or was later set as the founder) can use this command.",
+      "This action is IRREVERSIBLE - once a channel is dropped, all",
+      "data is permanently lost.",
+      "",
+      "If you only want to change ownership of the channel, consider",
+      "using the SET FOUNDER command instead.",
+      "",
+      "Syntax: \x02DROP <channel>\x02",
+      "",
+      "Example:",
+      "    \x02/msg ChanServ DROP #mychannel\x02"
     ])
   end
 
