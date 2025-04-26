@@ -13,13 +13,13 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
     # SET EMAIL - Contact email address
     :email,
     # SET ENTRYMSG - Welcome message shown to joining users
-    :entry_message,
+    :entrymsg,
     # SET KEEPTOPIC - Preserve topic when channel is empty
     :keeptopic,
     # Persistent topic to restore when KEEPTOPIC is ON
     :persistent_topic,
     # SET OPNOTICE - Notify ops when users join
-    :op_notice,
+    :opnotice,
     # SET PEACE - Prevent operators from kicking/banning other operators
     :peace,
     # SET PRIVATE - Hide channel from LIST command
@@ -33,7 +33,9 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
     # SET GUARD - Keep ChanServ in the channel
     :guard,
     # SET TOPICLOCK - Control who can change the topic (true=ON, false=OFF)
-    :topiclock
+    :topiclock,
+    # SET MLOCK - Mode lock configuration for the channel
+    :mlock
   ]
 
   @type t :: %__MODULE__{
@@ -41,7 +43,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
           description: String.t() | nil,
           url: String.t() | nil,
           email: String.t() | nil,
-          entry_message: String.t() | nil,
+          entrymsg: String.t() | nil,
 
           # Topic Control
           keeptopic: boolean(),
@@ -49,7 +51,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
           topiclock: boolean(),
 
           # Security & Behavior
-          op_notice: boolean(),
+          opnotice: boolean(),
           peace: boolean(),
           private: boolean(),
           restricted: boolean(),
@@ -57,24 +59,28 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
 
           # Bot Presence
           fantasy: boolean(),
-          guard: boolean()
+          guard: boolean(),
+
+          # Mode Control
+          mlock: String.t() | nil
         }
 
   @type t_attrs :: %{
           optional(:description) => String.t() | nil,
           optional(:url) => String.t() | nil,
           optional(:email) => String.t() | nil,
-          optional(:entry_message) => String.t() | nil,
+          optional(:entrymsg) => String.t() | nil,
           optional(:keeptopic) => boolean(),
           optional(:persistent_topic) => String.t() | nil,
           optional(:topiclock) => boolean(),
-          optional(:op_notice) => boolean(),
+          optional(:opnotice) => boolean(),
           optional(:peace) => boolean(),
           optional(:private) => boolean(),
           optional(:restricted) => boolean(),
           optional(:secure) => boolean(),
           optional(:fantasy) => boolean(),
-          optional(:guard) => boolean()
+          optional(:guard) => boolean(),
+          optional(:mlock) => String.t() | nil
         }
 
   @doc """
@@ -90,6 +96,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
       |> init_topic_control(config_settings)
       |> init_security_behavior(config_settings)
       |> init_bot_presence(config_settings)
+      |> init_mode_control(config_settings)
 
     struct!(__MODULE__, new_attrs)
   end
@@ -115,7 +122,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
     |> Map.put_new(:description, nil)
     |> Map.put_new(:url, nil)
     |> Map.put_new(:email, nil)
-    |> Map.put_new(:entry_message, config_settings[:entry_message])
+    |> Map.put_new(:entrymsg, config_settings[:entrymsg])
   end
 
   @spec init_topic_control(t_attrs(), keyword()) :: t_attrs()
@@ -129,7 +136,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
   @spec init_security_behavior(t_attrs(), keyword()) :: t_attrs()
   defp init_security_behavior(attrs, config_settings) do
     attrs
-    |> Map.put_new(:op_notice, config_settings[:op_notice] || true)
+    |> Map.put_new(:opnotice, config_settings[:opnotice] || true)
     |> Map.put_new(:peace, config_settings[:peace] || false)
     |> Map.put_new(:private, config_settings[:private] || false)
     |> Map.put_new(:restricted, config_settings[:restricted] || false)
@@ -141,5 +148,11 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
     attrs
     |> Map.put_new(:fantasy, config_settings[:fantasy] || true)
     |> Map.put_new(:guard, config_settings[:guard] || true)
+  end
+
+  @spec init_mode_control(t_attrs(), keyword()) :: t_attrs()
+  defp init_mode_control(attrs, config_settings) do
+    attrs
+    |> Map.put_new(:mlock, config_settings[:mlock])
   end
 end

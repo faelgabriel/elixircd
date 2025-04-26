@@ -24,7 +24,9 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   defp send_help_for_command(user, ""), do: send_general_help(user)
   defp send_help_for_command(user, "REGISTER"), do: send_register_help(user)
   defp send_help_for_command(user, "DROP"), do: send_drop_help(user)
+  defp send_help_for_command(user, "INFO"), do: send_info_help(user)
   defp send_help_for_command(user, "SET"), do: send_set_help(user)
+  defp send_help_for_command(user, "TRANSFER"), do: send_transfer_help(user)
   defp send_help_for_command(user, "SET GUARD"), do: send_set_guard_help(user)
   defp send_help_for_command(user, "SET KEEPTOPIC"), do: send_set_keeptopic_help(user)
   defp send_help_for_command(user, "SET PRIVATE"), do: send_set_private_help(user)
@@ -39,6 +41,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   defp send_help_for_command(user, "SET PEACE"), do: send_set_peace_help(user)
   defp send_help_for_command(user, "SET SECURE"), do: send_set_secure_help(user)
   defp send_help_for_command(user, "SET TOPICLOCK"), do: send_set_topiclock_help(user)
+  defp send_help_for_command(user, "SET SUCCESSOR"), do: send_set_successor_help(user)
   defp send_help_for_command(user, command), do: send_unknown_command_help(user, command)
 
   @spec send_general_help(User.t()) :: :ok
@@ -53,7 +56,9 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02HELP         \x02- Displays this help message.",
       "\x02REGISTER     \x02- Register a channel.",
       "\x02DROP         \x02- Unregister a channel.",
+      "\x02INFO         \x02- Display information about a channel.",
       "\x02SET          \x02- Set channel options and access levels.",
+      "\x02TRANSFER     \x02- Transfer channel ownership.",
       " ",
       "For more information on a command, type:",
       "\x02/msg ChanServ HELP <command>\x02",
@@ -89,6 +94,35 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "",
       "Example:",
       "    \x02/msg ChanServ DROP #mychannel\x02"
+    ])
+  end
+
+  @spec send_info_help(User.t()) :: :ok
+  defp send_info_help(user) do
+    notify(user, [
+      "Help for \x02INFO\x02:",
+      format_help(
+        "INFO",
+        ["<channel> [ALL]"],
+        "Displays information about a registered channel."
+      ),
+      "",
+      "This command displays various details about a registered channel,",
+      "including registration date, founder, description, and other",
+      "information.",
+      "",
+      "The amount of information displayed depends on your access level",
+      "in the channel. Channel founders and those with sufficient access",
+      "privileges will see more details.",
+      "",
+      "Using the ALL parameter may show additional details if you have",
+      "sufficient permissions.",
+      "",
+      "Syntax: \x02INFO <channel> [ALL]\x02",
+      "",
+      "Examples:",
+      "    \x02/msg ChanServ INFO #mychannel\x02",
+      "    \x02/msg ChanServ INFO #mychannel ALL\x02"
     ])
   end
 
@@ -149,6 +183,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02PEACE\x02        - Toggles protection against channel wars",
       "\x02SECURE\x02       - Toggles stricter security measures",
       "\x02TOPICLOCK\x02    - Controls who can change the channel topic",
+      "\x02SUCCESSOR\x02    - Sets a successor who can claim the channel",
       "",
       "For detailed help on each option, type:",
       "\x02/msg ChanServ HELP SET <option>\x02",
@@ -478,6 +513,63 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "Examples:",
       "    \x02/msg ChanServ SET #mychannel TOPICLOCK ON\x02",
       "    \x02/msg ChanServ SET #mychannel TOPICLOCK OFF\x02"
+    ])
+  end
+
+  @spec send_set_successor_help(User.t()) :: :ok
+  defp send_set_successor_help(user) do
+    notify(user, [
+      "Help for \x02SET SUCCESSOR\x02:",
+      format_help(
+        "SET SUCCESSOR",
+        ["<channel> {nickname|OFF}"],
+        "Sets a successor for the channel."
+      ),
+      "",
+      "This command allows a channel founder to designate another user",
+      "as the successor for the channel. If the founder becomes inactive",
+      "or unavailable, the successor can claim ownership of the channel",
+      "using the TRANSFER command.",
+      "",
+      "The successor must have a registered nickname.",
+      "",
+      "Setting this to OFF removes any current successor.",
+      "",
+      "Syntax: \x02SET <channel> SUCCESSOR {nickname|OFF}\x02",
+      "",
+      "Examples:",
+      "    \x02/msg ChanServ SET #mychannel SUCCESSOR secondfounder\x02",
+      "    \x02/msg ChanServ SET #mychannel SUCCESSOR OFF\x02"
+    ])
+  end
+
+  @spec send_transfer_help(User.t()) :: :ok
+  defp send_transfer_help(user) do
+    notify(user, [
+      "Help for \x02TRANSFER\x02:",
+      format_help(
+        "TRANSFER",
+        ["<channel> [new founder]"],
+        "Transfers channel ownership to another user."
+      ),
+      "",
+      "This command allows a channel founder to transfer ownership",
+      "of a registered channel to another user. The target user must",
+      "have a registered nickname.",
+      "",
+      "If a channel has a successor set (via SET SUCCESSOR), that user",
+      "can claim ownership by using the TRANSFER command without specifying",
+      "a new founder.",
+      "",
+      "Once transferred, the original founder loses all founder privileges.",
+      "This action can only be reversed if the new founder transfers",
+      "ownership back.",
+      "",
+      "Syntax: \x02TRANSFER <channel> [new founder]\x02",
+      "",
+      "Examples:",
+      "    \x02/msg ChanServ TRANSFER #mychannel newowner\x02  - Transfer to new owner",
+      "    \x02/msg ChanServ TRANSFER #mychannel\x02          - Claim as successor"
     ])
   end
 

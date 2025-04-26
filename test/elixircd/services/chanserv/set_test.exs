@@ -406,7 +406,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
     test "handles ENTRYMSG setting" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
-        entry_message = "Welcome to #{channel_name}! Please read the rules."
+        entrymsg = "Welcome to #{channel_name}! Please read the rules."
         user = insert(:user, identified_as: "founder")
         insert(:registered_channel, name: channel_name, founder: "founder")
 
@@ -426,28 +426,28 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRY_MESSAGE\2 for \2#{channel_name}\2 has been set to: \2#{entry_message}\2\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRYMSG\2 for \2#{channel_name}\2 has been set to: \2#{entrymsg}\2\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.entry_message == entry_message
+        assert channel.settings.entrymsg == entrymsg
 
         assert :ok = Set.handle(user, ["SET", channel_name, "ENTRYMSG"])
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRY_MESSAGE\2 for \2#{channel_name}\2 is: \2#{entry_message}\2\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRYMSG\2 for \2#{channel_name}\2 is: \2#{entrymsg}\2\r\n"}
         ])
 
         assert :ok = Set.handle(user, ["SET", channel_name, "ENTRYMSG", "OFF"])
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRY_MESSAGE\2 for \2#{channel_name}\2 has been unset\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRYMSG\2 for \2#{channel_name}\2 has been unset\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.entry_message == nil
+        assert channel.settings.entrymsg == nil
       end)
     end
 
@@ -461,21 +461,21 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2OP_NOTICE\2 option for \2#{channel_name}\2 is now \2ON\2\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2OPNOTICE\2 option for \2#{channel_name}\2 is now \2ON\2\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.op_notice == true
+        assert channel.settings.opnotice == true
 
         assert :ok = Set.handle(user, ["SET", channel_name, "OPNOTICE", "OFF"])
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2OP_NOTICE\2 option for \2#{channel_name}\2 is now \2OFF\2\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2OPNOTICE\2 option for \2#{channel_name}\2 is now \2OFF\2\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.op_notice == false
+        assert channel.settings.opnotice == false
       end)
     end
 
@@ -688,7 +688,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :No \2ENTRY_MESSAGE\2 is set for \2#{channel_name}\2.\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :No \2ENTRYMSG\2 is set for \2#{channel_name}\2.\r\n"}
         ])
       end)
     end
@@ -697,23 +697,23 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
-        entry_message = "Welcome to the channel!"
+        entrymsg = "Welcome to the channel!"
 
         insert(:registered_channel,
           name: channel_name,
           founder: "founder",
-          settings: %{Settings.new() | entry_message: entry_message}
+          settings: %{Settings.new() | entrymsg: entrymsg}
         )
 
         assert :ok = Set.handle(user, ["SET", channel_name, "ENTRYMSG", ""])
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRY_MESSAGE\2 for \2#{channel_name}\2 has been unset\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2ENTRYMSG\2 for \2#{channel_name}\2 has been unset\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.entry_message == nil
+        assert channel.settings.entrymsg == nil
       end)
     end
 
@@ -740,6 +740,98 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
         assert_sent_messages([
           {user.pid, ":ChanServ!service@irc.test NOTICE #{user.nick} :\2Invalid\2 value. Use \2ON\2 or \2OFF\2.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles SUCCESSOR setting - set and show" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        successor = "co_founder"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder")
+        insert(:registered_nick, nickname: successor)
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "SUCCESSOR", successor])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2SUCCESSOR\2 for \2#{channel_name}\2 has been set to: \2#{successor}\2\r\n"}
+        ])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.successor == successor
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "SUCCESSOR"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2SUCCESSOR\2 for \2#{channel_name}\2 is: \2#{successor}\2\r\n"}
+        ])
+      end)
+    end
+
+    test "handles SUCCESSOR with unregistered nickname" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        non_existent_nick = "non_existent_nick"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "SUCCESSOR", non_existent_nick])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Cannot set successor: \2#{non_existent_nick}\2 is not a registered nickname.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles SUCCESSOR OFF command" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        successor = "co_founder"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder", successor: successor)
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "SUCCESSOR", "OFF"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2SUCCESSOR\2 for \2#{channel_name}\2 has been unset.\r\n"}
+        ])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.successor == nil
+      end)
+    end
+
+    test "shows message when no successor is set" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "SUCCESSOR"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :No \2SUCCESSOR\2 is set for \2#{channel_name}\2.\r\n"}
+        ])
+      end)
+    end
+
+    test "shows syntax help for successor with invalid parameters" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "SUCCESSOR", "nick1", "nick2"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Syntax: SET <channel> SUCCESSOR <nickname> or SET <channel> SUCCESSOR OFF to clear\r\n"}
         ])
       end)
     end

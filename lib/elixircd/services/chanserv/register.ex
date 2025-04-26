@@ -14,7 +14,6 @@ defmodule ElixIRCd.Services.Chanserv.Register do
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Tables.Channel
-  alias ElixIRCd.Tables.RegisteredChannel.Settings
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -98,8 +97,7 @@ defmodule ElixIRCd.Services.Chanserv.Register do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name) do
       if channel_operator?(user_channel) do
-        channel_topic = get_channel_topic(channel)
-        register_channel(user, channel_name, password, channel_topic)
+        register_channel(user, channel, password)
       else
         notify(user, "You must be a channel operator in \x02#{channel_name}\x02 to register it.")
       end
@@ -112,32 +110,25 @@ defmodule ElixIRCd.Services.Chanserv.Register do
     end
   end
 
-  @spec get_channel_topic(Channel.t()) :: String.t() | nil
-  defp get_channel_topic(%{topic: %{text: text}}), do: text
-  defp get_channel_topic(_), do: nil
-
-  @spec register_channel(User.t(), String.t(), String.t(), String.t() | nil) :: :ok
-  defp register_channel(user, channel_name, password, topic) do
+  @spec register_channel(User.t(), Channel.t(), String.t()) :: :ok
+  defp register_channel(user, channel, password) do
     password_hash = Pbkdf2.hash_pwd_salt(password)
 
-    base_settings = Settings.new()
-    settings = if topic, do: %{base_settings | persistent_topic: topic}, else: base_settings
-
     RegisteredChannels.create(%{
-      name: channel_name,
+      name: channel.name,
       founder: user.identified_as,
       password_hash: password_hash,
       registered_by: user_mask(user),
-      settings: settings
+      topic: channel.topic
     })
 
     notify(user, [
-      "Channel \x02#{channel_name}\x02 has been registered under your nickname \x02#{user.identified_as}\x02.",
+      "Channel \x02#{channel.name}\x02 has been registered under your nickname \x02#{user.identified_as}\x02.",
       "Password accepted.",
       "Remember your password so that you can identify to ChanServ and make changes later!"
     ])
 
-    Logger.info("Channel registered: #{channel_name} by #{user_mask(user)}")
+    Logger.info("Channel registered: #{channel.name} by #{user_mask(user)}")
   end
 
   @spec check_max_channels(String.t(), integer()) :: :ok | {:error, :limit_reached}

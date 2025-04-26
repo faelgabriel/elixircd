@@ -156,13 +156,13 @@ config :elixircd,
       # Default Channel Settings (Applied when a channel is first registered)
       settings: [
         # Default for: SET ENTRYMSG <message>
-        entry_message: nil,
+        entrymsg: nil,
         # TODO: Default for: SET MODELOCK <modes>
         # mode_lock: nil,
         # Default for: SET KEEPTOPIC {ON|OFF}
         keeptopic: true,
         # Default for: SET OPNOTICE {ON|OFF}
-        op_notice: true,
+        opnotice: true,
         # Default for: SET PEACE {ON|OFF}
         peace: false,
         # Default for: SET PRIVATE {ON|OFF}

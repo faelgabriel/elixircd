@@ -3,6 +3,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
   Module for the RegisteredChannel table.
   """
 
+  alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   @enforce_keys [:name, :founder, :password_hash, :registered_by, :created_at]
@@ -14,6 +15,9 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
       :password_hash,
       :registered_by,
       :settings,
+      :topic,
+      :successor,
+      :last_used_at,
       :created_at
     ],
     index: [:founder],
@@ -25,6 +29,9 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
           password_hash: String.t(),
           registered_by: String.t(),
           settings: Settings.t(),
+          topic: Channel.Topic.t() | nil,
+          successor: String.t() | nil,
+          last_used_at: DateTime.t(),
           created_at: DateTime.t()
         }
 
@@ -34,6 +41,9 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
           optional(:password_hash) => String.t(),
           optional(:registered_by) => String.t(),
           optional(:settings) => Settings.t(),
+          optional(:topic) => Channel.Topic.t() | nil,
+          optional(:successor) => String.t() | nil,
+          optional(:last_used_at) => DateTime.t(),
           optional(:created_at) => DateTime.t()
         }
 
@@ -42,10 +52,15 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
   """
   @spec new(t_attrs()) :: t()
   def new(attrs) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
     new_attrs =
       attrs
       |> Map.put_new(:settings, Settings.new())
-      |> Map.put_new(:created_at, DateTime.utc_now() |> DateTime.truncate(:second))
+      |> Map.put_new(:topic, nil)
+      |> Map.put_new(:successor, nil)
+      |> Map.put_new(:last_used_at, now)
+      |> Map.put_new(:created_at, now)
 
     struct!(__MODULE__, new_attrs)
   end

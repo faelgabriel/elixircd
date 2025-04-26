@@ -101,7 +101,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
         flags
       end
 
-    unless Enum.empty?(flags) do
+    if !Enum.empty?(flags) do
       notify(user, "Flags: \x02#{Enum.join(flags, ", ")}\x02")
     end
 

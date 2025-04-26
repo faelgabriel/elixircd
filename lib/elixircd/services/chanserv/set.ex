@@ -9,6 +9,7 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   import ElixIRCd.Utils.Validation, only: [validate_email: 1]
 
   alias ElixIRCd.Repositories.RegisteredChannels
+  alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
 
@@ -76,6 +77,7 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   defp handle_setting(user, registered_channel, "PEACE", args), do: handle_peace(user, registered_channel, args)
   defp handle_setting(user, registered_channel, "SECURE", args), do: handle_secure(user, registered_channel, args)
   defp handle_setting(user, registered_channel, "TOPICLOCK", args), do: handle_topiclock(user, registered_channel, args)
+  defp handle_setting(user, registered_channel, "SUCCESSOR", args), do: handle_successor(user, registered_channel, args)
 
   defp handle_setting(user, _registered_channel, setting, _args) do
     notify(user, [
@@ -240,37 +242,37 @@ defmodule ElixIRCd.Services.Chanserv.Set do
 
   @spec handle_entrymsg(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
   defp handle_entrymsg(user, registered_channel, []) do
-    if registered_channel.settings.entry_message do
+    if registered_channel.settings.entrymsg do
       notify(
         user,
-        "\2ENTRY_MESSAGE\2 for \2#{registered_channel.name}\2 is: \2#{registered_channel.settings.entry_message}\2"
+        "\2ENTRYMSG\2 for \2#{registered_channel.name}\2 is: \2#{registered_channel.settings.entrymsg}\2"
       )
     else
-      notify(user, "No \2ENTRY_MESSAGE\2 is set for \2#{registered_channel.name}\2.")
+      notify(user, "No \2ENTRYMSG\2 is set for \2#{registered_channel.name}\2.")
     end
   end
 
   defp handle_entrymsg(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :entry_message, nil)
+    update_setting(user, registered_channel, :entrymsg, nil)
   end
 
   defp handle_entrymsg(user, registered_channel, message) do
     message_text = Enum.join(message, " ")
 
     if String.trim(message_text) == "" do
-      update_setting(user, registered_channel, :entry_message, nil)
+      update_setting(user, registered_channel, :entrymsg, nil)
     else
-      update_setting(user, registered_channel, :entry_message, message_text)
+      update_setting(user, registered_channel, :entrymsg, message_text)
     end
   end
 
   @spec handle_opnotice(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
   defp handle_opnotice(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :op_notice, true)
+    update_setting(user, registered_channel, :opnotice, true)
   end
 
   defp handle_opnotice(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :op_notice, false)
+    update_setting(user, registered_channel, :opnotice, false)
   end
 
   defp handle_opnotice(user, _registered_channel, [value]) do
@@ -340,6 +342,35 @@ defmodule ElixIRCd.Services.Chanserv.Set do
 
   defp handle_topiclock(user, _registered_channel, _) do
     notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
+  end
+
+  @spec handle_successor(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
+  defp handle_successor(user, registered_channel, []) do
+    if registered_channel.successor do
+      notify(user, "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 is: \2#{registered_channel.successor}\2")
+    else
+      notify(user, "No \2SUCCESSOR\2 is set for \2#{registered_channel.name}\2.")
+    end
+  end
+
+  defp handle_successor(user, registered_channel, ["OFF"]) do
+    RegisteredChannels.update(registered_channel, %{successor: nil})
+    notify(user, "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 has been unset.")
+  end
+
+  defp handle_successor(user, registered_channel, [successor]) do
+    case RegisteredNicks.get_by_nickname(successor) do
+      {:ok, _registered_nick} ->
+        RegisteredChannels.update(registered_channel, %{successor: successor})
+        notify(user, "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 has been set to: \2#{successor}\2")
+
+      {:error, :registered_nick_not_found} ->
+        notify(user, "Cannot set successor: \2#{successor}\2 is not a registered nickname.")
+    end
+  end
+
+  defp handle_successor(user, _registered_channel, _) do
+    notify(user, "Syntax: SET <channel> SUCCESSOR <nickname> or SET <channel> SUCCESSOR OFF to clear")
   end
 
   @spec update_setting(User.t(), RegisteredChannel.t(), atom(), any()) :: :ok

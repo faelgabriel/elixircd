@@ -14,7 +14,9 @@ defmodule ElixIRCd.Services.Chanserv do
     "HELP" => Chanserv.Help,
     "REGISTER" => Chanserv.Register,
     "DROP" => Chanserv.Drop,
-    "SET" => Chanserv.Set
+    "INFO" => Chanserv.Info,
+    "SET" => Chanserv.Set,
+    "TRANSFER" => Chanserv.Transfer
   }
 
   @impl true

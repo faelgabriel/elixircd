@@ -139,7 +139,7 @@ defmodule ElixIRCd.MessageCase.Assertions do
       Enum.filter(sent_messages, fn {pid, _} -> pid == target end)
       |> Enum.map(fn {_, msg} -> msg end)
 
-    unless Enum.any?(sent_msgs_for_target, fn msg -> message_match?(pattern, msg) end) do
+    if !Enum.any?(sent_msgs_for_target, fn msg -> message_match?(pattern, msg) end) do
       raise AssertionError, """
       Assertion failed: No message matching pattern was found for target #{inspect(target)}.
       Pattern: #{inspect(pattern)}
@@ -169,7 +169,7 @@ defmodule ElixIRCd.MessageCase.Assertions do
     Enum.zip(expected_msgs, sent_msgs)
     |> Enum.with_index()
     |> Enum.each(fn {{expected_msg, sent_msg}, index} ->
-      unless message_match?(expected_msg, sent_msg) do
+      if !message_match?(expected_msg, sent_msg) do
         raise AssertionError, """
         Assertion failed: Message order or content does not match.
         At position #{index + 1}:
@@ -188,7 +188,7 @@ defmodule ElixIRCd.MessageCase.Assertions do
 
     Enum.zip(ordered_expected_msgs, ordered_sent_msgs)
     |> Enum.each(fn {expected_msg, sent_msg} ->
-      unless message_match?(expected_msg, sent_msg) do
+      if !message_match?(expected_msg, sent_msg) do
         raise AssertionError, """
         Assertion failed: Message content does not match.
         Expected message sequence for target: #{inspect(expected_msgs, binaries: :as_strings, limit: :infinity)}

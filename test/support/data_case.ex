@@ -13,7 +13,7 @@ defmodule ElixIRCd.DataCase do
   alias ElixIRCd.Tables.User
 
   setup tags do
-    unless tags[:async] do
+    if !tags[:async] do
       # Cleans up the Memento tables and kills all the users' processes and sockets opened in the tests.
       Memento.transaction!(fn ->
         Memento.Query.all(User)

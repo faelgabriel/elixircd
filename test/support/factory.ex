@@ -119,13 +119,19 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:registered_channel, attrs) do
+    created_at = Map.get(attrs, :created_at, DateTime.utc_now())
+    last_used_at = Map.get(attrs, :last_used_at, created_at)
+
     %RegisteredChannel{
       name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
       founder: Map.get(attrs, :founder, "Nick_#{random_string(5)}"),
       password_hash: Map.get(attrs, :password_hash, "hash"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
       settings: Map.get(attrs, :settings, RegisteredChannel.Settings.new()),
-      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+      topic: Map.get(attrs, :topic, nil),
+      successor: Map.get(attrs, :successor, nil),
+      created_at: created_at,
+      last_used_at: last_used_at
     }
   end
 
