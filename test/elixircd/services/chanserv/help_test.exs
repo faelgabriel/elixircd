@@ -20,24 +20,23 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
       end)
     end
 
-    test "handles HELP command for REGISTER" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
+    test "handles main command help topics" do
+      test_cases = [
+        {"REGISTER", 18},
+        {"DROP", 20},
+        {"INFO", 19},
+        {"TRANSFER", 20}
+      ]
 
-        assert :ok = Help.handle(user, ["HELP", "REGISTER"])
+      for {command, expected_messages} <- test_cases do
+        Memento.transaction!(fn ->
+          user = insert(:user)
 
-        assert_sent_messages_amount(user.pid, 18)
-      end)
-    end
+          assert :ok = Help.handle(user, ["HELP", command])
 
-    test "handles HELP command for DROP" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "DROP"])
-
-        assert_sent_messages_amount(user.pid, 20)
-      end)
+          assert_sent_messages_amount(user.pid, expected_messages)
+        end)
+      end
     end
 
     test "handles HELP command for SET" do
@@ -50,161 +49,58 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
       end)
     end
 
-    test "handles HELP command for SET GUARD" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
+    test "handles HELP command for SET boolean options" do
+      # Group boolean SET options (ON/OFF options)
+      boolean_options = [
+        {"GUARD", 14},
+        {"KEEPTOPIC", 14},
+        {"PRIVATE", 14},
+        {"RESTRICTED", 14},
+        {"FANTASY", 16},
+        {"OPNOTICE", 13},
+        {"PEACE", 14},
+        {"SECURE", 14},
+        {"TOPICLOCK", 17}
+      ]
 
-        assert :ok = Help.handle(user, ["HELP", "SET", "GUARD"])
+      for {option, expected_messages} <- boolean_options do
+        Memento.transaction!(fn ->
+          user = insert(:user)
 
-        assert_sent_messages_amount(user.pid, 14)
-      end)
+          assert :ok = Help.handle(user, ["HELP", "SET", option])
+
+          assert_sent_messages_amount(user.pid, expected_messages)
+        end)
+      end
     end
 
-    test "handles HELP command for SET KEEPTOPIC" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
+    test "handles HELP command for SET value options" do
+      # Group value SET options (options that take a value parameter)
+      value_options = [
+        {"DESC", 15},
+        {"DESCRIPTION", 15},
+        {"URL", 15},
+        {"EMAIL", 15},
+        {"ENTRYMSG", 15},
+        {"SUCCESSOR", 17}
+      ]
 
-        assert :ok = Help.handle(user, ["HELP", "SET", "KEEPTOPIC"])
+      for {option, expected_messages} <- value_options do
+        Memento.transaction!(fn ->
+          user = insert(:user)
 
-        assert_sent_messages_amount(user.pid, 14)
-      end)
+          assert :ok = Help.handle(user, ["HELP", "SET", option])
+
+          assert_sent_messages_amount(user.pid, expected_messages)
+        end)
+      end
     end
 
-    test "handles HELP command for SET PRIVATE" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "PRIVATE"])
-
-        assert_sent_messages_amount(user.pid, 14)
-      end)
-    end
-
-    test "handles HELP command for SET RESTRICTED" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "RESTRICTED"])
-
-        assert_sent_messages_amount(user.pid, 14)
-      end)
-    end
-
-    test "handles HELP command for SET FANTASY" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "FANTASY"])
-
-        assert_sent_messages_amount(user.pid, 16)
-      end)
-    end
-
-    test "handles HELP command for SET DESCRIPTION" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "DESCRIPTION"])
-
-        assert_sent_messages_amount(user.pid, 15)
-      end)
-    end
-
-    test "handles HELP command for SET URL" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "URL"])
-
-        assert_sent_messages_amount(user.pid, 15)
-      end)
-    end
-
-    test "handles HELP command for SET EMAIL" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "EMAIL"])
-
-        assert_sent_messages_amount(user.pid, 15)
-      end)
-    end
-
-    test "handles HELP command for SET ENTRYMSG" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "ENTRYMSG"])
-
-        assert_sent_messages_amount(user.pid, 15)
-      end)
-    end
-
-    test "handles HELP command for SET OPNOTICE" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "OPNOTICE"])
-
-        assert_sent_messages_amount(user.pid, 13)
-      end)
-    end
-
-    test "handles HELP command for SET PEACE" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "PEACE"])
-
-        assert_sent_messages_amount(user.pid, 14)
-      end)
-    end
-
-    test "handles HELP command for SET SECURE" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "SECURE"])
-
-        assert_sent_messages_amount(user.pid, 14)
-      end)
-    end
-
-    test "handles HELP command for SET TOPICLOCK" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "TOPICLOCK"])
-
-        assert_sent_messages_amount(user.pid, 17)
-      end)
-    end
-
-    test "handles HELP command for SET DESC (alias for DESCRIPTION)" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET", "DESC"])
-
-        assert_sent_messages_amount(user.pid, 15)
-      end)
-    end
-
-    test "handles HELP command for set topiclock in lowercase" do
+    test "handles HELP command with case insensitivity" do
       Memento.transaction!(fn ->
         user = insert(:user)
 
         assert :ok = Help.handle(user, ["HELP", "set", "topiclock"])
-
-        assert_sent_messages_amount(user.pid, 17)
-      end)
-    end
-
-    test "handles HELP command for SET TOPICLOCK as a single parameter" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-
-        assert :ok = Help.handle(user, ["HELP", "SET TOPICLOCK"])
 
         assert_sent_messages_amount(user.pid, 17)
       end)
