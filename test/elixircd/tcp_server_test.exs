@@ -2,14 +2,11 @@ defmodule ElixIRCd.Server.TcpListenerTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
-
-  import Mimic
+  use Mimic
 
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.TcpListener
   alias ThousandIsland.Socket
-
-  setup :verify_on_exit!
 
   describe "handle_connection/2" do
     test "initializes connection with TCP transport" do

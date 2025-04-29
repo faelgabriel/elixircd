@@ -3,9 +3,9 @@ defmodule ElixIRCd.Commands.CapTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Commands.Cap
   alias ElixIRCd.Message
@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com CAP * LS\r\n"}
+          {user.pid, ":irc.test CAP * LS\r\n"}
         ])
       end)
     end

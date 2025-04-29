@@ -19,7 +19,7 @@ defmodule ElixIRCd.Commands.UserhostTest do
         assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Commands.UserhostTest do
         assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} USERHOST :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} USERHOST :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -44,7 +44,7 @@ defmodule ElixIRCd.Commands.UserhostTest do
 
         assert :ok = Userhost.handle(user, message)
 
-        assert_sent_messages([{user.pid, ":server.example.com 302 #{user.nick} :\r\n"}])
+        assert_sent_messages([{user.pid, ":irc.test 302 #{user.nick} :\r\n"}])
       end)
     end
 
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Commands.UserhostTest do
         assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 302 #{user.nick} :#{target_user.nick}=#{user_mask(target_user)}\r\n"}
+          {user.pid, ":irc.test 302 #{user.nick} :#{target_user.nick}=#{user_mask(target_user)}\r\n"}
         ])
       end)
     end
@@ -73,7 +73,7 @@ defmodule ElixIRCd.Commands.UserhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":server.example.com 302 #{user.nick} :#{target_user.nick}=#{user_mask(target_user)} #{target_user2.nick}=#{user_mask(target_user2)}\r\n"}
+           ":irc.test 302 #{user.nick} :#{target_user.nick}=#{user_mask(target_user)} #{target_user2.nick}=#{user_mask(target_user2)}\r\n"}
         ])
       end)
     end

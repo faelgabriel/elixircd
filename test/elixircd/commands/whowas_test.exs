@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.WhowasTest do
         assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -31,7 +31,7 @@ defmodule ElixIRCd.Commands.WhowasTest do
         assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} WHOWAS :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} WHOWAS :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -44,8 +44,8 @@ defmodule ElixIRCd.Commands.WhowasTest do
         assert :ok = Whowas.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 406 #{user.nick} inexistent :There was no such nickname\r\n"},
-          {user.pid, ":server.example.com 369 #{user.nick} inexistent :End of WHOWAS list\r\n"}
+          {user.pid, ":irc.test 406 #{user.nick} inexistent :There was no such nickname\r\n"},
+          {user.pid, ":irc.test 369 #{user.nick} inexistent :End of WHOWAS list\r\n"}
         ])
       end)
     end
@@ -61,14 +61,14 @@ defmodule ElixIRCd.Commands.WhowasTest do
 
         assert_sent_messages([
           {user.pid,
-           ":server.example.com 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
           {user.pid,
-           ~r/^:server\.example\.com 312 #{user.nick} #{historical_user1.nick} server.example.com \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
           {user.pid,
-           ":server.example.com 314 #{user.nick} #{historical_user2.nick} #{historical_user2.ident} #{historical_user2.hostname} #{historical_user2.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user2.nick} #{historical_user2.ident} #{historical_user2.hostname} #{historical_user2.realname}\r\n"},
           {user.pid,
-           ~r/^:server\.example\.com 312 #{user.nick} #{historical_user2.nick} server.example.com \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
-          {user.pid, ":server.example.com 369 #{user.nick} nick :End of WHOWAS list\r\n"}
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user2.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+          {user.pid, ":irc.test 369 #{user.nick} nick :End of WHOWAS list\r\n"}
         ])
       end)
     end
@@ -84,10 +84,10 @@ defmodule ElixIRCd.Commands.WhowasTest do
 
         assert_sent_messages([
           {user.pid,
-           ":server.example.com 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
           {user.pid,
-           ~r/^:server\.example\.com 312 #{user.nick} #{historical_user1.nick} server.example.com \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
-          {user.pid, ":server.example.com 369 #{user.nick} nick :End of WHOWAS list\r\n"}
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+          {user.pid, ":irc.test 369 #{user.nick} nick :End of WHOWAS list\r\n"}
         ])
       end)
     end
@@ -102,10 +102,10 @@ defmodule ElixIRCd.Commands.WhowasTest do
 
         assert_sent_messages([
           {user.pid,
-           ":server.example.com 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
           {user.pid,
-           ~r/^:server\.example\.com 312 #{user.nick} #{historical_user1.nick} server.example.com \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
-          {user.pid, ":server.example.com 369 #{user.nick} nick :End of WHOWAS list\r\n"}
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+          {user.pid, ":irc.test 369 #{user.nick} nick :End of WHOWAS list\r\n"}
         ])
       end)
     end

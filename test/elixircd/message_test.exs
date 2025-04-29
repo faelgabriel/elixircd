@@ -23,7 +23,7 @@ defmodule ElixIRCd.MessageTest do
       args = %{prefix: :server, command: "NOTICE", params: ["user"], trailing: "Server restarting"}
 
       expected = %Message{
-        prefix: "server.example.com",
+        prefix: "irc.test",
         command: args.command,
         params: args.params,
         trailing: args.trailing
@@ -33,7 +33,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "creates a message with numeric reply atom command" do
-      args = %{prefix: "server.example.com", command: :rpl_welcome, params: ["user"], trailing: "Welcome!"}
+      args = %{prefix: "irc.test", command: :rpl_welcome, params: ["user"], trailing: "Welcome!"}
 
       expected = %Message{
         prefix: args.prefix,

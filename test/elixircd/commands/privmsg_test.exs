@@ -3,12 +3,14 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Commands.Privmsg
   alias ElixIRCd.Message
+  alias ElixIRCd.Service
 
   describe "handle/2" do
     test "handles PRIVMSG command with user not registered" do
@@ -19,7 +21,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -35,8 +37,8 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
-          {user.pid, ":server.example.com 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
+          {user.pid, ":irc.test 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -49,7 +51,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 403 #{user.nick} #new_channel :No such channel\r\n"}
+          {user.pid, ":irc.test 403 #{user.nick} #new_channel :No such channel\r\n"}
         ])
       end)
     end
@@ -64,7 +66,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
       end)
     end
@@ -78,7 +80,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
       end)
     end
@@ -175,7 +177,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 401 #{user.nick} another_user :No such nick\r\n"}
+          {user.pid, ":irc.test 401 #{user.nick} another_user :No such nick\r\n"}
         ])
       end)
     end
@@ -204,7 +206,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
         assert_sent_messages([
           {target_user.pid, ":#{user_mask(user)} PRIVMSG #{target_user.nick} :Hello\r\n"},
-          {user.pid, ":server.example.com 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
+          {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :I'm away\r\n"}
         ])
       end)
     end
@@ -220,6 +222,66 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert_sent_messages([
           {target_user.pid, ":#{user_mask(user)} PRIVMSG #{target_user.nick} :Hello World\r\n"}
         ])
+      end)
+    end
+
+    test "handles PRIVMSG command directed to a service with trailing message" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "PRIVMSG", params: ["NICKSERV"], trailing: "REGISTER password email@example.com"}
+
+        Service
+        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "NICKSERV"
+          assert command_list == ["REGISTER", "password", "email@example.com"]
+          :ok
+        end)
+
+        assert :ok = Privmsg.handle(user, message)
+
+        verify!()
+      end)
+    end
+
+    test "handles PRIVMSG command directed to a service with params instead of trailing" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "PRIVMSG", params: ["NICKSERV", "IDENTIFY", "password"]}
+
+        Service
+        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "NICKSERV"
+          assert command_list == ["IDENTIFY", "password"]
+          :ok
+        end)
+
+        assert :ok = Privmsg.handle(user, message)
+
+        verify!()
+      end)
+    end
+
+    test "handles PRIVMSG command with case-insensitive service name" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "PRIVMSG", params: ["nickserv"], trailing: "REGISTER password email@example.com"}
+
+        Service
+        |> expect(:service_implemented?, fn "nickserv" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "nickserv"
+          assert command_list == ["REGISTER", "password", "email@example.com"]
+          :ok
+        end)
+
+        assert :ok = Privmsg.handle(user, message)
+
+        verify!()
       end)
     end
   end

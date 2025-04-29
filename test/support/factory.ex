@@ -8,6 +8,8 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Metric
+  alias ElixIRCd.Tables.RegisteredChannel
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -45,6 +47,7 @@ defmodule ElixIRCd.Factory do
       away_message: Map.get(attrs, :away_message, nil),
       last_activity: Map.get(attrs, :last_activity, :erlang.system_time(:second)),
       registered_at: registered_at,
+      identified_as: Map.get(attrs, :identified_as, nil),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
@@ -112,6 +115,38 @@ defmodule ElixIRCd.Factory do
     %Metric{
       key: Map.get(attrs, :key, :total_connections),
       value: Map.get(attrs, :value, 10)
+    }
+  end
+
+  def build(:registered_channel, attrs) do
+    created_at = Map.get(attrs, :created_at, DateTime.utc_now())
+    last_used_at = Map.get(attrs, :last_used_at, created_at)
+
+    %RegisteredChannel{
+      name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
+      founder: Map.get(attrs, :founder, "Nick_#{random_string(5)}"),
+      password_hash: Map.get(attrs, :password_hash, "hash"),
+      registered_by: Map.get(attrs, :registered_by, "user@host"),
+      settings: Map.get(attrs, :settings, RegisteredChannel.Settings.new()),
+      topic: Map.get(attrs, :topic, nil),
+      successor: Map.get(attrs, :successor, nil),
+      created_at: created_at,
+      last_used_at: last_used_at
+    }
+  end
+
+  def build(:registered_nick, attrs) do
+    %RegisteredNick{
+      nickname: Map.get(attrs, :nickname, "Nick_#{random_string(5)}"),
+      password_hash: Map.get(attrs, :password_hash, "hash"),
+      email: Map.get(attrs, :email, "email@example.com"),
+      registered_by: Map.get(attrs, :registered_by, "user@host"),
+      verify_code: Map.get(attrs, :verify_code, nil),
+      verified_at: Map.get(attrs, :verified_at, DateTime.utc_now()),
+      last_seen_at: Map.get(attrs, :last_seen_at, DateTime.utc_now()),
+      reserved_until: Map.get(attrs, :reserved_until, nil),
+      settings: Map.get(attrs, :settings, RegisteredNick.Settings.new()),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
 
@@ -216,6 +251,20 @@ defmodule ElixIRCd.Factory do
   def insert(:metric, attrs) do
     Memento.transaction!(fn ->
       build(:metric, attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:registered_channel, attrs) do
+    Memento.transaction!(fn ->
+      build(:registered_channel, attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:registered_nick, attrs) do
+    Memento.transaction!(fn ->
+      build(:registered_nick, attrs)
       |> Memento.Query.write()
     end)
   end

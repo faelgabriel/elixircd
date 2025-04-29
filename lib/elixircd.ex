@@ -21,7 +21,16 @@ defmodule ElixIRCd do
     ensure_certificate_exists()
 
     :persistent_term.put(:app_start_time, DateTime.utc_now())
-    Supervisor.start_link([ElixIRCd.Server.Supervisor], strategy: :one_for_one, name: __MODULE__)
+
+    Supervisor.start_link(
+      [
+        ElixIRCd.Server.Supervisor,
+        ElixIRCd.Schedulers.RegisteredNickExpiration,
+        ElixIRCd.Schedulers.UnverifiedNickExpiration
+      ],
+      strategy: :one_for_one,
+      name: __MODULE__
+    )
   end
 
   @spec init_config :: :ok

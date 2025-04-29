@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.InfoTest do
         assert :ok = Info.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end

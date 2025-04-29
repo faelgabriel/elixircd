@@ -3,6 +3,7 @@ defmodule ElixIRCd.Utils.Protocol do
   Module for utility functions related to the IRC protocol.
   """
 
+  alias ElixIRCd.Service
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
@@ -11,6 +12,12 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec channel_name?(String.t()) :: boolean()
   def channel_name?(target), do: String.starts_with?(target, "#")
+
+  @doc """
+  Determines if a target is a service name.
+  """
+  @spec service_name?(String.t()) :: boolean()
+  def service_name?(target), do: Service.service_implemented?(target)
 
   @doc """
   Checks if a user is an IRC operator.

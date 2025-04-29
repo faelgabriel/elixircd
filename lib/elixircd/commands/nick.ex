@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.Nick do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -37,9 +38,28 @@ defmodule ElixIRCd.Commands.Nick do
   def handle(user, %{command: "NICK", params: [nick | _rest]}) do
     # Issue: nick needs to be case unsensitive
     with :ok <- validate_nick(nick),
-         {:nick_in_use?, false} <- {:nick_in_use?, nick_in_use?(nick)} do
+         :ok <- check_reserved_nick(user, nick),
+         :ok <- check_nick_in_use(nick) do
       change_nick(user, nick)
     else
+      {:error, :nick_reserved} ->
+        Message.build(%{
+          prefix: :server,
+          command: :err_nicknameinuse,
+          params: [user_reply(user), nick],
+          trailing: "This nickname is reserved. Please identify to NickServ first."
+        })
+        |> Dispatcher.broadcast(user)
+
+      {:error, :nick_in_use} ->
+        Message.build(%{
+          prefix: :server,
+          command: :err_nicknameinuse,
+          params: [user_reply(user), nick],
+          trailing: "Nickname is already in use"
+        })
+        |> Dispatcher.broadcast(user)
+
       {:error, invalid_nick_error} ->
         Message.build(%{
           prefix: :server,
@@ -48,15 +68,19 @@ defmodule ElixIRCd.Commands.Nick do
           trailing: "Nickname is unavailable: #{invalid_nick_error}"
         })
         |> Dispatcher.broadcast(user)
+    end
+  end
 
-      {:nick_in_use?, true} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_nicknameinuse,
-          params: [user_reply(user), nick],
-          trailing: "Nickname is already in use"
-        })
-        |> Dispatcher.broadcast(user)
+  @spec check_reserved_nick(User.t(), String.t()) :: :ok | {:error, :nick_reserved}
+  defp check_reserved_nick(user, nick) do
+    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(nick),
+         {:reserved, true} <- {:reserved, reserved?(registered_nick)},
+         {:identified, false} <- {:identified, user.identified_as == registered_nick.nickname} do
+      {:error, :nick_reserved}
+    else
+      {:error, :registered_nick_not_found} -> :ok
+      {:reserved, false} -> :ok
+      {:identified, true} -> :ok
     end
   end
 
@@ -82,11 +106,11 @@ defmodule ElixIRCd.Commands.Nick do
     |> Dispatcher.broadcast([updated_user | all_channel_users])
   end
 
-  @spec nick_in_use?(String.t()) :: boolean()
-  defp nick_in_use?(nick) do
+  @spec check_nick_in_use(String.t()) :: :ok | {:error, :nick_in_use}
+  defp check_nick_in_use(nick) do
     case Users.get_by_nick(nick) do
-      {:ok, _} -> true
-      {:error, _} -> false
+      {:ok, _user} -> {:error, :nick_in_use}
+      {:error, :user_not_found} -> :ok
     end
   end
 
@@ -99,6 +123,14 @@ defmodule ElixIRCd.Commands.Nick do
       String.length(nick) > max_nick_length -> {:error, "Nickname too long"}
       !Regex.match?(nick_pattern, nick) -> {:error, "Illegal characters"}
       true -> :ok
+    end
+  end
+
+  @spec reserved?(ElixIRCd.Tables.RegisteredNick.t()) :: boolean()
+  defp reserved?(registered_nick) do
+    case registered_nick.reserved_until do
+      nil -> false
+      reserved_until -> DateTime.compare(reserved_until, DateTime.utc_now()) == :gt
     end
   end
 end

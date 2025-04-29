@@ -3,8 +3,6 @@ defmodule ElixIRCd.Tables.Channel do
   Module for the Channel table.
   """
 
-  alias ElixIRCd.Tables.Channel
-
   @enforce_keys [:name, :modes, :created_at]
   use Memento.Table,
     attributes: [
@@ -15,6 +13,8 @@ defmodule ElixIRCd.Tables.Channel do
     ],
     index: [],
     type: :set
+
+  alias ElixIRCd.Tables.Channel
 
   @type t :: %__MODULE__{
           name: String.t(),

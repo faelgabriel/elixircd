@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.TraceTest do
         assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -31,9 +31,8 @@ defmodule ElixIRCd.Commands.TraceTest do
         assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
-          {user.pid,
-           ~r{:server\.example\.com 205 #{user.nick} User users #{user.nick}\[.*\] \(127\.0\.0\.1\) \d+ \d+\r\n}},
-          {user.pid, ":server.example.com 262 #{user.nick} :End of TRACE\r\n"}
+          {user.pid, ~r{:irc\.test 205 #{user.nick} User users #{user.nick}\[.*\] \(127\.0\.0\.1\) \d+ \d+\r\n}},
+          {user.pid, ":irc.test 262 #{user.nick} :End of TRACE\r\n"}
         ])
       end)
     end
@@ -47,9 +46,8 @@ defmodule ElixIRCd.Commands.TraceTest do
         assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
-          {user.pid,
-           ~r{:server\.example\.com 205 #{user.nick} User users #{target_user.nick}\[.*\] \(127\.0\.0\.1\) \d+ \d+\r\n}},
-          {user.pid, ":server.example.com 262 #{user.nick} :End of TRACE\r\n"}
+          {user.pid, ~r{:irc\.test 205 #{user.nick} User users #{target_user.nick}\[.*\] \(127\.0\.0\.1\) \d+ \d+\r\n}},
+          {user.pid, ":irc.test 262 #{user.nick} :End of TRACE\r\n"}
         ])
       end)
     end
@@ -62,7 +60,7 @@ defmodule ElixIRCd.Commands.TraceTest do
         assert :ok = Trace.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 401 #{user.nick} target :No such nick\r\n"}
+          {user.pid, ":irc.test 401 #{user.nick} target :No such nick\r\n"}
         ])
       end)
     end

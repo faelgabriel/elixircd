@@ -261,8 +261,8 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 ElixIRCd includes integrated IRC services, eliminating the need to connect external services to the server.
 
-- **NickServ**: Register and manage nicknames. ❌
-- **ChanServ**: Register and manage channels. ❌
+- **NickServ**: Register and manage nicknames. ✴️
+- **ChanServ**: Register and manage channels. ✴️
 
 ### IRCv3 Specifications
 
@@ -290,7 +290,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Strict Transport Security (STS)**: Automatic TLS encryption upgrade. ❌
 - **UTF8ONLY**: Indication of UTF-8 only traffic support. ❌
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
-- **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ❌
+- **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ✅
 
 #### Commands
 

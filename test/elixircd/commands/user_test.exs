@@ -3,9 +3,9 @@ defmodule ElixIRCd.Commands.UserTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Commands.User
   alias ElixIRCd.Message
@@ -26,9 +26,9 @@ defmodule ElixIRCd.Commands.UserTest do
         assert :ok = User.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 * USER :Not enough parameters\r\n"},
-          {user.pid, ":server.example.com 461 * USER :Not enough parameters\r\n"},
-          {user.pid, ":server.example.com 461 * USER :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 * USER :Not enough parameters\r\n"},
+          {user.pid, ":irc.test 461 * USER :Not enough parameters\r\n"},
+          {user.pid, ":irc.test 461 * USER :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -44,8 +44,8 @@ defmodule ElixIRCd.Commands.UserTest do
         assert :ok = User.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"},
-          {user.pid, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"}
+          {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"},
+          {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"}
         ])
       end)
     end

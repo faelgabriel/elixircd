@@ -3,10 +3,10 @@ defmodule ElixIRCd.Commands.NickTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-  import Mimic
 
   alias ElixIRCd.Commands.Nick
   alias ElixIRCd.Message
@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 #{user.nick} NICK :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 #{user.nick} NICK :Not enough parameters\r\n"}
         ])
       end)
     end
@@ -36,7 +36,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
+          {user.pid, ":irc.test 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
         ])
       end)
     end
@@ -51,7 +51,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
+          {user.pid, ":irc.test 432 * #{nick} :Nickname is unavailable: Illegal characters\r\n"}
         ])
       end)
     end
@@ -67,7 +67,7 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 433 #{user.nick} existing :Nickname is already in use\r\n"}
+          {user.pid, ":irc.test 433 #{user.nick} existing :Nickname is already in use\r\n"}
         ])
       end)
     end
@@ -125,6 +125,57 @@ defmodule ElixIRCd.Commands.NickTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} NICK new_nick\r\n"},
           {another_user.pid, ":#{user_mask(user)} NICK new_nick\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NICK command trying to use reserved nickname without being identified" do
+      reserved_until = DateTime.add(DateTime.utc_now(), 3600, :second)
+      reserved_nick = "reserved"
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick, %{nickname: reserved_nick, reserved_until: reserved_until})
+        user = insert(:user, identified_as: nil)
+        message = %Message{command: "NICK", params: [reserved_nick]}
+
+        assert :ok = Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 433 #{user.nick} #{reserved_nick} :This nickname is reserved. Please identify to NickServ first.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NICK command for user identified as the reserved nickname" do
+      reserved_until = DateTime.add(DateTime.utc_now(), 3600, :second)
+      reserved_nick = "reserved"
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick, %{nickname: reserved_nick, reserved_until: reserved_until})
+        user = insert(:user, nick: "othernick", identified_as: reserved_nick)
+        message = %Message{command: "NICK", params: [reserved_nick]}
+
+        assert :ok = Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} NICK #{reserved_nick}\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NICK command for registered nickname that is not reserved" do
+      nickname = "registered_not_reserved"
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick, %{nickname: nickname, reserved_until: nil})
+        user = insert(:user)
+        message = %Message{command: "NICK", params: [nickname]}
+
+        assert :ok = Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} NICK #{nickname}\r\n"}
         ])
       end)
     end

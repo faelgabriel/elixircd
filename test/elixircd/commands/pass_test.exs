@@ -19,7 +19,7 @@ defmodule ElixIRCd.Commands.PassTest do
         assert :ok = Pass.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 462 #{user.nick} :You may not reregister\r\n"}
+          {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Commands.PassTest do
         assert :ok = Pass.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 461 * PASS :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 461 * PASS :Not enough parameters\r\n"}
         ])
       end)
     end

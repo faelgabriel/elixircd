@@ -29,7 +29,12 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec process_rehashing(User.t()) :: :ok
   defp process_rehashing(user) do
-    Message.build(%{prefix: :server, command: :rpl_rehashing, params: [user.nick, "runtime.exs"], trailing: "Rehashing"})
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_rehashing,
+      params: [user.nick, "elixircd.exs"],
+      trailing: "Rehashing"
+    })
     |> Dispatcher.broadcast(user)
 
     load_configurations()

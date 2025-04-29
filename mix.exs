@@ -6,7 +6,7 @@ defmodule ElixIRCd.MixProject do
     [
       app: :elixircd,
       version: app_version() || "0.0.0-dev",
-      elixir: "~> 1.17",
+      elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -52,6 +52,8 @@ defmodule ElixIRCd.MixProject do
 
   defp deps do
     [
+      {:bamboo, "~> 2.4"},
+      {:bamboo_mua, "~> 0.2"},
       {:bandit, "~> 1.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},

@@ -46,7 +46,7 @@ defmodule ElixIRCd.Commands.Ison do
   defp fetch_user_nick(nick) do
     case Users.get_by_nick(nick) do
       {:ok, user} -> user.nick
-      {:error, _} -> nil
+      {:error, :user_not_found} -> nil
     end
   end
 end

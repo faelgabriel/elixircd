@@ -37,10 +37,11 @@ defmodule ElixIRCd.Commands.Die do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: shutdown_message})
     |> Dispatcher.broadcast(all_users)
 
-    # The current process will be stopped, so the shutdown needs to be done
-    # in a different process. The shutdown is delayed by 1 second.
+    # The current process will be stopped, so the shutdown needs to be executed
+    # in a non-linked process. The shutdown is delayed by 100 milliseconds, so
+    # the server can send the shutdown message to all users before halting.
     spawn(fn ->
-      :timer.sleep(1000)
+      Process.sleep(100)
       System.halt(0)
     end)
 

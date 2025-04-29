@@ -3,9 +3,9 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
-  import Mimic
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
@@ -97,6 +97,14 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
       assert :ok = Connection.handle_recv(user.pid, "\r\n")
       assert :ok = Connection.handle_recv(user.pid, "  \r\n")
+    end
+  end
+
+  describe "handle_send/2" do
+    @tag :skip_message_agent
+    test "sends a {:broadcast, data} message to the given pid" do
+      assert :ok = Connection.handle_send(self(), "hello")
+      assert_received {:broadcast, "hello"}
     end
   end
 

@@ -36,10 +36,11 @@ defmodule ElixIRCd.Commands.Restart do
     Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: restart_message})
     |> Dispatcher.broadcast(all_users)
 
-    # The current process will be stopped, so the restart needs to be done
-    # in a different process. The restart is delayed by 5 seconds.
+    # The current process will be stopped, so the restart needs to be executed
+    # in a non-linked process. The restart is delayed by 100 milliseconds, so
+    # the server can send the restart message to all users before restarting.
     spawn(fn ->
-      :timer.sleep(1000)
+      Process.sleep(100)
       Application.stop(:elixircd)
       Application.start(:elixircd)
     end)

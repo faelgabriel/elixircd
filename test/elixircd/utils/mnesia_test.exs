@@ -2,8 +2,7 @@ defmodule ElixIRCd.Utils.MnesiaTest do
   @moduledoc false
 
   use ExUnit.Case, async: false
-
-  import Mimic
+  use Mimic
 
   alias ElixIRCd.Utils.Mnesia
 
@@ -54,6 +53,16 @@ defmodule ElixIRCd.Utils.MnesiaTest do
       |> stub(:create, fn _table -> {:error, :any} end)
 
       assert_raise RuntimeError, "Failed to create Mnesia table:\n:any", fn ->
+        Mnesia.setup_mnesia()
+      end
+    end
+
+    test "raises error if failed to create Mnesia disk tables" do
+      Memento.Table
+      |> stub(:create, fn _table -> :ok end)
+      |> stub(:create, fn _table, _opts -> {:error, :disk_error} end)
+
+      assert_raise RuntimeError, "Failed to create Mnesia disk table:\n:disk_error", fn ->
         Mnesia.setup_mnesia()
       end
     end

@@ -44,7 +44,7 @@ defmodule ElixIRCd.Repositories.Channels do
   """
   @spec get_all() :: [Channel.t()]
   def get_all do
-    Memento.Query.select(Channel, [])
+    Memento.Query.all(Channel)
   end
 
   @doc """

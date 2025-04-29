@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.MotdTest do
         assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 451 * :You have not registered\r\n"}
+          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
         ])
       end)
     end
@@ -35,9 +35,9 @@ defmodule ElixIRCd.Commands.MotdTest do
         assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
-          {user.pid, ":server.example.com 422 #{user.nick} :MOTD is missing\r\n"},
-          {user.pid, ":server.example.com 376 #{user.nick} :End of /MOTD command\r\n"}
+          {user.pid, ":irc.test 375 #{user.nick} :irc.test Message of the Day\r\n"},
+          {user.pid, ":irc.test 422 #{user.nick} :MOTD is missing\r\n"},
+          {user.pid, ":irc.test 376 #{user.nick} :End of /MOTD command\r\n"}
         ])
       end)
     end
@@ -54,10 +54,10 @@ defmodule ElixIRCd.Commands.MotdTest do
         assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
-          {user.pid, ":server.example.com 372 #{user.nick} :MOTD\r\n"},
-          {user.pid, ":server.example.com 372 #{user.nick} :Message\r\n"},
-          {user.pid, ":server.example.com 376 #{user.nick} :End of /MOTD command\r\n"}
+          {user.pid, ":irc.test 375 #{user.nick} :irc.test Message of the Day\r\n"},
+          {user.pid, ":irc.test 372 #{user.nick} :MOTD\r\n"},
+          {user.pid, ":irc.test 372 #{user.nick} :Message\r\n"},
+          {user.pid, ":irc.test 376 #{user.nick} :End of /MOTD command\r\n"}
         ])
       end)
     end
@@ -74,10 +74,10 @@ defmodule ElixIRCd.Commands.MotdTest do
         assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
-          {user.pid, ":server.example.com 372 #{user.nick} :MOTD\r\n"},
-          {user.pid, ":server.example.com 372 #{user.nick} :Message\r\n"},
-          {user.pid, ":server.example.com 376 #{user.nick} :End of /MOTD command\r\n"}
+          {user.pid, ":irc.test 375 #{user.nick} :irc.test Message of the Day\r\n"},
+          {user.pid, ":irc.test 372 #{user.nick} :MOTD\r\n"},
+          {user.pid, ":irc.test 372 #{user.nick} :Message\r\n"},
+          {user.pid, ":irc.test 376 #{user.nick} :End of /MOTD command\r\n"}
         ])
       end)
     end
@@ -94,9 +94,9 @@ defmodule ElixIRCd.Commands.MotdTest do
         assert :ok = Motd.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":server.example.com 375 #{user.nick} :server.example.com Message of the Day\r\n"},
-          {user.pid, ":server.example.com 422 #{user.nick} :MOTD is missing\r\n"},
-          {user.pid, ":server.example.com 376 #{user.nick} :End of /MOTD command\r\n"}
+          {user.pid, ":irc.test 375 #{user.nick} :irc.test Message of the Day\r\n"},
+          {user.pid, ":irc.test 422 #{user.nick} :MOTD is missing\r\n"},
+          {user.pid, ":irc.test 376 #{user.nick} :End of /MOTD command\r\n"}
         ])
       end)
     end

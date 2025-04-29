@@ -18,6 +18,7 @@ defmodule ElixIRCd.Tables.User do
       :modes,
       :password,
       :away_message,
+      :identified_as,
       :last_activity,
       :registered_at,
       :created_at
@@ -38,6 +39,7 @@ defmodule ElixIRCd.Tables.User do
           modes: [String.t()],
           password: String.t() | nil,
           away_message: String.t() | nil,
+          identified_as: String.t() | nil,
           last_activity: integer(),
           registered_at: DateTime.t() | nil,
           created_at: DateTime.t()
@@ -56,6 +58,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:modes) => [String.t()],
           optional(:password) => String.t() | nil,
           optional(:away_message) => String.t() | nil,
+          optional(:identified_as) => String.t() | nil,
           optional(:last_activity) => integer(),
           optional(:registered_at) => DateTime.t() | nil,
           optional(:created_at) => DateTime.t()
