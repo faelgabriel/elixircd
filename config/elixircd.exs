@@ -46,52 +46,36 @@ config :elixircd,
     nickserv: [
       # Enable/Disable NickServ service
       enabled: true,
-
       # Minimum password length for registering nicks
       min_password_length: 6,
-
       # Days until an unused registered nickname expires due to inactivity
       nick_expire_days: 90,
-
       # Whether email is required for registration
       email_required: false,
-
       # Time in seconds that a user must be connected before registering (0 = disabled)
       wait_register_time: 120,
-
       # Days until an unverified nickname registration expires (0 = never expires)
       unverified_expire_days: 1,
-
       # # TODO: Maximum number of nicks a user can register/group
       # max_nicks_per_user: 3,
-
       # # TODO: Whether to allow nick grouping features (GROUP, UNGROUP, SET NEVERGROUP etc.)
       # allow_nick_grouping: true,
-
       # # TODO: Whether users must be authenticated (identified) to change account settings
       # require_auth_for_changes: true,
-
       # # TODO: Allow password recovery via email (requires email server config and email_required or user SET EMAIL)
       # allow_password_recovery: true,
-
       # # TODO: Authentication session timeout in minutes (0 = session never expires)
       # auth_session_timeout: 0,
-
       # # Duration (in seconds) a nickname remains reserved after REGAIN command
       # regain_reservation_duration: 60,
-
       # # TODO: Maximum failed password attempts before temporary lockout
       # max_failed_logins: 5,
-
       # # TODO: Lockout period (in minutes) after exceeding failed attempts
       # failed_login_block_duration: 15,
-
       # # TODO: Allow nickname authentication via SSL/TLS certificates (using CERT command)
       # allow_cert_auth: false,
-
       # # TODO: Maximum number of hosts allowed in a user's ACCESS list
       # max_access_hosts: 10,
-
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
         # # TODO: Default for: SET EMAILMEMOS {ON|OFF|ONLY}
@@ -128,30 +112,23 @@ config :elixircd,
         # secure: false
       ]
     ],
-
     # ChanServ Configuration
     chanserv: [
       # Enable/Disable ChanServ service
       enabled: true,
-
       # Minimum password length for channel registration
       min_password_length: 8,
-
       # Maximum number of channels a single user (NickServ account) can register
       max_registered_channels_per_user: 10,
-
       # List of channel names or patterns that cannot be registered
       forbidden_channel_names: [
         "#services",
         ~r/^#opers$/
       ],
-
       # Days until an unused registered channel expires due to inactivity
       channel_expire_days: 90,
-
       # # TODO: Should dropping a channel require a confirmation code/step?
       # require_drop_confirmation: true,
-
       # Default Channel Settings (Applied when a channel is first registered)
       settings: [
         # Default for: SET ENTRYMSG <message>
@@ -177,7 +154,6 @@ config :elixircd,
         # Default for: SET TOPICLOCK {ON|OFF}
         topiclock: false
       ]
-
       # # TODO: Flag mappings for predefined XOP levels
       # xop_levels: [
       #   # SOP - Superior Operator Preset
@@ -189,7 +165,6 @@ config :elixircd,
       #   # VOP - Voice Preset
       #   vop: "+Vv"
       # ]
-
       # # TODO: Define custom roles here if implementing the ROLE command
       # custom_roles: [
       #   moderator: "+HRehkbituv",
