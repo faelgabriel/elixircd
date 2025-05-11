@@ -33,7 +33,6 @@ defmodule ElixIRCd.Commands.NamesTest do
         user3 = insert(:user, nick: "user3")
         _free_user = insert(:user, nick: "free_user")
 
-        # Add users to channels - use user and channel to ensure proper associations
         insert(:user_channel, user: user1, channel: channel1, modes: ["o"])
         insert(:user_channel, user: user2, channel: channel1, modes: ["v"])
         insert(:user_channel, user: user3, channel: channel2)
@@ -57,7 +56,6 @@ defmodule ElixIRCd.Commands.NamesTest do
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
-        # Add users to channel - use user and channel to ensure proper associations
         insert(:user_channel, user: user1, channel: channel, modes: ["o"])
         insert(:user_channel, user: user2, channel: channel, modes: ["v"])
 
@@ -79,7 +77,6 @@ defmodule ElixIRCd.Commands.NamesTest do
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
-        # Add users to channels - use user and channel to ensure proper associations
         insert(:user_channel, user: user1, channel: channel1, modes: ["o"])
         insert(:user_channel, user: user2, channel: channel2, modes: ["v"])
 
@@ -129,7 +126,6 @@ defmodule ElixIRCd.Commands.NamesTest do
         visible_user = insert(:user, nick: "visible")
         invisible_user = insert(:user, nick: "invisible", modes: ["i"])
 
-        # Add users to channel - use the user and channel to ensure proper associations
         insert(:user_channel, user: visible_user, channel: channel)
         insert(:user_channel, user: invisible_user, channel: channel)
 
@@ -150,7 +146,6 @@ defmodule ElixIRCd.Commands.NamesTest do
         visible_user = insert(:user, nick: "visible")
         invisible_user = insert(:user, nick: "invisible", modes: ["i"])
 
-        # Add users to channel - use the user and channel to ensure proper associations
         insert(:user_channel, user: visible_user, channel: channel)
         insert(:user_channel, user: invisible_user, channel: channel)
 
@@ -171,7 +166,6 @@ defmodule ElixIRCd.Commands.NamesTest do
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
-        # Add users to channel - use user and channel to ensure proper associations
         insert(:user_channel, user: user1, channel: channel)
         insert(:user_channel, user: user2, channel: channel)
 
@@ -192,7 +186,6 @@ defmodule ElixIRCd.Commands.NamesTest do
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
-        # Add users to channel - use user and channel to ensure proper associations
         insert(:user_channel, user: user1, channel: channel)
         insert(:user_channel, user: user2, channel: channel)
 
@@ -202,6 +195,42 @@ defmodule ElixIRCd.Commands.NamesTest do
         # Should not see the channel since user is not a member
         assert_sent_messages([
           {user.pid, ":irc.test 403 #{user.nick} #private :No such channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NAMES command with invisible free user" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        _visible_free_user = insert(:user, nick: "visible_free")
+        _invisible_free_user = insert(:user, nick: "invisible_free", modes: ["i"])
+
+        message = %Message{command: "NAMES", params: []}
+        assert :ok = Names.handle(user, message)
+
+        # The invisible user should not be shown in the free users list
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} * * :visible_free\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NAMES command when user is a member of a private channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        private_channel = insert(:channel, name: "#private", modes: ["p"])
+        insert(:user_channel, user: user, channel: private_channel)
+        other_user = insert(:user, nick: "other_user")
+        insert(:user_channel, user: other_user, channel: private_channel)
+
+        message = %Message{command: "NAMES", params: [private_channel.name]}
+        assert :ok = Names.handle(user, message)
+
+        # User should see the private channel's contents because they're a member
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} * #{private_channel.name} :#{user.nick} other_user\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{private_channel.name} :End of /NAMES list\r\n"}
         ])
       end)
     end
