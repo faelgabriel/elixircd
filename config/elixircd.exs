@@ -26,12 +26,11 @@ config :elixircd,
        ]
      ]},
     # HTTP port (WebSocket)
-    {:http, [port: 8080, kiwiirc_client: true]},
+    {:http, [port: 8080]},
     # HTTPS port (WebSocket SSL)
     {:https,
      [
        port: 8443,
-       kiwiirc_client: true,
        keyfile: Path.expand("data/cert/selfsigned_key.pem"),
        certfile: Path.expand("data/cert/selfsigned.pem")
      ]}

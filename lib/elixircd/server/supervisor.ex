@@ -13,8 +13,6 @@ defmodule ElixIRCd.Server.Supervisor do
   @type scheme_http_transport :: :http | :https
   @type scheme_transport :: scheme_tcp_transport() | scheme_http_transport()
 
-  @plug_keys [:kiwiirc_client]
-
   @doc """
   Starts the server supervisor.
   """
@@ -54,12 +52,9 @@ defmodule ElixIRCd.Server.Supervisor do
   end
 
   defp create_child_spec({scheme_transport, server_opts}) when scheme_transport in [:http, :https] do
-    plug_opts = Keyword.take(server_opts, @plug_keys)
-    server_opts = Keyword.drop(server_opts, @plug_keys)
-
     options =
       server_opts
-      |> Keyword.put_new(:plug, {ElixIRCd.Server.HttpPlug, plug_opts})
+      |> Keyword.put_new(:plug, ElixIRCd.Server.HttpPlug)
       |> Keyword.put_new(:otp_app, :elixircd)
       |> Keyword.put_new(:scheme, scheme_transport)
       |> Keyword.put_new(:startup_log, false)

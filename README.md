@@ -38,8 +38,6 @@ Running ElixIRCd with the official Docker image is straightforward. Alternativel
 
 The ElixIRCd demo server is a live instance of the server, allowing you to test and experience its features.
 
-You can connect using any IRC client like [Smuxi](https://smuxi.im/) or a web-based client such as [Kiwi IRC](https://kiwiirc.com/nextclient/irc.elixircd.org/#elixircd)
-
 - **Server**: `irc.elixircd.org`
 - **Ports**: `6667` (plaintext) and `6697` (SSL/TLS)
 - **WebSocket**: `8080` (HTTP) and `8443` (HTTPS)
@@ -100,7 +98,6 @@ For production environments, you should configure SSL listeners with a valid cer
     ]}
     {:https, [
       port: 8443,
-      kiwiirc_client: true,
       keyfile: Path.expand("data/cert/privkey.pem"),
       certfile: Path.expand("data/cert/fullchain.pem")
     ]}
@@ -137,8 +134,6 @@ ElixIRCd uses [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland
   ```elixir
   {:http, [
     port: 8080,
-    # Enables the built-in KiwiIRC web client
-    kiwiirc_client: true,
     # Additional Bandit options
     thousand_island_options: [
       num_acceptors: 100,
@@ -146,8 +141,6 @@ ElixIRCd uses [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland
     ]
   ]}
   ```
-
-  The `kiwiirc_client` option, when set to `true`, enables a built-in web-based IRC client powered by [KiwiIRC](https://kiwiirc.com/). This allows users to connect to your IRC server directly through a web browser without needing to install a dedicated IRC client. When enabled, the web client is accessible by navigating to the HTTP/HTTPS address of your server in a web browser. **This option is available for HTTP and HTTPS listeners only.**
 
 #### MOTD (Message of the Day)
 
