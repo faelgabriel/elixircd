@@ -123,11 +123,11 @@ defmodule ElixIRCd.Commands.NamesTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        visible_user = insert(:user, nick: "visible")
-        invisible_user = insert(:user, nick: "invisible", modes: ["i"])
+        user_visible = insert(:user, nick: "visible")
+        user_invisible = insert(:user, nick: "invisible", modes: ["i"])
 
-        insert(:user_channel, user: visible_user, channel: channel)
-        insert(:user_channel, user: invisible_user, channel: channel)
+        insert(:user_channel, user: user_visible, channel: channel)
+        insert(:user_channel, user: user_invisible, channel: channel)
 
         message = %Message{command: "NAMES", params: [channel.name]}
         assert :ok = Names.handle(user, message)
@@ -143,17 +143,17 @@ defmodule ElixIRCd.Commands.NamesTest do
       Memento.transaction!(fn ->
         operator = insert(:user, modes: ["o"])
         channel = insert(:channel, name: "#channel")
-        visible_user = insert(:user, nick: "visible")
-        invisible_user = insert(:user, nick: "invisible", modes: ["i"])
+        user_visible = insert(:user, nick: "visible")
+        user_invisible = insert(:user, nick: "invisible", modes: ["i"])
 
-        insert(:user_channel, user: visible_user, channel: channel)
-        insert(:user_channel, user: invisible_user, channel: channel)
+        insert(:user_channel, user: user_visible, channel: channel)
+        insert(:user_channel, user: user_invisible, channel: channel)
 
         message = %Message{command: "NAMES", params: [channel.name]}
         assert :ok = Names.handle(operator, message)
 
         assert_sent_messages([
-          {operator.pid, ":irc.test 353 #{operator.nick} = #{channel.name} :visible invisible\r\n"},
+          {operator.pid, ":irc.test 353 #{operator.nick} = #{channel.name} :invisible visible\r\n"},
           {operator.pid, ":irc.test 366 #{operator.nick} #{channel.name} :End of /NAMES list\r\n"}
         ])
       end)

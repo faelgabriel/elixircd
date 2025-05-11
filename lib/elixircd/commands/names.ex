@@ -143,7 +143,7 @@ defmodule ElixIRCd.Commands.Names do
   @spec send_channel_names(User.t(), Channel.t(), [UserChannel.t()]) :: :ok
   defp send_channel_names(user, channel, user_channels) do
     users_by_pid = get_users_by_pid(user_channels)
-    sorted_nicks = get_sorted_nicks(user, channel, user_channels, users_by_pid)
+    sorted_nicks = get_sorted_nicks(user, user_channels, users_by_pid)
 
     send_names_response(user, channel, sorted_nicks)
   end
@@ -178,22 +178,11 @@ defmodule ElixIRCd.Commands.Names do
     is_operator || "i" not in user.modes
   end
 
-  @spec get_sorted_nicks(User.t(), Channel.t(), [UserChannel.t()], %{pid() => User.t()}) :: String.t()
-  defp get_sorted_nicks(user, channel, user_channels, users_by_pid) do
+  @spec get_sorted_nicks(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: String.t()
+  defp get_sorted_nicks(user, user_channels, users_by_pid) do
     visible_nick_pairs = get_visible_nick_pairs(user, user_channels, users_by_pid)
-    sorted_pairs = sort_nick_pairs(channel.name, visible_nick_pairs, "o" in user.modes)
-
+    sorted_pairs = Enum.sort_by(visible_nick_pairs, fn {_, nick} -> nick end)
     Enum.map_join(sorted_pairs, " ", fn {formatted, _} -> formatted end)
-  end
-
-  @spec sort_nick_pairs(String.t(), [{String.t(), String.t()}], boolean()) :: [{String.t(), String.t()}]
-  defp sort_nick_pairs("#channel", visible_nick_pairs, true) do
-    Enum.sort_by(visible_nick_pairs, fn {_, nick} -> if nick == "visible", do: 0, else: 1 end)
-  end
-
-  defp sort_nick_pairs(_, visible_nick_pairs, _) do
-    # Default sorting by nickname
-    Enum.sort_by(visible_nick_pairs, fn {_, nick} -> nick end)
   end
 
   @spec send_names_response(User.t(), Channel.t(), String.t()) :: :ok
