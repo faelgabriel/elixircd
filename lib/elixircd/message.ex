@@ -232,6 +232,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_yourhost), do: "002"
   defp numeric_reply(:rpl_created), do: "003"
   defp numeric_reply(:rpl_myinfo), do: "004"
+  defp numeric_reply(:rpl_isupport), do: "005"
   defp numeric_reply(:rpl_traceuser), do: "205"
   defp numeric_reply(:rpl_traceend), do: "262"
   defp numeric_reply(:rpl_stats), do: "210"

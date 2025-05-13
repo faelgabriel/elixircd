@@ -9,6 +9,9 @@ defmodule ElixIRCd.Commands.Version do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
+  # Maximum number of feature tokens per ISUPPORT message
+  @max_features_per_batch 5
+
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "VERSION"}) do
@@ -17,6 +20,7 @@ defmodule ElixIRCd.Commands.Version do
   end
 
   @impl true
+  @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "VERSION"}) do
     server_hostname = Application.get_env(:elixircd, :server)[:hostname]
     elixircd_version = Application.spec(:elixircd, :vsn)
@@ -28,18 +32,68 @@ defmodule ElixIRCd.Commands.Version do
     })
     |> Dispatcher.broadcast(user)
 
-    # Feature: implements RPL_ISUPPORT - https://modern.ircdocs.horse/#feature-advertisement
-    # :irc.example.com 005 MyNick MODES=4 MAXCHANNELS=20 CHANLIMIT=#&:20 PREFIX=(ov)@+ NETWORK=ExampleIRC :are supported by this server
-    # :irc.example.com 005 MyNick CHANTYPES=#& TOPICLEN=300 AWAYLEN=160 NICKLEN=30 CASEMAPPING=rfc1459 :are supported by this server
-    # MODES=4: Maximum number of mode changes allowed per MODE command.
-    # MAXCHANNELS=20: Maximum number of channels a user can join.
-    # CHANLIMIT=#&:20: Maximum number of # or & channels a user can join.
-    # PREFIX=(ov)@+: User modes o (operator, @) and v (voice, +) are supported.
-    # NETWORK=ExampleIRC: Name of the IRC network.
-    # CHANTYPES=#&: Supported channel prefixes are # and &.
-    # TOPICLEN=300: Maximum length for a channel topic is 300 characters.
-    # AWAYLEN=160: Maximum length for an away message is 160 characters.
-    # NICKLEN=30: Maximum length for nicknames is 30 characters.
-    # CASEMAPPING=rfc1459: Uses RFC 1459 rules for case-insensitivity in nicknames and channel names.
+    send_isupport_messages(user)
+  end
+
+  @spec send_isupport_messages(User.t()) :: :ok
+  defp send_isupport_messages(user) do
+    user_config = Application.get_env(:elixircd, :user)
+    channel_config = Application.get_env(:elixircd, :channel)
+
+    all_features = get_all_feature_tokens(channel_config, user_config)
+
+    all_features
+    |> Enum.chunk_every(@max_features_per_batch)
+    |> Enum.each(fn feature_batch ->
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_isupport,
+        params: [user.nick | feature_batch],
+        trailing: "are supported by this server"
+      })
+      |> Dispatcher.broadcast(user)
+    end)
+  end
+
+  @spec get_all_feature_tokens(map(), map()) :: [String.t()]
+  defp get_all_feature_tokens(channel_config, user_config) do
+    standard_features = [
+      "MODES=#{channel_config[:modes]}",
+      "CHANLIMIT=#{format_map_to_list(channel_config[:chanlimit], ":", ",")}",
+      "PREFIX=#{format_prefix(channel_config[:prefix])}",
+      "NETWORK=#{channel_config[:network]}",
+      "CHANTYPES=#{channel_config[:chantypes]}",
+      "TOPICLEN=#{channel_config[:topiclen]}",
+      "KICKLEN=#{channel_config[:kicklen]}",
+      "AWAYLEN=#{user_config[:awaylen]}",
+      "NICKLEN=#{user_config[:nicklen]}",
+      "CASEMAPPING=#{user_config[:casemapping]}",
+      "CHANMODES=#{channel_config[:chanmodes]}",
+      "MONITOR=#{user_config[:monitor]}",
+      "SILENCE=#{user_config[:silence]}",
+      "TARGMAX=#{format_map_to_list(channel_config[:targmax], ":", ",")}",
+      "STATUSMSG=#{channel_config[:statusmsg]}"
+    ]
+
+    boolean_features =
+      [
+        if(channel_config[:excepts], do: "EXCEPTS"),
+        if(channel_config[:invex], do: "INVEX"),
+        if(channel_config[:uhnames], do: "UHNAMES"),
+        if(user_config[:callerid], do: "CALLERID")
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    standard_features ++ boolean_features
+  end
+
+  # Format prefix data in the required format: (modes)prefixes
+  @spec format_prefix(%{modes: String.t(), prefixes: String.t()}) :: String.t()
+  defp format_prefix(%{modes: modes, prefixes: prefixes}), do: "(#{modes})#{prefixes}"
+
+  # Format map data into IRC-style lists
+  @spec format_map_to_list(map(), String.t(), String.t()) :: String.t()
+  defp format_map_to_list(map, sep, join_char) when is_map(map) do
+    Enum.map_join(map, join_char, fn {key, val} -> "#{key}#{sep}#{val}" end)
   end
 end

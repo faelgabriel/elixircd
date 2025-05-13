@@ -38,7 +38,58 @@ config :elixircd,
   # User Configuration
   user: [
     # User inactivity timeout in milliseconds
-    timeout: 180_000
+    timeout: 180_000,
+    # Maximum length for nicknames
+    nicklen: 30,
+    # Maximum length for away messages
+    awaylen: 200,
+    # Support for CALLERID (mode +g)
+    callerid: true,
+    # Maximum number of monitored nicks
+    monitor: 100,
+    # Maximum number of silence list entries
+    silence: 20,
+    # Case mapping rules (rfc1459, strict-rfc1459, ascii)
+    casemapping: "rfc1459"
+  ],
+  # Channel Configuration
+  channel: [
+    # Channel limits (max channels per user per prefix)
+    # Format: {"prefix": max_count, ...}
+    chanlimit: %{"#" => 20, "&" => 5},
+    # Valid channel prefixes
+    chantypes: "#&",
+    # Channel modes categorized by type:
+    # A = modes that take a parameter always
+    # B = modes that take a parameter when set
+    # C = modes that take a parameter only when set
+    # D = modes that never take a parameter
+    chanmodes: "beI,k,l,imnpstqr",
+    # Support for ban exceptions (mode +e)
+    excepts: true,
+    # Support for invite exceptions (mode +I)
+    invex: true,
+    # Maximum entries for each list mode (bans, exceptions, etc)
+    # Format: {"mode": max_count, ...}
+    maxlist: %{"b" => 100, "e" => 50, "I" => 50},
+    # Maximum length of a kick message
+    kicklen: 255,
+    # Maximum mode changes per MODE command
+    modes: 4,
+    # Maximum length for a channel topic
+    topiclen: 300,
+    # Channel status prefixes and corresponding modes
+    # Format: {"modes": "prefixes"}
+    prefix: %{modes: "ov", prefixes: "@+"},
+    # Support for status-specific messages
+    statusmsg: "@+",
+    # Maximum targets for specific commands
+    # Format: {"command": max_targets, ...}
+    targmax: %{"PRIVMSG" => 4, "NOTICE" => 4, "JOIN" => 4, "PART" => 4},
+    # Support for extended NAMES with hostmasks
+    uhnames: true,
+    # IRC network name
+    network: "ElixIRCdNet"
   ],
   # IRC Bot Services Configuration
   services: [
@@ -56,59 +107,59 @@ config :elixircd,
       wait_register_time: 120,
       # Days until an unverified nickname registration expires (0 = never expires)
       unverified_expire_days: 1,
-      # # TODO: Maximum number of nicks a user can register/group
+      # TODO: Maximum number of nicks a user can register/group
       # max_nicks_per_user: 3,
-      # # TODO: Whether to allow nick grouping features (GROUP, UNGROUP, SET NEVERGROUP etc.)
+      # TODO: Whether to allow nick grouping features (GROUP, UNGROUP, SET NEVERGROUP etc.)
       # allow_nick_grouping: true,
-      # # TODO: Whether users must be authenticated (identified) to change account settings
+      # TODO: Whether users must be authenticated (identified) to change account settings
       # require_auth_for_changes: true,
-      # # TODO: Allow password recovery via email (requires email server config and email_required or user SET EMAIL)
+      # TODO: Allow password recovery via email (requires email server config and email_required or user SET EMAIL)
       # allow_password_recovery: true,
-      # # TODO: Authentication session timeout in minutes (0 = session never expires)
+      # TODO: Authentication session timeout in minutes (0 = session never expires)
       # auth_session_timeout: 0,
-      # # Duration (in seconds) a nickname remains reserved after REGAIN command
-      # regain_reservation_duration: 60,
-      # # TODO: Maximum failed password attempts before temporary lockout
+      # Duration (in seconds) a nickname remains reserved after REGAIN command
+      regain_reservation_duration: 60,
+      # TODO: Maximum failed password attempts before temporary lockout
       # max_failed_logins: 5,
-      # # TODO: Lockout period (in minutes) after exceeding failed attempts
+      # TODO: Lockout period (in minutes) after exceeding failed attempts
       # failed_login_block_duration: 15,
-      # # TODO: Allow nickname authentication via SSL/TLS certificates (using CERT command)
+      # TODO: Allow nickname authentication via SSL/TLS certificates (using CERT command)
       # allow_cert_auth: false,
-      # # TODO: Maximum number of hosts allowed in a user's ACCESS list
+      # TODO: Maximum number of hosts allowed in a user's ACCESS list
       # max_access_hosts: 10,
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
-        # # TODO: Default for: SET EMAILMEMOS {ON|OFF|ONLY}
+        # TODO: Default for: SET EMAILMEMOS {ON|OFF|ONLY}
         # email_memos: :off,
-        # # TODO: Default for: SET ENFORCE {ON|OFF} (Master switch for KILL etc.)
+        # TODO: Default for: SET ENFORCE {ON|OFF} (Master switch for KILL etc.)
         # enforce: true,
-        # # TODO: Default for: SET ENFORCETIME <seconds> (Delay for KILL ON)
+        # TODO: Default for: SET ENFORCETIME <seconds> (Delay for KILL ON)
         # enforce_time: 60,
         # Default for: SET HIDE EMAIL {ON|OFF}
         hide_email: false
-        # # TODO: Default for: SET HIDE STATUS {ON|OFF}
+        # TODO: Default for: SET HIDE STATUS {ON|OFF}
         # hide_status: false,
-        # # TODO: Default for: SET HIDE USERMASK {ON|OFF}
+        # TODO: Default for: SET HIDE USERMASK {ON|OFF}
         # hide_usermask: false,
-        # # TODO: Default for: SET HIDE QUIT {ON|OFF}
+        # TODO: Default for: SET HIDE QUIT {ON|OFF}
         # hide_quit: false,
-        # # TODO: Default for: SET KILL {ON|QUICK|IMMED|OFF}
+        # TODO: Default for: SET KILL {ON|QUICK|IMMED|OFF}
         # kill: :on,
-        # # TODO: Default for: SET LANGUAGE <language_code>
+        # TODO: Default for: SET LANGUAGE <language_code>
         # language: "en",
-        # # TODO: Default for: SET MSG {ON|OFF} (true=PRIVMSG, false=NOTICE)
+        # TODO: Default for: SET MSG {ON|OFF} (true=PRIVMSG, false=NOTICE)
         # msg: false,
-        # # TODO: Default for: SET NEVERGROUP {ON|OFF}
+        # TODO: Default for: SET NEVERGROUP {ON|OFF}
         # never_group: false,
-        # # TODO: Default for: SET NEVEROP {ON|OFF}
+        # TODO: Default for: SET NEVEROP {ON|OFF}
         # never_op: false,
-        # # TODO: Default for: SET NOGREET {ON|OFF}
+        # TODO: Default for: SET NOGREET {ON|OFF}
         # no_greet: false,
-        # # TODO: Default for: SET PRIVATE {ON|OFF}
+        # TODO: Default for: SET PRIVATE {ON|OFF}
         # private: false,
-        # # TODO: Default for: SET QUIETCHG {ON|OFF}
+        # TODO: Default for: SET QUIETCHG {ON|OFF}
         # quiet_chg: false,
-        # # TODO: Default for: SET SECURE {ON|OFF}
+        # TODO: Default for: SET SECURE {ON|OFF}
         # secure: false
       ]
     ],
@@ -127,7 +178,7 @@ config :elixircd,
       ],
       # Days until an unused registered channel expires due to inactivity
       channel_expire_days: 90,
-      # # TODO: Should dropping a channel require a confirmation code/step?
+      # TODO: Should dropping a channel require a confirmation code/step?
       # require_drop_confirmation: true,
       # Default Channel Settings (Applied when a channel is first registered)
       settings: [
@@ -154,7 +205,7 @@ config :elixircd,
         # Default for: SET TOPICLOCK {ON|OFF}
         topiclock: false
       ]
-      # # TODO: Flag mappings for predefined XOP levels
+      # TODO: Flag mappings for predefined XOP levels
       # xop_levels: [
       #   # SOP - Superior Operator Preset
       #   sop: "+AFORsekbhituav",
@@ -165,7 +216,7 @@ config :elixircd,
       #   # VOP - Voice Preset
       #   vop: "+Vv"
       # ]
-      # # TODO: Define custom roles here if implementing the ROLE command
+      # TODO: Define custom roles here if implementing the ROLE command
       # custom_roles: [
       #   moderator: "+HRehkbituv",
       #   helper: "+Vv"
