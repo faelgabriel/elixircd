@@ -37,7 +37,7 @@ config :elixircd,
   ],
   # User Configuration
   user: [
-    # User inactivity timeout in milliseconds
+    # Inactivity timeout in milliseconds
     timeout: 180_000,
     # Maximum length for nicknames
     nicklen: 30,

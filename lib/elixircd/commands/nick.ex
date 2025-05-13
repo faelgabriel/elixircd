@@ -116,7 +116,7 @@ defmodule ElixIRCd.Commands.Nick do
 
   @spec validate_nick(String.t()) :: :ok | {:error, String.t()}
   defp validate_nick(nick) do
-    max_nick_length = 30
+    max_nick_length = Application.get_env(:elixircd, :user)[:nicklen]
     nick_pattern = ~r/\A[a-zA-Z\`|\^_{}\[\]\\][a-zA-Z\d\`|\^_\-{}\[\]\\]*\z/
 
     cond do
