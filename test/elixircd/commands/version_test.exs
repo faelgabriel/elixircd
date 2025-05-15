@@ -26,7 +26,7 @@ defmodule ElixIRCd.Commands.VersionTest do
     test "handles VERSION command" do
       original_channel_config = Application.get_env(:elixircd, :channel)
       original_user_config = Application.get_env(:elixircd, :user)
-      original_server_config = Application.get_env(:elixircd, :server)
+      original_features_config = Application.get_env(:elixircd, :features)
 
       channel_config = [
         modes: 4,
@@ -47,8 +47,7 @@ defmodule ElixIRCd.Commands.VersionTest do
         nicklen: 30
       ]
 
-      server_config = [
-        name: "Server Example",
+      features_config = [
         casemapping: "rfc1459",
         uhnames: true,
         callerid: true,
@@ -58,7 +57,7 @@ defmodule ElixIRCd.Commands.VersionTest do
 
       :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config, channel_config))
       :ok = Application.put_env(:elixircd, :user, Keyword.merge(original_user_config, user_config))
-      :ok = Application.put_env(:elixircd, :server, Keyword.merge(original_server_config, server_config))
+      :ok = Application.put_env(:elixircd, :features, Keyword.merge(original_features_config, features_config))
 
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -81,7 +80,7 @@ defmodule ElixIRCd.Commands.VersionTest do
 
       :ok = Application.put_env(:elixircd, :channel, original_channel_config)
       :ok = Application.put_env(:elixircd, :user, original_user_config)
-      :ok = Application.put_env(:elixircd, :server, original_server_config)
+      :ok = Application.put_env(:elixircd, :features, original_features_config)
     end
   end
 end

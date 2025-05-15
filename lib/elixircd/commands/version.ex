@@ -37,11 +37,7 @@ defmodule ElixIRCd.Commands.Version do
 
   @spec send_isupport_messages(User.t()) :: :ok
   defp send_isupport_messages(user) do
-    user_config = Application.get_env(:elixircd, :user)
-    channel_config = Application.get_env(:elixircd, :channel)
-    server_config = Application.get_env(:elixircd, :server)
-
-    all_features = get_all_feature_tokens(channel_config, user_config, server_config)
+    all_features = get_all_feature_tokens()
 
     all_features
     |> Enum.chunk_every(@max_features_per_batch)
@@ -56,8 +52,13 @@ defmodule ElixIRCd.Commands.Version do
     end)
   end
 
-  @spec get_all_feature_tokens(map(), map(), map()) :: [String.t()]
-  defp get_all_feature_tokens(channel_config, user_config, server_config) do
+  @spec get_all_feature_tokens() :: [String.t()]
+  defp get_all_feature_tokens do
+    user_config = Application.get_env(:elixircd, :user)
+    channel_config = Application.get_env(:elixircd, :channel)
+    server_config = Application.get_env(:elixircd, :server)
+    features_config = Application.get_env(:elixircd, :features)
+
     [
       format_feature(:numeric, "MODES", channel_config[:modes]),
       format_feature(:map, "CHANLIMIT", channel_config[:chanlimit]),
@@ -65,19 +66,19 @@ defmodule ElixIRCd.Commands.Version do
       format_feature(:string, "CHANTYPES", channel_config[:chantypes]),
       format_feature(:numeric, "NICKLEN", user_config[:nicklen]),
       format_feature(:string, "NETWORK", server_config[:name]),
-      format_feature(:string, "CASEMAPPING", server_config[:casemapping]),
+      format_feature(:string, "CASEMAPPING", features_config[:casemapping]),
       format_feature(:numeric, "TOPICLEN", channel_config[:topiclen]),
       format_feature(:numeric, "KICKLEN", channel_config[:kicklen]),
       format_feature(:numeric, "AWAYLEN", user_config[:awaylen]),
-      format_feature(:numeric, "MONITOR", server_config[:monitor]),
-      format_feature(:numeric, "SILENCE", server_config[:silence]),
+      format_feature(:numeric, "MONITOR", features_config[:monitor]),
+      format_feature(:numeric, "SILENCE", features_config[:silence]),
       format_feature(:string, "CHANMODES", channel_config[:chanmodes]),
       format_feature(:map, "TARGMAX", channel_config[:targmax]),
       format_feature(:string, "STATUSMSG", channel_config[:statusmsg]),
       format_feature(:boolean, "EXCEPTS", channel_config[:excepts]),
       format_feature(:boolean, "INVEX", channel_config[:invex]),
-      format_feature(:boolean, "UHNAMES", server_config[:uhnames]),
-      format_feature(:boolean, "CALLERID", server_config[:callerid])
+      format_feature(:boolean, "UHNAMES", features_config[:uhnames]),
+      format_feature(:boolean, "CALLERID", features_config[:callerid])
     ]
     |> Enum.reject(&is_nil/1)
   end

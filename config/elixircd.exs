@@ -3,14 +3,17 @@ import Config
 config :elixircd,
   # Server Configuration
   server: [
-    # Name of your IRC network
+    # Name of the IRC network
     name: "Server Example",
-    # Hostname or domain name of your IRC server
+    # Hostname or domain name of the IRC network
     hostname: "irc.test",
     # Optional server password; set to `nil` if not required
     password: nil,
     # Message of the Day
-    motd: File.read("config/motd.txt"),
+    motd: File.read("config/motd.txt")
+  ],
+  # Features Configuration
+  features: [
     # TODO: Case mapping rules (rfc1459, strict-rfc1459, ascii)
     # Important: Changing case mapping after the server has started and
     # users/channels exist may lead to unexpected behavior.
