@@ -66,12 +66,6 @@ config :elixircd,
     chanlimit: %{"#" => 20, "&" => 5},
     # TODO: Valid channel prefixes
     chantypes: "#&",
-    # TODO: Channel modes categorized by type:
-    # A = modes that take a parameter always
-    # B = modes that take a parameter when set
-    # C = modes that take a parameter only when set
-    # D = modes that never take a parameter
-    chanmodes: "beI,k,l,imnpstqr",
     # TODO: Support for ban exceptions (mode +e)
     excepts: true,
     # TODO: Support for invite exceptions (mode +I)

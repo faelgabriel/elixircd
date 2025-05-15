@@ -35,7 +35,6 @@ defmodule ElixIRCd.Commands.VersionTest do
         chantypes: "#&",
         topiclen: 300,
         kicklen: 255,
-        chanmodes: "beI,k,l,imnpstqr",
         targmax: %{"JOIN" => 4, "NOTICE" => 4, "PART" => 4, "PRIVMSG" => 4},
         statusmsg: "@+",
         excepts: false,
@@ -73,7 +72,7 @@ defmodule ElixIRCd.Commands.VersionTest do
           {user.pid,
            ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
           {user.pid,
-           ":irc.test 005 #{user.nick} MONITOR=100 SILENCE=20 CHANMODES=beI,k,l,imnpstqr TARGMAX=JOIN:4,NOTICE:4,PART:4,PRIVMSG:4 STATUSMSG=@+ :are supported by this server\r\n"},
+           ":irc.test 005 #{user.nick} MONITOR=100 SILENCE=20 CHANMODES=b,k,l,imnpst TARGMAX=JOIN:4,NOTICE:4,PART:4,PRIVMSG:4 STATUSMSG=@+ :are supported by this server\r\n"},
           {user.pid, ":irc.test 005 #{user.nick} INVEX UHNAMES CALLERID :are supported by this server\r\n"}
         ])
       end)
