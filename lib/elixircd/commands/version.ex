@@ -5,6 +5,7 @@ defmodule ElixIRCd.Commands.Version do
 
   @behaviour ElixIRCd.Command
 
+  alias ElixIRCd.Commands.Mode.ChannelModes
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
@@ -72,7 +73,7 @@ defmodule ElixIRCd.Commands.Version do
       format_feature(:numeric, "AWAYLEN", user_config[:awaylen]),
       format_feature(:numeric, "MONITOR", features_config[:monitor]),
       format_feature(:numeric, "SILENCE", features_config[:silence]),
-      format_feature(:string, "CHANMODES", channel_config[:chanmodes]),
+      format_feature(:string, "CHANMODES", format_chanmodes()),
       format_feature(:map, "TARGMAX", channel_config[:targmax]),
       format_feature(:string, "STATUSMSG", channel_config[:statusmsg]),
       format_feature(:boolean, "EXCEPTS", channel_config[:excepts]),
@@ -81,6 +82,38 @@ defmodule ElixIRCd.Commands.Version do
       format_feature(:boolean, "CALLERID", features_config[:callerid])
     ]
     |> Enum.reject(&is_nil/1)
+  end
+
+  @spec format_chanmodes() :: String.t()
+  defp format_chanmodes do
+    user_channel_modes = ["o", "v"]
+
+    normalized_modes =
+      ChannelModes.modes()
+      |> Enum.filter(&(&1 not in user_channel_modes))
+
+    # Categorize according to IRC spec:
+    # Type A = List modes (always require a parameter for both set/unset)
+    type_a = ["b"]
+
+    # Type B = Modes that require parameter only when setting
+    type_b = ["k"]
+
+    # Type C = Modes requiring parameter in specific cases
+    type_c = ["l"]
+
+    # Type D = Modes that never take a parameter
+    # These are all remaining modes that aren't user-modes (o,v) and aren't in previous categories
+    type_d = normalized_modes -- (type_a ++ type_b ++ type_c)
+
+    # Format the output as A,B,C,D
+    # IRC spec requires the categories be separated by commas, with modes concatenated within each category
+    type_a_str = Enum.join(type_a, "")
+    type_b_str = Enum.join(type_b, "")
+    type_c_str = Enum.join(type_c, "")
+    type_d_str = Enum.join(type_d, "")
+
+    "#{type_a_str},#{type_b_str},#{type_c_str},#{type_d_str}"
   end
 
   @spec format_feature(atom(), String.t(), any()) :: String.t() | nil
