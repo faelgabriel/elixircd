@@ -36,7 +36,8 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 432 * #{nick} :Nickname is unavailable: Nickname too long\r\n"}
+          {user.pid,
+           ":irc.test 432 * #{nick} :Nickname is unavailable: Nickname too long (maximum length: 30 characters)\r\n"}
         ])
       end)
     end

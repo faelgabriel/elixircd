@@ -291,6 +291,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_nosuchchannel), do: "403"
   defp numeric_reply(:err_cannotsendtochan), do: "404"
   defp numeric_reply(:err_wasnosuchnick), do: "406"
+  defp numeric_reply(:err_inputtoolong), do: "417"
   defp numeric_reply(:err_unknowncommand), do: "421"
   defp numeric_reply(:err_nomotd), do: "422"
   defp numeric_reply(:err_erroneusnickname), do: "432"

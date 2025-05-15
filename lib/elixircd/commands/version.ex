@@ -39,8 +39,9 @@ defmodule ElixIRCd.Commands.Version do
   defp send_isupport_messages(user) do
     user_config = Application.get_env(:elixircd, :user)
     channel_config = Application.get_env(:elixircd, :channel)
+    server_config = Application.get_env(:elixircd, :server)
 
-    all_features = get_all_feature_tokens(channel_config, user_config)
+    all_features = get_all_feature_tokens(channel_config, user_config, server_config)
 
     all_features
     |> Enum.chunk_every(@max_features_per_batch)
@@ -55,45 +56,43 @@ defmodule ElixIRCd.Commands.Version do
     end)
   end
 
-  @spec get_all_feature_tokens(map(), map()) :: [String.t()]
-  defp get_all_feature_tokens(channel_config, user_config) do
-    standard_features = [
-      "MODES=#{channel_config[:modes]}",
-      "CHANLIMIT=#{format_map_to_list(channel_config[:chanlimit], ":", ",")}",
-      "PREFIX=#{format_prefix(channel_config[:prefix])}",
-      "NETWORK=#{channel_config[:network]}",
-      "CHANTYPES=#{channel_config[:chantypes]}",
-      "TOPICLEN=#{channel_config[:topiclen]}",
-      "KICKLEN=#{channel_config[:kicklen]}",
-      "AWAYLEN=#{user_config[:awaylen]}",
-      "NICKLEN=#{user_config[:nicklen]}",
-      "CASEMAPPING=#{user_config[:casemapping]}",
-      "CHANMODES=#{channel_config[:chanmodes]}",
-      "MONITOR=#{user_config[:monitor]}",
-      "SILENCE=#{user_config[:silence]}",
-      "TARGMAX=#{format_map_to_list(channel_config[:targmax], ":", ",")}",
-      "STATUSMSG=#{channel_config[:statusmsg]}"
+  @spec get_all_feature_tokens(map(), map(), map()) :: [String.t()]
+  defp get_all_feature_tokens(channel_config, user_config, server_config) do
+    [
+      format_feature(:numeric, "MODES", channel_config[:modes]),
+      format_feature(:map, "CHANLIMIT", channel_config[:chanlimit]),
+      format_feature(:prefix, "PREFIX", channel_config[:prefix]),
+      format_feature(:string, "CHANTYPES", channel_config[:chantypes]),
+      format_feature(:numeric, "NICKLEN", user_config[:nicklen]),
+      format_feature(:string, "NETWORK", server_config[:name]),
+      format_feature(:string, "CASEMAPPING", server_config[:casemapping]),
+      format_feature(:numeric, "TOPICLEN", channel_config[:topiclen]),
+      format_feature(:numeric, "KICKLEN", channel_config[:kicklen]),
+      format_feature(:numeric, "AWAYLEN", user_config[:awaylen]),
+      format_feature(:numeric, "MONITOR", server_config[:monitor]),
+      format_feature(:numeric, "SILENCE", server_config[:silence]),
+      format_feature(:string, "CHANMODES", channel_config[:chanmodes]),
+      format_feature(:map, "TARGMAX", channel_config[:targmax]),
+      format_feature(:string, "STATUSMSG", channel_config[:statusmsg]),
+      format_feature(:boolean, "EXCEPTS", channel_config[:excepts]),
+      format_feature(:boolean, "INVEX", channel_config[:invex]),
+      format_feature(:boolean, "UHNAMES", server_config[:uhnames]),
+      format_feature(:boolean, "CALLERID", server_config[:callerid])
     ]
-
-    boolean_features =
-      [
-        if(channel_config[:excepts], do: "EXCEPTS"),
-        if(channel_config[:invex], do: "INVEX"),
-        if(channel_config[:uhnames], do: "UHNAMES"),
-        if(user_config[:callerid], do: "CALLERID")
-      ]
-      |> Enum.reject(&is_nil/1)
-
-    standard_features ++ boolean_features
+    |> Enum.reject(&is_nil/1)
   end
 
-  # Format prefix data in the required format: (modes)prefixes
-  @spec format_prefix(%{modes: String.t(), prefixes: String.t()}) :: String.t()
-  defp format_prefix(%{modes: modes, prefixes: prefixes}), do: "(#{modes})#{prefixes}"
-
-  # Format map data into IRC-style lists
-  @spec format_map_to_list(map(), String.t(), String.t()) :: String.t()
-  defp format_map_to_list(map, sep, join_char) when is_map(map) do
-    Enum.map_join(map, join_char, fn {key, val} -> "#{key}#{sep}#{val}" end)
+  @spec format_feature(atom(), String.t(), any()) :: String.t() | nil
+  defp format_feature(:map, name, map) do
+    sep = ":"
+    join_char = ","
+    formatted_map = Enum.map_join(map, join_char, fn {key, val} -> "#{key}#{sep}#{val}" end)
+    "#{name}=#{formatted_map}"
   end
+
+  defp format_feature(:numeric, name, value), do: "#{name}=#{value}"
+  defp format_feature(:string, name, value), do: "#{name}=#{value}"
+  defp format_feature(:prefix, name, %{modes: modes, prefixes: prefixes}), do: "#{name}=(#{modes})#{prefixes}"
+  defp format_feature(:boolean, _name, false), do: nil
+  defp format_feature(:boolean, name, true), do: name
 end

@@ -3,14 +3,26 @@ import Config
 config :elixircd,
   # Server Configuration
   server: [
-    # Name of your IRC server
+    # Name of your IRC network
     name: "Server Example",
     # Hostname or domain name of your IRC server
     hostname: "irc.test",
     # Optional server password; set to `nil` if not required
     password: nil,
     # Message of the Day
-    motd: File.read("config/motd.txt")
+    motd: File.read("config/motd.txt"),
+    # TODO: Case mapping rules (rfc1459, strict-rfc1459, ascii)
+    # Important: Changing case mapping after the server has started and
+    # users/channels exist may lead to unexpected behavior.
+    casemapping: "rfc1459",
+    # TODO: Support for extended NAMES with hostmasks
+    uhnames: true,
+    # TODO: Support for CALLERID (mode +g)
+    callerid: true,
+    # TODO: Maximum number of monitored nicks
+    monitor: 100,
+    # TODO: Maximum number of silence list entries
+    silence: 20
   ],
   # Network Listeners Configuration
   listeners: [
@@ -42,54 +54,42 @@ config :elixircd,
     # Maximum length for nicknames
     nicklen: 30,
     # Maximum length for away messages
-    awaylen: 200,
-    # Support for CALLERID (mode +g)
-    callerid: true,
-    # Maximum number of monitored nicks
-    monitor: 100,
-    # Maximum number of silence list entries
-    silence: 20,
-    # Case mapping rules (rfc1459, strict-rfc1459, ascii)
-    casemapping: "rfc1459"
+    awaylen: 200
   ],
   # Channel Configuration
   channel: [
-    # Channel limits (max channels per user per prefix)
+    # TODO: Channel limits (max channels per user per prefix)
     # Format: {"prefix": max_count, ...}
     chanlimit: %{"#" => 20, "&" => 5},
-    # Valid channel prefixes
+    # TODO: Valid channel prefixes
     chantypes: "#&",
-    # Channel modes categorized by type:
+    # TODO: Channel modes categorized by type:
     # A = modes that take a parameter always
     # B = modes that take a parameter when set
     # C = modes that take a parameter only when set
     # D = modes that never take a parameter
     chanmodes: "beI,k,l,imnpstqr",
-    # Support for ban exceptions (mode +e)
+    # TODO: Support for ban exceptions (mode +e)
     excepts: true,
-    # Support for invite exceptions (mode +I)
+    # TODO: Support for invite exceptions (mode +I)
     invex: true,
-    # Maximum entries for each list mode (bans, exceptions, etc)
+    # TODO: Maximum entries for each list mode (bans, exceptions, etc)
     # Format: {"mode": max_count, ...}
     maxlist: %{"b" => 100, "e" => 50, "I" => 50},
-    # Maximum length of a kick message
+    # TODO: Maximum length of a kick message
     kicklen: 255,
-    # Maximum mode changes per MODE command
+    # TODO: Maximum mode changes per MODE command
     modes: 4,
-    # Maximum length for a channel topic
+    # TODO: Maximum length for a channel topic
     topiclen: 300,
-    # Channel status prefixes and corresponding modes
+    # TODO: Channel status prefixes and corresponding modes
     # Format: {"modes": "prefixes"}
     prefix: %{modes: "ov", prefixes: "@+"},
-    # Support for status-specific messages
+    # TODO: Support for status-specific messages
     statusmsg: "@+",
-    # Maximum targets for specific commands
+    # TODO: Maximum targets for specific commands
     # Format: {"command": max_targets, ...}
-    targmax: %{"PRIVMSG" => 4, "NOTICE" => 4, "JOIN" => 4, "PART" => 4},
-    # Support for extended NAMES with hostmasks
-    uhnames: true,
-    # IRC network name
-    network: "ElixIRCdNet"
+    targmax: %{"PRIVMSG" => 4, "NOTICE" => 4, "JOIN" => 4, "PART" => 4}
   ],
   # IRC Bot Services Configuration
   services: [
