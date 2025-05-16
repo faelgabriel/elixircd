@@ -52,44 +52,44 @@ config :elixircd,
   ],
   # User Configuration
   user: [
-    # Inactivity timeout in milliseconds
-    timeout: 180_000,
-    # Maximum length for nicknames
-    nicklen: 30,
-    # Maximum length for away messages
-    awaylen: 200
+    # Inactivity timeout (in milliseconds) before disconnecting an idle user
+    inactivity_timeout_ms: 180_000,
+    # Maximum length allowed for nicknames
+    max_nick_length: 30,
+    # Maximum length allowed for AWAY messages
+    max_away_message_length: 200
   ],
   # Channel Configuration
   channel: [
-    # Supported channel name prefixes
-    chantypes: ["#", "&"],
-    # Maximum length of a channel name (excluding the prefix)
-    name_length: 64,
+    # Supported channel name prefixes (e.g., public, local channels)
+    channel_prefixes: ["#", "&"],
+    # Maximum length of a channel name (excluding the prefix character)
+    max_channel_name_length: 64,
     # Channel limits (maximum number of channels per user per prefix)
     # Format: %{"prefix" => max_count, ...}
     # For example, %{"#" => 20, "&" => 5} means a user can join up to 20 #-channels and 5 &-channels
-    chanlimit: %{"#" => 20, "&" => 5},
+    channel_join_limits: %{"#" => 20, "&" => 5},
     # TODO: Support for ban exceptions (mode +e)
-    excepts: true,
+    support_ban_exceptions: true,
     # TODO: Support for invite exceptions (mode +I)
-    invex: true,
+    support_invite_exceptions: true,
     # TODO: Maximum entries for each list mode (bans, exceptions, etc)
     # Format: {"mode": max_count, ...}
-    maxlist: %{"b" => 100, "e" => 50, "I" => 50},
+    max_list_entries: %{"b" => 100, "e" => 50, "I" => 50},
     # TODO: Maximum length of a kick message
-    kicklen: 255,
+    max_kick_message_length: 255,
     # TODO: Maximum mode changes per MODE command
-    modes: 4,
+    max_modes_per_command: 4,
     # TODO: Maximum length for a channel topic
-    topiclen: 300,
+    max_topic_length: 300,
     # TODO: Channel status prefixes and corresponding modes
     # Format: {"modes": "prefixes"}
-    prefix: %{modes: "ov", prefixes: "@+"},
+    status_prefixes: %{modes: "ov", prefixes: "@+"},
     # TODO: Support for status-specific messages
-    statusmsg: "@+",
+    status_message_targets: "@+",
     # TODO: Maximum targets for specific commands
     # Format: {"command": max_targets, ...}
-    targmax: %{"PRIVMSG" => 4, "NOTICE" => 4, "JOIN" => 4, "PART" => 4}
+    max_command_targets: %{"PRIVMSG" => 4, "NOTICE" => 4, "JOIN" => 4, "PART" => 4}
   ],
   # IRC Bot Services Configuration
   services: [

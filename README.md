@@ -158,6 +158,28 @@ You can set the Message of the Day by creating a `motd.txt` file mounting it int
      faelgabriel/elixircd
    ```
 
+#### Channel Configurations
+
+Channel configurations are done through the `channel` key in the `elixircd.exs` configuration file.
+
+```elixir
+# ... other configurations
+:channel, [
+  # ... channel configurations
+]
+```
+
+#### User Configurations
+
+User configurations are done through the `user` key in the `elixircd.exs` configuration file.
+
+```elixir
+# ... other configurations
+:user, [
+  # ... user configurations
+]
+```
+
 ### Start from the Source Code
 
 To build your own ElixIRCd release from the source code and run the server, follow these steps:

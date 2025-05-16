@@ -34,7 +34,7 @@ defmodule ElixIRCd.Commands.Away do
 
   @impl true
   def handle(user, %{command: "AWAY", trailing: reason}) do
-    max_away_length = Application.get_env(:elixircd, :user)[:awaylen]
+    max_away_length = Application.get_env(:elixircd, :user)[:max_away_message_length]
 
     if String.length(reason) > max_away_length do
       Message.build(%{

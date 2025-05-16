@@ -181,7 +181,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command when user has reached the prefix channel limit" do
       original_channel_config = Application.get_env(:elixircd, :channel)
-      temp_config = [chanlimit: %{"#" => 2}]
+      temp_config = [channel_join_limits: %{"#" => 2}]
       :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
 
       Memento.transaction!(fn ->
@@ -208,7 +208,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with different channel prefixes respecting prefix-specific limits" do
       original_channel_config = Application.get_env(:elixircd, :channel)
-      temp_config = [chanlimit: %{"#" => 2, "&" => 1}]
+      temp_config = [channel_join_limits: %{"#" => 2, "&" => 1}]
       :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
 
       Memento.transaction!(fn ->
@@ -248,7 +248,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with channel name too long" do
       original_channel_config = Application.get_env(:elixircd, :channel)
-      temp_config = [name_length: 5]
+      temp_config = [max_channel_name_length: 5]
       :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
 
       Memento.transaction!(fn ->
@@ -270,7 +270,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with custom channel types" do
       original_channel_config = Application.get_env(:elixircd, :channel)
-      temp_config = [chantypes: ["#", "&", "+", "!"]]
+      temp_config = [channel_prefixes: ["#", "&", "+", "!"]]
       :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
 
       Memento.transaction!(fn ->

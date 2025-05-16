@@ -29,21 +29,21 @@ defmodule ElixIRCd.Commands.VersionTest do
       original_features_config = Application.get_env(:elixircd, :features)
 
       channel_config = [
-        modes: 4,
-        chanlimit: %{"#" => 20, "&" => 5},
-        prefix: %{modes: "ov", prefixes: "@+"},
-        chantypes: ["#", "&"],
-        topiclen: 300,
-        kicklen: 255,
-        targmax: %{"JOIN" => 4, "NOTICE" => 4, "PART" => 4, "PRIVMSG" => 4},
-        statusmsg: "@+",
-        excepts: false,
-        invex: true
+        max_modes_per_command: 4,
+        channel_join_limits: %{"#" => 20, "&" => 5},
+        status_prefixes: %{modes: "ov", prefixes: "@+"},
+        channel_prefixes: ["#", "&"],
+        max_topic_length: 300,
+        max_kick_message_length: 255,
+        max_command_targets: %{"JOIN" => 4, "NOTICE" => 4, "PART" => 4, "PRIVMSG" => 4},
+        status_message_targets: "@+",
+        support_ban_exceptions: false,
+        support_invite_exceptions: true
       ]
 
       user_config = [
-        awaylen: 200,
-        nicklen: 30
+        max_away_message_length: 200,
+        max_nick_length: 30
       ]
 
       features_config = [

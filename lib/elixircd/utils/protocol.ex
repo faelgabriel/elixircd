@@ -12,7 +12,7 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec channel_name?(String.t()) :: boolean()
   def channel_name?(target) when is_binary(target) and byte_size(target) > 0 do
-    chantypes = Application.get_env(:elixircd, :channel)[:chantypes] || ["#", "&"]
+    chantypes = Application.get_env(:elixircd, :channel)[:channel_prefixes] || ["#", "&"]
     String.first(target) in chantypes
   end
 
