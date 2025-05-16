@@ -7,13 +7,6 @@ defmodule ElixIRCd.Server.HttpPlug do
 
   import Plug.Conn
 
-  @static_opts Plug.Static.init(
-                 at: "/",
-                 from: {:elixircd, "priv/kiwiirc"},
-                 gzip: true,
-                 only: ~w(index.html static)
-               )
-
   @doc """
   Initializes the plug options.
   """
@@ -26,11 +19,11 @@ defmodule ElixIRCd.Server.HttpPlug do
   Returns 404 if the connection is not a WebSocket upgrade request.
   """
   @spec call(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
-  def call(conn, opts) do
+  def call(conn, _opts) do
     if websocket_request?(conn) do
       handle_websocket_request(conn)
     else
-      handle_http_request(conn, opts)
+      handle_http_request(conn)
     end
   end
 
@@ -53,27 +46,9 @@ defmodule ElixIRCd.Server.HttpPlug do
     |> halt()
   end
 
-  @spec handle_http_request(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
-  defp handle_http_request(conn, opts) do
-    # Serve KiwiIRC client if enabled in the listener config
-    if Keyword.get(opts, :kiwiirc_client) do
-      serve_kiwiirc_client(conn)
-    else
-      send_resp(conn, 404, "Not Found")
-    end
-  end
-
-  @spec serve_kiwiirc_client(Plug.Conn.t()) :: Plug.Conn.t()
-  defp serve_kiwiirc_client(conn) do
-    # Rewrite root path to index.html
-    conn =
-      if conn.request_path == "/",
-        do: %{conn | request_path: "/index.html", path_info: ["index.html"]},
-        else: conn
-
-    conn = Plug.Static.call(conn, @static_opts)
-
-    if conn.state in [:unset, :set], do: send_resp(conn, 404, "Not Found"), else: conn
+  @spec handle_http_request(Plug.Conn.t()) :: Plug.Conn.t()
+  defp handle_http_request(conn) do
+    send_resp(conn, 404, "Not Found")
   end
 
   @spec websocket_request?(Plug.Conn.t()) :: boolean()

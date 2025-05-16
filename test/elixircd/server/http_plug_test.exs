@@ -10,35 +10,10 @@ defmodule ElixIRCd.Server.HttpPlugTest do
   alias ElixIRCd.Server.HttpPlug
 
   describe "HTTP request handling" do
-    test "returns 404 for regular HTTP requests when kiwiirc_client is disabled" do
+    test "returns 404 for regular HTTP requests" do
       conn =
         conn(:get, "/")
         |> HttpPlug.call([])
-
-      assert conn.status == 404
-      assert conn.resp_body == "Not Found"
-    end
-
-    test "serves KiwiIRC client for root path when kiwiirc_client is enabled" do
-      expect(Plug.Static, :call, fn conn, _opts ->
-        conn
-        |> Plug.Conn.send_resp(200, "KiwiIRC Client")
-      end)
-
-      conn =
-        conn(:get, "/")
-        |> HttpPlug.call(kiwiirc_client: true)
-
-      assert conn.status == 200
-      assert conn.resp_body == "KiwiIRC Client"
-    end
-
-    test "returns 404 for unknown KiwiIRC paths" do
-      expect(Plug.Static, :call, fn conn, _opts -> conn end)
-
-      conn =
-        conn(:get, "/unknown-path")
-        |> HttpPlug.call(kiwiirc_client: true)
 
       assert conn.status == 404
       assert conn.resp_body == "Not Found"
