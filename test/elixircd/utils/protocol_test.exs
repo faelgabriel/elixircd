@@ -17,6 +17,10 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       assert false == Protocol.channel_name?("elixir")
       assert false == Protocol.channel_name?("@invalid")
     end
+
+    test "returns false for empty strings" do
+      assert false == Protocol.channel_name?("")
+    end
   end
 
   describe "irc_operator?/1" do

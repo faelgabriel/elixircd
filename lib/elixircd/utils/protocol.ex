@@ -11,7 +11,12 @@ defmodule ElixIRCd.Utils.Protocol do
   Determines if a target is a channel name.
   """
   @spec channel_name?(String.t()) :: boolean()
-  def channel_name?(target), do: String.starts_with?(target, "#")
+  def channel_name?(target) when is_binary(target) and byte_size(target) > 0 do
+    chantypes = Application.get_env(:elixircd, :channel)[:chantypes] || ["#", "&"]
+    String.first(target) in chantypes
+  end
+
+  def channel_name?(_target), do: false
 
   @doc """
   Determines if a target is a service name.

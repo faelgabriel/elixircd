@@ -178,5 +178,128 @@ defmodule ElixIRCd.Commands.JoinTest do
         ])
       end)
     end
+
+    test "handles JOIN command when user has reached the prefix channel limit" do
+      original_channel_config = Application.get_env(:elixircd, :channel)
+      temp_config = [chanlimit: %{"#" => 2}]
+      :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        # User already in 2 channels with # prefix
+        channel1 = insert(:channel, name: "#channel1")
+        channel2 = insert(:channel, name: "#channel2")
+        insert(:user_channel, user: user, channel: channel1)
+        insert(:user_channel, user: user, channel: channel2)
+
+        # Try to join a third # channel
+        message = %Message{command: "JOIN", params: ["#another_channel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 405 #{user.nick} #another_channel :You have reached the maximum number of #-channels (2)\r\n"}
+        ])
+      end)
+
+      :ok = Application.put_env(:elixircd, :channel, original_channel_config)
+    end
+
+    test "handles JOIN command with different channel prefixes respecting prefix-specific limits" do
+      original_channel_config = Application.get_env(:elixircd, :channel)
+      temp_config = [chanlimit: %{"#" => 2, "&" => 1}]
+      :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        # User already in 2 # channels (max limit)
+        channel1 = insert(:channel, name: "#channel1")
+        channel2 = insert(:channel, name: "#channel2")
+        insert(:user_channel, user: user, channel: channel1)
+        insert(:user_channel, user: user, channel: channel2)
+
+        # User can still join & channel because it has a different prefix
+        message = %Message{command: "JOIN", params: ["&local"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN &local\r\n"},
+          {user.pid, ":irc.test MODE &local +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 331 #{user.nick} &local :No topic is set\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} &local :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} &local :End of NAMES list.\r\n"}
+        ])
+
+        # Try to join a second & channel
+        message2 = %Message{command: "JOIN", params: ["&another_local"]}
+
+        assert :ok = Join.handle(user, message2)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 405 #{user.nick} &another_local :You have reached the maximum number of &-channels (1)\r\n"}
+        ])
+      end)
+
+      :ok = Application.put_env(:elixircd, :channel, original_channel_config)
+    end
+
+    test "handles JOIN command with channel name too long" do
+      original_channel_config = Application.get_env(:elixircd, :channel)
+      temp_config = [name_length: 5]
+      :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        # Channel name with > 5 characters after prefix
+        channel_name = "#toolongchannelname"
+        message = %Message{command: "JOIN", params: [channel_name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 476 #{user.nick} #{channel_name} :Cannot join channel - channel name must be less or equal to 5 characters\r\n"}
+        ])
+      end)
+
+      :ok = Application.put_env(:elixircd, :channel, original_channel_config)
+    end
+
+    test "handles JOIN command with custom channel types" do
+      original_channel_config = Application.get_env(:elixircd, :channel)
+      temp_config = [chantypes: ["#", "&", "+", "!"]]
+      :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config || [], temp_config))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        # Try joining a channel with a custom prefix
+        message = %Message{command: "JOIN", params: ["+customchannel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN +customchannel\r\n"},
+          {user.pid, ":irc.test MODE +customchannel +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 331 #{user.nick} +customchannel :No topic is set\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} +customchannel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} +customchannel :End of NAMES list.\r\n"}
+        ])
+
+        message2 = %Message{command: "JOIN", params: ["*invalidprefix"]}
+
+        assert :ok = Join.handle(user, message2)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 476 #{user.nick} *invalidprefix :Cannot join channel - channel name must start with # or & or + or !\r\n"}
+        ])
+      end)
+
+      :ok = Application.put_env(:elixircd, :channel, original_channel_config)
+    end
   end
 end

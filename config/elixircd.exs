@@ -61,7 +61,7 @@ config :elixircd,
   ],
   # Channel Configuration
   channel: [
-    # Supported channel prefixes
+    # Supported channel name prefixes
     chantypes: ["#", "&"],
     # Maximum length of a channel name (excluding the prefix)
     name_length: 64,
