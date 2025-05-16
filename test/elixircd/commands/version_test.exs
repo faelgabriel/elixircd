@@ -32,7 +32,7 @@ defmodule ElixIRCd.Commands.VersionTest do
         modes: 4,
         chanlimit: %{"#" => 20, "&" => 5},
         prefix: %{modes: "ov", prefixes: "@+"},
-        chantypes: "#&",
+        chantypes: ["#", "&"],
         topiclen: 300,
         kicklen: 255,
         targmax: %{"JOIN" => 4, "NOTICE" => 4, "PART" => 4, "PRIVMSG" => 4},

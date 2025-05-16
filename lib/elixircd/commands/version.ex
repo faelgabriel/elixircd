@@ -64,7 +64,7 @@ defmodule ElixIRCd.Commands.Version do
       format_feature(:numeric, "MODES", channel_config[:modes]),
       format_feature(:map, "CHANLIMIT", channel_config[:chanlimit]),
       format_feature(:prefix, "PREFIX", channel_config[:prefix]),
-      format_feature(:string, "CHANTYPES", channel_config[:chantypes]),
+      format_feature(:list, "CHANTYPES", channel_config[:chantypes]),
       format_feature(:numeric, "NICKLEN", user_config[:nicklen]),
       format_feature(:string, "NETWORK", server_config[:name]),
       format_feature(:string, "CASEMAPPING", features_config[:casemapping]),
@@ -88,23 +88,23 @@ defmodule ElixIRCd.Commands.Version do
   defp format_chanmodes do
     user_channel_modes = ["o", "v"]
 
-    normalized_modes =
+    supported_modes =
       ChannelModes.modes()
       |> Enum.filter(&(&1 not in user_channel_modes))
 
     # Categorize according to IRC spec:
     # Type A = List modes (always require a parameter for both set/unset)
-    type_a = ["b"]
+    type_a = ["b"] |> Enum.filter(&(&1 in supported_modes))
 
     # Type B = Modes that require parameter only when setting
-    type_b = ["k"]
+    type_b = ["k"] |> Enum.filter(&(&1 in supported_modes))
 
     # Type C = Modes requiring parameter in specific cases
-    type_c = ["l"]
+    type_c = ["l"] |> Enum.filter(&(&1 in supported_modes))
 
     # Type D = Modes that never take a parameter
     # These are all remaining modes that aren't user-modes (o,v) and aren't in previous categories
-    type_d = normalized_modes -- (type_a ++ type_b ++ type_c)
+    type_d = supported_modes -- (type_a ++ type_b ++ type_c)
 
     # Format the output as A,B,C,D
     # IRC spec requires the categories be separated by commas, with modes concatenated within each category
@@ -126,6 +126,7 @@ defmodule ElixIRCd.Commands.Version do
 
   defp format_feature(:numeric, name, value), do: "#{name}=#{value}"
   defp format_feature(:string, name, value), do: "#{name}=#{value}"
+  defp format_feature(:list, name, list) when is_list(list), do: "#{name}=#{Enum.join(list, "")}"
   defp format_feature(:prefix, name, %{modes: modes, prefixes: prefixes}), do: "#{name}=(#{modes})#{prefixes}"
   defp format_feature(:boolean, _name, false), do: nil
   defp format_feature(:boolean, name, true), do: name

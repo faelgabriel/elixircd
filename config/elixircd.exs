@@ -61,11 +61,14 @@ config :elixircd,
   ],
   # Channel Configuration
   channel: [
-    # TODO: Channel limits (max channels per user per prefix)
-    # Format: {"prefix": max_count, ...}
+    # Supported channel prefixes
+    chantypes: ["#", "&"],
+    # Maximum length of a channel name (excluding the prefix)
+    name_length: 64,
+    # Channel limits (maximum number of channels per user per prefix)
+    # Format: %{"prefix" => max_count, ...}
+    # For example, %{"#" => 20, "&" => 5} means a user can join up to 20 #-channels and 5 &-channels
     chanlimit: %{"#" => 20, "&" => 5},
-    # TODO: Valid channel prefixes
-    chantypes: "#&",
     # TODO: Support for ban exceptions (mode +e)
     excepts: true,
     # TODO: Support for invite exceptions (mode +I)
