@@ -11,6 +11,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
   alias ElixIRCd.Commands.Motd
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Isupport
   alias ElixIRCd.Utils.Network
 
   describe "handle/1" do
@@ -44,6 +45,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
 
+      Isupport
+      |> stub(:send_isupport_messages, fn _user -> :ok end)
+
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
@@ -62,6 +66,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
           {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
           # LUSERS messages are mocked as we don't care about it here
+          # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
         ],
         validate_order?: false
@@ -87,6 +92,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
 
+      Isupport
+      |> stub(:send_isupport_messages, fn _user -> :ok end)
+
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
@@ -105,6 +113,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
           {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
           # LUSERS messages are mocked as we don't care about it here
+          # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
         ],
         validate_order?: false
@@ -130,6 +139,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
 
+      Isupport
+      |> stub(:send_isupport_messages, fn _user -> :ok end)
+
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
@@ -145,6 +157,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
         {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
         {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
         # LUSERS messages are mocked as we don't care about it here
+        # ISUPPORT messages are mocked as we don't care about it here
         # MOTD messages are mocked as we don't care about it here
       ])
 
@@ -167,6 +180,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
 
+      Isupport
+      |> stub(:send_isupport_messages, fn _user -> :ok end)
+
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
@@ -185,6 +201,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
           {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"},
           # LUSERS messages are mocked as we don't care about it here
+          # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
           {user.pid, ":#{user.nick} MODE #{user.nick} :+Z\r\n"}
         ],
@@ -210,6 +227,9 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
+
+      Isupport
+      |> stub(:send_isupport_messages, fn _user -> :ok end)
 
       Motd
       |> expect(:send_motd, fn _user -> :ok end)

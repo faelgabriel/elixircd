@@ -15,6 +15,7 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Isupport
 
   @doc """
   Handles the user handshake.
@@ -52,8 +53,7 @@ defmodule ElixIRCd.Server.Handshake do
 
     send_welcome(updated_user)
     Lusers.send_lusers(updated_user)
-    # Feature: implements RPL_ISUPPORT - https://modern.ircdocs.horse/#feature-advertisement
-    # See: lib/elixircd/command/version.ex
+    Isupport.send_isupport_messages(updated_user)
     Motd.send_motd(updated_user)
     send_user_modes(updated_user)
   end
