@@ -25,6 +25,7 @@ defmodule ElixIRCd.CommandTest do
     {"LUSERS", Commands.Lusers},
     {"MODE", Commands.Mode},
     {"MOTD", Commands.Motd},
+    {"NAMES", Commands.Names},
     {"NOTICE", Commands.Notice},
     {"NICK", Commands.Nick},
     {"OPER", Commands.Oper},

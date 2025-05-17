@@ -217,7 +217,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **PART**: Leave a channel. ✅
 - **MODE**: Set or unset user or channel modes. ✅
 - **TOPIC**: Set or get the topic of a channel. ✅
-- **NAMES**: List all visible nicknames on a channel. ❌
+- **NAMES**: List all visible nicknames on a channel. ✅
 - **LIST**: List channels and their topics. ✅
 - **INVITE**: Invite a user to a channel. ✅
 - **KICK**: Eject a user from a channel. ✅
