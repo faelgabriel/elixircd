@@ -56,6 +56,7 @@ defmodule ElixIRCd.Commands.Join do
   @spec handle_join_channel(User.t(), String.t(), String.t() | nil) :: :ok
   defp handle_join_channel(user, channel_name, join_value) do
     with :ok <- validate_channel_name(channel_name),
+         :ok <- check_user_channel_limit(user, channel_name),
          {channel_state, channel} <- get_or_create_channel(channel_name),
          :ok <- check_modes(channel_state, channel, user, join_value) do
       user_channel =
@@ -159,6 +160,20 @@ defmodule ElixIRCd.Commands.Join do
     |> Dispatcher.broadcast(user)
   end
 
+  defp send_join_channel_error(:channel_limit_per_prefix_reached, user, channel_name) do
+    prefix = String.first(channel_name)
+    channel_join_limits = Application.get_env(:elixircd, :channel)[:channel_join_limits] || %{"#" => 20, "&" => 10}
+    max_channels = Map.get(channel_join_limits, prefix)
+
+    Message.build(%{
+      prefix: :server,
+      command: :err_toomanychannels,
+      params: [user.nick, channel_name],
+      trailing: "You have reached the maximum number of #{prefix}-channels (#{max_channels})"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
   defp send_join_channel_error(:user_banned, user, channel_name) do
     Message.build(%{
       prefix: :server,
@@ -191,11 +206,35 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec validate_channel_name(String.t()) :: :ok | {:error, String.t()}
   defp validate_channel_name(channel_name) do
+    chantypes = Application.get_env(:elixircd, :channel)[:channel_prefixes] || ["#", "&"]
+    name_length = Application.get_env(:elixircd, :channel)[:max_channel_name_length] || 64
+
     cond do
-      !channel_name?(channel_name) -> {:error, "channel name must start with a hash mark (#)"}
-      !Regex.match?(~r/^#[a-zA-Z0-9_\-]{1,49}$/, channel_name) -> {:error, "invalid channel name format"}
-      true -> :ok
+      !channel_name?(channel_name) ->
+        valid_prefixes = Enum.join(chantypes, " or ")
+        {:error, "channel name must start with #{valid_prefixes}"}
+
+      !valid_name_format?(channel_name) ->
+        {:error, "invalid channel name format"}
+
+      !valid_name_length?(channel_name, name_length) ->
+        {:error, "channel name must be less or equal to #{name_length} characters"}
+
+      true ->
+        :ok
     end
+  end
+
+  @spec valid_name_format?(String.t()) :: boolean()
+  defp valid_name_format?(channel_name) do
+    normalized_channel_name = String.slice(channel_name, 1..-1//1)
+    Regex.match?(~r/^[a-zA-Z0-9_\-]+$/, normalized_channel_name)
+  end
+
+  @spec valid_name_length?(String.t(), non_neg_integer()) :: boolean()
+  defp valid_name_length?(channel_name, name_length) do
+    normalized_channel_name = String.slice(channel_name, 1..-1//1)
+    String.length(normalized_channel_name) <= name_length
   end
 
   @spec check_modes(channel_states(), Channel.t(), User.t(), String.t() | nil) :: :ok | {:error, mode_error()}
@@ -289,6 +328,26 @@ defmodule ElixIRCd.Commands.Join do
       Enum.member?(modes, "o") -> "@"
       Enum.member?(modes, "v") -> "+"
       true -> ""
+    end
+  end
+
+  @spec check_user_channel_limit(User.t(), String.t()) :: :ok | {:error, :channel_limit_per_prefix_reached}
+  defp check_user_channel_limit(user, channel_name) do
+    prefix = String.first(channel_name)
+    channel_join_limits = Application.get_env(:elixircd, :channel)[:channel_join_limits] || %{"#" => 20, "&" => 10}
+
+    channels_with_prefix =
+      UserChannels.get_by_user_pid(user.pid)
+      |> Enum.count(fn uc ->
+        String.starts_with?(uc.channel_name, prefix)
+      end)
+
+    max_channels = Map.get(channel_join_limits, prefix)
+
+    if channels_with_prefix >= max_channels do
+      {:error, :channel_limit_per_prefix_reached}
+    else
+      :ok
     end
   end
 end

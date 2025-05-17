@@ -27,11 +27,12 @@ defmodule ElixIRCd.Commands.VersionTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         message = %Message{command: "VERSION", params: []}
+        elixircd_version = Application.spec(:elixircd, :vsn)
 
         assert :ok = Version.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 351 #{user.nick} ElixIRCd-#{Application.spec(:elixircd, :vsn)} irc.test\r\n"}
+          {user.pid, ":irc.test 351 #{user.nick} ElixIRCd-#{elixircd_version} irc.test\r\n"}
         ])
       end)
     end

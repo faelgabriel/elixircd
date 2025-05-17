@@ -17,7 +17,7 @@ defmodule ElixIRCd.Server.TcpListener do
   @impl ThousandIsland.Handler
   def handle_connection(socket, _state) do
     pid = self()
-    timeout = Application.get_env(:elixircd, :user)[:timeout]
+    timeout = Application.get_env(:elixircd, :user)[:inactivity_timeout_ms]
 
     transport =
       case socket do

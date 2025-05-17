@@ -34,15 +34,27 @@ defmodule ElixIRCd.Commands.Away do
 
   @impl true
   def handle(user, %{command: "AWAY", trailing: reason}) do
-    Users.update(user, %{away_message: reason})
+    max_away_length = Application.get_env(:elixircd, :user)[:max_away_message_length]
 
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_nowaway,
-      params: [user.nick],
-      trailing: "You have been marked as being away"
-    })
-    |> Dispatcher.broadcast(user)
+    if String.length(reason) > max_away_length do
+      Message.build(%{
+        prefix: :server,
+        command: :err_inputtoolong,
+        params: [user.nick],
+        trailing: "Away message too long (maximum length: #{max_away_length} characters)"
+      })
+      |> Dispatcher.broadcast(user)
+    else
+      Users.update(user, %{away_message: reason})
+
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_nowaway,
+        params: [user.nick],
+        trailing: "You have been marked as being away"
+      })
+      |> Dispatcher.broadcast(user)
+    end
 
     :ok
   end

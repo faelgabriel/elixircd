@@ -10,10 +10,16 @@ defmodule ElixIRCd.Utils.ProtocolTest do
   describe "channel_name?/1" do
     test "returns true for channel names" do
       assert true == Protocol.channel_name?("#elixir")
+      assert true == Protocol.channel_name?("&local")
     end
 
     test "returns false for non-channel names" do
       assert false == Protocol.channel_name?("elixir")
+      assert false == Protocol.channel_name?("@invalid")
+    end
+
+    test "returns false for empty strings" do
+      assert false == Protocol.channel_name?("")
     end
   end
 

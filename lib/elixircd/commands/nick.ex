@@ -116,13 +116,18 @@ defmodule ElixIRCd.Commands.Nick do
 
   @spec validate_nick(String.t()) :: :ok | {:error, String.t()}
   defp validate_nick(nick) do
-    max_nick_length = 30
+    max_nick_length = Application.get_env(:elixircd, :user)[:max_nick_length]
     nick_pattern = ~r/\A[a-zA-Z\`|\^_{}\[\]\\][a-zA-Z\d\`|\^_\-{}\[\]\\]*\z/
 
     cond do
-      String.length(nick) > max_nick_length -> {:error, "Nickname too long"}
-      !Regex.match?(nick_pattern, nick) -> {:error, "Illegal characters"}
-      true -> :ok
+      String.length(nick) > max_nick_length ->
+        {:error, "Nickname too long (maximum length: #{max_nick_length} characters)"}
+
+      !Regex.match?(nick_pattern, nick) ->
+        {:error, "Illegal characters"}
+
+      true ->
+        :ok
     end
   end
 
