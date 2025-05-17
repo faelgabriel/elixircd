@@ -17,15 +17,15 @@ config :elixircd,
     # TODO: Case mapping rules (rfc1459, strict-rfc1459, ascii)
     # Important: Changing case mapping after the server has started and
     # users/channels exist may lead to unexpected behavior.
-    casemapping: "rfc1459",
+    case_mapping: "rfc1459",
     # TODO: Support for extended NAMES with hostmasks
-    uhnames: true,
+    support_extended_names: true,
     # TODO: Support for CALLERID (mode +g)
-    callerid: true,
-    # TODO: Maximum number of monitored nicks
-    monitor: 100,
-    # TODO: Maximum number of silence list entries
-    silence: 20
+    support_callerid_mode: true,
+    # TODO: Maximum number of monitored nicknames per user
+    max_monitored_nicks: 100,
+    # TODO: Maximum number of silence list entries per user
+    max_silence_entries: 20
   ],
   # Network Listeners Configuration
   listeners: [

@@ -67,19 +67,19 @@ defmodule ElixIRCd.Commands.Version do
       format_feature(:list, "CHANTYPES", channel_config[:channel_prefixes]),
       format_feature(:numeric, "NICKLEN", user_config[:max_nick_length]),
       format_feature(:string, "NETWORK", server_config[:name]),
-      format_feature(:string, "CASEMAPPING", features_config[:casemapping]),
+      format_feature(:string, "CASEMAPPING", features_config[:case_mapping]),
       format_feature(:numeric, "TOPICLEN", channel_config[:max_topic_length]),
       format_feature(:numeric, "KICKLEN", channel_config[:max_kick_message_length]),
       format_feature(:numeric, "AWAYLEN", user_config[:max_away_message_length]),
-      format_feature(:numeric, "MONITOR", features_config[:monitor]),
-      format_feature(:numeric, "SILENCE", features_config[:silence]),
+      format_feature(:numeric, "MONITOR", features_config[:max_monitored_nicks]),
+      format_feature(:numeric, "SILENCE", features_config[:max_silence_entries]),
       format_feature(:string, "CHANMODES", format_chanmodes()),
       format_feature(:map, "TARGMAX", channel_config[:max_command_targets]),
       format_feature(:string, "STATUSMSG", channel_config[:status_message_targets]),
       format_feature(:boolean, "EXCEPTS", channel_config[:support_ban_exceptions]),
       format_feature(:boolean, "INVEX", channel_config[:support_invite_exceptions]),
-      format_feature(:boolean, "UHNAMES", features_config[:uhnames]),
-      format_feature(:boolean, "CALLERID", features_config[:callerid])
+      format_feature(:boolean, "UHNAMES", features_config[:support_extended_names]),
+      format_feature(:boolean, "CALLERID", features_config[:support_callerid_mode])
     ]
     |> Enum.reject(&is_nil/1)
   end
