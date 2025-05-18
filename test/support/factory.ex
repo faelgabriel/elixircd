@@ -12,6 +12,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Builds a struct with the given attributes.
@@ -26,6 +27,7 @@ defmodule ElixIRCd.Factory do
 
   def build(:user, attrs) do
     pid = spawn(fn -> :ok end)
+    nick_original = Map.get(attrs, :nick_original, "Nick_#{random_string(5)}")
 
     registered_at =
       if Map.get(attrs, :registered) == false and Map.get(attrs, :registered_at) == nil,
@@ -37,7 +39,8 @@ defmodule ElixIRCd.Factory do
       transport: Map.get(attrs, :transport, :tcp),
       ip_address: Map.get(attrs, :ip_address, {127, 0, 0, 1}),
       port_connected: Map.get(attrs, :port_connected, 6667),
-      nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
+      nick: Map.get(attrs, :nick, CaseMapping.normalize(nick_original)),
+      nick_original: nick_original,
       modes: Map.get(attrs, :modes, []),
       hostname: Map.get(attrs, :hostname, "hostname"),
       ident: Map.get(attrs, :ident, "~username"),
@@ -102,8 +105,11 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:historical_user, attrs) do
+    nick_original = Map.get(attrs, :nick_original, "Nick_#{random_string(5)}")
+
     %HistoricalUser{
-      nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
+      nick: Map.get(attrs, :nick, CaseMapping.normalize(nick_original)),
+      nick_original: nick_original,
       hostname: Map.get(attrs, :hostname, "hostname"),
       ident: Map.get(attrs, :ident, "ident"),
       realname: Map.get(attrs, :realname, "realname"),
@@ -137,7 +143,7 @@ defmodule ElixIRCd.Factory do
 
   def build(:registered_nick, attrs) do
     %RegisteredNick{
-      nickname: Map.get(attrs, :nickname, "Nick_#{random_string(5)}"),
+      nickname: Map.get(attrs, :nickname, "nick_#{random_string(5)}"),
       password_hash: Map.get(attrs, :password_hash, "hash"),
       email: Map.get(attrs, :email, "email@example.com"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
