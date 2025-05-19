@@ -61,14 +61,7 @@ defmodule ElixIRCd.Repositories.Users do
   @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, :user_not_found}
   def get_by_nick(nick) do
     nick_key = CaseMapping.normalize(nick)
-    get_by_nick_key(nick_key)
-  end
 
-  @doc """
-  Get a user by the nick_key.
-  """
-  @spec get_by_nick_key(String.t()) :: {:ok, User.t()} | {:error, :user_not_found}
-  def get_by_nick_key(nick_key) do
     Memento.Query.select(User, {:==, :nick_key, nick_key}, limit: 1)
     |> case do
       [] -> {:error, :user_not_found}

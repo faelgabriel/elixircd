@@ -76,18 +76,6 @@ defmodule ElixIRCd.Repositories.UsersTest do
     end
   end
 
-  describe "get_by_nick_key/1" do
-    test "returns a user by nick_key" do
-      user = insert(:user)
-
-      assert {:ok, user} == Memento.transaction!(fn -> Users.get_by_nick_key(user.nick_key) end)
-    end
-
-    test "returns an error when the user is not found" do
-      assert {:error, :user_not_found} == Memento.transaction!(fn -> Users.get_by_nick_key("testnick") end)
-    end
-  end
-
   describe "get_by_pids/1" do
     test "returns a list of users by pids" do
       user1 = insert(:user)

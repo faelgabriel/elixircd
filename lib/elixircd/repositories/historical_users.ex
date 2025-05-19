@@ -19,18 +19,13 @@ defmodule ElixIRCd.Repositories.HistoricalUsers do
   Get historical users by the nick and limit.
   """
   @spec get_by_nick(String.t(), non_neg_integer() | nil) :: [HistoricalUser.t()]
-  def get_by_nick(nick, limit) do
+  def get_by_nick(nick, nil) do
     nick_key = CaseMapping.normalize(nick)
-    get_by_nick_key(nick_key, limit)
+    Memento.Query.select(HistoricalUser, {:==, :nick_key, nick_key})
   end
 
-  @doc """
-  Get historical users by the nick_key and limit.
-  """
-  @spec get_by_nick_key(String.t(), non_neg_integer() | nil) :: [HistoricalUser.t()]
-  def get_by_nick_key(nick_key, nil), do: Memento.Query.select(HistoricalUser, {:==, :nick_key, nick_key})
-
-  def get_by_nick_key(nick_key, limit) do
+  def get_by_nick(nick, limit) do
+    nick_key = CaseMapping.normalize(nick)
     # Issue: fix the "limit" option in Memento.Query.select/3, which is currently not working
     Memento.Query.select(HistoricalUser, {:==, :nick_key, nick_key}, limit: limit)
     # Enum.take can be removed once Memento.Query.select/3 supports the above "limit" option
