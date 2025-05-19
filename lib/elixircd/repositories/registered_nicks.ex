@@ -21,14 +21,7 @@ defmodule ElixIRCd.Repositories.RegisteredNicks do
   @spec get_by_nickname(String.t()) :: {:ok, RegisteredNick.t()} | {:error, :registered_nick_not_found}
   def get_by_nickname(nickname) do
     nickname_key = CaseMapping.normalize(nickname)
-    get_by_nickname_key(nickname_key)
-  end
 
-  @doc """
-  Get a registered nickname by nickname_key.
-  """
-  @spec get_by_nickname_key(String.t()) :: {:ok, RegisteredNick.t()} | {:error, :registered_nick_not_found}
-  def get_by_nickname_key(nickname_key) do
     Memento.Query.read(RegisteredNick, nickname_key)
     |> case do
       nil -> {:error, :registered_nick_not_found}
