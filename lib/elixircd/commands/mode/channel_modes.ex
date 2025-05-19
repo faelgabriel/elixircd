@@ -213,7 +213,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
       mode_flag in @modes_for_channel_ban ->
         updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
 
-        channel_ban_mode_applied?(user, updated_mode_change, channel.name)
+        channel_ban_mode_applied?(user, updated_mode_change, channel.name_key)
         |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
 
       # ignore if the mode flag requires an integer value and the value is not an integer
@@ -244,7 +244,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
       mode_flag in @modes_for_channel_ban ->
         updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
 
-        channel_ban_mode_applied?(user, updated_mode_change, channel.name)
+        channel_ban_mode_applied?(user, updated_mode_change, channel.name_key)
         |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
 
       mode_flag in @modes_without_value_to_remove ->
@@ -313,27 +313,27 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   end
 
   @spec channel_ban_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
-  defp channel_ban_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name) do
+  defp channel_ban_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name_key) do
     channel_ban =
-      ChannelBans.get_by_channel_name_and_mask(channel_name, mode_value)
+      ChannelBans.get_by_channel_name_key_and_mask(channel_name_key, mode_value)
       |> case do
         {:ok, channel_ban} -> channel_ban
         {:error, :channel_ban_not_found} -> nil
       end
 
-    channel_ban_mode_changed?(user, mode_change, channel_ban, channel_name)
+    channel_ban_mode_changed?(user, mode_change, channel_ban, channel_name_key)
   end
 
   @spec channel_ban_mode_changed?(User.t(), mode_change(), ChannelBan.t(), String.t()) :: boolean()
-  defp channel_ban_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name) do
-    ChannelBans.create(%{channel_name: channel_name, mask: mode_value, setter: user_mask(user)})
+  defp channel_ban_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name_key) do
+    ChannelBans.create(%{channel_name_key: channel_name_key, mask: mode_value, setter: user_mask(user)})
     true
   end
 
-  defp channel_ban_mode_changed?(_user, {:add, _mode}, _channel_ban, _channel_name), do: false
-  defp channel_ban_mode_changed?(_user, {:remove, _mode}, nil, _channel_name), do: false
+  defp channel_ban_mode_changed?(_user, {:add, _mode}, _channel_ban, _channel_name_key), do: false
+  defp channel_ban_mode_changed?(_user, {:remove, _mode}, nil, _channel_name_key), do: false
 
-  defp channel_ban_mode_changed?(_user, {:remove, _mode}, channel_ban, _channel_name) do
+  defp channel_ban_mode_changed?(_user, {:remove, _mode}, channel_ban, _channel_name_key) do
     ChannelBans.delete(channel_ban)
     true
   end

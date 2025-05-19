@@ -250,7 +250,7 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec check_user_banned(Channel.t(), User.t()) :: :ok | {:error, :user_banned}
   defp check_user_banned(channel, user) do
-    ChannelBans.get_by_channel_name(channel.name)
+    ChannelBans.get_by_channel_name_key(channel.name_key)
     |> Enum.any?(&match_user_mask?(user, &1.mask))
     |> case do
       true -> {:error, :user_banned}

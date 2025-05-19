@@ -88,7 +88,7 @@ defmodule ElixIRCd.Factory do
 
   def build(:channel_ban, attrs) do
     %ChannelBan{
-      channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
+      channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       mask: Map.get(attrs, :mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
@@ -223,7 +223,7 @@ defmodule ElixIRCd.Factory do
 
     updated_attrs =
       attrs
-      |> Map.put(:channel_name, channel.name)
+      |> Map.put(:channel_name_key, channel.name_key)
 
     Memento.transaction!(fn ->
       build(:channel_ban, updated_attrs)
