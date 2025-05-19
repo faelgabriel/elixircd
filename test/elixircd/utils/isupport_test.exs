@@ -33,7 +33,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
       ]
 
       features_config = [
-        case_mapping: "rfc1459",
+        case_mapping: :rfc1459,
         support_extended_names: true,
         support_callerid_mode: true,
         max_monitored_nicks: 100,

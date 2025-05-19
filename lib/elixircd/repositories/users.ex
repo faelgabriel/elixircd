@@ -6,6 +6,7 @@ defmodule ElixIRCd.Repositories.Users do
   import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2]
 
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
 
   @doc """
@@ -59,7 +60,16 @@ defmodule ElixIRCd.Repositories.Users do
   """
   @spec get_by_nick(String.t()) :: {:ok, User.t()} | {:error, :user_not_found}
   def get_by_nick(nick) do
-    Memento.Query.select(User, {:==, :nick, nick}, limit: 1)
+    nick_key = CaseMapping.normalize(nick)
+    get_by_nick_key(nick_key)
+  end
+
+  @doc """
+  Get a user by the nick_key.
+  """
+  @spec get_by_nick_key(String.t()) :: {:ok, User.t()} | {:error, :user_not_found}
+  def get_by_nick_key(nick_key) do
+    Memento.Query.select(User, {:==, :nick_key, nick_key}, limit: 1)
     |> case do
       [] -> {:error, :user_not_found}
       [user] -> {:ok, user}

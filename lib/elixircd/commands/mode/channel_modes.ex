@@ -265,8 +265,8 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   defp extract_mode_flag(mode), do: mode
 
   @spec user_channel_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
-  defp user_channel_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name) do
-    with {:ok, target_user} <- Users.get_by_nick(mode_value),
+  defp user_channel_mode_applied?(user, {_action, {_mode_flag, target_nick}} = mode_change, channel_name) do
+    with {:ok, target_user} <- Users.get_by_nick(target_nick),
          {:ok, target_user_channel} <- UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel_name) do
       user_channel_mode_changed?(mode_change, target_user_channel)
     else
@@ -274,7 +274,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         Message.build(%{
           prefix: :server,
           command: :err_usernotinchannel,
-          params: [user.nick, channel_name, mode_value],
+          params: [user.nick, channel_name, target_nick],
           trailing: "They aren't on that channel"
         })
         |> Dispatcher.broadcast(user)
@@ -285,7 +285,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         Message.build(%{
           prefix: :server,
           command: :err_nosuchnick,
-          params: [user.nick, channel_name, mode_value],
+          params: [user.nick, channel_name, target_nick],
           trailing: "No such nick"
         })
         |> Dispatcher.broadcast(user)

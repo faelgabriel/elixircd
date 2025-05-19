@@ -113,6 +113,8 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     password_hash = Pbkdf2.hash_pwd_salt(password)
     verify_code = if is_nil(email), do: nil, else: :rand.bytes(4) |> Base.encode16(case: :lower)
 
+    # CHECK: should last seen and identified_as be updated only if email registration is not required?
+
     registered_nick =
       RegisteredNicks.create(%{
         nickname: user.nick,

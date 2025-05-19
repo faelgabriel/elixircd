@@ -117,6 +117,7 @@ defmodule ElixIRCd.Server.Connection do
     end)
 
     HistoricalUsers.create(%{
+      nick_key: user.nick_key,
       nick: user.nick,
       hostname: user.hostname,
       ident: user.ident,
