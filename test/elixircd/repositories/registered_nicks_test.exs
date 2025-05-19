@@ -25,7 +25,7 @@ defmodule ElixIRCd.Repositories.RegisteredNicksTest do
   end
 
   describe "get_by_nickname/1" do
-    test "returns a registered nickname by its nickname" do
+    test "returns a registered nickname by nickname" do
       registered_nick = insert(:registered_nick)
 
       assert {:ok, registered_nick} ==
@@ -35,6 +35,20 @@ defmodule ElixIRCd.Repositories.RegisteredNicksTest do
     test "returns an error when the registered nickname is not found" do
       assert {:error, :registered_nick_not_found} ==
                Memento.transaction!(fn -> RegisteredNicks.get_by_nickname("nonexistent") end)
+    end
+  end
+
+  describe "get_by_nickname_key/1" do
+    test "returns a registered nickname by nickname_key" do
+      registered_nick = insert(:registered_nick)
+
+      assert {:ok, registered_nick} ==
+               Memento.transaction!(fn -> RegisteredNicks.get_by_nickname_key(registered_nick.nickname_key) end)
+    end
+
+    test "returns an error when the registered nickname is not found" do
+      assert {:error, :registered_nick_not_found} ==
+               Memento.transaction!(fn -> RegisteredNicks.get_by_nickname_key("nonexistent") end)
     end
   end
 

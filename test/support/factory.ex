@@ -139,8 +139,12 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:registered_nick, attrs) do
+    nickname = Map.get(attrs, :nickname, "Nick_#{random_string(5)}")
+    nickname_key = if nickname, do: CaseMapping.normalize(nickname), else: nil
+
     %RegisteredNick{
-      nickname: Map.get(attrs, :nickname, "nick_#{random_string(5)}"),
+      nickname_key: nickname_key,
+      nickname: nickname,
       password_hash: Map.get(attrs, :password_hash, "hash"),
       email: Map.get(attrs, :email, "email@example.com"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
