@@ -8,7 +8,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Repositories.RegisteredNicks
-  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Register
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.RegisteredNick.Settings
@@ -151,18 +150,11 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       RegisteredNicks
       |> expect(:create, fn _params -> mock_registered_nick end)
 
-      Users
-      |> expect(:update, fn _user, params ->
-        Map.merge(user, params)
-      end)
-
       :ok = Register.handle(user, ["REGISTER", password])
 
       assert_sent_messages([
         {user.pid,
          ":NickServ!service@irc.test NOTICE #{user.nick} :Your nickname has been successfully registered.\r\n"},
-        {user.pid,
-         ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{user.nick}\x02.\r\n"},
         {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
       ])
     end
@@ -209,11 +201,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         %{mock_registered_nick | verify_code: params[:verify_code]}
       end)
 
-      Users
-      |> expect(:update, fn _user, params ->
-        Map.merge(user, params)
-      end)
-
       Mailer
       |> expect(:send_verification_email, fn email_address, nickname, code ->
         assert email_address == email
@@ -230,8 +217,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         {user.pid, ~r/NickServ.*NOTICE.*Please check the address if you don't receive it/},
         {user.pid, ~r/NickServ.*NOTICE.*If you do not complete registration within 30 days, your nickname will expire/},
         {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
-        {user.pid,
-         ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{user.nick}\x02.\r\n"},
         {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
       ])
     end
@@ -266,7 +251,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
           {user.pid, ~r/NickServ.*NOTICE.*Please check the address if you don't receive it/},
           {user.pid, ~r/NickServ.*NOTICE.*If you do not complete registration within 1 day, your nickname will expire/},
           {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
-          {user.pid, ~r/NickServ.*NOTICE.*You are now identified for \x02#{user.nick}\x02/},
           {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
         ])
       end)
@@ -301,7 +285,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
           {user.pid,
            ~r/NickServ.*NOTICE.*If you do not complete registration within 2 days, your nickname will expire/},
           {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
-          {user.pid, ~r/NickServ.*NOTICE.*You are now identified for \x02#{user.nick}\x02/},
           {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
         ])
       end)
