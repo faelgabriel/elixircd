@@ -56,8 +56,12 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:channel, attrs) do
+    name = Map.get(attrs, :name, "#Channel_#{random_string(5)}")
+    name_key = if name != nil, do: CaseMapping.normalize(name), else: nil
+
     %Channel{
-      name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
+      name_key: name_key,
+      name: name,
       topic: Map.get(attrs, :topic, build(:channel_topic)),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
@@ -122,11 +126,14 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:registered_channel, attrs) do
+    name = Map.get(attrs, :name, "#Channel_#{random_string(5)}")
+    name_key = if name != nil, do: CaseMapping.normalize(name), else: nil
     created_at = Map.get(attrs, :created_at, DateTime.utc_now())
     last_used_at = Map.get(attrs, :last_used_at, created_at)
 
     %RegisteredChannel{
-      name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
+      name_key: name_key,
+      name: name,
       founder: Map.get(attrs, :founder, "Nick_#{random_string(5)}"),
       password_hash: Map.get(attrs, :password_hash, "hash"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
