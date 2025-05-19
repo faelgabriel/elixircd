@@ -60,8 +60,10 @@ defmodule ElixIRCd.Repositories.RegisteredNicksTest do
       registered_nicks = Memento.transaction!(fn -> RegisteredNicks.get_all() end)
 
       assert length(registered_nicks) == 2
-      assert Enum.any?(registered_nicks, fn nick -> nick.nickname == registered_nick1.nickname end)
-      assert Enum.any?(registered_nicks, fn nick -> nick.nickname == registered_nick2.nickname end)
+
+      assert Enum.any?(registered_nicks, fn registered_nick -> registered_nick.nickname == registered_nick1.nickname end)
+
+      assert Enum.any?(registered_nicks, fn registered_nick -> registered_nick.nickname == registered_nick2.nickname end)
     end
 
     test "returns an empty list when no registered nicknames exist" do

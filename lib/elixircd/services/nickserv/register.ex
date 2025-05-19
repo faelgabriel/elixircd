@@ -5,8 +5,6 @@ defmodule ElixIRCd.Services.Nickserv.Register do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Mailer, only: [send_verification_email: 3]
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, email_required_format: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
@@ -150,8 +148,6 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     end
 
     notify(user, "To identify in the future, type: \x02/msg NickServ IDENTIFY #{user.nick} your_password\x02")
-
-    Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
   end
 
   @spec pluralize_days(integer()) :: String.t()

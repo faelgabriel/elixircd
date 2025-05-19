@@ -6,8 +6,6 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
 
   alias ElixIRCd.Repositories.RegisteredChannels
@@ -68,10 +66,6 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
           "Channel \x02#{registered_channel.name}\x02 has been transferred to \x02#{registered_nick.nickname}\x02.",
           "They are now the new channel founder."
         ])
-
-        Logger.info(
-          "Channel transferred: #{registered_channel.name} from #{user.identified_as} to #{registered_nick.nickname}"
-        )
 
       {:error, :registered_nick_not_found} ->
         notify(user, "The nickname \x02#{target_new_founder}\x02 is not registered.")

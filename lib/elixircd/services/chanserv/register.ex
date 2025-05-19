@@ -5,8 +5,6 @@ defmodule ElixIRCd.Services.Chanserv.Register do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1]
 
@@ -127,8 +125,6 @@ defmodule ElixIRCd.Services.Chanserv.Register do
       "Password accepted.",
       "Remember your password so that you can identify to ChanServ and make changes later!"
     ])
-
-    Logger.info("Channel registered: #{channel.name} by #{user_mask(user)}")
   end
 
   @spec check_max_channels(String.t(), integer()) :: :ok | {:error, :limit_reached}

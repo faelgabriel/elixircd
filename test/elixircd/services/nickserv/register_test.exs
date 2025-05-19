@@ -144,8 +144,8 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       }
 
       RegisteredNicks
-      |> expect(:get_by_nickname, fn nick ->
-        if nick == user.nick, do: {:error, :registered_nick_not_found}, else: {:error, :registered_nick_not_found}
+      |> expect(:get_by_nickname, fn _nick ->
+        {:error, :registered_nick_not_found}
       end)
 
       RegisteredNicks
@@ -193,8 +193,8 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       }
 
       RegisteredNicks
-      |> expect(:get_by_nickname, fn nick ->
-        if nick == user.nick, do: {:error, :registered_nick_not_found}, else: {:error, :registered_nick_not_found}
+      |> expect(:get_by_nickname, fn _nick ->
+        {:error, :registered_nick_not_found}
       end)
 
       RegisteredNicks

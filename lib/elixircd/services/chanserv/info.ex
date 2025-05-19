@@ -6,8 +6,6 @@ defmodule ElixIRCd.Services.Chanserv.Info do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
   import ElixIRCd.Utils.Time, only: [format_time: 1]
 

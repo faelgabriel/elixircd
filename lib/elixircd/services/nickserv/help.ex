@@ -5,8 +5,6 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, email_required_format: 1]
 
   alias ElixIRCd.Tables.User

@@ -5,10 +5,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -69,7 +66,6 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
         perform_disconnect(user, target_user)
       else
         notify(user, "Invalid password for \x02#{target_user.nick}\x02.")
-        Logger.info("Failed GHOST attempt for #{target_user.nick} from #{user_mask(user)}")
       end
     end
   end
@@ -77,10 +73,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
   @spec perform_disconnect(User.t(), User.t()) :: :ok
   defp perform_disconnect(user, target_user) do
     ghost_message = "Killed (#{user.nick} (GHOST command used))"
-
     send(target_user.pid, {:disconnect, ghost_message})
-
     notify(user, "User \x02#{target_user.nick}\x02 has been disconnected.")
-    Logger.info("User #{user_mask(user)} ghosted #{user_mask(target_user)}")
   end
 end
