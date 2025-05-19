@@ -23,12 +23,10 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
     notify(user, "You must be identified with NickServ to use this command.")
   end
 
-  def handle(user, [@command_name, channel_name, new_founder]) do
-    channel_name = String.downcase(channel_name)
-
+  def handle(user, [@command_name, channel_name, target_new_founder]) do
     case check_channel_ownership(user, channel_name) do
       {:ok, registered_channel} ->
-        transfer_channel(user, registered_channel, new_founder)
+        transfer_channel(user, registered_channel, target_new_founder)
 
       {:error, :registered_channel_not_found} ->
         notify(user, "Channel \x02#{channel_name}\x02 is not registered.")
@@ -58,29 +56,25 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
   end
 
   @spec transfer_channel(User.t(), RegisteredChannel.t(), String.t()) :: :ok
-  defp transfer_channel(user, registered_channel, new_founder) do
-    registered_nick_exists? =
-      Memento.transaction!(fn ->
-        case RegisteredNicks.get_by_nickname(new_founder) do
-          {:ok, _registered_nick} -> true
-          {:error, :registered_nick_not_found} -> false
-        end
-      end)
+  defp transfer_channel(user, registered_channel, target_new_founder) do
+    case RegisteredNicks.get_by_nickname(target_new_founder) do
+      {:ok, registered_nick} ->
+        RegisteredChannels.update(registered_channel, %{
+          founder: registered_nick.nickname,
+          successor: nil
+        })
 
-    if registered_nick_exists? do
-      RegisteredChannels.update(registered_channel, %{
-        founder: new_founder,
-        successor: nil
-      })
+        notify(user, [
+          "Channel \x02#{registered_channel.name}\x02 has been transferred to \x02#{registered_nick.nickname}\x02.",
+          "They are now the new channel founder."
+        ])
 
-      notify(user, [
-        "Channel \x02#{registered_channel.name}\x02 has been transferred to \x02#{new_founder}\x02.",
-        "They are now the new channel founder."
-      ])
+        Logger.info(
+          "Channel transferred: #{registered_channel.name} from #{user.identified_as} to #{registered_nick.nickname}"
+        )
 
-      Logger.info("Channel transferred: #{registered_channel.name} from #{user.identified_as} to #{new_founder}")
-    else
-      notify(user, "The nickname \x02#{new_founder}\x02 is not registered.")
+      {:error, :registered_nick_not_found} ->
+        notify(user, "The nickname \x02#{target_new_founder}\x02 is not registered.")
     end
   end
 end
