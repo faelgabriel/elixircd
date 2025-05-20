@@ -115,16 +115,15 @@ defmodule ElixIRCd.Commands.Whois do
       |> Dispatcher.broadcast(user)
     end
 
-    # Feature: account implementation
-    # if true do
-    #   Message.build(%{
-    #     prefix: :server,
-    #     command: :rpl_whoisaccount,
-    #     params: [user.nick, target_user.nick, "target_user.account"],
-    #     trailing: "is logged in as target_user.account"
-    #   })
-    #   |> Dispatcher.broadcast(user)
-    # end
+    if target_user.identified_as do
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_whoisaccount,
+        params: [user.nick, target_user.nick, target_user.identified_as],
+        trailing: "is logged in as #{target_user.identified_as}"
+      })
+      |> Dispatcher.broadcast(user)
+    end
   end
 
   @spec get_target_user(User.t(), String.t()) :: {User.t() | nil, [String.t()]}
