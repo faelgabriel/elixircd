@@ -118,10 +118,10 @@ defmodule ElixIRCd.Commands.List do
   defp filter_out_hidden_channels(channels, user) do
     user_channel_names =
       UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name)
+      |> Enum.map(& &1.channel_name_key)
 
     Enum.reject(channels, fn channel ->
-      ("p" in channel.modes or "s" in channel.modes) and not Enum.member?(user_channel_names, channel.name)
+      ("p" in channel.modes or "s" in channel.modes) and not Enum.member?(user_channel_names, channel.name_key)
     end)
   end
 

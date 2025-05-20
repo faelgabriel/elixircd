@@ -63,7 +63,7 @@ defmodule ElixIRCd.Commands.Join do
         UserChannels.create(%{
           user_pid: user.pid,
           user_transport: user.transport,
-          channel_name: channel.name,
+          channel_name_key: channel.name_key,
           modes: determine_user_channel_modes(channel_state)
         })
 
@@ -339,7 +339,7 @@ defmodule ElixIRCd.Commands.Join do
     channels_with_prefix =
       UserChannels.get_by_user_pid(user.pid)
       |> Enum.count(fn uc ->
-        String.starts_with?(uc.channel_name, prefix)
+        String.starts_with?(uc.channel_name_key, prefix)
       end)
 
     max_channels = Map.get(channel_join_limits, prefix)

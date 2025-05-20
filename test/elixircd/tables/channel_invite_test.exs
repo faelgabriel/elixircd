@@ -11,14 +11,14 @@ defmodule ElixIRCd.Tables.ChannelInviteTest do
 
       attrs = %{
         user_pid: pid,
-        channel_name: "#test",
+        channel_name_key: "#test",
         setter: "setter_nick!username@example.com"
       }
 
       channel_invite = ChannelInvite.new(attrs)
 
       assert channel_invite.user_pid == pid
-      assert channel_invite.channel_name == "#test"
+      assert channel_invite.channel_name_key == "#test"
       assert channel_invite.setter == "setter_nick!username@example.com"
       assert DateTime.diff(DateTime.utc_now(), channel_invite.created_at) < 1000
     end
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Tables.ChannelInviteTest do
 
       attrs = %{
         user_pid: pid,
-        channel_name: "#test",
+        channel_name_key: "#test",
         setter: "setter_nick!username@example.com",
         created_at: utc_now
       }
@@ -37,7 +37,7 @@ defmodule ElixIRCd.Tables.ChannelInviteTest do
       channel_invite = ChannelInvite.new(attrs)
 
       assert channel_invite.user_pid == pid
-      assert channel_invite.channel_name == "#test"
+      assert channel_invite.channel_name_key == "#test"
       assert channel_invite.setter == "setter_nick!username@example.com"
       assert channel_invite.created_at == utc_now
     end

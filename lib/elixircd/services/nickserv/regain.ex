@@ -92,7 +92,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
     all_channel_users =
       UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name)
+      |> Enum.map(& &1.channel_name_key)
       |> UserChannels.get_by_channel_names()
       |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
       |> Enum.group_by(& &1.user_pid)
