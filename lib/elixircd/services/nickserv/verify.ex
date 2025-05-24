@@ -5,10 +5,7 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -47,7 +44,6 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
       registered_nick.verify_code != code ->
         notify(user, "Verification failed. Invalid code for nickname \x02#{registered_nick.nickname}\x02.")
-        Logger.info("Failed verification attempt for #{registered_nick.nickname} by #{user_mask(user)}")
 
       true ->
         complete_verification(user, registered_nick)
@@ -74,7 +70,5 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
         "You can now identify for this nickname using: \x02/msg NickServ IDENTIFY #{registered_nick.nickname} your_password\x02"
       )
     end
-
-    Logger.info("Nickname verified: #{registered_nick.nickname} by #{user_mask(user)}")
   end
 end

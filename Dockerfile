@@ -31,7 +31,7 @@ RUN chown -Rf nobody /app
 
 COPY --from=build --chown=nobody:root /app/_build/prod/rel/elixircd /app
 
-VOLUME /app/priv/
+VOLUME /app/data/
 
 USER nobody
 

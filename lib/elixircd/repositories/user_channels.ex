@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.UserChannels do
   """
 
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Create a new user channel and write it to the database.
@@ -47,7 +48,8 @@ defmodule ElixIRCd.Repositories.UserChannels do
   @spec get_by_user_pid_and_channel_name(pid(), String.t()) ::
           {:ok, UserChannel.t()} | {:error, :user_channel_not_found}
   def get_by_user_pid_and_channel_name(user_pid, channel_name) do
-    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name, channel_name}]
+    channel_name_key = CaseMapping.normalize(channel_name)
+    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name_key, channel_name_key}]
 
     Memento.Query.select(UserChannel, conditions, limit: 1)
     |> case do
@@ -69,7 +71,8 @@ defmodule ElixIRCd.Repositories.UserChannels do
   """
   @spec get_by_channel_name(String.t()) :: [UserChannel.t()]
   def get_by_channel_name(channel_name) do
-    Memento.Query.select(UserChannel, {:==, :channel_name, channel_name})
+    channel_name_key = CaseMapping.normalize(channel_name)
+    Memento.Query.select(UserChannel, {:==, :channel_name_key, channel_name_key})
   end
 
   @doc """
@@ -80,7 +83,10 @@ defmodule ElixIRCd.Repositories.UserChannels do
 
   def get_by_channel_names(channel_names) do
     conditions =
-      Enum.map(channel_names, fn channel_name -> {:==, :channel_name, channel_name} end)
+      Enum.map(channel_names, fn channel_name ->
+        channel_name_key = CaseMapping.normalize(channel_name)
+        {:==, :channel_name_key, channel_name_key}
+      end)
       |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
 
     Memento.Query.select(UserChannel, conditions)
@@ -91,6 +97,7 @@ defmodule ElixIRCd.Repositories.UserChannels do
   """
   @spec count_users_by_channel_name(String.t()) :: integer()
   def count_users_by_channel_name(channel_name) do
+    # Future: Use a query to count the number of users in a channel by the channel name.
     get_by_channel_name(channel_name)
     |> Enum.count()
   end
@@ -104,7 +111,8 @@ defmodule ElixIRCd.Repositories.UserChannels do
     user_channels = get_by_channel_names(channel_names)
 
     Enum.reduce(channel_names, [], fn channel_name, acc ->
-      users_count = Enum.count(user_channels, &(&1.channel_name == channel_name))
+      channel_name_key = CaseMapping.normalize(channel_name)
+      users_count = Enum.count(user_channels, &(&1.channel_name_key == channel_name_key))
       [{channel_name, users_count} | acc]
     end)
   end

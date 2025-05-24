@@ -12,6 +12,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Builds a struct with the given attributes.
@@ -25,7 +26,8 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:user, attrs) do
-    pid = spawn(fn -> :ok end)
+    nick = Map.get(attrs, :nick, "Nick_#{random_string(5)}")
+    nick_key = if nick, do: CaseMapping.normalize(nick), else: nil
 
     registered_at =
       if Map.get(attrs, :registered) == false and Map.get(attrs, :registered_at) == nil,
@@ -33,11 +35,12 @@ defmodule ElixIRCd.Factory do
         else: Map.get(attrs, :registered_at, DateTime.utc_now())
 
     %User{
-      pid: Map.get(attrs, :pid, pid),
+      pid: Map.get(attrs, :pid, new_pid()),
       transport: Map.get(attrs, :transport, :tcp),
       ip_address: Map.get(attrs, :ip_address, {127, 0, 0, 1}),
       port_connected: Map.get(attrs, :port_connected, 6667),
-      nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
+      nick_key: nick_key,
+      nick: nick,
       modes: Map.get(attrs, :modes, []),
       hostname: Map.get(attrs, :hostname, "hostname"),
       ident: Map.get(attrs, :ident, "~username"),
@@ -53,8 +56,12 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:channel, attrs) do
+    name = Map.get(attrs, :name, "#Channel_#{random_string(5)}")
+    name_key = if name != nil, do: CaseMapping.normalize(name), else: nil
+
     %Channel{
-      name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
+      name_key: name_key,
+      name: name,
       topic: Map.get(attrs, :topic, build(:channel_topic)),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
@@ -70,12 +77,10 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:user_channel, attrs) do
-    pid = spawn(fn -> :ok end)
-
     %UserChannel{
-      user_pid: Map.get(attrs, :user_pid, pid),
+      user_pid: Map.get(attrs, :user_pid, new_pid()),
       user_transport: Map.get(attrs, :user_transport, :tcp),
-      channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
+      channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
@@ -83,7 +88,7 @@ defmodule ElixIRCd.Factory do
 
   def build(:channel_ban, attrs) do
     %ChannelBan{
-      channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
+      channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       mask: Map.get(attrs, :mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
@@ -91,19 +96,21 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:channel_invite, attrs) do
-    pid = spawn(fn -> :ok end)
-
     %ChannelInvite{
-      user_pid: Map.get(attrs, :user_pid, pid),
-      channel_name: Map.get(attrs, :channel_name, "#channel_#{random_string(5)}"),
+      user_pid: Map.get(attrs, :user_pid, new_pid()),
+      channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
 
   def build(:historical_user, attrs) do
+    nick = Map.get(attrs, :nick, "Nick_#{random_string(5)}")
+    nick_key = if nick, do: CaseMapping.normalize(nick), else: nil
+
     %HistoricalUser{
-      nick: Map.get(attrs, :nick, "Nick_#{random_string(5)}"),
+      nick_key: nick_key,
+      nick: nick,
       hostname: Map.get(attrs, :hostname, "hostname"),
       ident: Map.get(attrs, :ident, "ident"),
       realname: Map.get(attrs, :realname, "realname"),
@@ -119,11 +126,14 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:registered_channel, attrs) do
+    name = Map.get(attrs, :name, "#Channel_#{random_string(5)}")
+    name_key = if name != nil, do: CaseMapping.normalize(name), else: nil
     created_at = Map.get(attrs, :created_at, DateTime.utc_now())
     last_used_at = Map.get(attrs, :last_used_at, created_at)
 
     %RegisteredChannel{
-      name: Map.get(attrs, :name, "#channel_#{random_string(5)}"),
+      name_key: name_key,
+      name: name,
       founder: Map.get(attrs, :founder, "Nick_#{random_string(5)}"),
       password_hash: Map.get(attrs, :password_hash, "hash"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
@@ -136,8 +146,12 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:registered_nick, attrs) do
+    nickname = Map.get(attrs, :nickname, "Nick_#{random_string(5)}")
+    nickname_key = if nickname, do: CaseMapping.normalize(nickname), else: nil
+
     %RegisteredNick{
-      nickname: Map.get(attrs, :nickname, "Nick_#{random_string(5)}"),
+      nickname_key: nickname_key,
+      nickname: nickname,
       password_hash: Map.get(attrs, :password_hash, "hash"),
       email: Map.get(attrs, :email, "email@example.com"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
@@ -192,7 +206,7 @@ defmodule ElixIRCd.Factory do
       attrs
       |> Map.put(:user_pid, user.pid)
       |> Map.put(:user_transport, user.transport)
-      |> Map.put(:channel_name, channel.name)
+      |> Map.put(:channel_name_key, channel.name_key)
 
     Memento.transaction!(fn ->
       build(:user_channel, updated_attrs)
@@ -209,7 +223,7 @@ defmodule ElixIRCd.Factory do
 
     updated_attrs =
       attrs
-      |> Map.put(:channel_name, channel.name)
+      |> Map.put(:channel_name_key, channel.name_key)
 
     Memento.transaction!(fn ->
       build(:channel_ban, updated_attrs)
@@ -233,7 +247,7 @@ defmodule ElixIRCd.Factory do
     updated_attrs =
       attrs
       |> Map.put(:user_pid, user.pid)
-      |> Map.put(:channel_name, channel.name)
+      |> Map.put(:channel_name_key, channel.name_key)
 
     Memento.transaction!(fn ->
       build(:channel_invite, updated_attrs)
@@ -274,4 +288,7 @@ defmodule ElixIRCd.Factory do
     Enum.map(1..length, fn _ -> ?a + :rand.uniform(25) end)
     |> List.to_string()
   end
+
+  @spec new_pid() :: pid()
+  defp new_pid, do: spawn(fn -> :ok end)
 end

@@ -19,15 +19,15 @@ defmodule ElixIRCd.Commands.Away do
 
   @impl true
   def handle(user, %{command: "AWAY", trailing: nil}) do
-    Users.update(user, %{away_message: nil})
+    updated_user = Users.update(user, %{away_message: nil})
 
     Message.build(%{
       prefix: :server,
       command: :rpl_unaway,
-      params: [user.nick],
+      params: [updated_user.nick],
       trailing: "You are no longer marked as being away"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(updated_user)
 
     :ok
   end
@@ -45,15 +45,15 @@ defmodule ElixIRCd.Commands.Away do
       })
       |> Dispatcher.broadcast(user)
     else
-      Users.update(user, %{away_message: reason})
+      updated_user = Users.update(user, %{away_message: reason})
 
       Message.build(%{
         prefix: :server,
         command: :rpl_nowaway,
-        params: [user.nick],
+        params: [updated_user.nick],
         trailing: "You have been marked as being away"
       })
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(updated_user)
     end
 
     :ok

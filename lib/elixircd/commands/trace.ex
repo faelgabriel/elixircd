@@ -26,10 +26,10 @@ defmodule ElixIRCd.Commands.Trace do
   end
 
   @impl true
-  def handle(user, %{command: "TRACE", params: [target | _rest]}) do
-    case Users.get_by_nick(target) do
+  def handle(user, %{command: "TRACE", params: [target_nick | _rest]}) do
+    case Users.get_by_nick(target_nick) do
       {:ok, target_user} -> send_trace(user, target_user)
-      {:error, :user_not_found} -> send_target_not_found(user, target)
+      {:error, :user_not_found} -> send_target_not_found(user, target_nick)
     end
   end
 
@@ -65,11 +65,11 @@ defmodule ElixIRCd.Commands.Trace do
   end
 
   @spec send_target_not_found(User.t(), String.t()) :: :ok
-  defp send_target_not_found(user, target) do
+  defp send_target_not_found(user, target_nick) do
     Message.build(%{
       prefix: :server,
       command: :err_nosuchnick,
-      params: [user.nick, target],
+      params: [user.nick, target_nick],
       trailing: "No such nick"
     })
     |> Dispatcher.broadcast(user)

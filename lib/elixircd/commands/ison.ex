@@ -43,8 +43,8 @@ defmodule ElixIRCd.Commands.Ison do
   end
 
   @spec fetch_user_nick(String.t()) :: String.t() | nil
-  defp fetch_user_nick(nick) do
-    case Users.get_by_nick(nick) do
+  defp fetch_user_nick(target_nick) do
+    case Users.get_by_nick(target_nick) do
       {:ok, user} -> user.nick
       {:error, :user_not_found} -> nil
     end

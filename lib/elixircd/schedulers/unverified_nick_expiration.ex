@@ -66,10 +66,13 @@ defmodule ElixIRCd.Schedulers.UnverifiedNickExpiration do
   defp expire_unverified_nicknames do
     RegisteredNicks.get_all()
     |> Enum.filter(&check_unverified_nick_expiration/1)
-    |> Enum.map(fn nick ->
-      Logger.info("Expiring unverified nickname: #{nick.nickname} (registered: #{nick.created_at})")
-      RegisteredNicks.delete(nick)
-      nick.nickname
+    |> Enum.map(fn registered_nick ->
+      nickname = registered_nick.nickname
+      created_at = registered_nick.created_at
+      Logger.info("Expiring unverified nickname: #{nickname} (registered: #{created_at})")
+
+      RegisteredNicks.delete(registered_nick)
+      registered_nick.nickname
     end)
     |> length()
   end

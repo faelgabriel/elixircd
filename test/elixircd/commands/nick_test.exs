@@ -58,17 +58,14 @@ defmodule ElixIRCd.Commands.NickTest do
     end
 
     test "handles NICK command with valid nick already in use" do
-      nick = "existing"
-      insert(:user, nick: nick)
-
       Memento.transaction!(fn ->
         user = insert(:user)
-        message = %Message{command: "NICK", params: [nick]}
+        message = %Message{command: "NICK", params: [user.nick]}
 
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 433 #{user.nick} existing :Nickname is already in use\r\n"}
+          {user.pid, ":irc.test 433 #{user.nick} #{user.nick} :Nickname is already in use\r\n"}
         ])
       end)
     end

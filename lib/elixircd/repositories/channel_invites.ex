@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   """
 
   alias ElixIRCd.Tables.ChannelInvite
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Create a new channel invite and write it to the database.
@@ -19,7 +20,9 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   """
   @spec delete_by_channel_name(String.t()) :: :ok
   def delete_by_channel_name(channel_name) do
-    Memento.Query.select(ChannelInvite, [{:==, :channel_name, channel_name}])
+    channel_name_key = CaseMapping.normalize(channel_name)
+
+    Memento.Query.select(ChannelInvite, [{:==, :channel_name_key, channel_name_key}])
     |> Enum.each(&Memento.Query.delete_record/1)
   end
 
@@ -37,7 +40,8 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   @spec get_by_user_pid_and_channel_name(pid(), String.t()) ::
           {:ok, ChannelInvite.t()} | {:error, :channel_invite_not_found}
   def get_by_user_pid_and_channel_name(user_pid, channel_name) do
-    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name, channel_name}]
+    channel_name_key = CaseMapping.normalize(channel_name)
+    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name_key, channel_name_key}]
 
     Memento.Query.select(ChannelInvite, conditions, limit: 1)
     |> case do

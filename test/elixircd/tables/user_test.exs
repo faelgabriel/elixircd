@@ -18,6 +18,7 @@ defmodule ElixIRCd.Tables.UserTest do
 
       assert user.pid == pid
       assert user.transport == :tcp
+      assert user.nick_key == nil
       assert user.nick == nil
       assert user.hostname == nil
       assert user.ident == nil
@@ -39,7 +40,7 @@ defmodule ElixIRCd.Tables.UserTest do
       attrs = %{
         pid: pid,
         transport: :tcp,
-        nick: "test",
+        nick: "Test",
         hostname: "test",
         ident: "test",
         realname: "test",
@@ -56,7 +57,8 @@ defmodule ElixIRCd.Tables.UserTest do
 
       assert user.pid == pid
       assert user.transport == :tcp
-      assert user.nick == "test"
+      assert user.nick_key == "test"
+      assert user.nick == "Test"
       assert user.hostname == "test"
       assert user.ident == "test"
       assert user.realname == "test"
@@ -78,7 +80,7 @@ defmodule ElixIRCd.Tables.UserTest do
 
       updated_user =
         User.update(user, %{
-          nick: "test",
+          nick: "Test",
           hostname: "test",
           ident: "test",
           realname: "test",
@@ -92,7 +94,8 @@ defmodule ElixIRCd.Tables.UserTest do
 
       assert updated_user.pid == pid
       assert updated_user.transport == :tcp
-      assert updated_user.nick == "test"
+      assert updated_user.nick_key == "test"
+      assert updated_user.nick == "Test"
       assert updated_user.hostname == "test"
       assert updated_user.ident == "test"
       assert updated_user.realname == "test"

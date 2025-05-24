@@ -55,7 +55,6 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
       {:error, :registered_nick_not_found} ->
         notify(user, "Nickname \x02#{nickname}\x02 is not registered.")
-        Logger.info("Failed IDENTIFY attempt for unregistered nickname #{nickname} from #{user_mask(user)}")
     end
   end
 
@@ -81,13 +80,10 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     if user.nick != registered_nick.nickname do
       notify(user, "Your current nickname will now be recognized with your account.")
     end
-
-    Logger.info("User #{user_mask(user)} identified for nickname #{registered_nick.nickname}")
   end
 
   @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok
   defp handle_failed_identification(user, registered_nick) do
     notify(user, "Password incorrect for \x02#{registered_nick.nickname}\x02.")
-    Logger.info("Failed IDENTIFY attempt for #{registered_nick.nickname} from #{user_mask(user)}")
   end
 end

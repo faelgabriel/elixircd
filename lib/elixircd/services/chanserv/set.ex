@@ -22,7 +22,6 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   end
 
   def handle(user, [@command_name, channel_name, setting | args]) do
-    channel_name = String.downcase(channel_name)
     setting = String.upcase(setting)
 
     case check_channel_ownership(user, channel_name) do
@@ -358,14 +357,18 @@ defmodule ElixIRCd.Services.Chanserv.Set do
     notify(user, "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 has been unset.")
   end
 
-  defp handle_successor(user, registered_channel, [successor]) do
-    case RegisteredNicks.get_by_nickname(successor) do
-      {:ok, _registered_nick} ->
-        RegisteredChannels.update(registered_channel, %{successor: successor})
-        notify(user, "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 has been set to: \2#{successor}\2")
+  defp handle_successor(user, registered_channel, [target_successor]) do
+    case RegisteredNicks.get_by_nickname(target_successor) do
+      {:ok, registered_nick} ->
+        RegisteredChannels.update(registered_channel, %{successor: registered_nick.nickname})
+
+        notify(
+          user,
+          "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 has been set to: \2#{registered_nick.nickname}\2"
+        )
 
       {:error, :registered_nick_not_found} ->
-        notify(user, "Cannot set successor: \2#{successor}\2 is not a registered nickname.")
+        notify(user, "Cannot set successor: \2#{target_successor}\2 is not a registered nickname.")
     end
   end
 

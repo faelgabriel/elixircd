@@ -5,10 +5,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -54,7 +51,6 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
         recover_nickname(user, registered_nick)
       else
         notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
-        Logger.info("Failed RECOVER attempt for #{registered_nick.nickname} from #{user_mask(user)}")
       end
     end
   end
@@ -81,7 +77,6 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
           ]
 
           notify(user, recovery_instructions)
-          Logger.info("User #{user_mask(user)} recovered nickname #{registered_nick.nickname}")
         end
 
       {:error, :user_not_found} ->
@@ -95,7 +90,6 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
         ]
 
         notify(user, recovery_instructions)
-        Logger.info("User #{user_mask(user)} recovered nickname #{registered_nick.nickname}")
     end
   end
 

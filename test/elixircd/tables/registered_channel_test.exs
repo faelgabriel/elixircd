@@ -10,7 +10,7 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
   describe "new/1" do
     test "creates a new registered channel with required attributes" do
       attrs = %{
-        name: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host"
@@ -18,7 +18,8 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
 
       registered_channel = RegisteredChannel.new(attrs)
 
-      assert registered_channel.name == "#testchannel"
+      assert registered_channel.name_key == "#testchannel"
+      assert registered_channel.name == "#TestChannel"
       assert registered_channel.founder == "testfounder"
       assert registered_channel.password_hash == "hash123"
       assert registered_channel.registered_by == "user@host"
@@ -32,7 +33,7 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
       custom_settings = Settings.new() |> Settings.update(%{guard: false, private: true})
 
       attrs = %{
-        name: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host",
@@ -53,7 +54,7 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
       }
 
       attrs = %{
-        name: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host",
@@ -98,7 +99,7 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
 
     test "creates a new registered channel with a successor" do
       attrs = %{
-        name: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host",
@@ -114,7 +115,8 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
   describe "update/2" do
     test "updates a registered channel with new values" do
       registered_channel = %RegisteredChannel{
-        name: "#testchannel",
+        name_key: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host",
@@ -134,7 +136,8 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
 
     test "updates a registered channel with a new topic" do
       registered_channel = %RegisteredChannel{
-        name: "#testchannel",
+        name_key: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host",
@@ -171,7 +174,8 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
       }
 
       registered_channel = %RegisteredChannel{
-        name: "#testchannel",
+        name_key: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host",
@@ -186,7 +190,8 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
 
       updated_channel = RegisteredChannel.update(registered_channel, attrs)
 
-      assert updated_channel.name == "#testchannel"
+      assert updated_channel.name_key == "#testchannel"
+      assert updated_channel.name == "#TestChannel"
       assert updated_channel.founder == "testfounder"
       assert updated_channel.registered_by == "user@host"
       assert updated_channel.settings.description == "Original description"
@@ -196,7 +201,8 @@ defmodule ElixIRCd.Tables.RegisteredChannelTest do
 
     test "updates a registered channel with a new successor" do
       registered_channel = %RegisteredChannel{
-        name: "#testchannel",
+        name_key: "#testchannel",
+        name: "#TestChannel",
         founder: "testfounder",
         password_hash: "hash123",
         registered_by: "user@host",

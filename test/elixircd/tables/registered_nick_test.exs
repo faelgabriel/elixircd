@@ -9,14 +9,15 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
   describe "new/1" do
     test "creates a new registered nick with required attributes" do
       attrs = %{
-        nickname: "testnick",
+        nickname: "TestNick",
         password_hash: "hash123",
         registered_by: "user@host"
       }
 
       registered_nick = RegisteredNick.new(attrs)
 
-      assert registered_nick.nickname == "testnick"
+      assert registered_nick.nickname_key == "testnick"
+      assert registered_nick.nickname == "TestNick"
       assert registered_nick.password_hash == "hash123"
       assert registered_nick.registered_by == "user@host"
       assert registered_nick.email == nil
@@ -31,7 +32,7 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
       custom_settings = Settings.new() |> Settings.update(%{hide_email: true})
 
       attrs = %{
-        nickname: "testnick",
+        nickname: "TestNick",
         password_hash: "hash123",
         registered_by: "user@host",
         email: "test@example.com",
@@ -40,6 +41,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
 
       registered_nick = RegisteredNick.new(attrs)
 
+      assert registered_nick.nickname_key == "testnick"
+      assert registered_nick.nickname == "TestNick"
       assert registered_nick.email == "test@example.com"
       assert registered_nick.settings.hide_email == true
     end
@@ -49,7 +52,7 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
 
       registered_nick =
         RegisteredNick.new(%{
-          nickname: "testnick",
+          nickname: "TestNick",
           password_hash: "hash123",
           registered_by: "user@host"
         })
@@ -64,7 +67,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
   describe "update/2" do
     test "updates a registered nick with new values" do
       registered_nick = %RegisteredNick{
-        nickname: "testnick",
+        nickname_key: "testnick",
+        nickname: "TestNick",
         password_hash: "hash123",
         registered_by: "user@host",
         email: nil,
@@ -91,7 +95,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
       timestamp = DateTime.utc_now()
 
       registered_nick = %RegisteredNick{
-        nickname: "testnick",
+        nickname_key: "testnick",
+        nickname: "TestNick",
         password_hash: "hash123",
         registered_by: "user@host",
         email: "original@example.com",
@@ -113,7 +118,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
       assert updated_nick.verify_code == "123456"
       assert updated_nick.verified_at == timestamp
       assert updated_nick.last_seen_at != nil
-      assert updated_nick.nickname == "testnick"
+      assert updated_nick.nickname_key == "testnick"
+      assert updated_nick.nickname == "TestNick"
     end
   end
 end

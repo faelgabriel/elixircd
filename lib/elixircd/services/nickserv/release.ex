@@ -5,10 +5,7 @@ defmodule ElixIRCd.Services.Nickserv.Release do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.RegisteredNick
@@ -60,7 +57,6 @@ defmodule ElixIRCd.Services.Nickserv.Release do
         release_nickname(user, registered_nick)
       else
         notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
-        Logger.info("Failed RELEASE attempt for #{registered_nick.nickname} from #{user_mask(user)}")
       end
     end
   end
@@ -70,7 +66,6 @@ defmodule ElixIRCd.Services.Nickserv.Release do
     RegisteredNicks.update(registered_nick, %{reserved_until: nil})
 
     notify(user, "Nick \x02#{registered_nick.nickname}\x02 has been released.")
-    Logger.info("User #{user_mask(user)} released nickname #{registered_nick.nickname}")
   end
 
   @spec reserved?(RegisteredNick.t()) :: boolean()

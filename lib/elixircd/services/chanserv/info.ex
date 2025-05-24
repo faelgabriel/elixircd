@@ -6,8 +6,6 @@ defmodule ElixIRCd.Services.Chanserv.Info do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
   import ElixIRCd.Utils.Time, only: [format_time: 1]
 
@@ -27,7 +25,6 @@ defmodule ElixIRCd.Services.Chanserv.Info do
   end
 
   def handle(user, [@command_name, channel_name | rest]) do
-    channel_name = String.downcase(channel_name)
     show_all? = rest |> List.first() |> to_string() |> String.upcase() == "ALL"
 
     case RegisteredChannels.get_by_name(channel_name) do

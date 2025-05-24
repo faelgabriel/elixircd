@@ -5,10 +5,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -51,7 +48,6 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
         drop_nickname(user, registered_nick)
       else
         notify(user, "Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.")
-        Logger.info("Failed DROP attempt for #{registered_nick.nickname} from #{user_mask(user)}")
       end
     end
   end
@@ -77,6 +73,5 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     RegisteredNicks.delete(cleared_nickname)
 
     notify(user, "Nick \x02#{registered_nick.nickname}\x02 has been dropped.")
-    Logger.info("User #{user_mask(user)} dropped nickname #{registered_nick.nickname}")
   end
 end

@@ -25,17 +25,18 @@ defmodule ElixIRCd.Repositories.ChannelBans do
   @doc """
   Get all channel bans by the channel name.
   """
-  @spec get_by_channel_name(String.t()) :: [ChannelBan.t()]
-  def get_by_channel_name(channel_name) do
-    Memento.Query.select(ChannelBan, {:==, :channel_name, channel_name})
+  @spec get_by_channel_name_key(String.t()) :: [ChannelBan.t()]
+  def get_by_channel_name_key(channel_name_key) do
+    Memento.Query.select(ChannelBan, {:==, :channel_name_key, channel_name_key})
   end
 
   @doc """
   Get a channel ban by the channel name and ban mask.
   """
-  @spec get_by_channel_name_and_mask(String.t(), String.t()) :: {:ok, ChannelBan.t()} | {:error, :channel_ban_not_found}
-  def get_by_channel_name_and_mask(channel_name, mask) do
-    conditions = [{:==, :channel_name, channel_name}, {:==, :mask, mask}]
+  @spec get_by_channel_name_key_and_mask(String.t(), String.t()) ::
+          {:ok, ChannelBan.t()} | {:error, :channel_ban_not_found}
+  def get_by_channel_name_key_and_mask(channel_name_key, mask) do
+    conditions = [{:==, :channel_name_key, channel_name_key}, {:==, :mask, mask}]
 
     Memento.Query.select(ChannelBan, conditions, limit: 1)
     |> case do

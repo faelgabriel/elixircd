@@ -82,13 +82,13 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
   defp handle_quit(%{registered: true} = user, quit_message) do
     # List of all channel names the quitting user is a member of
-    all_channel_names =
+    all_channel_name_keys =
       UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name)
+      |> Enum.map(& &1.channel_name_key)
 
     # List of all user_channel records for channels the quitting user is a member of, excluding himself
     all_user_channels_without_user =
-      UserChannels.get_by_channel_names(all_channel_names)
+      UserChannels.get_by_channel_names(all_channel_name_keys)
       |> Enum.reject(fn user_channel -> user_channel.user_pid == user.pid end)
 
     # List of unique user_channel.user_pid records that share channels with the quitting user
@@ -98,11 +98,11 @@ defmodule ElixIRCd.Server.Connection do
 
     # Find channels with no other users remaining after removing the quitting user
     channels_with_no_other_users =
-      all_channel_names
-      |> Enum.filter(fn channel_name ->
+      all_channel_name_keys
+      |> Enum.filter(fn channel_name_key ->
         # Check if no user_channel records remain for this channel after removing the quitting user
         not Enum.any?(all_user_channels_without_user, fn user_channel ->
-          user_channel.channel_name == channel_name
+          user_channel.channel_name_key == channel_name_key
         end)
       end)
 
@@ -111,12 +111,13 @@ defmodule ElixIRCd.Server.Connection do
     Users.delete(user)
 
     # Delete the channels that have no other users
-    Enum.each(channels_with_no_other_users, fn channel_name ->
-      ChannelInvites.delete_by_channel_name(channel_name)
-      Channels.delete_by_name(channel_name)
+    Enum.each(channels_with_no_other_users, fn channel_name_key ->
+      ChannelInvites.delete_by_channel_name(channel_name_key)
+      Channels.delete_by_name(channel_name_key)
     end)
 
     HistoricalUsers.create(%{
+      nick_key: user.nick_key,
       nick: user.nick,
       hostname: user.hostname,
       ident: user.ident,

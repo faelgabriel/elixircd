@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   """
 
   alias ElixIRCd.Tables.RegisteredChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Create a new registered channel and write it to the database.
@@ -19,7 +20,9 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   """
   @spec get_by_name(String.t()) :: {:ok, RegisteredChannel.t()} | {:error, :registered_channel_not_found}
   def get_by_name(name) do
-    Memento.Query.read(RegisteredChannel, name)
+    name_key = CaseMapping.normalize(name)
+
+    Memento.Query.read(RegisteredChannel, name_key)
     |> case do
       nil -> {:error, :registered_channel_not_found}
       registered_channel -> {:ok, registered_channel}

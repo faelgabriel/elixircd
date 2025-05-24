@@ -266,7 +266,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_whoischannels), do: "319"
   defp numeric_reply(:rpl_list), do: "322"
   defp numeric_reply(:rpl_listend), do: "323"
-  # defp numeric_reply(:rpl_whoisaccount), do: "330"
+  defp numeric_reply(:rpl_whoisaccount), do: "330"
   defp numeric_reply(:rpl_notopic), do: "331"
   defp numeric_reply(:rpl_topic), do: "332"
   defp numeric_reply(:rpl_topicwhotime), do: "333"

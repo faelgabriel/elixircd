@@ -14,10 +14,10 @@ config :elixircd,
   ],
   # Features Configuration
   features: [
-    # TODO: Case mapping rules (rfc1459, strict-rfc1459, ascii)
+    # Case mapping rules (:rfc1459, :strict_rfc1459, :ascii)
     # Important: Changing case mapping after the server has started and
     # users/channels exist may lead to unexpected behavior.
-    case_mapping: "rfc1459",
+    case_mapping: :rfc1459,
     # TODO: Support for extended NAMES with hostmasks
     support_extended_names: true,
     # TODO: Support for CALLERID (mode +g)

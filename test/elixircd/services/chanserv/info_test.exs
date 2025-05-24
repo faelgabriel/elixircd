@@ -41,27 +41,6 @@ defmodule ElixIRCd.Services.Chanserv.InfoTest do
         ])
       end)
     end
-
-    test "handles case insensitive channel names" do
-      Memento.transaction!(fn ->
-        channel_name = "#TestChannel"
-        lowercase_name = String.downcase(channel_name)
-        user = insert(:user)
-
-        create_test_channel(name: lowercase_name)
-
-        assert :ok = Info.handle(user, ["INFO", channel_name])
-
-        assert_sent_messages([
-          {user.pid, ~r/ChanServ.*NOTICE.*Information for channel \x02#{lowercase_name}\x02:/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Founder: founder/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Description: \(none\)/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Registered: 2021-01-01 00:00:00/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Last used: 2021-01-01 00:00:00/},
-          {user.pid, ~r/ChanServ.*NOTICE.*\*\*\*\*\* End of Info \*\*\*\*\*/}
-        ])
-      end)
-    end
   end
 
   describe "handle/2 access level tests" do

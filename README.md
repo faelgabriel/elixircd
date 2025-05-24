@@ -234,7 +234,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **QUIT**: Disconnect from the server. ✅
 - **LUSERS**: Get statistics about the size of the network. ✅
 - **ISON**: Check if specified users are online. ✅
-- **VERSION**: Respond to queries about the server's version. ✴️
+- **VERSION**: Respond to queries about the server's version. ✅
 - **STATS**: Provide server statistics. ✅
 - **INFO**: Provide information about the server. ✅
 - **TIME**: Provide the server's local time. ✅

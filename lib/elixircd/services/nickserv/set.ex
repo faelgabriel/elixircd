@@ -8,7 +8,6 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   require Logger
 
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.RegisteredNick
@@ -78,8 +77,6 @@ defmodule ElixIRCd.Services.Nickserv.Set do
         else
           notify(user, "Your email address will now be shown in \x02INFO\x02 displays.")
         end
-
-        Logger.info("User #{user_mask(user)} set HIDEMAIL to #{if hide_email, do: "ON", else: "OFF"}")
 
       {:error, error_reason} ->
         Logger.error("Error updating settings for #{user.identified_as}: #{inspect(error_reason)}")

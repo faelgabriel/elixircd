@@ -44,10 +44,10 @@ defmodule ElixIRCd.Commands.Notice do
   end
 
   @impl true
-  def handle(user, %{command: "NOTICE", params: [receiver], trailing: message}) do
-    if channel_name?(receiver),
-      do: handle_channel_message(user, receiver, message),
-      else: handle_user_message(user, receiver, message)
+  def handle(user, %{command: "NOTICE", params: [target], trailing: message}) do
+    if channel_name?(target),
+      do: handle_channel_message(user, target, message),
+      else: handle_user_message(user, target, message)
   end
 
   defp handle_channel_message(user, channel_name, message) do
@@ -85,13 +85,13 @@ defmodule ElixIRCd.Commands.Notice do
     end
   end
 
-  defp handle_user_message(user, receiver_nick, message) do
-    case Users.get_by_nick(receiver_nick) do
+  defp handle_user_message(user, target_nick, message) do
+    case Users.get_by_nick(target_nick) do
       {:ok, receiver_user} ->
         Message.build(%{
           prefix: user_mask(user),
           command: "NOTICE",
-          params: [receiver_nick],
+          params: [target_nick],
           trailing: message
         })
         |> Dispatcher.broadcast(receiver_user)
@@ -100,7 +100,7 @@ defmodule ElixIRCd.Commands.Notice do
         Message.build(%{
           prefix: :server,
           command: :err_nosuchnick,
-          params: [user.nick, receiver_nick],
+          params: [user.nick, target_nick],
           trailing: "No such nick"
         })
         |> Dispatcher.broadcast(user)

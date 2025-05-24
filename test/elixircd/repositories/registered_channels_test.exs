@@ -120,7 +120,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannelsTest do
 
       Memento.transaction!(fn -> RegisteredChannels.delete(registered_channel) end)
 
-      assert nil == Memento.transaction!(fn -> Memento.Query.read(RegisteredChannel, registered_channel.name) end)
+      assert nil == Memento.transaction!(fn -> Memento.Query.read(RegisteredChannel, registered_channel.name_key) end)
     end
   end
 end

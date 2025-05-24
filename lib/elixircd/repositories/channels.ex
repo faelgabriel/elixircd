@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.Channels do
   """
 
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Create a new channel and write it to the database.
@@ -27,7 +28,8 @@ defmodule ElixIRCd.Repositories.Channels do
   """
   @spec delete_by_name(String.t()) :: :ok
   def delete_by_name(name) do
-    Memento.Query.delete(Channel, name)
+    name_key = CaseMapping.normalize(name)
+    Memento.Query.delete(Channel, name_key)
   end
 
   @doc """
@@ -52,7 +54,9 @@ defmodule ElixIRCd.Repositories.Channels do
   """
   @spec get_by_name(String.t()) :: {:ok, Channel.t()} | {:error, :channel_not_found}
   def get_by_name(name) do
-    Memento.Query.read(Channel, name)
+    name_key = CaseMapping.normalize(name)
+
+    Memento.Query.read(Channel, name_key)
     |> case do
       nil -> {:error, :channel_not_found}
       channel -> {:ok, channel}
@@ -67,7 +71,7 @@ defmodule ElixIRCd.Repositories.Channels do
 
   def get_by_names(names) do
     conditions =
-      Enum.map(names, fn name -> {:==, :name, name} end)
+      Enum.map(names, fn name -> {:==, :name_key, CaseMapping.normalize(name)} end)
       |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
 
     Memento.Query.select(Channel, conditions)

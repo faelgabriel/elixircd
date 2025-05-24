@@ -61,10 +61,13 @@ defmodule ElixIRCd.Schedulers.RegisteredNickExpiration do
   defp expire_old_nicknames do
     RegisteredNicks.get_all()
     |> Enum.filter(&check_nick_expiration/1)
-    |> Enum.map(fn nick ->
-      Logger.info("Expiring nickname: #{nick.nickname} (last seen: #{nick.last_seen_at || nick.created_at})")
-      RegisteredNicks.delete(nick)
-      nick.nickname
+    |> Enum.map(fn registered_nick ->
+      nickname = registered_nick.nickname
+      last_seen_at = registered_nick.last_seen_at || registered_nick.created_at
+      Logger.info("Expiring nickname: #{nickname} (last seen: #{last_seen_at})")
+
+      RegisteredNicks.delete(registered_nick)
+      registered_nick.nickname
     end)
     |> length()
   end

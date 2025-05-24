@@ -131,7 +131,7 @@ defmodule ElixIRCd.Commands.TopicTest do
           {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :Topic text!\r\n"}
         ])
 
-        updated_channel = Memento.Query.read(Channel, channel.name)
+        updated_channel = Memento.Query.read(Channel, channel.name_key)
         assert updated_channel.topic.text == "Topic text!"
         assert updated_channel.topic.setter == user_mask(user)
         assert DateTime.diff(DateTime.utc_now(), updated_channel.topic.set_at) < 1000
@@ -151,7 +151,7 @@ defmodule ElixIRCd.Commands.TopicTest do
           {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :Topic channel text!\r\n"}
         ])
 
-        updated_channel = Memento.Query.read(Channel, channel.name)
+        updated_channel = Memento.Query.read(Channel, channel.name_key)
         assert updated_channel.topic.text == "Topic channel text!"
         assert updated_channel.topic.setter == user_mask(user)
         assert DateTime.diff(DateTime.utc_now(), updated_channel.topic.set_at) < 1000
@@ -171,7 +171,7 @@ defmodule ElixIRCd.Commands.TopicTest do
           {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :\r\n"}
         ])
 
-        updated_channel = Memento.Query.read(Channel, channel.name)
+        updated_channel = Memento.Query.read(Channel, channel.name_key)
         assert updated_channel.topic == nil
       end)
     end

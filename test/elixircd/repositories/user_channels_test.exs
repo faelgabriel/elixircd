@@ -15,7 +15,7 @@ defmodule ElixIRCd.Repositories.UserChannelsTest do
       attrs = %{
         user_pid: pid,
         user_transport: :tcp,
-        channel_name: "#elixir",
+        channel_name_key: "#elixir",
         modes: []
       }
 
@@ -23,7 +23,7 @@ defmodule ElixIRCd.Repositories.UserChannelsTest do
 
       assert user_channel.user_pid == pid
       assert user_channel.user_transport == :tcp
-      assert user_channel.channel_name == "#elixir"
+      assert user_channel.channel_name_key == "#elixir"
       assert user_channel.modes == []
     end
   end
@@ -65,7 +65,10 @@ defmodule ElixIRCd.Repositories.UserChannelsTest do
 
       assert {:ok, user_channel} ==
                Memento.transaction!(fn ->
-                 UserChannels.get_by_user_pid_and_channel_name(user_channel.user_pid, user_channel.channel_name)
+                 UserChannels.get_by_user_pid_and_channel_name(
+                   user_channel.user_pid,
+                   user_channel.channel_name_key
+                 )
                end)
     end
 
