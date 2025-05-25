@@ -515,7 +515,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
                {"k", "password"}
              ]
 
-      assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
+      assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name_key(channel.name_key) end)
       assert channel_ban.mask == "nick!*@mask"
       assert channel_ban.setter == user_mask(user)
       assert channel_ban.created_at != nil
@@ -555,7 +555,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
       assert updated_channel.modes == []
 
-      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
+      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name_key(channel.name_key) end)
     end
 
     test "handles add and remove same modes" do
@@ -609,7 +609,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
       assert updated_channel.modes == []
 
-      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
+      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name_key(channel.name_key) end)
     end
 
     test "handles add modes with value" do
@@ -653,7 +653,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
       assert user_channel_operator.modes == ["o"]
       assert user_channel_voice.modes == ["v"]
 
-      assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
+      assert [channel_ban] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name_key(channel.name_key) end)
       assert channel_ban.mask == "nick!*@mask"
       assert channel_ban.setter == user_mask(user)
       assert channel_ban.created_at != nil
@@ -722,7 +722,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
       assert user_channel_operator.modes == []
       assert user_channel_voice.modes == []
 
-      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name(channel.name) end)
+      assert [] = Memento.transaction!(fn -> ChannelBans.get_by_channel_name_key(channel.name_key) end)
     end
 
     test "handles add modes already set" do

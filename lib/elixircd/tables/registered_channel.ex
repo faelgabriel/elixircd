@@ -5,11 +5,13 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
 
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.RegisteredChannel.Settings
+  alias ElixIRCd.Utils.CaseMapping
 
-  @enforce_keys [:name, :founder, :password_hash, :registered_by, :created_at]
+  @enforce_keys [:name_key, :name, :founder, :password_hash, :registered_by, :created_at]
 
   use Memento.Table,
     attributes: [
+      :name_key,
       :name,
       :founder,
       :password_hash,
@@ -24,6 +26,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
     type: :set
 
   @type t :: %__MODULE__{
+          name_key: String.t(),
           name: String.t(),
           founder: String.t(),
           password_hash: String.t(),
@@ -61,6 +64,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
       |> Map.put_new(:successor, nil)
       |> Map.put_new(:last_used_at, now)
       |> Map.put_new(:created_at, now)
+      |> handle_name_key()
 
     struct!(__MODULE__, new_attrs)
   end
@@ -70,6 +74,18 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
   """
   @spec update(t(), t_attrs()) :: t()
   def update(registered_channel, attrs) do
-    struct!(registered_channel, attrs)
+    new_attrs =
+      attrs
+      |> handle_name_key()
+
+    struct!(registered_channel, new_attrs)
   end
+
+  @spec handle_name_key(t_attrs()) :: t_attrs()
+  defp handle_name_key(%{name: name} = attrs) do
+    name_key = if name != nil, do: CaseMapping.normalize(name), else: nil
+    Map.put(attrs, :name_key, name_key)
+  end
+
+  defp handle_name_key(attrs), do: attrs
 end

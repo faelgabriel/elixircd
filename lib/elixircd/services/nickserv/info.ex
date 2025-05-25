@@ -5,10 +5,8 @@ defmodule ElixIRCd.Services.Nickserv.Info do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -45,8 +43,6 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     else
       notify(user, "The information for this nickname is private.")
     end
-
-    Logger.info("User #{user_mask(user)} requested INFO for #{registered_nick.nickname}")
   end
 
   @spec display_online_status(User.t(), RegisteredNick.t()) :: :ok

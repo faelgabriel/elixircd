@@ -25,7 +25,7 @@ defmodule ElixIRCd.Repositories.RegisteredNicksTest do
   end
 
   describe "get_by_nickname/1" do
-    test "returns a registered nickname by its nickname" do
+    test "returns a registered nickname by nickname" do
       registered_nick = insert(:registered_nick)
 
       assert {:ok, registered_nick} ==
@@ -46,8 +46,10 @@ defmodule ElixIRCd.Repositories.RegisteredNicksTest do
       registered_nicks = Memento.transaction!(fn -> RegisteredNicks.get_all() end)
 
       assert length(registered_nicks) == 2
-      assert Enum.any?(registered_nicks, fn nick -> nick.nickname == registered_nick1.nickname end)
-      assert Enum.any?(registered_nicks, fn nick -> nick.nickname == registered_nick2.nickname end)
+
+      assert Enum.any?(registered_nicks, fn registered_nick -> registered_nick.nickname == registered_nick1.nickname end)
+
+      assert Enum.any?(registered_nicks, fn registered_nick -> registered_nick.nickname == registered_nick2.nickname end)
     end
 
     test "returns an empty list when no registered nicknames exist" do
@@ -77,7 +79,7 @@ defmodule ElixIRCd.Repositories.RegisteredNicksTest do
 
       Memento.transaction!(fn -> RegisteredNicks.delete(registered_nick) end)
 
-      assert nil == Memento.transaction!(fn -> Memento.Query.read(RegisteredNick, registered_nick.nickname) end)
+      assert nil == Memento.transaction!(fn -> Memento.Query.read(RegisteredNick, registered_nick.nickname_key) end)
     end
   end
 end

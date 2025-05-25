@@ -131,6 +131,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert [] = get_records(UserChannel)
 
       assert [historical_user] = get_records(HistoricalUser)
+      assert historical_user.nick_key == user.nick_key
       assert historical_user.nick == user.nick
       assert historical_user.hostname == user.hostname
       assert historical_user.ident == user.ident

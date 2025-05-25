@@ -8,7 +8,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Repositories.RegisteredNicks
-  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Register
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.RegisteredNick.Settings
@@ -131,6 +130,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       password = "password123"
 
       mock_registered_nick = %RegisteredNick{
+        nickname_key: user.nick_key,
         nickname: user.nick,
         password_hash: Pbkdf2.hash_pwd_salt(password),
         email: nil,
@@ -144,25 +144,18 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       }
 
       RegisteredNicks
-      |> expect(:get_by_nickname, fn nick ->
-        if nick == user.nick, do: {:error, :registered_nick_not_found}, else: {:error, :registered_nick_not_found}
+      |> expect(:get_by_nickname, fn _nick ->
+        {:error, :registered_nick_not_found}
       end)
 
       RegisteredNicks
       |> expect(:create, fn _params -> mock_registered_nick end)
-
-      Users
-      |> expect(:update, fn _user, params ->
-        Map.merge(user, params)
-      end)
 
       :ok = Register.handle(user, ["REGISTER", password])
 
       assert_sent_messages([
         {user.pid,
          ":NickServ!service@irc.test NOTICE #{user.nick} :Your nickname has been successfully registered.\r\n"},
-        {user.pid,
-         ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{user.nick}\x02.\r\n"},
         {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
       ])
     end
@@ -186,6 +179,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       verify_code = "123456"
 
       mock_registered_nick = %RegisteredNick{
+        nickname_key: user.nick_key,
         nickname: user.nick,
         password_hash: Pbkdf2.hash_pwd_salt(password),
         email: email,
@@ -199,19 +193,14 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       }
 
       RegisteredNicks
-      |> expect(:get_by_nickname, fn nick ->
-        if nick == user.nick, do: {:error, :registered_nick_not_found}, else: {:error, :registered_nick_not_found}
+      |> expect(:get_by_nickname, fn _nick ->
+        {:error, :registered_nick_not_found}
       end)
 
       RegisteredNicks
       |> expect(:create, fn params ->
         assert params[:email] == email
         %{mock_registered_nick | verify_code: params[:verify_code]}
-      end)
-
-      Users
-      |> expect(:update, fn _user, params ->
-        Map.merge(user, params)
       end)
 
       Mailer
@@ -230,8 +219,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         {user.pid, ~r/NickServ.*NOTICE.*Please check the address if you don't receive it/},
         {user.pid, ~r/NickServ.*NOTICE.*If you do not complete registration within 30 days, your nickname will expire/},
         {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
-        {user.pid,
-         ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{user.nick}\x02.\r\n"},
         {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
       ])
     end
@@ -266,7 +253,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
           {user.pid, ~r/NickServ.*NOTICE.*Please check the address if you don't receive it/},
           {user.pid, ~r/NickServ.*NOTICE.*If you do not complete registration within 1 day, your nickname will expire/},
           {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
-          {user.pid, ~r/NickServ.*NOTICE.*You are now identified for \x02#{user.nick}\x02/},
           {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
         ])
       end)
@@ -301,7 +287,6 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
           {user.pid,
            ~r/NickServ.*NOTICE.*If you do not complete registration within 2 days, your nickname will expire/},
           {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
-          {user.pid, ~r/NickServ.*NOTICE.*You are now identified for \x02#{user.nick}\x02/},
           {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
         ])
       end)

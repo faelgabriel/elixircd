@@ -30,23 +30,22 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   @impl true
-  def handle(user, %{command: "NICK", params: [], trailing: nick}) do
-    handle(user, %Message{command: "NICK", params: [nick]})
+  def handle(user, %{command: "NICK", params: [], trailing: input_nick}) do
+    handle(user, %Message{command: "NICK", params: [input_nick]})
   end
 
   @impl true
-  def handle(user, %{command: "NICK", params: [nick | _rest]}) do
-    # Issue: nick needs to be case unsensitive
-    with :ok <- validate_nick(nick),
-         :ok <- check_reserved_nick(user, nick),
-         :ok <- check_nick_in_use(nick) do
-      change_nick(user, nick)
+  def handle(user, %{command: "NICK", params: [input_nick | _rest]}) do
+    with :ok <- validate_nick(input_nick),
+         :ok <- check_reserved_nick(user, input_nick),
+         :ok <- check_nick_in_use(input_nick) do
+      change_nick(user, input_nick)
     else
       {:error, :nick_reserved} ->
         Message.build(%{
           prefix: :server,
           command: :err_nicknameinuse,
-          params: [user_reply(user), nick],
+          params: [user_reply(user), input_nick],
           trailing: "This nickname is reserved. Please identify to NickServ first."
         })
         |> Dispatcher.broadcast(user)
@@ -55,7 +54,7 @@ defmodule ElixIRCd.Commands.Nick do
         Message.build(%{
           prefix: :server,
           command: :err_nicknameinuse,
-          params: [user_reply(user), nick],
+          params: [user_reply(user), input_nick],
           trailing: "Nickname is already in use"
         })
         |> Dispatcher.broadcast(user)
@@ -64,7 +63,7 @@ defmodule ElixIRCd.Commands.Nick do
         Message.build(%{
           prefix: :server,
           command: :err_erroneusnickname,
-          params: [user_reply(user), nick],
+          params: [user_reply(user), input_nick],
           trailing: "Nickname is unavailable: #{invalid_nick_error}"
         })
         |> Dispatcher.broadcast(user)
@@ -72,8 +71,8 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   @spec check_reserved_nick(User.t(), String.t()) :: :ok | {:error, :nick_reserved}
-  defp check_reserved_nick(user, nick) do
-    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(nick),
+  defp check_reserved_nick(user, input_nick) do
+    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
          {:reserved, true} <- {:reserved, reserved?(registered_nick)},
          {:identified, false} <- {:identified, user.identified_as == registered_nick.nickname} do
       {:error, :nick_reserved}
@@ -85,45 +84,45 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   @spec change_nick(User.t(), String.t()) :: :ok
-  defp change_nick(%{registered: false} = user, nick) do
-    updated_user = Users.update(user, %{nick: nick})
+  defp change_nick(%{registered: false} = user, input_nick) do
+    updated_user = Users.update(user, %{nick: input_nick})
     Handshake.handle(updated_user)
   end
 
-  defp change_nick(user, nick) do
+  defp change_nick(user, input_nick) do
     old_user_mask = user_mask(user)
-    updated_user = Users.update(user, %{nick: nick})
+    updated_user = Users.update(user, %{nick: input_nick})
 
     all_channel_users =
       UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name)
+      |> Enum.map(& &1.channel_name_key)
       |> UserChannels.get_by_channel_names()
       |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
       |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.build(%{prefix: old_user_mask, command: "NICK", params: [nick]})
+    Message.build(%{prefix: old_user_mask, command: "NICK", params: [input_nick]})
     |> Dispatcher.broadcast([updated_user | all_channel_users])
   end
 
   @spec check_nick_in_use(String.t()) :: :ok | {:error, :nick_in_use}
-  defp check_nick_in_use(nick) do
-    case Users.get_by_nick(nick) do
+  defp check_nick_in_use(input_nick) do
+    case Users.get_by_nick(input_nick) do
       {:ok, _user} -> {:error, :nick_in_use}
       {:error, :user_not_found} -> :ok
     end
   end
 
   @spec validate_nick(String.t()) :: :ok | {:error, String.t()}
-  defp validate_nick(nick) do
+  defp validate_nick(input_nick) do
     max_nick_length = Application.get_env(:elixircd, :user)[:max_nick_length]
     nick_pattern = ~r/\A[a-zA-Z\`|\^_{}\[\]\\][a-zA-Z\d\`|\^_\-{}\[\]\\]*\z/
 
     cond do
-      String.length(nick) > max_nick_length ->
+      String.length(input_nick) > max_nick_length ->
         {:error, "Nickname too long (maximum length: #{max_nick_length} characters)"}
 
-      !Regex.match?(nick_pattern, nick) ->
+      !Regex.match?(nick_pattern, input_nick) ->
         {:error, "Illegal characters"}
 
       true ->

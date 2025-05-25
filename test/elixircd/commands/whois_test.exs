@@ -144,6 +144,20 @@ defmodule ElixIRCd.Commands.WhoisTest do
         assert_user_whois_message(user, target_user, channel)
       end)
     end
+
+    test "handles WHOIS command with user nick target and target user is identified" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", identified_as: "account_name")
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        assert_user_whois_message(user, target_user, channel)
+      end)
+    end
   end
 
   @spec assert_user_whois_message(User.t(), User.t(), Channel.t()) :: :ok
@@ -159,6 +173,9 @@ defmodule ElixIRCd.Commands.WhoisTest do
           {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :#{target_user.away_message}\r\n"},
         target_user.modes |> Enum.find(fn mode -> mode == "o" end) &&
           {user.pid, ":irc.test 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
+        target_user.identified_as &&
+          {user.pid,
+           ":irc.test 330 #{user.nick} #{target_user.nick} #{target_user.identified_as} :is logged in as #{target_user.identified_as}\r\n"},
         {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
       ]
       |> Enum.reject(&(&1 == nil))

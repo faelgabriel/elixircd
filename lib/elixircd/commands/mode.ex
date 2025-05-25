@@ -121,7 +121,7 @@ defmodule ElixIRCd.Commands.Mode do
       |> DateTime.to_unix()
       |> Integer.to_string()
 
-    ChannelBans.get_by_channel_name(channel.name)
+    ChannelBans.get_by_channel_name_key(channel.name_key)
     |> Enum.each(fn channel_ban ->
       Message.build(%{
         prefix: :server,

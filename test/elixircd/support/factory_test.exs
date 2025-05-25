@@ -42,11 +42,13 @@ defmodule ElixIRCd.FactoryTest do
     end
 
     test "builds a user channel with custom attributes as a map" do
-      assert %UserChannel{channel_name: "custom_name"} = Factory.build(:user_channel, %{channel_name: "custom_name"})
+      assert %UserChannel{channel_name_key: "custom_name"} =
+               Factory.build(:user_channel, %{channel_name_key: "custom_name"})
     end
 
     test "builds a user channel with custom attributes as a keyword list" do
-      assert %UserChannel{channel_name: "custom_name"} = Factory.build(:user_channel, channel_name: "custom_name")
+      assert %UserChannel{channel_name_key: "custom_name"} =
+               Factory.build(:user_channel, channel_name_key: "custom_name")
     end
 
     test "builds a historical user with default attributes" do
@@ -128,7 +130,7 @@ defmodule ElixIRCd.FactoryTest do
       assert %UserChannel{} = user_channel = Factory.insert(:user_channel, %{channel: channel, user: user})
       assert user_channel.user_pid == user.pid
       assert user_channel.user_transport == user.transport
-      assert user_channel.channel_name == channel.name
+      assert user_channel.channel_name_key == channel.name_key
     end
 
     test "inserts a user channel into the database with custom attributes as a keyword list" do
@@ -138,7 +140,7 @@ defmodule ElixIRCd.FactoryTest do
       assert %UserChannel{} = user_channel = Factory.insert(:user_channel, channel: channel, user: user)
       assert user_channel.user_pid == user.pid
       assert user_channel.user_transport == user.transport
-      assert user_channel.channel_name == channel.name
+      assert user_channel.channel_name_key == channel.name_key
     end
 
     test "inserts a historical user into the database with default attributes" do

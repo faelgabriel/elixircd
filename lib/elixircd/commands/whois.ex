@@ -36,9 +36,9 @@ defmodule ElixIRCd.Commands.Whois do
 
   @impl true
   def handle(user, %{command: @command, params: [target_nick | _rest]}) do
-    {target_user, target_user_channel_names} = get_target_user(user, target_nick)
+    {target_user, target_user_channels_display} = get_target_user(user, target_nick)
 
-    whois_message(user, target_nick, target_user, target_user_channel_names)
+    whois_message(user, target_nick, target_user, target_user_channels_display)
 
     Message.build(%{
       prefix: :server,
@@ -53,7 +53,7 @@ defmodule ElixIRCd.Commands.Whois do
   Sends a message to the user with information about the target user.
   """
   @spec whois_message(User.t(), String.t(), User.t() | nil, [String.t()]) :: :ok
-  def whois_message(user, target_nick, nil = _target_user, _target_user_channel_names) do
+  def whois_message(user, target_nick, nil = _target_user, _target_user_channels_display) do
     Message.build(%{
       prefix: :server,
       command: :err_nosuchnick,
@@ -63,7 +63,7 @@ defmodule ElixIRCd.Commands.Whois do
     |> Dispatcher.broadcast(user)
   end
 
-  def whois_message(user, _target_nick, target_user, target_user_channel_names) when target_user != nil do
+  def whois_message(user, _target_nick, target_user, target_user_channels_display) when target_user != nil do
     idle_seconds = (:erlang.system_time(:second) - target_user.last_activity) |> to_string()
     signon_time = target_user.registered_at |> DateTime.to_unix()
 
@@ -78,7 +78,7 @@ defmodule ElixIRCd.Commands.Whois do
         prefix: :server,
         command: :rpl_whoischannels,
         params: [user.nick, target_user.nick],
-        trailing: target_user_channel_names |> Enum.join(" ")
+        trailing: target_user_channels_display |> Enum.join(" ")
       }),
       Message.build(%{
         prefix: :server,
@@ -115,45 +115,56 @@ defmodule ElixIRCd.Commands.Whois do
       |> Dispatcher.broadcast(user)
     end
 
-    # Feature: account implementation
-    # if true do
-    #   Message.build(%{
-    #     prefix: :server,
-    #     command: :rpl_whoisaccount,
-    #     params: [user.nick, target_user.nick, "target_user.account"],
-    #     trailing: "is logged in as target_user.account"
-    #   })
-    #   |> Dispatcher.broadcast(user)
-    # end
+    if target_user.identified_as do
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_whoisaccount,
+        params: [user.nick, target_user.nick, target_user.identified_as],
+        trailing: "is logged in as #{target_user.identified_as}"
+      })
+      |> Dispatcher.broadcast(user)
+    end
   end
 
   @spec get_target_user(User.t(), String.t()) :: {User.t() | nil, [String.t()]}
   defp get_target_user(user, target_nick) do
     with {:ok, target_user} <- Users.get_by_nick(target_nick),
-         user_channel_names <- UserChannels.get_by_user_pid(user.pid) |> Enum.map(& &1.channel_name),
-         target_user_channel_names <- UserChannels.get_by_user_pid(target_user.pid) |> Enum.map(& &1.channel_name),
-         true <- target_user_visible?(user_channel_names, target_user, target_user_channel_names) do
-      {target_user, filter_out_secret_channels(user_channel_names, target_user_channel_names)}
+         user_channels_keys <- UserChannels.get_by_user_pid(user.pid) |> Enum.map(& &1.channel_name_key),
+         target_user_channels_keys <- UserChannels.get_by_user_pid(target_user.pid) |> Enum.map(& &1.channel_name_key),
+         true <- target_user_visible?(user_channels_keys, target_user, target_user_channels_keys) do
+      {target_user, resolve_channel_names(user_channels_keys, target_user_channels_keys)}
     else
       _ -> {nil, []}
     end
   end
 
   @spec target_user_visible?([String.t()], User.t(), [String.t()]) :: boolean()
-  defp target_user_visible?(user_channel_names, target_user, target_user_channel_names) do
+  defp target_user_visible?(user_channels_keys, target_user, target_user_channels_keys) do
     if "i" in target_user.modes do
-      Enum.any?(user_channel_names, &Enum.member?(target_user_channel_names, &1))
+      Enum.any?(user_channels_keys, &Enum.member?(target_user_channels_keys, &1))
     else
       true
     end
   end
 
+  # Future: Optimize this function to use channel already fetched,
+  # and when not fetched, fetch multiple channels at once.
+  @spec resolve_channel_names([String.t()], [String.t()]) :: [String.t()]
+  defp resolve_channel_names(user_channels_keys, target_user_channels_keys) do
+    Enum.map(filter_out_secret_channels(user_channels_keys, target_user_channels_keys), fn channel_name_key ->
+      with {:ok, channel} <- Channels.get_by_name(channel_name_key) do
+        channel.name
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
   @spec filter_out_secret_channels([String.t()], [String.t()]) :: [String.t()]
-  defp filter_out_secret_channels(user_channel_names, target_user_channel_names) do
-    Enum.reject(target_user_channel_names, fn channel_name ->
-      with {:ok, channel} <- Channels.get_by_name(channel_name),
+  defp filter_out_secret_channels(user_channels_keys, target_user_channels_keys) do
+    Enum.reject(target_user_channels_keys, fn channel_name_key ->
+      with {:ok, channel} <- Channels.get_by_name(channel_name_key),
            true <- "s" in channel.modes do
-        not Enum.member?(user_channel_names, channel_name)
+        not Enum.member?(user_channels_keys, channel_name_key)
       else
         _ -> false
       end

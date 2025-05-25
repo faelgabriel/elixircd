@@ -11,7 +11,8 @@ defmodule ElixIRCd.Repositories.HistoricalUsersTest do
   describe "create/1" do
     test "creates a new historical user" do
       attrs = %{
-        nick: "testnick",
+        nick_key: "testnick",
+        nick: "Testnick",
         hostname: "testhostname",
         ident: "testusername",
         realname: "testrealname",
@@ -20,6 +21,7 @@ defmodule ElixIRCd.Repositories.HistoricalUsersTest do
 
       historical_user = Memento.transaction!(fn -> HistoricalUsers.create(attrs) end)
 
+      assert historical_user.nick_key == attrs.nick_key
       assert historical_user.nick == attrs.nick
       assert historical_user.hostname == attrs.hostname
       assert historical_user.ident == attrs.ident
@@ -29,20 +31,12 @@ defmodule ElixIRCd.Repositories.HistoricalUsersTest do
   end
 
   describe "get_by_nick/2" do
-    test "returns historical users by nick with limit" do
-      insert(:historical_user, nick: "test")
-      insert(:historical_user, nick: "test")
+    test "returns historical users by nick" do
+      insert(:historical_user, nick: "Test")
+      insert(:historical_user, nick: "Test")
 
       assert [%HistoricalUser{}] =
                Memento.transaction!(fn -> HistoricalUsers.get_by_nick("test", 1) end)
-    end
-
-    test "returns historical users by nick with limit as nil" do
-      insert(:historical_user, nick: "test")
-      insert(:historical_user, nick: "test")
-
-      assert [%HistoricalUser{}, %HistoricalUser{}] =
-               Memento.transaction!(fn -> HistoricalUsers.get_by_nick("test", nil) end)
     end
   end
 end

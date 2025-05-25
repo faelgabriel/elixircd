@@ -5,14 +5,11 @@ defmodule ElixIRCd.Services.Nickserv.Register do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Mailer, only: [send_verification_email: 3]
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, email_required_format: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
-  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -119,21 +116,21 @@ defmodule ElixIRCd.Services.Nickserv.Register do
         password_hash: password_hash,
         email: email,
         registered_by: user_mask(user),
-        verify_code: verify_code,
-        last_seen_at: DateTime.utc_now()
+        verify_code: verify_code
       })
 
-    Users.update(user, %{identified_as: registered_nick.nickname})
-
-    if is_nil(email) do
+    if is_nil(registered_nick.email) do
       notify(user, "Your nickname has been successfully registered.")
     else
-      # Future: add a task to send the email in the background and ensure it's not missed through a queue
-      send_verification_email(email, user.nick, verify_code)
+      # Future: send email in a background job or task queue
+      send_verification_email(registered_nick.email, user.nick, verify_code)
 
       unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
 
-      notify(user, "An email containing nickname activation instructions has been sent to \x02#{email}\x02.")
+      notify(
+        user,
+        "An email containing nickname activation instructions has been sent to \x02#{registered_nick.email}\x02."
+      )
 
       notify(
         user,
@@ -147,13 +144,10 @@ defmodule ElixIRCd.Services.Nickserv.Register do
         )
       end
 
-      notify(user, "\x02#{user.nick}\x02 is now registered to \x02#{email}\x02.")
+      notify(user, "\x02#{user.nick}\x02 is now registered to \x02#{registered_nick.email}\x02.")
     end
 
-    notify(user, "You are now identified for \x02#{user.nick}\x02.")
     notify(user, "To identify in the future, type: \x02/msg NickServ IDENTIFY #{user.nick} your_password\x02")
-
-    Logger.info("Nickname registered: #{user.nick} by #{user_mask(user)}")
   end
 
   @spec pluralize_days(integer()) :: String.t()

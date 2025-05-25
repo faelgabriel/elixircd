@@ -3,6 +3,8 @@ defmodule ElixIRCd.Tables.User do
   Module for the User table.
   """
 
+  alias ElixIRCd.Utils.CaseMapping
+
   @enforce_keys [:pid, :transport, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
     attributes: [
@@ -10,6 +12,7 @@ defmodule ElixIRCd.Tables.User do
       :transport,
       :ip_address,
       :port_connected,
+      :nick_key,
       :nick,
       :hostname,
       :ident,
@@ -23,7 +26,7 @@ defmodule ElixIRCd.Tables.User do
       :registered_at,
       :created_at
     ],
-    index: [:nick],
+    index: [:nick_key],
     type: :set
 
   @type t :: %__MODULE__{
@@ -31,6 +34,7 @@ defmodule ElixIRCd.Tables.User do
           transport: :tcp | :tls | :ws | :wss,
           ip_address: :inet.ip_address(),
           port_connected: :inet.port_number(),
+          nick_key: String.t() | nil,
           nick: String.t() | nil,
           hostname: String.t() | nil,
           ident: String.t() | nil,
@@ -75,6 +79,7 @@ defmodule ElixIRCd.Tables.User do
       |> Map.put_new(:modes, [])
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
+      |> handle_nick_key()
 
     struct!(__MODULE__, new_attrs)
   end
@@ -84,6 +89,18 @@ defmodule ElixIRCd.Tables.User do
   """
   @spec update(t(), t_attrs()) :: t()
   def update(user, attrs) do
-    struct!(user, attrs)
+    new_attrs =
+      attrs
+      |> handle_nick_key()
+
+    struct!(user, new_attrs)
   end
+
+  @spec handle_nick_key(t_attrs()) :: t_attrs()
+  defp handle_nick_key(%{nick: nick} = attrs) do
+    nick_key = if nick != nil, do: CaseMapping.normalize(nick), else: nil
+    Map.put(attrs, :nick_key, nick_key)
+  end
+
+  defp handle_nick_key(attrs), do: attrs
 end

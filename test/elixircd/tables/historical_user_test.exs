@@ -10,7 +10,8 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
       utc_now = DateTime.utc_now()
 
       attrs = %{
-        nick: "test",
+        nick_key: "test",
+        nick: "Test",
         hostname: "example.com",
         ident: "test",
         realname: "Test User"
@@ -18,7 +19,8 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
 
       historical_user = HistoricalUser.new(attrs)
 
-      assert historical_user.nick == "test"
+      assert historical_user.nick_key == "test"
+      assert historical_user.nick == "Test"
       assert historical_user.hostname == "example.com"
       assert historical_user.ident == "test"
       assert historical_user.realname == "Test User"
@@ -29,7 +31,8 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
       utc_now = DateTime.utc_now()
 
       attrs = %{
-        nick: "test",
+        nick_key: "test",
+        nick: "Test",
         hostname: "example.com",
         ident: "test",
         realname: "Test User",
@@ -38,7 +41,8 @@ defmodule ElixIRCd.Tables.HistoricalUserTest do
 
       historical_user = HistoricalUser.new(attrs)
 
-      assert historical_user.nick == "test"
+      assert historical_user.nick_key == "test"
+      assert historical_user.nick == "Test"
       assert historical_user.hostname == "example.com"
       assert historical_user.ident == "test"
       assert historical_user.realname == "Test User"

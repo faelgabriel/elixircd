@@ -5,8 +5,6 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
   @behaviour ElixIRCd.Service
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
@@ -57,7 +55,6 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
         regain_nickname(user, registered_nick)
       else
         notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
-        Logger.info("Failed REGAIN attempt for #{registered_nick.nickname} from #{user_mask(user)}")
       end
     end
   end
@@ -78,7 +75,6 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
           notify(user, "Nick \x02#{registered_nick.nickname}\x02 has been regained.")
 
-          Logger.info("User #{user_mask(user)} regained nickname #{registered_nick.nickname}")
           :ok
         end
 
@@ -86,7 +82,6 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
         handle_immediate_nick_change(user, registered_nick)
 
         notify(user, "You have regained the nickname \x02#{registered_nick.nickname}\x02.")
-        Logger.info("User #{user_mask(user)} regained nickname #{registered_nick.nickname}")
     end
   end
 
@@ -97,7 +92,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
     all_channel_users =
       UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name)
+      |> Enum.map(& &1.channel_name_key)
       |> UserChannels.get_by_channel_names()
       |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
       |> Enum.group_by(& &1.user_pid)

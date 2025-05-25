@@ -4,10 +4,12 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   """
 
   alias ElixIRCd.Tables.RegisteredNick.Settings
+  alias ElixIRCd.Utils.CaseMapping
 
-  @enforce_keys [:nickname, :password_hash, :registered_by, :created_at]
+  @enforce_keys [:nickname_key, :nickname, :password_hash, :registered_by, :created_at]
   use Memento.Table,
     attributes: [
+      :nickname_key,
       :nickname,
       :password_hash,
       :email,
@@ -23,6 +25,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
     type: :set
 
   @type t :: %__MODULE__{
+          nickname_key: String.t(),
           nickname: String.t(),
           password_hash: String.t(),
           email: String.t() | nil,
@@ -57,6 +60,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       attrs
       |> Map.put_new(:settings, Settings.new())
       |> Map.put_new(:created_at, DateTime.utc_now())
+      |> handle_nickname_key()
 
     struct!(__MODULE__, new_attrs)
   end
@@ -66,6 +70,18 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   """
   @spec update(t(), t_attrs()) :: t()
   def update(registered_nick, attrs) do
-    struct!(registered_nick, attrs)
+    new_attrs =
+      attrs
+      |> handle_nickname_key()
+
+    struct!(registered_nick, new_attrs)
   end
+
+  @spec handle_nickname_key(t_attrs()) :: t_attrs()
+  defp handle_nickname_key(%{nickname: nickname} = attrs) do
+    nickname_key = if nickname != nil, do: CaseMapping.normalize(nickname), else: nil
+    Map.put(attrs, :nickname_key, nickname_key)
+  end
+
+  defp handle_nickname_key(attrs), do: attrs
 end

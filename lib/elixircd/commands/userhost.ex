@@ -45,8 +45,8 @@ defmodule ElixIRCd.Commands.Userhost do
   end
 
   @spec fetch_userhost_info(String.t()) :: String.t() | nil
-  defp fetch_userhost_info(nick) do
-    case Users.get_by_nick(nick) do
+  defp fetch_userhost_info(target_nick) do
+    case Users.get_by_nick(target_nick) do
       {:ok, user} -> "#{user.nick}=#{user_mask(user)}"
       {:error, :user_not_found} -> nil
     end

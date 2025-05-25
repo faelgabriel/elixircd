@@ -55,16 +55,16 @@ defmodule ElixIRCd.Commands.Who do
     Channels.get_by_name(channel_name)
     |> case do
       {:ok, channel} ->
-        user_channels = UserChannels.get_by_channel_name(channel_name)
-        users = Enum.map(user_channels, & &1.user_pid) |> Users.get_by_pids()
-        user_shares_channel? = Enum.any?(users, &(&1.pid == user.pid))
+        user_channels_list = UserChannels.get_by_channel_name(channel.name_key)
+        users_in_channel = Enum.map(user_channels_list, & &1.user_pid) |> Users.get_by_pids()
+        user_shares_channel? = Enum.any?(users_in_channel, &(&1.pid == user.pid))
 
-        users
+        users_in_channel
         |> filter_out_hidden_channel(channel, user_shares_channel?)
         |> filter_out_invisible_users_for_channel(user_shares_channel?)
         |> maybe_filter_operators(filters)
         |> Enum.map(fn user_target ->
-          user_channel = Enum.find(user_channels, fn user_channel -> user_channel.user_pid == user_target.pid end)
+          user_channel = Enum.find(user_channels_list, fn user_channel -> user_channel.user_pid == user_target.pid end)
           build_message(user, user_target, user_channel)
         end)
         |> Dispatcher.broadcast(user)
@@ -76,9 +76,9 @@ defmodule ElixIRCd.Commands.Who do
 
   @spec handle_who_mask(User.t(), String.t(), [String.t()]) :: :ok
   defp handle_who_mask(user, mask, filters) do
-    user_pids_sharing_channel =
+    user_pids_sharing_channels_keys =
       UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name)
+      |> Enum.map(& &1.channel_name_key)
       |> UserChannels.get_by_channel_names()
       |> Enum.map(& &1.user_pid)
       |> Enum.uniq()
@@ -86,22 +86,22 @@ defmodule ElixIRCd.Commands.Who do
     users =
       normalize_mask(mask)
       |> Users.get_by_match_mask()
-      |> filter_out_invisible_users_for_mask(user_pids_sharing_channel)
+      |> filter_out_invisible_users_for_mask(user_pids_sharing_channels_keys)
       |> maybe_filter_operators(filters)
 
     users
     |> Enum.map(fn user_target ->
-      user_channel =
+      user_channel_for_mask_target =
         case length(users) == 1 do
           true ->
             UserChannels.get_by_user_pid(user_target.pid)
-            |> filter_not_hidden_channel(user_pids_sharing_channel)
+            |> filter_not_hidden_channel(user_pids_sharing_channels_keys)
 
           false ->
             nil
         end
 
-      build_message(user, user_target, user_channel)
+      build_message(user, user_target, user_channel_for_mask_target)
     end)
     |> Dispatcher.broadcast(user)
   end
@@ -113,9 +113,9 @@ defmodule ElixIRCd.Commands.Who do
   end
 
   @spec filter_out_invisible_users_for_mask([User.t()], [pid()]) :: [User.t()]
-  defp filter_out_invisible_users_for_mask(users, user_pids_sharing_channel) do
+  defp filter_out_invisible_users_for_mask(users, user_pids_sharing_channels_keys) do
     users
-    |> Enum.reject(&("i" in &1.modes and &1.pid not in user_pids_sharing_channel))
+    |> Enum.reject(&("i" in &1.modes and &1.pid not in user_pids_sharing_channels_keys))
   end
 
   @spec filter_out_hidden_channel([User.t()], Channel.t(), boolean()) :: [User.t()]
@@ -128,12 +128,12 @@ defmodule ElixIRCd.Commands.Who do
   end
 
   @spec filter_not_hidden_channel([UserChannel.t()], [pid()]) :: UserChannel.t() | nil
-  defp filter_not_hidden_channel(user_channels, user_pids_sharing_channel) do
-    Enum.find(user_channels, fn user_channel ->
-      user_shares_channel? = user_channel.user_pid in user_pids_sharing_channel
+  defp filter_not_hidden_channel(user_channels_list, user_pids_sharing_channels_keys) do
+    Enum.find(user_channels_list, fn user_channel ->
+      user_shares_channel? = user_channel.user_pid in user_pids_sharing_channels_keys
 
       user_shares_channel? or
-        with {:ok, channel} <- Channels.get_by_name(user_channel.channel_name),
+        with {:ok, channel} <- Channels.get_by_name(user_channel.channel_name_key),
              true <- "s" not in channel.modes do
           true
         else
@@ -152,10 +152,14 @@ defmodule ElixIRCd.Commands.Who do
 
   @spec build_message(User.t(), User.t(), UserChannel.t() | nil) :: Message.t()
   defp build_message(user, user_target, user_channel) do
+    # Future: Optimize this function to use channel already fetched,
+    # and when not fetched, fetch multiple channels at once.
     user_channel_name =
-      case user_channel do
-        %UserChannel{channel_name: channel_name} -> channel_name
-        nil -> "*"
+      with %UserChannel{channel_name_key: channel_name_key} <- user_channel,
+           {:ok, channel} <- Channels.get_by_name(channel_name_key) do
+        channel.name
+      else
+        _ -> "*"
       end
 
     Message.build(%{

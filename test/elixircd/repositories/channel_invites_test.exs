@@ -14,14 +14,14 @@ defmodule ElixIRCd.Repositories.ChannelInvitesTest do
 
       attrs = %{
         user_pid: pid,
-        channel_name: "#elixircd",
+        channel_name_key: "#elixircd",
         setter: "setter!setter@host"
       }
 
       channel_invite = Memento.transaction!(fn -> ChannelInvites.create(attrs) end)
 
       assert channel_invite.user_pid == pid
-      assert channel_invite.channel_name == "#elixircd"
+      assert channel_invite.channel_name_key == "#elixircd"
       assert channel_invite.setter == "setter!setter@host"
     end
   end
@@ -36,7 +36,7 @@ defmodule ElixIRCd.Repositories.ChannelInvitesTest do
 
       assert [] ==
                Memento.transaction!(fn ->
-                 Memento.Query.select(ChannelInvite, {:==, :channel_name, channel.name})
+                 Memento.Query.select(ChannelInvite, {:==, :channel_name_key, channel.name_key})
                end)
     end
   end
@@ -62,7 +62,10 @@ defmodule ElixIRCd.Repositories.ChannelInvitesTest do
 
       assert {:ok, %ChannelInvite{}} =
                Memento.transaction!(fn ->
-                 ChannelInvites.get_by_user_pid_and_channel_name(channel_invite.user_pid, channel_invite.channel_name)
+                 ChannelInvites.get_by_user_pid_and_channel_name(
+                   channel_invite.user_pid,
+                   channel_invite.channel_name_key
+                 )
                end)
     end
 
