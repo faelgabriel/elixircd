@@ -27,9 +27,10 @@ defmodule ElixIRCd.Server.WsListener do
       port_connected: conn.port
     }
 
-    Connection.handle_connect(pid, transport, connection_data)
-
-    {:ok, state}
+    case Connection.handle_connect(pid, transport, connection_data) do
+      :ok -> {:ok, state}
+      :close -> {:stop, :normal, state}
+    end
   end
 
   @impl WebSock

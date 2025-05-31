@@ -16,6 +16,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Tables.User
 
   @type transport :: :tcp | :tls | :ws | :wss
@@ -24,15 +25,36 @@ defmodule ElixIRCd.Server.Connection do
   @doc """
   Handles the connection establishment.
   """
-  @spec handle_connect(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
+  @spec handle_connect(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok | :close
   def handle_connect(pid, transport, connection_data) do
     Logger.debug("Connection established: #{inspect(pid)} (#{transport})")
 
+    case RateLimiter.check_connection(connection_data.ip_address) do
+      :ok -> handle_success_connection(pid, transport, connection_data)
+      {:error, :throttled, retry_after_ms} -> handle_throttled_connection(pid, retry_after_ms)
+      {:error, :throttled_exceeded} -> :close
+    end
+  end
+
+  @spec handle_success_connection(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
+  defp handle_success_connection(pid, transport, connection_data) do
     Memento.transaction!(fn ->
       modes = if transport in [:tls, :wss], do: ["Z"], else: []
       Users.create(Map.merge(connection_data, %{pid: pid, transport: transport, modes: modes}))
       update_connection_stats()
     end)
+  end
+
+  @spec handle_throttled_connection(pid :: pid(), retry_after_ms :: non_neg_integer()) :: :close
+  defp handle_throttled_connection(pid, retry_after_ms) do
+    Message.build(%{
+      command: "ERROR",
+      params: [],
+      trailing: "Too many connections from your IP address. Try again in #{div(retry_after_ms, 1000)} seconds."
+    })
+    |> Dispatcher.broadcast(pid)
+
+    :close
   end
 
   @doc """
@@ -42,15 +64,55 @@ defmodule ElixIRCd.Server.Connection do
   def handle_recv(pid, data) do
     Logger.debug("<- #{inspect(data)}")
 
+    case RateLimiter.check_message(pid, data) do
+      :ok -> handle_valid_message(pid, data)
+      {:error, :throttled, retry_after_ms} -> handle_throttled_message(pid, retry_after_ms)
+      {:error, :throttled_exceeded} -> handle_excess_flood(pid)
+    end
+  end
+
+  @spec handle_valid_message(pid :: pid(), data :: String.t()) :: :ok
+  defp handle_valid_message(pid, data) do
     Memento.transaction!(fn ->
       with {:ok, user} <- Users.get_by_pid(pid),
            {:ok, message} <- Message.parse(data) do
         updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
         Command.dispatch(updated_user, message)
       else
-        {:error, error} -> Logger.debug("Failed to handle packet #{inspect(data)}: #{error}")
+        {:error, :user_not_found} -> :ok
+        {:error, error} -> Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
       end
     end)
+  end
+
+  @spec handle_throttled_message(pid :: pid(), retry_after_ms :: non_neg_integer()) :: :ok
+  defp handle_throttled_message(pid, retry_after_ms) do
+    Memento.transaction!(fn ->
+      case Users.get_by_pid(pid) do
+        {:ok, user} -> handle_throttle_notice(user, retry_after_ms)
+        {:error, :user_not_found} -> :ok
+      end
+    end)
+  end
+
+  @spec handle_throttle_notice(user :: map(), retry_after_ms :: non_neg_integer()) :: :ok
+  defp handle_throttle_notice(user, retry_after_ms) do
+    Message.build(%{
+      prefix: :server,
+      command: "NOTICE",
+      params: [user.nick],
+      trailing:
+        "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  @spec handle_excess_flood(pid :: pid()) :: {:quit, String.t()}
+  defp handle_excess_flood(pid) do
+    Message.build(%{command: "ERROR", params: [], trailing: "Excess flood"})
+    |> Dispatcher.broadcast(pid)
+
+    {:quit, "Excess flood"}
   end
 
   @doc """

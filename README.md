@@ -329,7 +329,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Server Linking**: Ability to connect multiple servers to form a network. ❌
 - **SSL/TLS Support**: Secure communication using SSL or TLS. ✅
 - **IPv6 Compatibility**: Support for both IPv4 and IPv6 connections. ✅
-- **Rate Limiting**: Prevent abuse by controlling message rates. ❌
+- **Rate Limiting**: Prevent floods of connections and messages with burst support. ✅
 - **Connection Cloaking**: Mask users' IP addresses to enhance privacy. ❌
 
 ## Development

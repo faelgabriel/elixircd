@@ -59,6 +59,7 @@ defmodule ElixIRCd.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:doctor, "~> 0.21", only: :dev},
       {:excoveralls, "~> 0.18", only: :test},
+      {:hammer, "~> 7.0"},
       {:memento, "~> 0.4"},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.10", only: [:dev, :test]},

@@ -11,6 +11,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Server.Connection
+  alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
@@ -72,12 +73,47 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert Metrics.get(:total_connections) == 2
       assert Metrics.get(:highest_connections) == 2
     end
+
+    test "handles rate limited connection with throttled error" do
+      RateLimiter
+      |> expect(:check_connection, fn {192, 168, 1, 1} ->
+        {:error, :throttled, 5000}
+      end)
+
+      pid = self()
+
+      assert :close = Connection.handle_connect(pid, :tcp, %{ip_address: {192, 168, 1, 1}, port_connected: 6667})
+      assert [] = get_records(User)
+
+      assert_sent_messages([
+        {pid, ~r/\AERROR :Too many connections from your IP address. Try again in \d+ seconds.\r\n/}
+      ])
+    end
+
+    test "handles rate limited connection with exceeded threshold" do
+      RateLimiter
+      |> expect(:check_connection, fn {192, 168, 1, 2} ->
+        {:error, :throttled_exceeded}
+      end)
+
+      pid = self()
+
+      assert :close = Connection.handle_connect(pid, :tcp, %{ip_address: {192, 168, 1, 2}, port_connected: 6667})
+      assert [] = get_records(User)
+
+      # Do not send any messages to the user
+      assert_sent_messages_amount(pid, 0)
+    end
   end
 
   describe "handle_recv/2" do
     setup do
       user = insert(:user)
       %{user: user}
+    end
+
+    test "handles message when user not found" do
+      assert :ok = Connection.handle_recv(self(), "PRIVMSG #test :hello")
     end
 
     test "handles valid packet", %{user: user} do
@@ -97,6 +133,64 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
       assert :ok = Connection.handle_recv(user.pid, "\r\n")
       assert :ok = Connection.handle_recv(user.pid, "  \r\n")
+    end
+
+    test "handles rate limited message with throttled error", %{user: user} do
+      RateLimiter
+      |> expect(:check_message, fn pid, "PRIVMSG #test :spam" ->
+        assert pid == user.pid
+        {:error, :throttled, 2000}
+      end)
+
+      # Command.dispatch should not be called when throttled
+      Command
+      |> reject(:dispatch, 2)
+
+      # Message should return :ok when throttled
+      assert :ok = Connection.handle_recv(user.pid, "PRIVMSG #test :spam")
+
+      assert_sent_messages([
+        {user.pid,
+         ~r/\A:irc.test NOTICE #{user.nick} :Please slow down. You are sending messages too fast. Try again in \d+ seconds.\r\n/}
+      ])
+    end
+
+    test "handles throttled message when user not found" do
+      non_existent_user_pid = self()
+
+      RateLimiter
+      |> expect(:check_message, fn pid, "PRIVMSG #test :spam" ->
+        assert pid == non_existent_user_pid
+        {:error, :throttled, 2000}
+      end)
+
+      # Command.dispatch should not be called when user not found
+      Command
+      |> reject(:dispatch, 2)
+
+      # Should handle the case where user is not found in throttled case
+      assert :ok = Connection.handle_recv(non_existent_user_pid, "PRIVMSG #test :spam")
+
+      assert_sent_messages_amount(non_existent_user_pid, 0)
+    end
+
+    test "handles rate limited message with exceeded threshold", %{user: user} do
+      RateLimiter
+      |> expect(:check_message, fn pid, "PRIVMSG #test :flood" ->
+        assert pid == user.pid
+        {:error, :throttled_exceeded}
+      end)
+
+      # Command.dispatch should not be called when exceeded
+      Command
+      |> reject(:dispatch, 2)
+
+      # Message should return {:quit, "Excess flood"} when exceeded
+      assert {:quit, "Excess flood"} = Connection.handle_recv(user.pid, "PRIVMSG #test :flood")
+
+      assert_sent_messages([
+        {user.pid, ~r/\AERROR :Excess flood\r\n/}
+      ])
     end
   end
 
