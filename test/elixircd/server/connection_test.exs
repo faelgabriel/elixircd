@@ -106,14 +106,14 @@ defmodule ElixIRCd.Server.ConnectionTest do
     end
   end
 
-  describe "handle_recv/2" do
+  describe "handle_receive/2" do
     setup do
       user = insert(:user)
       %{user: user}
     end
 
     test "handles message when user not found" do
-      assert :ok = Connection.handle_recv(self(), "PRIVMSG #test :hello")
+      assert :ok = Connection.handle_receive(self(), "PRIVMSG #test :hello")
     end
 
     test "handles valid packet", %{user: user} do
@@ -124,15 +124,15 @@ defmodule ElixIRCd.Server.ConnectionTest do
         :ok
       end)
 
-      assert :ok = Connection.handle_recv(user.pid, "COMMAND test")
+      assert :ok = Connection.handle_receive(user.pid, "COMMAND test")
     end
 
     test "handles empty packets", %{user: user} do
       Command
       |> reject(:dispatch, 2)
 
-      assert :ok = Connection.handle_recv(user.pid, "\r\n")
-      assert :ok = Connection.handle_recv(user.pid, "  \r\n")
+      assert :ok = Connection.handle_receive(user.pid, "\r\n")
+      assert :ok = Connection.handle_receive(user.pid, "  \r\n")
     end
 
     test "handles rate limited message with throttled error", %{user: user} do
@@ -147,7 +147,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
       |> reject(:dispatch, 2)
 
       # Message should return :ok when throttled
-      assert :ok = Connection.handle_recv(user.pid, "PRIVMSG #test :spam")
+      assert :ok = Connection.handle_receive(user.pid, "PRIVMSG #test :spam")
 
       assert_sent_messages([
         {user.pid,
@@ -169,7 +169,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
       |> reject(:dispatch, 2)
 
       # Should handle the case where user is not found in throttled case
-      assert :ok = Connection.handle_recv(non_existent_user_pid, "PRIVMSG #test :spam")
+      assert :ok = Connection.handle_receive(non_existent_user_pid, "PRIVMSG #test :spam")
 
       assert_sent_messages_amount(non_existent_user_pid, 0)
     end
@@ -186,7 +186,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
       |> reject(:dispatch, 2)
 
       # Message should return {:quit, "Excess flood"} when exceeded
-      assert {:quit, "Excess flood"} = Connection.handle_recv(user.pid, "PRIVMSG #test :flood")
+      assert {:quit, "Excess flood"} = Connection.handle_receive(user.pid, "PRIVMSG #test :flood")
 
       assert_sent_messages([
         {user.pid, ~r/\AERROR :Excess flood\r\n/}

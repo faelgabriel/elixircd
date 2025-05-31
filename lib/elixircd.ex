@@ -25,7 +25,7 @@ defmodule ElixIRCd do
     Supervisor.start_link(
       [
         ElixIRCd.Server.RateLimiter,
-        ElixIRCd.Server.Supervisor,
+        ElixIRCd.Server.Listeners,
         ElixIRCd.Schedulers.RegisteredNickExpiration,
         ElixIRCd.Schedulers.UnverifiedNickExpiration
       ],

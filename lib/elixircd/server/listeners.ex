@@ -1,6 +1,6 @@
-defmodule ElixIRCd.Server.Supervisor do
+defmodule ElixIRCd.Server.Listeners do
   @moduledoc """
-  Supervisor for the IRC servers.
+  Module for handling IRC server listeners.
   """
 
   use Supervisor

@@ -61,7 +61,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     test "processes data and continues when Connection returns :ok" do
       state = %{transport: :tcp}
 
-      expect(Connection, :handle_recv, fn _pid, data ->
+      expect(Connection, :handle_receive, fn _pid, data ->
         assert data == "PING :test\r\n"
         :ok
       end)
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     test "closes connection when Connection returns quit reason" do
       state = %{transport: :tcp}
 
-      expect(Connection, :handle_recv, fn _pid, _data ->
+      expect(Connection, :handle_receive, fn _pid, _data ->
         {:quit, "Quit: Goodbye"}
       end)
 

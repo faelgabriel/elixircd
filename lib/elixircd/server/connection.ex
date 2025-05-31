@@ -60,8 +60,8 @@ defmodule ElixIRCd.Server.Connection do
   @doc """
   Handles the incoming data packets.
   """
-  @spec handle_recv(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
-  def handle_recv(pid, data) do
+  @spec handle_receive(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
+  def handle_receive(pid, data) do
     Logger.debug("<- #{inspect(data)}")
 
     case RateLimiter.check_message(pid, data) do
