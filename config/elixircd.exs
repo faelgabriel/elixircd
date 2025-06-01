@@ -71,7 +71,6 @@ config :elixircd,
         "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
       },
       # Exceptions for any message rate limiting
-      # TODO: Implement exceptions for message rate limiting
       exceptions: [
         # Identified nicknames
         nicknames: [],

@@ -7,6 +7,8 @@ defmodule ElixIRCd.Server.RateLimiter do
 
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.Protocol
 
   defmodule Connection do
     @moduledoc """
@@ -64,7 +66,7 @@ defmodule ElixIRCd.Server.RateLimiter do
     else
       case check_connection_max_per_ip(ip, config) do
         :ok -> check_connection_rate_limits(ip, config)
-        error -> error
+        {:error, :max_connections_exceeded} -> {:error, :max_connections_exceeded}
       end
     end
   end
@@ -84,8 +86,11 @@ defmodule ElixIRCd.Server.RateLimiter do
       |> Enum.map(fn cidr -> cidr |> CIDR.parse() end)
 
     cond do
+      # Check if IP is in exception list
       ip in exception_ips -> true
+      # Check if IP matches any exception CIDR
       Enum.any?(exception_cidrs, fn cidr -> CIDR.match!(cidr, ip) end) -> true
+      # No exceptions found
       true -> false
     end
   end
@@ -153,31 +158,59 @@ defmodule ElixIRCd.Server.RateLimiter do
   """
   @spec check_message(User.t(), String.t()) :: burst_result()
   def check_message(user, data) do
-    command = extract_command(data)
-    pid_string = inspect(user.pid)
-
     config = Application.get_env(:elixircd, :rate_limiter)[:message]
-    override = Map.get(config[:command_throttle] || %{}, command, [])
-    throttle = Keyword.merge(config[:throttle], override)
 
-    rate_key = "#{pid_string}:#{command || "*"}"
-    violation_key = "disconnect:#{rate_key}"
+    if message_exception?(user, config) do
+      :ok
+    else
+      command = extract_command(data)
+      pid_string = inspect(user.pid)
+      override = Map.get(config[:command_throttle] || %{}, command, [])
+      throttle = Keyword.merge(config[:throttle], override)
 
-    disconnect_threshold = throttle[:disconnect_threshold]
-    window_ms = throttle[:window_ms]
+      rate_key = "#{pid_string}:#{command || "*"}"
+      violation_key = "disconnect:#{rate_key}"
 
-    case Message.hit(rate_key, ms(throttle[:refill_rate]), throttle[:capacity], throttle[:cost]) do
-      {:allow, _count} ->
-        :ok
+      disconnect_threshold = throttle[:disconnect_threshold]
+      window_ms = throttle[:window_ms]
 
-      {:deny, retry_ms} ->
-        {:allow, count} = Violation.hit(violation_key, window_ms, disconnect_threshold, 1)
+      case Message.hit(rate_key, ms(throttle[:refill_rate]), throttle[:capacity], throttle[:cost]) do
+        {:allow, _count} ->
+          :ok
 
-        if count >= disconnect_threshold do
-          {:error, :throttled_exceeded}
-        else
-          {:error, :throttled, retry_ms}
-        end
+        {:deny, retry_ms} ->
+          {:allow, count} = Violation.hit(violation_key, window_ms, disconnect_threshold, 1)
+
+          if count >= disconnect_threshold do
+            {:error, :throttled_exceeded}
+          else
+            {:error, :throttled, retry_ms}
+          end
+      end
+    end
+  end
+
+  @spec message_exception?(User.t(), keyword()) :: boolean()
+  defp message_exception?(user, config) do
+    exceptions = Keyword.get(config, :exceptions, [])
+
+    # Future: Use a configuration builder that normalizes the nicknames
+    exception_nicknames =
+      Keyword.get(exceptions, :nicknames, [])
+      |> Enum.map(fn nickname -> CaseMapping.normalize(nickname) end)
+
+    exception_umodes = Keyword.get(exceptions, :umodes, [])
+    exception_masks = Keyword.get(exceptions, :masks, [])
+
+    cond do
+      # Check if identified user's nickname is in the exceptions list
+      user.identified_as && CaseMapping.normalize(user.identified_as) in exception_nicknames -> true
+      # Check if user's umodes match any in the exceptions list
+      user.modes && Enum.any?(exception_umodes, fn umode -> umode in user.modes end) -> true
+      # Check if user's host mask matches any in the exceptions list
+      user.registered && Enum.any?(exception_masks, fn mask -> Protocol.match_user_mask?(user, mask) end) -> true
+      # No exceptions found
+      true -> false
     end
   end
 
