@@ -163,30 +163,37 @@ defmodule ElixIRCd.Server.RateLimiter do
     if message_exception?(user, config) do
       :ok
     else
-      command = extract_command(data)
-      pid_string = inspect(user.pid)
-      override = Map.get(config[:command_throttle] || %{}, command, [])
-      throttle = Keyword.merge(config[:throttle], override)
+      check_message_throttle(user, data, config)
+    end
+  end
 
-      rate_key = "#{pid_string}:#{command || "*"}"
-      violation_key = "disconnect:#{rate_key}"
+  @spec check_message_throttle(User.t(), String.t(), keyword()) :: burst_result()
+  defp check_message_throttle(user, data, config) do
+    command = extract_command(data)
+    pid_string = inspect(user.pid)
+    override = Map.get(config[:command_throttle] || %{}, command, [])
+    throttle = Keyword.merge(config[:throttle], override)
 
-      disconnect_threshold = throttle[:disconnect_threshold]
-      window_ms = throttle[:window_ms]
+    rate_key = "#{pid_string}:#{command || "*"}"
+    violation_key = "disconnect:#{rate_key}"
 
-      case Message.hit(rate_key, ms(throttle[:refill_rate]), throttle[:capacity], throttle[:cost]) do
-        {:allow, _count} ->
-          :ok
+    disconnect_threshold = throttle[:disconnect_threshold]
+    window_ms = throttle[:window_ms]
 
-        {:deny, retry_ms} ->
-          {:allow, count} = Violation.hit(violation_key, window_ms, disconnect_threshold, 1)
+    case Message.hit(rate_key, ms(throttle[:refill_rate]), throttle[:capacity], throttle[:cost]) do
+      {:allow, _count} -> :ok
+      {:deny, retry_ms} -> handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms)
+    end
+  end
 
-          if count >= disconnect_threshold do
-            {:error, :throttled_exceeded}
-          else
-            {:error, :throttled, retry_ms}
-          end
-      end
+  @spec handle_throttle_violation(String.t(), non_neg_integer(), non_neg_integer(), non_neg_integer()) :: burst_result()
+  defp handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms) do
+    {:allow, count} = Violation.hit(violation_key, window_ms, disconnect_threshold, 1)
+
+    if count >= disconnect_threshold do
+      {:error, :throttled_exceeded}
+    else
+      {:error, :throttled, retry_ms}
     end
   end
 

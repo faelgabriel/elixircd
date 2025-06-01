@@ -38,7 +38,12 @@ defmodule ElixIRCd.Server.RateLimiterTest do
         "NICK" => [refill_rate: 0.1, capacity: 1, cost: 3],
         "WHO" => [refill_rate: 0.2, capacity: 2, cost: 1],
         "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
-      }
+      },
+      exceptions: [
+        nicknames: ["Admin", "ServiceBot"],
+        masks: ["*!*@localhost", "*!*staff@*.example.org"],
+        umodes: ["o", "a"]
+      ]
     ]
   ]
 
@@ -208,6 +213,122 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       assert :ok = RateLimiter.check_message(user, "")
       assert :ok = RateLimiter.check_message(user, "ANYTHING")
       assert :ok = RateLimiter.check_message(user, "ANYTHING ANYTHING")
+    end
+
+    test "allows messages from users with excepted nicknames" do
+      # Create user with an identified nickname that matches the exception list
+      user_with_excepted_nick =
+        insert(:user, %{
+          registered: true,
+          hostname: "host.example.com",
+          ident: "~testuser",
+          identified_as: "Admin"
+        })
+
+      # Verify the user is excepted from rate limiting
+      assert :ok = RateLimiter.check_message(user_with_excepted_nick, "PRIVMSG #test :Message 1")
+
+      # Even after exceeding normal capacity, the user should still be allowed
+      for i <- 1..20 do
+        assert :ok = RateLimiter.check_message(user_with_excepted_nick, "PRIVMSG #test :Message #{i}")
+      end
+
+      # Case insensitive nickname matching should work
+      user_with_case_diff_nick =
+        insert(:user, %{
+          registered: true,
+          hostname: "host.example.com",
+          ident: "~testuser",
+          identified_as: "admin"
+        })
+
+      assert :ok = RateLimiter.check_message(user_with_case_diff_nick, "PRIVMSG #test :Message from admin")
+    end
+
+    test "allows messages from users with excepted user modes" do
+      # Create user with modes that match the exception list
+      user_with_excepted_mode =
+        insert(:user, %{
+          registered: true,
+          hostname: "host.example.com",
+          ident: "~testuser",
+          modes: ["o", "v"]
+        })
+
+      # Verify the user is excepted from rate limiting
+      assert :ok = RateLimiter.check_message(user_with_excepted_mode, "PRIVMSG #test :Message 1")
+
+      # Even after exceeding normal capacity, the user should still be allowed
+      for i <- 1..20 do
+        assert :ok = RateLimiter.check_message(user_with_excepted_mode, "PRIVMSG #test :Message #{i}")
+      end
+
+      # Check another excepted mode
+      user_with_another_mode =
+        insert(:user, %{
+          registered: true,
+          hostname: "host.example.com",
+          ident: "~testuser",
+          modes: ["a", "v"]
+        })
+
+      assert :ok = RateLimiter.check_message(user_with_another_mode, "PRIVMSG #test :Message from admin")
+
+      # Verify that non-excepted modes don't get the exception
+      user_without_excepted_mode =
+        insert(:user, %{
+          registered: true,
+          hostname: "host.example.com",
+          ident: "~testuser",
+          modes: ["v", "i"]
+        })
+
+      # Exhaust the capacity
+      for i <- 1..10 do
+        assert :ok = RateLimiter.check_message(user_without_excepted_mode, "PRIVMSG #test :Message #{i}")
+      end
+
+      # 11th message should be throttled
+      result = RateLimiter.check_message(user_without_excepted_mode, "PRIVMSG #test :Too many messages")
+      assert {:error, :throttled, retry_ms} = result
+      assert is_integer(retry_ms) and retry_ms > 0
+    end
+
+    test "allows messages from users with matching host masks" do
+      # Create user to match the localhost mask
+      user_with_localhost =
+        insert(:user, %{
+          registered: true,
+          ip_address: {127, 0, 0, 1},
+          hostname: "localhost",
+          ident: "~anyone",
+          nick: "localuser"
+        })
+
+      # Verify the user is excepted from rate limiting
+      assert :ok = RateLimiter.check_message(user_with_localhost, "PRIVMSG #test :Message 1")
+
+      # Even after exceeding normal capacity, the user should still be allowed
+      for i <- 1..20 do
+        assert :ok = RateLimiter.check_message(user_with_localhost, "PRIVMSG #test :Message #{i}")
+      end
+
+      # Create user to match the staff mask
+      user_with_staff_mask =
+        insert(:user, %{
+          registered: true,
+          hostname: "irc.example.org",
+          ident: "~staff",
+          nick: "staffmember"
+        })
+
+      # Verify the user is excepted from rate limiting
+      assert :ok = RateLimiter.check_message(user_with_staff_mask, "PRIVMSG #test :Message 1")
+
+      # Even after exceeding normal capacity, the user should still be allowed
+      for i <- 1..20 do
+        assert :ok = RateLimiter.check_message(user_with_staff_mask, "PRIVMSG #test :Message #{i}")
+      end
     end
   end
 end
