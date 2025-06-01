@@ -11,6 +11,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Server.Connection
+  alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
@@ -72,12 +73,49 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert Metrics.get(:total_connections) == 2
       assert Metrics.get(:highest_connections) == 2
     end
+
+    test "handles rate limited connection with throttled error" do
+      RateLimiter
+      |> expect(:check_connection, fn {192, 168, 1, 1} ->
+        {:error, :throttled, 5000}
+      end)
+
+      pid = self()
+
+      assert :close = Connection.handle_connect(pid, :tcp, %{ip_address: {192, 168, 1, 1}, port_connected: 6667})
+      assert [] = get_records(User)
+
+      assert_sent_messages([
+        {pid, ~r/\AERROR :Too many connections from your IP address. Try again in \d+ seconds.\r\n/}
+      ])
+    end
+
+    test "handles rate limited connection with exceeded threshold" do
+      RateLimiter
+      |> expect(:check_connection, fn {192, 168, 1, 2} ->
+        {:error, :throttled_exceeded}
+      end)
+
+      pid = self()
+
+      assert :close = Connection.handle_connect(pid, :tcp, %{ip_address: {192, 168, 1, 2}, port_connected: 6667})
+      assert [] = get_records(User)
+
+      assert_sent_messages_amount(pid, 0)
+    end
   end
 
-  describe "handle_recv/2" do
+  describe "handle_receive/2" do
     setup do
       user = insert(:user)
       %{user: user}
+    end
+
+    test "handles message when user not found" do
+      Command
+      |> reject(:dispatch, 2)
+
+      assert :ok = Connection.handle_receive(self(), "PRIVMSG #test :hello")
     end
 
     test "handles valid packet", %{user: user} do
@@ -88,15 +126,50 @@ defmodule ElixIRCd.Server.ConnectionTest do
         :ok
       end)
 
-      assert :ok = Connection.handle_recv(user.pid, "COMMAND test")
+      assert :ok = Connection.handle_receive(user.pid, "COMMAND test")
     end
 
     test "handles empty packets", %{user: user} do
       Command
       |> reject(:dispatch, 2)
 
-      assert :ok = Connection.handle_recv(user.pid, "\r\n")
-      assert :ok = Connection.handle_recv(user.pid, "  \r\n")
+      assert :ok = Connection.handle_receive(user.pid, "\r\n")
+      assert :ok = Connection.handle_receive(user.pid, "  \r\n")
+    end
+
+    test "handles rate limited message with throttled error", %{user: user} do
+      RateLimiter
+      |> expect(:check_message, fn target_user, "PRIVMSG #test :spam" ->
+        assert target_user.pid == user.pid
+        {:error, :throttled, 2000}
+      end)
+
+      Command
+      |> reject(:dispatch, 2)
+
+      assert :ok = Connection.handle_receive(user.pid, "PRIVMSG #test :spam")
+
+      assert_sent_messages([
+        {user.pid,
+         ~r/\A:irc.test NOTICE #{user.nick} :Please slow down. You are sending messages too fast. Try again in \d+ seconds.\r\n/}
+      ])
+    end
+
+    test "handles rate limited message with exceeded threshold", %{user: user} do
+      RateLimiter
+      |> expect(:check_message, fn target_user, "PRIVMSG #test :flood" ->
+        assert target_user.pid == user.pid
+        {:error, :throttled_exceeded}
+      end)
+
+      Command
+      |> reject(:dispatch, 2)
+
+      assert {:quit, "Excess flood"} = Connection.handle_receive(user.pid, "PRIVMSG #test :flood")
+
+      assert_sent_messages([
+        {user.pid, ~r/\AERROR :Excess flood\r\n/}
+      ])
     end
   end
 

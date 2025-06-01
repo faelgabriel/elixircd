@@ -27,14 +27,15 @@ defmodule ElixIRCd.Server.WsListener do
       port_connected: conn.port
     }
 
-    Connection.handle_connect(pid, transport, connection_data)
-
-    {:ok, state}
+    case Connection.handle_connect(pid, transport, connection_data) do
+      :ok -> {:ok, state}
+      :close -> {:stop, :normal, state}
+    end
   end
 
   @impl WebSock
   def handle_in({data, [opcode: _opcode]}, state) do
-    Connection.handle_recv(self(), data)
+    Connection.handle_receive(self(), data)
     |> case do
       :ok -> {:ok, state}
       {:quit, reason} -> {:stop, :normal, {1000, reason}, Map.put(state, :quit_reason, reason)}

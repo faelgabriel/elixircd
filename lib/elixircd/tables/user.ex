@@ -5,7 +5,7 @@ defmodule ElixIRCd.Tables.User do
 
   alias ElixIRCd.Utils.CaseMapping
 
-  @enforce_keys [:pid, :transport, :registered, :modes, :last_activity, :created_at]
+  @enforce_keys [:pid, :transport, :ip_address, :port_connected, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
     attributes: [
       :pid,
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Tables.User do
       :registered_at,
       :created_at
     ],
-    index: [:nick_key],
+    index: [:nick_key, :ip_address],
     type: :set
 
   @type t :: %__MODULE__{

@@ -40,13 +40,28 @@ defmodule ElixIRCd.Server.TcpListenerTest do
       assert {:continue, %{transport: :tls}, {:persistent, _timeout}} =
                TcpListener.handle_connection(socket, %{})
     end
+
+    test "closes connection when Connection returns :close" do
+      socket = tcp_socket()
+
+      expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
+
+      expect(Connection, :handle_connect, fn _pid, transport, data ->
+        assert transport == :tcp
+        assert data == %{ip_address: {127, 0, 0, 1}, port_connected: 12_345}
+        :close
+      end)
+
+      assert {:close, %{transport: :tcp}} =
+               TcpListener.handle_connection(socket, %{})
+    end
   end
 
   describe "handle_data/3" do
     test "processes data and continues when Connection returns :ok" do
       state = %{transport: :tcp}
 
-      expect(Connection, :handle_recv, fn _pid, data ->
+      expect(Connection, :handle_receive, fn _pid, data ->
         assert data == "PING :test\r\n"
         :ok
       end)
@@ -57,7 +72,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     test "closes connection when Connection returns quit reason" do
       state = %{transport: :tcp}
 
-      expect(Connection, :handle_recv, fn _pid, _data ->
+      expect(Connection, :handle_receive, fn _pid, _data ->
         {:quit, "Quit: Goodbye"}
       end)
 

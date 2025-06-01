@@ -34,15 +34,21 @@ defmodule ElixIRCd.Server.TcpListener do
       port_connected: port
     }
 
-    Connection.handle_connect(pid, transport, connection_data)
-    ThousandIsland.Socket.setopts(socket, [{:packet, :line}])
+    state = %{transport: transport}
 
-    {:continue, %{transport: transport}, {:persistent, timeout}}
+    case Connection.handle_connect(pid, transport, connection_data) do
+      :ok ->
+        ThousandIsland.Socket.setopts(socket, [{:packet, :line}])
+        {:continue, state, {:persistent, timeout}}
+
+      :close ->
+        {:close, state}
+    end
   end
 
   @impl ThousandIsland.Handler
   def handle_data(data, _socket, state) do
-    case Connection.handle_recv(self(), data) do
+    case Connection.handle_receive(self(), data) do
       :ok -> {:continue, state}
       {:quit, reason} -> {:close, Map.put(state, :quit_reason, reason)}
     end

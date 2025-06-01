@@ -12,6 +12,75 @@ config :elixircd,
     # Message of the Day
     motd: File.read("config/motd.txt")
   ],
+  # Rate Limiting Configuration
+  rate_limiter: [
+    # Connection Rate Limiting Configuration
+    connection: [
+      # Maximum number of simultaneous open connections per IP
+      max_connections_per_ip: 100,
+      # Controls how frequently new connections are allowed from the same IP.
+      throttle: [
+        # Tokens added to the bucket per second.
+        # Controls how frequently a connection can be made over time.
+        refill_rate: 0.05,
+        # Maximum number of tokens the bucket can hold.
+        # Allows short bursts of new connections before throttling begins.
+        capacity: 3,
+        # Number of tokens consumed per connection attempt.
+        cost: 1,
+        # Time window (in milliseconds) during which violations are tracked.
+        # A violation occurs when a connection is attempted without enough tokens.
+        window_ms: 60_000,
+        # Number of violations allowed within the window before blocking the IP.
+        block_threshold: 2,
+        # Duration (in milliseconds) to block the IP after exceeding the threshold.
+        block_ms: 60_000
+      ],
+      # Exceptions for any connection rate limiting
+      exceptions: [
+        # IP addresses
+        ips: ["127.0.0.1", "::1"],
+        # CIDR ranges (e.g., "192.168.1.0/24")
+        cidrs: []
+      ]
+    ],
+    # Controls how frequently messages can be sent by each user.
+    message: [
+      # Protect against general message floods or rapid message sending per user
+      throttle: [
+        # Tokens added to the user's bucket per second.
+        # Controls how frequently a message can be sent over time.
+        refill_rate: 1.0,
+        # Maximum number of tokens the bucket can hold.
+        # Allows short bursts of messages before throttling begins.
+        capacity: 10,
+        # Number of tokens consumed per message sent.
+        cost: 1,
+        # Time window (in milliseconds) during which violations are tracked.
+        # A violation occurs when a message is sent without enough tokens.
+        window_ms: 60_000,
+        # Number of violations allowed within window_ms before disconnecting the user.
+        disconnect_threshold: 5
+      ],
+      # Override the global throttle message rate limits for specific commands
+      command_throttle: %{
+        "JOIN" => [refill_rate: 0.3, capacity: 3, cost: 1, window_ms: 10_000, disconnect_threshold: 2],
+        "PING" => [refill_rate: 2.0, capacity: 10, cost: 0],
+        "NICK" => [refill_rate: 0.1, capacity: 1, cost: 3],
+        "WHO" => [refill_rate: 0.2, capacity: 2, cost: 1],
+        "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
+      },
+      # Exceptions for any message rate limiting
+      exceptions: [
+        # Identified nicknames
+        nicknames: [],
+        # Host masks (e.g., "*!*@127.0.0.1")
+        masks: [],
+        # User modes (e.g., "o" for operators)
+        umodes: []
+      ]
+    ]
+  ],
   # Features Configuration
   features: [
     # Case mapping rules (:rfc1459, :strict_rfc1459, :ascii)

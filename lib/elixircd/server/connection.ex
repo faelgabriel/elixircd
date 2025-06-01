@@ -16,6 +16,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Tables.User
 
   @type transport :: :tcp | :tls | :ws | :wss
@@ -24,10 +25,19 @@ defmodule ElixIRCd.Server.Connection do
   @doc """
   Handles the connection establishment.
   """
-  @spec handle_connect(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
+  @spec handle_connect(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok | :close
   def handle_connect(pid, transport, connection_data) do
     Logger.debug("Connection established: #{inspect(pid)} (#{transport})")
 
+    case RateLimiter.check_connection(connection_data.ip_address) do
+      :ok -> handle_success_connection(pid, transport, connection_data)
+      {:error, :throttled, retry_after_ms} -> handle_throttled_connection(pid, retry_after_ms)
+      {:error, :throttled_exceeded} -> :close
+    end
+  end
+
+  @spec handle_success_connection(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
+  defp handle_success_connection(pid, transport, connection_data) do
     Memento.transaction!(fn ->
       modes = if transport in [:tls, :wss], do: ["Z"], else: []
       Users.create(Map.merge(connection_data, %{pid: pid, transport: transport, modes: modes}))
@@ -35,22 +45,72 @@ defmodule ElixIRCd.Server.Connection do
     end)
   end
 
+  @spec handle_throttled_connection(pid :: pid(), retry_after_ms :: non_neg_integer()) :: :close
+  defp handle_throttled_connection(pid, retry_after_ms) do
+    Message.build(%{
+      command: "ERROR",
+      params: [],
+      trailing: "Too many connections from your IP address. Try again in #{div(retry_after_ms, 1000)} seconds."
+    })
+    |> Dispatcher.broadcast(pid)
+
+    :close
+  end
+
   @doc """
   Handles the incoming data packets.
   """
-  @spec handle_recv(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
-  def handle_recv(pid, data) do
+  @spec handle_receive(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
+  def handle_receive(pid, data) do
     Logger.debug("<- #{inspect(data)}")
 
     Memento.transaction!(fn ->
-      with {:ok, user} <- Users.get_by_pid(pid),
-           {:ok, message} <- Message.parse(data) do
-        updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
-        Command.dispatch(updated_user, message)
-      else
-        {:error, error} -> Logger.debug("Failed to handle packet #{inspect(data)}: #{error}")
+      case Users.get_by_pid(pid) do
+        {:ok, user} -> handle_check_message(user, data)
+        {:error, :user_not_found} -> Logger.debug("User not found on receive message for PID: #{inspect(pid)}")
       end
     end)
+  end
+
+  @spec handle_check_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
+  defp handle_check_message(user, data) do
+    case RateLimiter.check_message(user, data) do
+      :ok -> handle_valid_message(user, data)
+      {:error, :throttled, retry_after_ms} -> handle_throttled_message(user, retry_after_ms)
+      {:error, :throttled_exceeded} -> handle_excess_flood(user)
+    end
+  end
+
+  @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
+  defp handle_valid_message(user, data) do
+    case Message.parse(data) do
+      {:ok, message} ->
+        updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
+        Command.dispatch(updated_user, message)
+
+      {:error, error} ->
+        Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
+    end
+  end
+
+  @spec handle_throttled_message(user :: User.t(), retry_after_ms :: non_neg_integer()) :: :ok
+  defp handle_throttled_message(user, retry_after_ms) do
+    Message.build(%{
+      prefix: :server,
+      command: "NOTICE",
+      params: [user.nick],
+      trailing:
+        "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}
+  defp handle_excess_flood(user) do
+    Message.build(%{command: "ERROR", params: [], trailing: "Excess flood"})
+    |> Dispatcher.broadcast(user)
+
+    {:quit, "Excess flood"}
   end
 
   @doc """

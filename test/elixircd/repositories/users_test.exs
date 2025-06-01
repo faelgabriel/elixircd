@@ -14,13 +14,17 @@ defmodule ElixIRCd.Repositories.UsersTest do
 
       attrs = %{
         pid: pid,
-        transport: :tcp
+        transport: :tcp,
+        ip_address: {127, 0, 0, 1},
+        port_connected: 6667
       }
 
       user = Memento.transaction!(fn -> Users.create(attrs) end)
 
       assert user.pid == pid
       assert user.transport == :tcp
+      assert user.ip_address == {127, 0, 0, 1}
+      assert user.port_connected == 6667
     end
   end
 
@@ -138,6 +142,15 @@ defmodule ElixIRCd.Repositories.UsersTest do
                total: 4
              } ==
                Memento.transaction!(fn -> Users.count_all_states() end)
+    end
+  end
+
+  describe "count_by_ip_address/1" do
+    test "returns the total number of users by ip address" do
+      insert(:user, ip_address: {127, 0, 0, 1})
+      insert(:user, ip_address: {127, 0, 0, 1})
+
+      assert 2 == Memento.transaction!(fn -> Users.count_by_ip_address({127, 0, 0, 1}) end)
     end
   end
 end
