@@ -92,7 +92,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
     test "handles DROP command for non-identified user with correct password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
 
@@ -110,7 +110,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
     test "handles DROP command for non-identified user with incorrect password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
 
@@ -142,7 +142,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
     test "handles DROP command that affects currently connected user with that nick" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
         user = insert(:user)

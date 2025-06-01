@@ -312,9 +312,9 @@ config :elixircd,
   ],
   # IRC Operators Credentials
   operators: [
-    # Define IRC operators with nickname and Pbkdf2 hashed password
+    # Define IRC operators with nickname and Argon2id hashed password
     # Example operator with nick "admin" and hashed "admin" password:
-    # {"admin", "$pbkdf2-sha512$160000$cwDGS9z9xoJrV.wkfFbbqA$GLkyuwlc2hDD2O8BZeaeLbOLESMYSn0pvcCiVMa0jr2TB25Lswg74ReGKAdDQl3wJ.OLd0ggzwp9BJAgWsx9uw"}
+    # {"admin", "$argon2id$v=19$m=4096,t=2,p=4$0Ikum7IgbC2CkId/UJQE7A$n1YVbtPj1nP4EfdL771tPCS1PmK+Q364g14ScJzBaSg"}
   ]
 
 # Mailer Configuration

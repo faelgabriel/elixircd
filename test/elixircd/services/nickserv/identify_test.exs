@@ -57,7 +57,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
     test "handles IDENTIFY command with incorrect password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user, nick: registered_nick.nickname)
 
@@ -76,7 +76,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
     test "handles IDENTIFY command with current nickname and correct password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user, nick: registered_nick.nickname)
 
@@ -98,7 +98,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
     test "handles IDENTIFY command with specific nickname and correct password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
 
@@ -139,7 +139,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
     test "handles IDENTIFY command with specific nickname and incorrect password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
 

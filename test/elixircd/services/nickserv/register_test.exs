@@ -132,7 +132,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       mock_registered_nick = %RegisteredNick{
         nickname_key: user.nick_key,
         nickname: user.nick,
-        password_hash: Pbkdf2.hash_pwd_salt(password),
+        password_hash: Argon2.hash_pwd_salt(password),
         email: nil,
         registered_by: "#{user.nick}!#{user.ident}@#{user.hostname}",
         verify_code: nil,
@@ -181,7 +181,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
       mock_registered_nick = %RegisteredNick{
         nickname_key: user.nick_key,
         nickname: user.nick,
-        password_hash: Pbkdf2.hash_pwd_salt(password),
+        password_hash: Argon2.hash_pwd_salt(password),
         email: email,
         registered_by: "#{user.nick}!#{user.ident}@#{user.hostname}",
         verify_code: verify_code,

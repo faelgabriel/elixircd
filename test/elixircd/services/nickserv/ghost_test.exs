@@ -84,7 +84,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     test "handles GHOST command for registered nick with incorrect password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         target_user = insert(:user, nick: registered_nick.nickname)
         user = insert(:user)
@@ -105,7 +105,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
         target_pid = spawn_test_process()
 
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         target_user = insert(:user, nick: registered_nick.nickname, pid: target_pid)
         user = insert(:user)

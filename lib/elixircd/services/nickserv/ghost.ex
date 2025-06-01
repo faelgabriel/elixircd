@@ -62,7 +62,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
         "Syntax: \x02GHOST #{target_user.nick} <password>\x02"
       ])
     else
-      if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
+      if Argon2.verify_pass(password, registered_nick.password_hash) do
         perform_disconnect(user, target_user)
       else
         notify(user, "Invalid password for \x02#{target_user.nick}\x02.")

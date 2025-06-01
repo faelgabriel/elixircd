@@ -55,7 +55,7 @@ defmodule ElixIRCd.Commands.Oper do
   defp valid_irc_operator_credential?(username, password) do
     Application.get_env(:elixircd, :operators)
     |> Enum.any?(fn {oper_username, oper_password} ->
-      oper_username == username and Pbkdf2.verify_pass(password, oper_password)
+      oper_username == username and Argon2.verify_pass(password, oper_password)
     end)
   end
 end

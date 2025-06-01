@@ -110,7 +110,7 @@ defmodule ElixIRCd.Services.Chanserv.Register do
 
   @spec register_channel(User.t(), Channel.t(), String.t()) :: :ok
   defp register_channel(user, channel, password) do
-    password_hash = Pbkdf2.hash_pwd_salt(password)
+    password_hash = Argon2.hash_pwd_salt(password)
 
     RegisteredChannels.create(%{
       name: channel.name,

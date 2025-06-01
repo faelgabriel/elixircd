@@ -55,7 +55,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     test "handles REGAIN command for registered nick with incorrect password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
 
@@ -71,7 +71,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     test "handles REGAIN command for registered nick with correct password when nick is not in use" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
         old_nick = user.nick
@@ -111,7 +111,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     test "handles REGAIN command for trying to regain your own session" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user, nick: registered_nick.nickname)
 
@@ -126,7 +126,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     test "handles REGAIN command for registered nick with correct password when nick is in use" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
         target_pid = spawn_test_process()
@@ -157,7 +157,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     test "handles REGAIN command when user is in a channel with other users" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
         channel = insert(:channel)

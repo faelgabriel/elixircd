@@ -59,7 +59,7 @@ defmodule ElixIRCd.Services.Nickserv.RecoverTest do
     test "handles RECOVER command for registered nick with incorrect password" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
 
@@ -94,7 +94,7 @@ defmodule ElixIRCd.Services.Nickserv.RecoverTest do
     test "handles RECOVER command for registered nick with correct password when nick is not in use" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user)
 
@@ -115,7 +115,7 @@ defmodule ElixIRCd.Services.Nickserv.RecoverTest do
     test "handles RECOVER command for trying to recover your own session" do
       Memento.transaction!(fn ->
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
         user = insert(:user, nick: registered_nick.nickname)
 
@@ -132,7 +132,7 @@ defmodule ElixIRCd.Services.Nickserv.RecoverTest do
         target_pid = spawn_test_process()
 
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
         _target_user = insert(:user, nick: registered_nick.nickname, pid: target_pid)

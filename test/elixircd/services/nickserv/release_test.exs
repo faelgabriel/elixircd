@@ -8,7 +8,6 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Services.Nickserv.Release
-  alias Pbkdf2
 
   describe "handle/2" do
     test "handles RELEASE command with insufficient parameters" do
@@ -90,7 +89,7 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
       Memento.transaction!(fn ->
         reserved_until = DateTime.utc_now() |> DateTime.add(300)
         password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(password)
+        password_hash = Argon2.hash_pwd_salt(password)
 
         registered_nick =
           insert(:registered_nick,
@@ -113,7 +112,7 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
       Memento.transaction!(fn ->
         reserved_until = DateTime.utc_now() |> DateTime.add(300)
         correct_password = "correct_password"
-        password_hash = Pbkdf2.hash_pwd_salt(correct_password)
+        password_hash = Argon2.hash_pwd_salt(correct_password)
 
         registered_nick =
           insert(:registered_nick,

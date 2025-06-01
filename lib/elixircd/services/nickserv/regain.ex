@@ -51,7 +51,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
         "Syntax: \x02REGAIN <nickname> <password>\x02"
       ])
     else
-      if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
+      if Argon2.verify_pass(password, registered_nick.password_hash) do
         regain_nickname(user, registered_nick)
       else
         notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")

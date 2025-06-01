@@ -60,7 +60,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   @spec verify_password(User.t(), RegisteredNick.t(), String.t()) :: :ok
   defp verify_password(user, registered_nick, password) do
-    if Pbkdf2.verify_pass(password, registered_nick.password_hash) do
+    if Argon2.verify_pass(password, registered_nick.password_hash) do
       complete_identification(user, registered_nick)
     else
       handle_failed_identification(user, registered_nick)

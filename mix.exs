@@ -64,7 +64,7 @@ defmodule ElixIRCd.MixProject do
       {:memento, "~> 0.4"},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.10", only: [:dev, :test]},
-      {:pbkdf2_elixir, "~> 2.2"},
+      {:argon2_elixir, "~> 4.0"},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
       {:thousand_island, "~> 1.3"},
       {:websock_adapter, "~> 0.5"}
