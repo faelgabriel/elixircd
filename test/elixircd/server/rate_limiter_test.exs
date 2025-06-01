@@ -18,6 +18,10 @@ defmodule ElixIRCd.Server.RateLimiterTest do
         window_ms: 60_000,
         block_threshold: 2,
         block_ms: 60_000
+      ],
+      exceptions: [
+        ips: ["127.0.0.1", "::1"],
+        cidrs: ["10.0.0.0/8", "192.168.0.0/24"]
       ]
     ],
     message: [
@@ -34,17 +38,13 @@ defmodule ElixIRCd.Server.RateLimiterTest do
         "NICK" => [refill_rate: 0.1, capacity: 1, cost: 3],
         "WHO" => [refill_rate: 0.2, capacity: 2, cost: 1],
         "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
-      },
-      exceptions: [
-        ips: ["127.0.0.1", "::1"],
-        cidrs: ["10.0.0.0/8", "192.168.0.0/24"]
-      ]
+      }
     ]
   ]
 
   setup do
     original_config = Application.get_env(:elixircd, :rate_limiter)
-    Application.put_env(:elixircd, :rate_limiter, @test_config)
+    Application.put_env(:elixircd, :rate_limiter, Keyword.merge(original_config, @test_config))
 
     on_exit(fn ->
       Application.put_env(:elixircd, :rate_limiter, original_config)
