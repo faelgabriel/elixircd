@@ -4,11 +4,13 @@ defmodule ElixIRCd.Server.RateLimiterTest do
   use ElixIRCd.DataCase, async: false
   use Mimic
 
+  import ElixIRCd.Factory
+
   alias ElixIRCd.Server.RateLimiter
 
   @test_config [
     connection: [
-      whitelist: ["127.0.0.1", "::1"],
+      max_connections_per_ip: 2,
       throttle: [
         refill_rate: 0.05,
         capacity: 3,
@@ -32,7 +34,11 @@ defmodule ElixIRCd.Server.RateLimiterTest do
         "NICK" => [refill_rate: 0.1, capacity: 1, cost: 3],
         "WHO" => [refill_rate: 0.2, capacity: 2, cost: 1],
         "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
-      }
+      },
+      exceptions: [
+        ips: ["127.0.0.1", "::1"],
+        cidrs: ["10.0.0.0/8", "192.168.0.0/24"]
+      ]
     ]
   ]
 
@@ -48,14 +54,21 @@ defmodule ElixIRCd.Server.RateLimiterTest do
   end
 
   describe "check_connection/1" do
-    test "allows whitelisted IP addresses" do
+    test "allows excepted IP addresses" do
       Memento.transaction!(fn ->
         assert :ok = RateLimiter.check_connection({127, 0, 0, 1})
         assert :ok = RateLimiter.check_connection({0, 0, 0, 0, 0, 0, 0, 1})
       end)
     end
 
-    test "allows non-whitelisted IP when under rate limit" do
+    test "allows IPs in excepted CIDR ranges" do
+      Memento.transaction!(fn ->
+        assert :ok = RateLimiter.check_connection({10, 10, 10, 10})
+        assert :ok = RateLimiter.check_connection({192, 168, 0, 100})
+      end)
+    end
+
+    test "allows non-excepted IP when under rate limit and max connections" do
       Memento.transaction!(fn ->
         test_ip = {192, 168, 1, 100}
 
@@ -63,7 +76,7 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       end)
     end
 
-    test "throttles non-whitelisted IP when rate limit is exceeded" do
+    test "throttles non-excepted IP when rate limit is exceeded" do
       Memento.transaction!(fn ->
         test_ip = {192, 168, 1, 101}
 
@@ -97,6 +110,17 @@ defmodule ElixIRCd.Server.RateLimiterTest do
 
         # Subsequent attempts should also be blocked
         assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
+      end)
+    end
+
+    test "rejects connections when max_connections_per_ip is reached" do
+      Memento.transaction!(fn ->
+        test_ip = {192, 168, 1, 103}
+
+        insert(:user, %{ip_address: test_ip, port_connected: 1234})
+        insert(:user, %{ip_address: test_ip, port_connected: 1235})
+
+        assert {:error, :max_connections_exceeded} = RateLimiter.check_connection(test_ip)
       end)
     end
   end

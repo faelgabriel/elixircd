@@ -49,9 +49,10 @@ defmodule ElixIRCd.Server.RateLimiter do
   end
 
   @doc """
-  Checks if a connection from the given IP address is within rate limits.
+  Checks if a connection from the given IP address is not exceeding rate limits or max connections.
   Returns `:ok` if the connection is allowed, `{:error, :throttled, retry_after_ms}` if the connection
-  should be throttled, or `{:error, :throttled_exceeded}` if the connection has exceeded its limits.
+  should be throttled, `{:error, :throttled_exceeded}` if the connection has exceeded its rate limit,
+  or `{:error, :max_connections_exceeded}` if the connection has exceeded the maximum number of connections.
   """
   @spec check_connection(:inet.ip_address()) :: burst_result() | {:error, :max_connections_exceeded}
   def check_connection(ip) do
