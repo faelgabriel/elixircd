@@ -11,13 +11,17 @@ defmodule ElixIRCd.Tables.UserTest do
 
       attrs = %{
         pid: pid,
-        transport: :tcp
+        transport: :tcp,
+        ip_address: {127, 0, 0, 1},
+        port_connected: 6667
       }
 
       user = User.new(attrs)
 
       assert user.pid == pid
       assert user.transport == :tcp
+      assert user.ip_address == {127, 0, 0, 1}
+      assert user.port_connected == 6667
       assert user.nick_key == nil
       assert user.nick == nil
       assert user.hostname == nil
@@ -40,6 +44,8 @@ defmodule ElixIRCd.Tables.UserTest do
       attrs = %{
         pid: pid,
         transport: :tcp,
+        ip_address: {127, 0, 0, 1},
+        port_connected: 6667,
         nick: "Test",
         hostname: "test",
         ident: "test",
@@ -57,6 +63,8 @@ defmodule ElixIRCd.Tables.UserTest do
 
       assert user.pid == pid
       assert user.transport == :tcp
+      assert user.ip_address == {127, 0, 0, 1}
+      assert user.port_connected == 6667
       assert user.nick_key == "test"
       assert user.nick == "Test"
       assert user.hostname == "test"
@@ -75,7 +83,7 @@ defmodule ElixIRCd.Tables.UserTest do
   describe "update/2" do
     test "updates a user with new values" do
       pid = spawn(fn -> :ok end)
-      user = User.new(%{pid: pid, transport: :tcp})
+      user = User.new(%{pid: pid, transport: :tcp, ip_address: {127, 0, 0, 1}, port_connected: 6667})
       utc_now = DateTime.utc_now()
 
       updated_user =

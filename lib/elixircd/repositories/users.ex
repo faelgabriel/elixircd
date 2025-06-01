@@ -120,6 +120,15 @@ defmodule ElixIRCd.Repositories.Users do
   end
 
   @doc """
+  Count users by ip address.
+  """
+  @spec count_by_ip_address(:inet.ip_address()) :: integer()
+  def count_by_ip_address(ip_address) do
+    :mnesia.index_read(User, ip_address, :ip_address)
+    |> Enum.count()
+  end
+
+  @doc """
   Count all users.
   """
   @spec count_all() :: integer()

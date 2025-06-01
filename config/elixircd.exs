@@ -16,12 +16,8 @@ config :elixircd,
   rate_limiter: [
     # Connection Rate Limiting Configuration
     connection: [
-      # IPs that bypass connection rate limiting
-      # TODO: move to 'exceptions': "masks" and "ips" lists; support ip ranges, e.g. 192.168.0.0/16
-      whitelist: ["127.0.0.1", "::1"],
       # Maximum number of simultaneous open connections per IP
-      # TODO: validate the max_per_ip value on new connections
-      max_per_ip: 100,
+      max_connections_per_ip: 100,
       # Controls how frequently new connections are allowed from the same IP.
       throttle: [
         # Tokens added to the bucket per second.
@@ -39,6 +35,13 @@ config :elixircd,
         block_threshold: 2,
         # Duration (in milliseconds) to block the IP after exceeding the threshold.
         block_ms: 60_000
+      ],
+      # Exceptions for any connection rate limiting
+      exceptions: [
+        # IP addresses
+        ips: ["127.0.0.1", "::1"],
+        # CIDR ranges (e.g., "192.168.1.0/24")
+        cidrs: []
       ]
     ],
     # Controls how frequently messages can be sent by each user.
@@ -66,8 +69,17 @@ config :elixircd,
         "NICK" => [refill_rate: 0.1, capacity: 1, cost: 3],
         "WHO" => [refill_rate: 0.2, capacity: 2, cost: 1],
         "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
-      }
-      # TODO: support 'exceptions': "nicks", "accounts", "masks", and "umodes".
+      },
+      # Exceptions for any message rate limiting
+      # TODO: Implement exceptions for message rate limiting
+      exceptions: [
+        # Identified nicknames
+        nicknames: [],
+        # Host masks (e.g., "*!*@127.0.0.1")
+        masks: [],
+        # User modes (e.g., "o" for operators)
+        umodes: []
+      ]
     ]
   ],
   # Features Configuration

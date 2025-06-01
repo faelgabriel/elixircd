@@ -55,6 +55,7 @@ defmodule ElixIRCd.MixProject do
       {:bamboo, "~> 2.4"},
       {:bamboo_mua, "~> 0.2"},
       {:bandit, "~> 1.5"},
+      {:cidr, ">= 1.1.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:doctor, "~> 0.21", only: :dev},

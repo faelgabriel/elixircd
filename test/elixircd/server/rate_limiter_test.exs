@@ -1,7 +1,7 @@
 defmodule ElixIRCd.Server.RateLimiterTest do
   @moduledoc false
 
-  use ExUnit.Case, async: false
+  use ElixIRCd.DataCase, async: false
   use Mimic
 
   alias ElixIRCd.Server.RateLimiter
@@ -49,47 +49,55 @@ defmodule ElixIRCd.Server.RateLimiterTest do
 
   describe "check_connection/1" do
     test "allows whitelisted IP addresses" do
-      assert :ok = RateLimiter.check_connection({127, 0, 0, 1})
-      assert :ok = RateLimiter.check_connection({0, 0, 0, 0, 0, 0, 0, 1})
+      Memento.transaction!(fn ->
+        assert :ok = RateLimiter.check_connection({127, 0, 0, 1})
+        assert :ok = RateLimiter.check_connection({0, 0, 0, 0, 0, 0, 0, 1})
+      end)
     end
 
     test "allows non-whitelisted IP when under rate limit" do
-      test_ip = {192, 168, 1, 100}
+      Memento.transaction!(fn ->
+        test_ip = {192, 168, 1, 100}
 
-      assert :ok = RateLimiter.check_connection(test_ip)
+        assert :ok = RateLimiter.check_connection(test_ip)
+      end)
     end
 
     test "throttles non-whitelisted IP when rate limit is exceeded" do
-      test_ip = {192, 168, 1, 101}
+      Memento.transaction!(fn ->
+        test_ip = {192, 168, 1, 101}
 
-      # Exhaust the capacity (default is 3)
-      assert :ok = RateLimiter.check_connection(test_ip)
-      assert :ok = RateLimiter.check_connection(test_ip)
-      assert :ok = RateLimiter.check_connection(test_ip)
+        # Exhaust the capacity (default is 3)
+        assert :ok = RateLimiter.check_connection(test_ip)
+        assert :ok = RateLimiter.check_connection(test_ip)
+        assert :ok = RateLimiter.check_connection(test_ip)
 
-      # Fourth connection should be throttled
-      result = RateLimiter.check_connection(test_ip)
-      assert {:error, :throttled, retry_ms} = result
-      assert is_integer(retry_ms) and retry_ms > 0
+        # Fourth connection should be throttled
+        result = RateLimiter.check_connection(test_ip)
+        assert {:error, :throttled, retry_ms} = result
+        assert is_integer(retry_ms) and retry_ms > 0
+      end)
     end
 
     test "blocks IP after repeated violations" do
-      test_ip = {192, 168, 1, 102}
+      Memento.transaction!(fn ->
+        test_ip = {192, 168, 1, 102}
 
-      # First, exhaust capacity to trigger violations
-      assert :ok = RateLimiter.check_connection(test_ip)
-      assert :ok = RateLimiter.check_connection(test_ip)
-      assert :ok = RateLimiter.check_connection(test_ip)
+        # First, exhaust capacity to trigger violations
+        assert :ok = RateLimiter.check_connection(test_ip)
+        assert :ok = RateLimiter.check_connection(test_ip)
+        assert :ok = RateLimiter.check_connection(test_ip)
 
-      # Get violations (default block_threshold is 2)
-      # First violation
-      assert {:error, :throttled, _} = RateLimiter.check_connection(test_ip)
+        # Get violations (default block_threshold is 2)
+        # First violation
+        assert {:error, :throttled, _} = RateLimiter.check_connection(test_ip)
 
-      # Second violation should trigger block immediately
-      assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
+        # Second violation should trigger block immediately
+        assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
 
-      # Subsequent attempts should also be blocked
-      assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
+        # Subsequent attempts should also be blocked
+        assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
+      end)
     end
   end
 
