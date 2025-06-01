@@ -6,6 +6,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   use Supervisor
 
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.User
 
   defmodule Connection do
     @moduledoc """
@@ -150,10 +151,10 @@ defmodule ElixIRCd.Server.RateLimiter do
   Returns `:ok` if the message is allowed, `{:error, :throttled, retry_after_ms}` if the connection
   should be throttled, or `{:error, :throttled_exceeded}` if the connection has exceeded its limits.
   """
-  @spec check_message(pid(), String.t()) :: burst_result()
-  def check_message(pid, data) do
+  @spec check_message(User.t(), String.t()) :: burst_result()
+  def check_message(user, data) do
     command = extract_command(data)
-    pid_string = inspect(pid)
+    pid_string = inspect(user.pid)
 
     config = Application.get_env(:elixircd, :rate_limiter)[:message]
     override = Map.get(config[:command_throttle] || %{}, command, [])

@@ -127,87 +127,87 @@ defmodule ElixIRCd.Server.RateLimiterTest do
 
   describe "check_message/2" do
     setup do
-      {:ok, pid: spawn(fn -> :ok end)}
+      {:ok, user: insert(:user)}
     end
 
-    test "allows message when under rate limit", %{pid: pid} do
+    test "allows message when under rate limit", %{user: user} do
       # Default rate limit is generous (1.0 refill_rate, 10 capacity)
-      assert :ok = RateLimiter.check_message(pid, "PRIVMSG #test :Hello")
-      assert :ok = RateLimiter.check_message(pid, "PRIVMSG #test :Hello again")
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello")
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello again")
     end
 
-    test "throttles message when rate limit is exceeded", %{pid: pid} do
+    test "throttles message when rate limit is exceeded", %{user: user} do
       # Exhaust the capacity quickly (default capacity is 10)
       for i <- 1..10 do
-        assert :ok = RateLimiter.check_message(pid, "PRIVMSG #test :Message #{i}")
+        assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Message #{i}")
       end
 
       # 11th message should be throttled
-      result = RateLimiter.check_message(pid, "PRIVMSG #test :Too many messages")
+      result = RateLimiter.check_message(user, "PRIVMSG #test :Too many messages")
       assert {:error, :throttled, retry_ms} = result
       assert is_integer(retry_ms) and retry_ms > 0
     end
 
-    test "disconnects user after repeated violations", %{pid: pid} do
+    test "disconnects user after repeated violations", %{user: user} do
       # First exhaust capacity to start getting violations
       for i <- 1..10 do
-        assert :ok = RateLimiter.check_message(pid, "PRIVMSG #test :Message #{i}")
+        assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Message #{i}")
       end
 
       # Get violations (default disconnect_threshold is 5)
       for _i <- 1..4 do
-        assert {:error, :throttled, _} = RateLimiter.check_message(pid, "PRIVMSG #test :Violation")
+        assert {:error, :throttled, _} = RateLimiter.check_message(user, "PRIVMSG #test :Violation")
       end
 
       # 5th violation should trigger disconnect
-      assert {:error, :throttled_exceeded} = RateLimiter.check_message(pid, "PRIVMSG #test :Final violation")
+      assert {:error, :throttled_exceeded} = RateLimiter.check_message(user, "PRIVMSG #test :Final violation")
     end
 
-    test "applies command-specific throttling for JOIN", %{pid: pid} do
+    test "applies command-specific throttling for JOIN", %{user: user} do
       # JOIN has stricter limits: refill_rate: 0.3, capacity: 3
-      assert :ok = RateLimiter.check_message(pid, "JOIN #channel1")
-      assert :ok = RateLimiter.check_message(pid, "JOIN #channel2")
-      assert :ok = RateLimiter.check_message(pid, "JOIN #channel3")
+      assert :ok = RateLimiter.check_message(user, "JOIN #channel1")
+      assert :ok = RateLimiter.check_message(user, "JOIN #channel2")
+      assert :ok = RateLimiter.check_message(user, "JOIN #channel3")
 
       # 4th JOIN should be throttled
-      result = RateLimiter.check_message(pid, "JOIN #channel4")
+      result = RateLimiter.check_message(user, "JOIN #channel4")
       assert {:error, :throttled, _} = result
     end
 
-    test "applies command-specific throttling for PING with zero cost", %{pid: pid} do
+    test "applies command-specific throttling for PING with zero cost", %{user: user} do
       # PING has cost: 0, so it should never be throttled by rate
       for i <- 1..20 do
-        assert :ok = RateLimiter.check_message(pid, "PING :server#{i}")
+        assert :ok = RateLimiter.check_message(user, "PING :server#{i}")
       end
     end
 
-    test "applies command-specific throttling for NICK", %{pid: pid} do
+    test "applies command-specific throttling for NICK", %{user: user} do
       # NICK has: refill_rate: 0.1, capacity: 1, cost: 3
       # So only 1 token, and costs 3 - should be throttled immediately
-      result = RateLimiter.check_message(pid, "NICK newnick")
+      result = RateLimiter.check_message(user, "NICK newnick")
       assert {:error, :throttled, _} = result
     end
 
-    test "handles different commands with separate rate limits", %{pid: pid} do
+    test "handles different commands with separate rate limits", %{user: user} do
       # Regular PRIVMSG should work fine
-      assert :ok = RateLimiter.check_message(pid, "PRIVMSG #test :Hello")
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello")
 
       # WHO has separate limits: refill_rate: 0.2, capacity: 2
-      assert :ok = RateLimiter.check_message(pid, "WHO #channel")
-      assert :ok = RateLimiter.check_message(pid, "WHO #channel2")
+      assert :ok = RateLimiter.check_message(user, "WHO #channel")
+      assert :ok = RateLimiter.check_message(user, "WHO #channel2")
 
       # Third WHO should be throttled due to capacity
-      result = RateLimiter.check_message(pid, "WHO #channel3")
+      result = RateLimiter.check_message(user, "WHO #channel3")
       assert {:error, :throttled, _} = result
 
       # But PRIVMSG should still work (separate buckets)
-      assert :ok = RateLimiter.check_message(pid, "PRIVMSG #test :Still works")
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Still works")
     end
 
-    test "handles generic messages", %{pid: pid} do
-      assert :ok = RateLimiter.check_message(pid, "")
-      assert :ok = RateLimiter.check_message(pid, "ANYTHING")
-      assert :ok = RateLimiter.check_message(pid, "ANYTHING ANYTHING")
+    test "handles generic messages", %{user: user} do
+      assert :ok = RateLimiter.check_message(user, "")
+      assert :ok = RateLimiter.check_message(user, "ANYTHING")
+      assert :ok = RateLimiter.check_message(user, "ANYTHING ANYTHING")
     end
   end
 end

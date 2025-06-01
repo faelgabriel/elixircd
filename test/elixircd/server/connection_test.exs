@@ -101,7 +101,6 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert :close = Connection.handle_connect(pid, :tcp, %{ip_address: {192, 168, 1, 2}, port_connected: 6667})
       assert [] = get_records(User)
 
-      # Do not send any messages to the user
       assert_sent_messages_amount(pid, 0)
     end
   end
@@ -113,6 +112,9 @@ defmodule ElixIRCd.Server.ConnectionTest do
     end
 
     test "handles message when user not found" do
+      Command
+      |> reject(:dispatch, 2)
+
       assert :ok = Connection.handle_receive(self(), "PRIVMSG #test :hello")
     end
 
@@ -137,16 +139,14 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
     test "handles rate limited message with throttled error", %{user: user} do
       RateLimiter
-      |> expect(:check_message, fn pid, "PRIVMSG #test :spam" ->
-        assert pid == user.pid
+      |> expect(:check_message, fn target_user, "PRIVMSG #test :spam" ->
+        assert target_user.pid == user.pid
         {:error, :throttled, 2000}
       end)
 
-      # Command.dispatch should not be called when throttled
       Command
       |> reject(:dispatch, 2)
 
-      # Message should return :ok when throttled
       assert :ok = Connection.handle_receive(user.pid, "PRIVMSG #test :spam")
 
       assert_sent_messages([
@@ -155,37 +155,16 @@ defmodule ElixIRCd.Server.ConnectionTest do
       ])
     end
 
-    test "handles throttled message when user not found" do
-      non_existent_user_pid = self()
-
-      RateLimiter
-      |> expect(:check_message, fn pid, "PRIVMSG #test :spam" ->
-        assert pid == non_existent_user_pid
-        {:error, :throttled, 2000}
-      end)
-
-      # Command.dispatch should not be called when user not found
-      Command
-      |> reject(:dispatch, 2)
-
-      # Should handle the case where user is not found in throttled case
-      assert :ok = Connection.handle_receive(non_existent_user_pid, "PRIVMSG #test :spam")
-
-      assert_sent_messages_amount(non_existent_user_pid, 0)
-    end
-
     test "handles rate limited message with exceeded threshold", %{user: user} do
       RateLimiter
-      |> expect(:check_message, fn pid, "PRIVMSG #test :flood" ->
-        assert pid == user.pid
+      |> expect(:check_message, fn target_user, "PRIVMSG #test :flood" ->
+        assert target_user.pid == user.pid
         {:error, :throttled_exceeded}
       end)
 
-      # Command.dispatch should not be called when exceeded
       Command
       |> reject(:dispatch, 2)
 
-      # Message should return {:quit, "Excess flood"} when exceeded
       assert {:quit, "Excess flood"} = Connection.handle_receive(user.pid, "PRIVMSG #test :flood")
 
       assert_sent_messages([

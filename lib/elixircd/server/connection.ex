@@ -64,39 +64,37 @@ defmodule ElixIRCd.Server.Connection do
   def handle_receive(pid, data) do
     Logger.debug("<- #{inspect(data)}")
 
-    case RateLimiter.check_message(pid, data) do
-      :ok -> handle_valid_message(pid, data)
-      {:error, :throttled, retry_after_ms} -> handle_throttled_message(pid, retry_after_ms)
-      {:error, :throttled_exceeded} -> handle_excess_flood(pid)
+    Memento.transaction!(fn ->
+      case Users.get_by_pid(pid) do
+        {:ok, user} -> handle_check_message(user, data)
+        {:error, :user_not_found} -> Logger.debug("User not found on receive message for PID: #{inspect(pid)}")
+      end
+    end)
+  end
+
+  @spec handle_check_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
+  defp handle_check_message(user, data) do
+    case RateLimiter.check_message(user, data) do
+      :ok -> handle_valid_message(user, data)
+      {:error, :throttled, retry_after_ms} -> handle_throttled_message(user, retry_after_ms)
+      {:error, :throttled_exceeded} -> handle_excess_flood(user)
     end
   end
 
-  @spec handle_valid_message(pid :: pid(), data :: String.t()) :: :ok
-  defp handle_valid_message(pid, data) do
-    Memento.transaction!(fn ->
-      with {:ok, user} <- Users.get_by_pid(pid),
-           {:ok, message} <- Message.parse(data) do
+  @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
+  defp handle_valid_message(user, data) do
+    case Message.parse(data) do
+      {:ok, message} ->
         updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
         Command.dispatch(updated_user, message)
-      else
-        {:error, :user_not_found} -> :ok
-        {:error, error} -> Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
-      end
-    end)
+
+      {:error, error} ->
+        Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
+    end
   end
 
-  @spec handle_throttled_message(pid :: pid(), retry_after_ms :: non_neg_integer()) :: :ok
-  defp handle_throttled_message(pid, retry_after_ms) do
-    Memento.transaction!(fn ->
-      case Users.get_by_pid(pid) do
-        {:ok, user} -> handle_throttle_notice(user, retry_after_ms)
-        {:error, :user_not_found} -> :ok
-      end
-    end)
-  end
-
-  @spec handle_throttle_notice(user :: map(), retry_after_ms :: non_neg_integer()) :: :ok
-  defp handle_throttle_notice(user, retry_after_ms) do
+  @spec handle_throttled_message(user :: User.t(), retry_after_ms :: non_neg_integer()) :: :ok
+  defp handle_throttled_message(user, retry_after_ms) do
     Message.build(%{
       prefix: :server,
       command: "NOTICE",
@@ -107,10 +105,10 @@ defmodule ElixIRCd.Server.Connection do
     |> Dispatcher.broadcast(user)
   end
 
-  @spec handle_excess_flood(pid :: pid()) :: {:quit, String.t()}
-  defp handle_excess_flood(pid) do
+  @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}
+  defp handle_excess_flood(user) do
     Message.build(%{command: "ERROR", params: [], trailing: "Excess flood"})
-    |> Dispatcher.broadcast(pid)
+    |> Dispatcher.broadcast(user)
 
     {:quit, "Excess flood"}
   end
