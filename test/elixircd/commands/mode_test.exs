@@ -378,18 +378,6 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
-    test "handles MODE command for user that list another user modes" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-        another_user = insert(:user, modes: ["i", "w", "o", "Z"])
-
-        message = %Message{command: "MODE", params: [another_user.nick]}
-        assert :ok = Mode.handle(user, message)
-
-        # TODO: check / implement message
-      end)
-    end
-
     test "handles MODE command for user that change its modes" do
       Memento.transaction!(fn ->
         user = insert(:user, modes: [])
@@ -418,12 +406,12 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
-    test "handles MODE command for user that change another user modes" do
+    test "handles MODE command for user that list another user modes" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        another_user = insert(:user)
+        another_user = insert(:user, modes: ["i", "w", "o", "Z"])
 
-        message = %Message{command: "MODE", params: [another_user.nick, "+i"]}
+        message = %Message{command: "MODE", params: [another_user.nick]}
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
@@ -432,12 +420,12 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
-    test "handles MODE command for user that view another user modes" do
+    test "handles MODE command for user that change another user modes" do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
 
-        message = %Message{command: "MODE", params: [another_user.nick]}
+        message = %Message{command: "MODE", params: [another_user.nick, "+i"]}
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([

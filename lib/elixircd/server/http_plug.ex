@@ -41,7 +41,7 @@ defmodule ElixIRCd.Server.HttpPlug do
 
     conn
     |> maybe_response_protocol(subprotocol)
-    # TODO: text and binary data should be handled accordingly to the subprotocol negotiation
+    # Future: text and binary data should be handled accordingly to the subprotocol negotiation
     |> WebSockAdapter.upgrade(WsListener, %{conn: conn, subprotocol: subprotocol, transport: transport},
       timeout: timeout
     )
@@ -66,7 +66,7 @@ defmodule ElixIRCd.Server.HttpPlug do
   defp maybe_select_protocol(protocols) do
     protocols
     |> String.split(~r/,\s*/)
-    # TODO: Use the subprotocol to determine the type of data to send
+    # Future: Use the subprotocol to determine the type of data to send
     |> Enum.find(&(&1 in ["text.ircv3.net", "binary.ircv3.net"]))
   end
 
