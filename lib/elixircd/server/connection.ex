@@ -99,10 +99,19 @@ defmodule ElixIRCd.Server.Connection do
   defp handle_invalid_utf8(user, data) do
     Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
 
+    # Future: When "standard-replies" is implemented and negotiated with the user, use the FAIL command.
+    # Message.build(%{
+    #   prefix: :server,
+    #   command: "FAIL",
+    #   params: ["*", "INVALID_UTF8"],
+    #   trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
+    # })
+    # |> Dispatcher.broadcast(user)
+
     Message.build(%{
       prefix: :server,
-      command: "FAIL",
-      params: ["*", "INVALID_UTF8"],
+      command: "NOTICE",
+      params: [user_reply(user)],
       trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
     })
     |> Dispatcher.broadcast(user)

@@ -201,7 +201,8 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert :ok = Connection.handle_receive(user.pid, invalid_utf8_message)
 
       assert_sent_messages([
-        {user.pid, ":irc.test FAIL * INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+        {user.pid,
+         ":irc.test NOTICE #{user.nick} :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
       ])
 
       Application.put_env(:elixircd, :settings, original_settings)
