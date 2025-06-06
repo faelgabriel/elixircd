@@ -74,11 +74,38 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_check_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
   defp handle_check_message(user, data) do
-    case RateLimiter.check_message(user, data) do
-      :ok -> handle_valid_message(user, data)
+    with :ok <- RateLimiter.check_message(user, data),
+         :ok <- check_utf8_validity(data) do
+      handle_valid_message(user, data)
+    else
       {:error, :throttled, retry_after_ms} -> handle_throttled_message(user, retry_after_ms)
       {:error, :throttled_exceeded} -> handle_excess_flood(user)
+      {:error, :invalid_utf8} -> handle_invalid_utf8(user, data)
     end
+  end
+
+  @spec check_utf8_validity(data :: String.t()) :: :ok | {:error, :invalid_utf8}
+  defp check_utf8_validity(data) do
+    utf8_only_enabled? = Application.get_env(:elixircd, :settings)[:utf8_only] || false
+
+    if utf8_only_enabled? and not String.valid?(data) do
+      {:error, :invalid_utf8}
+    else
+      :ok
+    end
+  end
+
+  @spec handle_invalid_utf8(user :: User.t(), data :: String.t()) :: :ok
+  defp handle_invalid_utf8(user, data) do
+    Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
+
+    Message.build(%{
+      prefix: :server,
+      command: "FAIL",
+      params: ["*", "INVALID_UTF8"],
+      trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
+    })
+    |> Dispatcher.broadcast(user)
   end
 
   @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}

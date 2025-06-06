@@ -171,6 +171,62 @@ defmodule ElixIRCd.Server.ConnectionTest do
         {user.pid, ~r/\AERROR :Excess flood\r\n/}
       ])
     end
+
+    test "handles valid UTF-8 message when utf8_only is enabled", %{user: user} do
+      original_settings = Application.get_env(:elixircd, :settings)
+      Application.put_env(:elixircd, :settings, Keyword.merge(original_settings, utf8_only: true))
+
+      Command
+      |> expect(:dispatch, 1, fn dispatched_user, message ->
+        assert dispatched_user.pid == user.pid
+        assert message == %Message{command: "PRIVMSG", params: ["#test"], trailing: "Hello world! 🌍"}
+        :ok
+      end)
+
+      assert :ok = Connection.handle_receive(user.pid, "PRIVMSG #test :Hello world! 🌍")
+
+      Application.put_env(:elixircd, :settings, original_settings)
+    end
+
+    test "handles invalid UTF-8 message when utf8_only is enabled", %{user: user} do
+      original_settings = Application.get_env(:elixircd, :settings)
+      Application.put_env(:elixircd, :settings, Keyword.merge(original_settings, utf8_only: true))
+
+      Command
+      |> reject(:dispatch, 2)
+
+      # Create an invalid UTF-8 string by using a binary with invalid UTF-8 bytes
+      invalid_utf8_message = "PRIVMSG #test :" <> <<0xFF, 0xFE>>
+
+      assert :ok = Connection.handle_receive(user.pid, invalid_utf8_message)
+
+      assert_sent_messages([
+        {user.pid, ":irc.test FAIL * INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+      ])
+
+      Application.put_env(:elixircd, :settings, original_settings)
+    end
+
+    test "allows invalid UTF-8 message when utf8_only is disabled", %{user: user} do
+      original_settings = Application.get_env(:elixircd, :settings)
+      Application.put_env(:elixircd, :settings, Keyword.merge(original_settings, utf8_only: false))
+
+      Command
+      |> expect(:dispatch, 1, fn dispatched_user, _message ->
+        assert dispatched_user.pid == user.pid
+        :ok
+      end)
+
+      # Create an invalid UTF-8 string by using a binary with invalid UTF-8 bytes
+      invalid_utf8_message = "PRIVMSG #test :" <> <<0xFF, 0xFE>>
+
+      assert :ok = Connection.handle_receive(user.pid, invalid_utf8_message)
+
+      # Should not send any error messages
+      assert_sent_messages_amount(user.pid, 0)
+
+      Application.put_env(:elixircd, :settings, original_settings)
+    end
   end
 
   describe "handle_send/2" do
