@@ -1,8 +1,9 @@
-# ---- Build Application Stage ----
-# This stage builds the application by compiling the source code and generating a release.
+# Build Application Stage: Builds the application by compiling the source code and generating a release.
 FROM elixir:1.18.3-otp-27-alpine AS build
 
 ENV LANG=C.UTF-8
+
+RUN apk add --no-cache make gcc musl-dev
 
 WORKDIR /app
 
@@ -21,12 +22,11 @@ COPY lib lib/
 
 RUN mix do compile, release
 
-# ---- Runtime Application Stage ----
-# This stage sets up the environment to run the built application with a minimal image size.
+# Runtime Application Stage: Sets up the environment to run the built application with a minimal image size.
 FROM elixir:1.18.3-otp-27-alpine AS runtime
 
 WORKDIR /app
-RUN mkdir -p /app/priv
+RUN mkdir -p /app/data
 RUN chown -Rf nobody /app
 
 COPY --from=build --chown=nobody:root /app/_build/prod/rel/elixircd /app

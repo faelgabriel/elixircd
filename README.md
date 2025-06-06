@@ -388,6 +388,15 @@ To run the test suite with code coverage, use:
 mix test --cover
 ```
 
+### Building and Running the Docker Image Locally
+
+To build and run the ElixIRCd Docker image locally, use:
+
+```bash
+docker build -t elixircd .
+docker run -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 elixircd
+```
+
 ### Running Server in Interactive Mode
 
 To start ElixIRCd in interactive mode, which is useful for development and debugging, run:
