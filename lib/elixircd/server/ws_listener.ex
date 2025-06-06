@@ -34,8 +34,10 @@ defmodule ElixIRCd.Server.WsListener do
   end
 
   @impl WebSock
-  def handle_in({data, [opcode: _opcode]}, state) do
-    Connection.handle_receive(self(), data)
+  def handle_in({data, [opcode: opcode]}, %{subprotocol: subprotocol} = state) do
+    processed_data = process_incoming_data(data, opcode, subprotocol)
+
+    Connection.handle_receive(self(), processed_data)
     |> case do
       :ok -> {:ok, state}
       {:quit, reason} -> {:stop, :normal, {1000, reason}, Map.put(state, :quit_reason, reason)}
@@ -43,8 +45,9 @@ defmodule ElixIRCd.Server.WsListener do
   end
 
   @impl WebSock
-  def handle_info({:broadcast, message}, state) when is_binary(message) do
-    {:push, {:text, message}, state}
+  def handle_info({:broadcast, message}, %{subprotocol: subprotocol} = state) when is_binary(message) do
+    frame = create_outgoing_frame(message, subprotocol)
+    {:push, frame, state}
   end
 
   def handle_info({:disconnect, reason}, state) do
@@ -64,5 +67,65 @@ defmodule ElixIRCd.Server.WsListener do
       end
 
     Connection.handle_disconnect(self(), transport, disconnect_reason)
+  end
+
+  @spec process_incoming_data(binary(), :text | :binary, nil | String.t()) :: binary()
+  defp process_incoming_data(data, opcode, subprotocol) do
+    case {opcode, subprotocol} do
+      {:text, "text.ircv3.net"} ->
+        ensure_utf8_valid(data)
+
+      {:binary, "binary.ircv3.net"} ->
+        data
+
+      # No subprotocol negotiated or mismatched frame type for negotiated subprotocol - use data as-is
+      _ ->
+        case opcode do
+          :text -> ensure_utf8_valid(data)
+          :binary -> data
+        end
+    end
+  end
+
+  @spec create_outgoing_frame(binary(), nil | String.t()) :: {:text, binary()} | {:binary, binary()}
+  defp create_outgoing_frame(message, subprotocol) do
+    case subprotocol do
+      "text.ircv3.net" -> {:text, ensure_utf8_valid(message)}
+      "binary.ircv3.net" -> {:binary, message}
+      # No subprotocol or unknown subprotocol - default to text for compatibility with legacy clients
+      _ -> {:text, ensure_utf8_valid(message)}
+    end
+  end
+
+  @spec ensure_utf8_valid(binary()) :: binary()
+  defp ensure_utf8_valid(data) do
+    utf8_only_enabled? = Application.get_env(:elixircd, :settings)[:utf8_only] || false
+
+    # It does not replace invalid UTF8 if utf8_only is not enabled,
+    # since the invalid UTF8 content will be handled by the Connection module.
+    if utf8_only_enabled? or String.valid?(data) do
+      data
+    else
+      replace_invalid_utf8(data, <<>>)
+    end
+  end
+
+  @spec replace_invalid_utf8(binary(), binary()) :: binary()
+  defp replace_invalid_utf8(<<>>, acc), do: acc
+
+  defp replace_invalid_utf8(<<byte, rest::binary>>, acc) do
+    case <<byte>> do
+      <<valid_char::utf8>> ->
+        replace_invalid_utf8(rest, acc <> <<valid_char::utf8>>)
+
+      _ ->
+        {codepoint, remaining} = String.next_codepoint(<<byte, rest::binary>>)
+
+        if String.valid?(codepoint) do
+          replace_invalid_utf8(remaining, acc <> codepoint)
+        else
+          replace_invalid_utf8(rest, acc <> "�")
+        end
+    end
   end
 end

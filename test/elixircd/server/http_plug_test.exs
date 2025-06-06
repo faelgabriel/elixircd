@@ -98,6 +98,44 @@ defmodule ElixIRCd.Server.HttpPlugTest do
       assert Plug.Conn.get_resp_header(conn, "sec-websocket-protocol") == ["binary.ircv3.net"]
     end
 
+    test "respects client preference order for subprotocols (binary.ircv3.net)" do
+      expect(WebSockAdapter, :upgrade, fn conn, _handler, state, _opts ->
+        assert state.subprotocol == "binary.ircv3.net"
+
+        conn
+        |> Plug.Conn.assign(:upgraded, true)
+        |> Plug.Conn.halt()
+      end)
+
+      conn =
+        conn(:get, "/")
+        |> put_req_header("upgrade", "websocket")
+        |> put_req_header("sec-websocket-protocol", "binary.ircv3.net, text.ircv3.net, other.protocol")
+        |> HttpPlug.call([])
+
+      assert conn.assigns.upgraded
+      assert Plug.Conn.get_resp_header(conn, "sec-websocket-protocol") == ["binary.ircv3.net"]
+    end
+
+    test "respects client preference order for subprotocols (text.ircv3.net)" do
+      expect(WebSockAdapter, :upgrade, fn conn, _handler, state, _opts ->
+        assert state.subprotocol == "text.ircv3.net"
+
+        conn
+        |> Plug.Conn.assign(:upgraded, true)
+        |> Plug.Conn.halt()
+      end)
+
+      conn =
+        conn(:get, "/")
+        |> put_req_header("upgrade", "websocket")
+        |> put_req_header("sec-websocket-protocol", "text.ircv3.net, binary.ircv3.net")
+        |> HttpPlug.call([])
+
+      assert conn.assigns.upgraded
+      assert Plug.Conn.get_resp_header(conn, "sec-websocket-protocol") == ["text.ircv3.net"]
+    end
+
     test "ignores unsupported subprotocols" do
       expect(WebSockAdapter, :upgrade, fn conn, _handler, state, _opts ->
         assert state.subprotocol == nil
