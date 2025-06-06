@@ -43,7 +43,11 @@ defmodule ElixIRCd.Commands.UserTest do
         message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
         assert :ok = User.handle(user, message)
 
+        message = %Message{command: "USER", params: ["username", "0", "*", "realname"]}
+        assert :ok = User.handle(user, message)
+
         assert_sent_messages([
+          {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"},
           {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"},
           {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"}
         ])
@@ -56,8 +60,11 @@ defmodule ElixIRCd.Commands.UserTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
-        message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
 
+        message = %Message{command: "USER", params: ["username", "0", "*"], trailing: "real name"}
+        assert :ok = User.handle(user, message)
+
+        message = %Message{command: "USER", params: ["username", "0", "*", "realname"]}
         assert :ok = User.handle(user, message)
 
         assert_sent_messages([])
