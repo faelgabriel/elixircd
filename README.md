@@ -303,7 +303,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Server Time**: Timestamp information for messages. ❌
 - **Standard Replies**: Standardized format for server and client replies. ❌
 - **Strict Transport Security (STS)**: Automatic TLS encryption upgrade. ❌
-- **UTF8ONLY**: Indication of UTF-8 only traffic support. ❌
+- **UTF8ONLY**: Indication of UTF-8 only traffic support. ✅
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ✅
 

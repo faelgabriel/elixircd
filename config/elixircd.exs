@@ -81,7 +81,13 @@ config :elixircd,
       ]
     ]
   ],
+  # Settings Configuration
+  settings: [
+    # TODO: Whether to enforce UTF-8 only traffic support
+    utf8_only: true
+  ],
   # Features Configuration
+  # TODO: Move some features to other configurations
   features: [
     # Case mapping rules (:rfc1459, :strict_rfc1459, :ascii)
     # Important: Changing case mapping after the server has started and
@@ -291,6 +297,21 @@ config :elixircd,
       #   helper: "+Vv"
       # ]
     ]
+  ],
+  # TODO: Cloaking Configuration
+  cloak: [
+    # Enable or disable cloak service
+    enabled: true,
+    # String prepended to cloak
+    prefix: "cloak-",
+    # String appended to cloak
+    suffix: ".users.network",
+    # Hashing method for cloak (md5, sha1, sha256, sha512)
+    hash_method: :sha256,
+    # Secret key for deterministic cloak
+    secret_key: "secret_key",
+    # Length of cloak
+    length: 12
   ],
   # Ident Service Configuration
   ident_service: [

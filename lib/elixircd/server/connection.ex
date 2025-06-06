@@ -5,7 +5,7 @@ defmodule ElixIRCd.Server.Connection do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
@@ -98,7 +98,7 @@ defmodule ElixIRCd.Server.Connection do
     Message.build(%{
       prefix: :server,
       command: "NOTICE",
-      params: [user.nick],
+      params: [user_reply(user)],
       trailing:
         "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
     })

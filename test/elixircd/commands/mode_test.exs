@@ -386,7 +386,7 @@ defmodule ElixIRCd.Commands.ModeTest do
         message = %Message{command: "MODE", params: [another_user.nick]}
         assert :ok = Mode.handle(user, message)
 
-        # Future
+        # TODO: check / implement message
       end)
     end
 
