@@ -13,7 +13,7 @@ defmodule ElixIRCd.Server.WsListener do
           conn: Plug.Conn.t(),
           subprotocol: nil | String.t(),
           transport: :ws | :wss,
-          quit_reason: String.t() | nil
+          quit_reason?: String.t() | nil
         }
 
   @impl WebSock
