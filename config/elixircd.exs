@@ -83,7 +83,7 @@ config :elixircd,
   ],
   # Settings Configuration
   settings: [
-    # TODO: Whether to enforce UTF-8 only traffic support
+    # Whether to enforce UTF-8 only traffic support
     utf8_only: true
   ],
   # Features Configuration
