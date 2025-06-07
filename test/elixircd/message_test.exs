@@ -197,6 +197,21 @@ defmodule ElixIRCd.MessageTest do
       assert Message.parse(raw_message) == expected
     end
 
+    test "parses a raw message with colon inside a parameter" do
+      raw_message = ":Nick!user@host MODE #channel +b nick:user@host"
+
+      expected =
+        {:ok,
+         %Message{
+           prefix: "Nick!user@host",
+           command: "MODE",
+           params: ["#channel", "+b", "nick:user@host"],
+           trailing: nil
+         }}
+
+      assert Message.parse(raw_message) == expected
+    end
+
     test "handles malformed raw messages" do
       assert Message.parse(":unexpected") ==
                {:error, "Invalid IRC message format on parsing command and params: \"\""}
