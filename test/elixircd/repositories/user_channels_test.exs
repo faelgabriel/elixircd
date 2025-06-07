@@ -92,6 +92,45 @@ defmodule ElixIRCd.Repositories.UserChannelsTest do
     end
   end
 
+  describe "get_by_user_pids/1" do
+    test "returns empty list for empty pids" do
+      assert [] = Memento.transaction!(fn -> UserChannels.get_by_user_pids([]) end)
+    end
+
+    test "returns user channels for a single pid" do
+      user = insert(:user)
+      user_channel = insert(:user_channel, user: user)
+
+      result = Memento.transaction!(fn -> UserChannels.get_by_user_pids([user.pid]) end)
+      assert length(result) == 1
+      assert hd(result).user_pid == user.pid
+      assert hd(result).channel_name_key == user_channel.channel_name_key
+    end
+
+    test "returns user channels for multiple pids" do
+      user1 = insert(:user)
+      user2 = insert(:user)
+      insert(:user_channel, user: user1)
+      insert(:user_channel, user: user2)
+
+      result =
+        Memento.transaction!(fn ->
+          UserChannels.get_by_user_pids([user1.pid, user2.pid])
+        end)
+
+      assert length(result) == 2
+
+      pids = Enum.map(result, & &1.user_pid) |> Enum.uniq()
+      assert user1.pid in pids
+      assert user2.pid in pids
+    end
+
+    test "returns empty list for non-existent pids" do
+      non_existent_pid = self()
+      assert [] = Memento.transaction!(fn -> UserChannels.get_by_user_pids([non_existent_pid]) end)
+    end
+  end
+
   describe "get_by_channel_name/1" do
     test "returns user channels by channel name" do
       channel = insert(:channel)

@@ -67,6 +67,20 @@ defmodule ElixIRCd.Repositories.UserChannels do
   end
 
   @doc """
+  Get all user channels by the user pids.
+  """
+  @spec get_by_user_pids([pid()]) :: [UserChannel.t()]
+  def get_by_user_pids([]), do: []
+
+  def get_by_user_pids(pids) do
+    conditions =
+      Enum.map(pids, fn pid -> {:==, :user_pid, pid} end)
+      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
+
+    Memento.Query.select(UserChannel, conditions)
+  end
+
+  @doc """
   Get all user channels by the channel name.
   """
   @spec get_by_channel_name(String.t()) :: [UserChannel.t()]
