@@ -143,7 +143,6 @@ defmodule ElixIRCd.Server.RateLimiter do
     case Violation.hit(violation_key, window_ms, block_threshold) do
       {:allow, count} when count >= block_threshold -> {:error, :throttled_exceeded}
       {:allow, _count} -> {:error, :throttled, retry_ms}
-      {:deny, _retry_ms} -> {:error, :throttled_exceeded}
     end
   end
 
@@ -194,7 +193,6 @@ defmodule ElixIRCd.Server.RateLimiter do
     case Violation.hit(violation_key, window_ms, disconnect_threshold) do
       {:allow, count} when count >= disconnect_threshold -> {:error, :throttled_exceeded}
       {:allow, _count} -> {:error, :throttled, retry_ms}
-      {:deny, _retry_ms} -> {:error, :throttled_exceeded}
     end
   end
 
@@ -237,10 +235,6 @@ defmodule ElixIRCd.Server.RateLimiter do
     now = System.system_time(:second)
 
     case :ets.lookup(table_name, rate_key) do
-      [] ->
-        # No bucket exists, calculate time from empty bucket
-        trunc(cost * 1000 / refill_rate)
-
       [{^rate_key, stored_level, last_update}] ->
         # Calculate current tokens (exact same logic as hit/5)
         new_tokens = trunc((now - last_update) * refill_rate)

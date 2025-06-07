@@ -198,7 +198,7 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       result = RateLimiter.check_message(user, "NICK newnick2")
       assert {:error, :throttled, retry_ms} = result
       # With refill_rate 0.5 tokens/sec and cost 5, should be 10000ms
-      assert retry_ms >= 9000 and retry_ms <= 11000
+      assert retry_ms >= 9_000 and retry_ms <= 11_000
     end
 
     test "handles different commands with separate rate limits", %{user: user} do
