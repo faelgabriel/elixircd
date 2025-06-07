@@ -22,17 +22,17 @@ config :elixircd,
       throttle: [
         # Tokens added to the bucket per second.
         # Controls how frequently a connection can be made over time.
-        refill_rate: 0.05,
+        refill_rate: 0.5,
         # Maximum number of tokens the bucket can hold.
         # Allows short bursts of new connections before throttling begins.
-        capacity: 3,
+        capacity: 20,
         # Number of tokens consumed per connection attempt.
-        cost: 1,
+        cost: 3,
         # Time window (in milliseconds) during which violations are tracked.
         # A violation occurs when a connection is attempted without enough tokens.
         window_ms: 60_000,
         # Number of violations allowed within the window before blocking the IP.
-        block_threshold: 2,
+        block_threshold: 10,
         # Duration (in milliseconds) to block the IP after exceeding the threshold.
         block_ms: 60_000
       ],
@@ -53,22 +53,21 @@ config :elixircd,
         refill_rate: 1.0,
         # Maximum number of tokens the bucket can hold.
         # Allows short bursts of messages before throttling begins.
-        capacity: 10,
+        capacity: 20,
         # Number of tokens consumed per message sent.
         cost: 1,
         # Time window (in milliseconds) during which violations are tracked.
         # A violation occurs when a message is sent without enough tokens.
         window_ms: 60_000,
         # Number of violations allowed within window_ms before disconnecting the user.
-        disconnect_threshold: 5
+        disconnect_threshold: 10
       ],
       # Override the global throttle message rate limits for specific commands
       command_throttle: %{
-        "JOIN" => [refill_rate: 0.3, capacity: 3, cost: 1, window_ms: 10_000, disconnect_threshold: 2],
-        "PING" => [refill_rate: 2.0, capacity: 10, cost: 0],
-        "NICK" => [refill_rate: 0.1, capacity: 1, cost: 3],
-        "WHO" => [refill_rate: 0.2, capacity: 2, cost: 1],
-        "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
+        "JOIN" => [refill_rate: 0.5, capacity: 20, cost: 5, disconnect_threshold: 5],
+        "NICK" => [refill_rate: 0.5, capacity: 5, cost: 5, disconnect_threshold: 5],
+        "WHO" => [refill_rate: 0.5, capacity: 5, cost: 3, disconnect_threshold: 5],
+        "WHOIS" => [refill_rate: 0.5, capacity: 5, cost: 3, disconnect_threshold: 5]
       },
       # Exceptions for any message rate limiting
       exceptions: [
