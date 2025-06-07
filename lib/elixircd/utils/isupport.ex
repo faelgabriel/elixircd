@@ -37,6 +37,7 @@ defmodule ElixIRCd.Utils.Isupport do
     channel_config = Application.get_env(:elixircd, :channel)
     server_config = Application.get_env(:elixircd, :server)
     features_config = Application.get_env(:elixircd, :features)
+    settings_config = Application.get_env(:elixircd, :settings)
 
     [
       format_feature(:numeric, "MODES", channel_config[:max_modes_per_command]),
@@ -57,7 +58,8 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:boolean, "EXCEPTS", channel_config[:support_ban_exceptions]),
       format_feature(:boolean, "INVEX", channel_config[:support_invite_exceptions]),
       format_feature(:boolean, "UHNAMES", features_config[:support_extended_names]),
-      format_feature(:boolean, "CALLERID", features_config[:support_callerid_mode])
+      format_feature(:boolean, "CALLERID", features_config[:support_callerid_mode]),
+      format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only])
     ]
     |> Enum.reject(&is_nil/1)
   end

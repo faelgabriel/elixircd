@@ -12,7 +12,7 @@ defmodule ElixIRCd.Server.RateLimiter do
 
   defmodule Connection do
     @moduledoc """
-    Handles connection-based rate limiting using token bucket algorithm.
+    Handles connection-based rate limiting.
     """
 
     use Hammer, backend: :ets, algorithm: :token_bucket
@@ -20,7 +20,7 @@ defmodule ElixIRCd.Server.RateLimiter do
 
   defmodule Message do
     @moduledoc """
-    Handles message-based rate limiting using token bucket algorithm.
+    Handles message-based rate limiting.
     """
 
     use Hammer, backend: :ets, algorithm: :token_bucket
@@ -112,22 +112,24 @@ defmodule ElixIRCd.Server.RateLimiter do
     throttle = Keyword.get(config, :throttle)
     ip_string = :inet.ntoa(ip) |> to_string()
 
-    block_ms = throttle[:block_ms]
-    block_key = "block:#{ip_string}"
-
-    case Violation.get(block_key, block_ms) do
-      count when is_integer(count) and count >= 1 -> {:error, :throttled_exceeded}
-      _count -> check_connection_rate(ip_string, throttle)
-    end
+    check_connection_rate(ip_string, throttle)
   end
 
   @spec check_connection_rate(String.t(), keyword()) :: burst_result()
   defp check_connection_rate(ip_string, throttle) do
     rate_key = "rate:#{ip_string}"
 
-    case Connection.hit(rate_key, ms(throttle[:refill_rate]), throttle[:capacity], throttle[:cost]) do
-      {:allow, _count} -> :ok
-      {:deny, retry_ms} -> handle_connection_violation(ip_string, throttle, retry_ms)
+    refill_rate = throttle[:refill_rate]
+    capacity = throttle[:capacity]
+    cost = throttle[:cost]
+
+    case Connection.hit(rate_key, refill_rate, capacity, cost) do
+      {:allow, _count} ->
+        :ok
+
+      {:deny, _timeout} ->
+        retry_ms = calculate_token_wait_time(Connection, rate_key, refill_rate, capacity, cost)
+        handle_connection_violation(ip_string, throttle, retry_ms)
     end
   end
 
@@ -138,16 +140,9 @@ defmodule ElixIRCd.Server.RateLimiter do
     block_threshold = throttle[:block_threshold]
     violation_key = "violation:#{ip_string}"
 
-    {:allow, count} = Violation.hit(violation_key, window_ms, block_threshold, 1)
-
-    if count >= block_threshold do
-      block_ms = throttle[:block_ms]
-      block_key = "block:#{ip_string}"
-
-      Violation.hit(block_key, block_ms, 1, 1)
-      {:error, :throttled_exceeded}
-    else
-      {:error, :throttled, retry_ms}
+    case Violation.hit(violation_key, window_ms, block_threshold) do
+      {:allow, count} when count >= block_threshold -> {:error, :throttled_exceeded}
+      {:allow, _count} -> {:error, :throttled, retry_ms}
     end
   end
 
@@ -177,23 +172,27 @@ defmodule ElixIRCd.Server.RateLimiter do
     rate_key = "#{pid_string}:#{command || "*"}"
     violation_key = "disconnect:#{rate_key}"
 
-    disconnect_threshold = throttle[:disconnect_threshold]
+    refill_rate = throttle[:refill_rate]
+    capacity = throttle[:capacity]
+    cost = throttle[:cost]
     window_ms = throttle[:window_ms]
+    disconnect_threshold = throttle[:disconnect_threshold]
 
-    case Message.hit(rate_key, ms(throttle[:refill_rate]), throttle[:capacity], throttle[:cost]) do
-      {:allow, _count} -> :ok
-      {:deny, retry_ms} -> handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms)
+    case Message.hit(rate_key, refill_rate, capacity, cost) do
+      {:allow, _count} ->
+        :ok
+
+      {:deny, _timeout} ->
+        retry_ms = calculate_token_wait_time(Message, rate_key, refill_rate, capacity, cost)
+        handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms)
     end
   end
 
   @spec handle_throttle_violation(String.t(), non_neg_integer(), non_neg_integer(), non_neg_integer()) :: burst_result()
   defp handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms) do
-    {:allow, count} = Violation.hit(violation_key, window_ms, disconnect_threshold, 1)
-
-    if count >= disconnect_threshold do
-      {:error, :throttled_exceeded}
-    else
-      {:error, :throttled, retry_ms}
+    case Violation.hit(violation_key, window_ms, disconnect_threshold) do
+      {:allow, count} when count >= disconnect_threshold -> {:error, :throttled_exceeded}
+      {:allow, _count} -> {:error, :throttled, retry_ms}
     end
   end
 
@@ -221,9 +220,6 @@ defmodule ElixIRCd.Server.RateLimiter do
     end
   end
 
-  @spec ms(float()) :: pos_integer()
-  defp ms(rate), do: trunc(1000 / rate)
-
   @spec extract_command(String.t()) :: String.t() | nil
   defp extract_command(data) do
     [command | _rest] = String.split(data, " ", parts: 2)
@@ -231,6 +227,29 @@ defmodule ElixIRCd.Server.RateLimiter do
     case command do
       "" -> nil
       _ -> String.upcase(command)
+    end
+  end
+
+  @spec calculate_token_wait_time(atom(), String.t(), number(), pos_integer(), pos_integer()) :: pos_integer()
+  defp calculate_token_wait_time(table_name, rate_key, refill_rate, capacity, cost) do
+    now = System.system_time(:second)
+
+    case :ets.lookup(table_name, rate_key) do
+      [{^rate_key, stored_level, last_update}] ->
+        # Calculate current tokens (exact same logic as hit/5)
+        new_tokens = trunc((now - last_update) * refill_rate)
+        current_tokens = min(capacity, stored_level + new_tokens)
+
+        # Calculate how many more tokens we need
+        tokens_needed = cost - current_tokens
+
+        if tokens_needed <= 0 do
+          # We have enough tokens now
+          0
+        else
+          # Calculate time to accumulate the needed tokens
+          trunc(tokens_needed * 1000 / refill_rate)
+        end
     end
   end
 end

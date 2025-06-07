@@ -25,9 +25,13 @@ defmodule ElixIRCd.Commands.User do
     |> Dispatcher.broadcast(user)
   end
 
-  def handle(user, %{command: "USER", params: [username, _, _], trailing: realname}) do
+  def handle(user, %{command: "USER", params: [username, _, _ | _], trailing: realname}) when is_binary(realname) do
     updated_user = Users.update(user, %{ident: "~" <> username, realname: realname})
+    Handshake.handle(updated_user)
+  end
 
+  def handle(user, %{command: "USER", params: [username, _, _, realname | _], trailing: nil}) do
+    updated_user = Users.update(user, %{ident: "~" <> username, realname: realname})
     Handshake.handle(updated_user)
   end
 

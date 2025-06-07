@@ -303,7 +303,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Server Time**: Timestamp information for messages. ❌
 - **Standard Replies**: Standardized format for server and client replies. ❌
 - **Strict Transport Security (STS)**: Automatic TLS encryption upgrade. ❌
-- **UTF8ONLY**: Indication of UTF-8 only traffic support. ❌
+- **UTF8ONLY**: Configurable support for UTF-8 only traffic. ✅
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ✅
 
@@ -386,6 +386,15 @@ To run the test suite with code coverage, use:
 
 ```bash
 mix test --cover
+```
+
+### Building and Running the Docker Image Locally
+
+To build and run the ElixIRCd Docker image locally, use:
+
+```bash
+docker build -t elixircd .
+docker run -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 elixircd
 ```
 
 ### Running Server in Interactive Mode

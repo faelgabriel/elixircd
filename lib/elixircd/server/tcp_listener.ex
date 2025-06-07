@@ -11,7 +11,7 @@ defmodule ElixIRCd.Server.TcpListener do
 
   @type state :: %{
           transport: :tcp | :tls,
-          quit_reason: String.t() | nil
+          quit_reason?: String.t() | nil
         }
 
   @impl ThousandIsland.Handler
@@ -83,6 +83,6 @@ defmodule ElixIRCd.Server.TcpListener do
 
   @impl ThousandIsland.Handler
   def handle_close(_socket, state) do
-    Connection.handle_disconnect(self(), state.transport, state.quit_reason || "Connection Closed")
+    Connection.handle_disconnect(self(), state.transport, state[:quit_reason] || "Connection Closed")
   end
 end

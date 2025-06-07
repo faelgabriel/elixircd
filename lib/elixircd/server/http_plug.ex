@@ -7,6 +7,8 @@ defmodule ElixIRCd.Server.HttpPlug do
 
   import Plug.Conn
 
+  alias ElixIRCd.Server.WsListener
+
   @doc """
   Initializes the plug options.
   """
@@ -39,8 +41,7 @@ defmodule ElixIRCd.Server.HttpPlug do
 
     conn
     |> maybe_response_protocol(subprotocol)
-    # Feature: text and binary data should be handled accordingly to the subprotocol negotiation
-    |> WebSockAdapter.upgrade(ElixIRCd.Server.WsListener, %{conn: conn, subprotocol: subprotocol, transport: transport},
+    |> WebSockAdapter.upgrade(WsListener, %{conn: conn, subprotocol: subprotocol, transport: transport},
       timeout: timeout
     )
     |> halt()
@@ -64,7 +65,6 @@ defmodule ElixIRCd.Server.HttpPlug do
   defp maybe_select_protocol(protocols) do
     protocols
     |> String.split(~r/,\s*/)
-    # Future: Use the subprotocol to determine the type of data to send
     |> Enum.find(&(&1 in ["text.ircv3.net", "binary.ircv3.net"]))
   end
 

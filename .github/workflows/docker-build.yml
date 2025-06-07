@@ -31,7 +31,6 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          target: runtime
           push: ${{ startsWith(github.ref, 'refs/tags/') }}
           tags: |
             faelgabriel/elixircd:${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'pr-' }}${{ github.event.number }}

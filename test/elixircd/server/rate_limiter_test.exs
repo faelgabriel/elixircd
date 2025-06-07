@@ -12,7 +12,7 @@ defmodule ElixIRCd.Server.RateLimiterTest do
     connection: [
       max_connections_per_ip: 2,
       throttle: [
-        refill_rate: 0.05,
+        refill_rate: 2.0,
         capacity: 3,
         cost: 1,
         window_ms: 60_000,
@@ -26,18 +26,18 @@ defmodule ElixIRCd.Server.RateLimiterTest do
     ],
     message: [
       throttle: [
-        refill_rate: 1.0,
-        capacity: 10,
+        refill_rate: 2.0,
+        capacity: 5,
         cost: 1,
         window_ms: 60_000,
         disconnect_threshold: 5
       ],
       command_throttle: %{
-        "JOIN" => [refill_rate: 0.3, capacity: 3, cost: 1, window_ms: 10_000, disconnect_threshold: 2],
+        "JOIN" => [refill_rate: 1.0, capacity: 3, cost: 1, window_ms: 10_000, disconnect_threshold: 2],
         "PING" => [refill_rate: 2.0, capacity: 10, cost: 0],
-        "NICK" => [refill_rate: 0.1, capacity: 1, cost: 3],
-        "WHO" => [refill_rate: 0.2, capacity: 2, cost: 1],
-        "WHOIS" => [refill_rate: 0.2, capacity: 2, cost: 1]
+        "NICK" => [refill_rate: 0.5, capacity: 5, cost: 5, disconnect_threshold: 5],
+        "WHO" => [refill_rate: 1.0, capacity: 2, cost: 1],
+        "WHOIS" => [refill_rate: 1.0, capacity: 2, cost: 1]
       },
       exceptions: [
         nicknames: ["Admin", "ServiceBot"],
@@ -85,35 +85,33 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       Memento.transaction!(fn ->
         test_ip = {192, 168, 1, 101}
 
-        # Exhaust the capacity (default is 3)
+        # Token bucket allows burst up to capacity (3), then throttles
         assert :ok = RateLimiter.check_connection(test_ip)
         assert :ok = RateLimiter.check_connection(test_ip)
         assert :ok = RateLimiter.check_connection(test_ip)
 
-        # Fourth connection should be throttled
+        # Fourth connection should be throttled with proper retry time
         result = RateLimiter.check_connection(test_ip)
         assert {:error, :throttled, retry_ms} = result
         assert is_integer(retry_ms) and retry_ms > 0
+        # With refill_rate 2.0 tokens/sec and cost 1, should be around 500ms
+        assert retry_ms <= 1000
       end)
     end
 
-    test "blocks IP after repeated violations" do
+    test "handles violations with proper escalation" do
       Memento.transaction!(fn ->
         test_ip = {192, 168, 1, 102}
 
-        # First, exhaust capacity to trigger violations
+        # Exhaust capacity first
         assert :ok = RateLimiter.check_connection(test_ip)
         assert :ok = RateLimiter.check_connection(test_ip)
         assert :ok = RateLimiter.check_connection(test_ip)
 
-        # Get violations (default block_threshold is 2)
-        # First violation
+        # Get violations (configured block_threshold is 2)
         assert {:error, :throttled, _} = RateLimiter.check_connection(test_ip)
 
-        # Second violation should trigger block immediately
-        assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
-
-        # Subsequent attempts should also be blocked
+        # After repeated violations, should escalate to throttled_exceeded
         assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
       end)
     end
@@ -136,26 +134,29 @@ defmodule ElixIRCd.Server.RateLimiterTest do
     end
 
     test "allows message when under rate limit", %{user: user} do
-      # Default rate limit is generous (1.0 refill_rate, 10 capacity)
+      # Token bucket allows burst up to capacity (5)
       assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello")
       assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello again")
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello third")
     end
 
-    test "throttles message when rate limit is exceeded", %{user: user} do
-      # Exhaust the capacity quickly (default capacity is 10)
-      for i <- 1..10 do
+    test "throttles message when token bucket is exhausted", %{user: user} do
+      # Exhaust the capacity (5 tokens)
+      for i <- 1..5 do
         assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Message #{i}")
       end
 
-      # 11th message should be throttled
+      # 6th message should be throttled with proper retry time
       result = RateLimiter.check_message(user, "PRIVMSG #test :Too many messages")
       assert {:error, :throttled, retry_ms} = result
       assert is_integer(retry_ms) and retry_ms > 0
+      # With refill_rate 2.0 tokens/sec and cost 1, should be around 500ms
+      assert retry_ms <= 1000
     end
 
     test "disconnects user after repeated violations", %{user: user} do
       # First exhaust capacity to start getting violations
-      for i <- 1..10 do
+      for i <- 1..5 do
         assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Message #{i}")
       end
 
@@ -169,14 +170,16 @@ defmodule ElixIRCd.Server.RateLimiterTest do
     end
 
     test "applies command-specific throttling for JOIN", %{user: user} do
-      # JOIN has stricter limits: refill_rate: 0.3, capacity: 3
+      # JOIN has: refill_rate: 1.0, capacity: 3
       assert :ok = RateLimiter.check_message(user, "JOIN #channel1")
       assert :ok = RateLimiter.check_message(user, "JOIN #channel2")
       assert :ok = RateLimiter.check_message(user, "JOIN #channel3")
 
       # 4th JOIN should be throttled
       result = RateLimiter.check_message(user, "JOIN #channel4")
-      assert {:error, :throttled, _} = result
+      assert {:error, :throttled, retry_ms} = result
+      # With refill_rate 1.0 tokens/sec and cost 1, should be around 1000ms
+      assert retry_ms <= 1500
     end
 
     test "applies command-specific throttling for PING with zero cost", %{user: user} do
@@ -186,18 +189,23 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       end
     end
 
-    test "applies command-specific throttling for NICK", %{user: user} do
-      # NICK has: refill_rate: 0.1, capacity: 1, cost: 3
-      # So only 1 token, and costs 3 - should be throttled immediately
-      result = RateLimiter.check_message(user, "NICK newnick")
-      assert {:error, :throttled, _} = result
+    test "applies command-specific throttling for NICK with high cost", %{user: user} do
+      # NICK has: refill_rate: 0.5, capacity: 5, cost: 5
+      # First NICK should work (uses all 5 initial tokens)
+      assert :ok = RateLimiter.check_message(user, "NICK newnick1")
+
+      # Second NICK should be throttled as bucket is empty
+      result = RateLimiter.check_message(user, "NICK newnick2")
+      assert {:error, :throttled, retry_ms} = result
+      # With refill_rate 0.5 tokens/sec and cost 5, should be 10000ms
+      assert retry_ms >= 9_000 and retry_ms <= 11_000
     end
 
     test "handles different commands with separate rate limits", %{user: user} do
       # Regular PRIVMSG should work fine
       assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello")
 
-      # WHO has separate limits: refill_rate: 0.2, capacity: 2
+      # WHO has separate limits: refill_rate: 1.0, capacity: 2
       assert :ok = RateLimiter.check_message(user, "WHO #channel")
       assert :ok = RateLimiter.check_message(user, "WHO #channel2")
 
@@ -284,11 +292,11 @@ defmodule ElixIRCd.Server.RateLimiterTest do
         })
 
       # Exhaust the capacity
-      for i <- 1..10 do
+      for i <- 1..5 do
         assert :ok = RateLimiter.check_message(user_without_excepted_mode, "PRIVMSG #test :Message #{i}")
       end
 
-      # 11th message should be throttled
+      # 6th message should be throttled
       result = RateLimiter.check_message(user_without_excepted_mode, "PRIVMSG #test :Too many messages")
       assert {:error, :throttled, retry_ms} = result
       assert is_integer(retry_ms) and retry_ms > 0
