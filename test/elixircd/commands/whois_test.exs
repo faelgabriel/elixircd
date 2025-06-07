@@ -61,6 +61,75 @@ defmodule ElixIRCd.Commands.WhoisTest do
       end)
     end
 
+    test "handles WHOIS command with non-invisible target user (covers visibility check)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        # Explicitly create a target user without 'i' mode (non-invisible)
+        target_user = insert(:user, nick: "target_nick", modes: [])
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        assert_user_whois_message(user, target_user, channel)
+      end)
+    end
+
+    test "handles WHOIS command with orphaned channel reference" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick")
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        # Delete the channel after creating the relationship to simulate orphaned reference
+        Memento.Query.delete_record(channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        # Should still show the user but with empty channel list
+        assert_sent_messages([
+          {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :\r\n"},
+          {user.pid,
+           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+          {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles WHOIS command with secret channel where user is not a member" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick")
+
+        # Create a secret channel
+        secret_channel = insert(:channel, modes: ["s"])
+        public_channel = insert(:channel, modes: [])
+
+        # Target user is in both channels, user is only in public channel
+        insert(:user_channel, user: target_user, channel: secret_channel)
+        insert(:user_channel, user: target_user, channel: public_channel)
+        insert(:user_channel, user: user, channel: public_channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        # Should only show the public channel, not the secret one
+        assert_sent_messages([
+          {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{public_channel.name}\r\n"},
+          {user.pid,
+           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+          {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
+      end)
+    end
+
     test "handles WHOIS command with user nick target, invisible target user and user does not share channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -156,6 +225,26 @@ defmodule ElixIRCd.Commands.WhoisTest do
         assert :ok = Whois.handle(user, message)
 
         assert_user_whois_message(user, target_user, channel)
+      end)
+    end
+
+    test "handles WHOIS command with target user having no channels" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", modes: [])
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        # Should show the user but with empty channel list
+        assert_sent_messages([
+          {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :\r\n"},
+          {user.pid,
+           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+          {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
       end)
     end
   end
