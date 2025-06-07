@@ -4,7 +4,7 @@ defmodule ElixIRCd.Utils.Network do
   """
 
   @doc """
-  Lookups the hostname for an IP address.
+  Looks up the hostname for an IP address.
   """
   @spec lookup_hostname(ip_address :: :inet.ip_address()) :: {:ok, String.t()} | {:error, String.t()}
   def lookup_hostname(ip_address) do

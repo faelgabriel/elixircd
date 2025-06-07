@@ -204,8 +204,8 @@ defmodule ElixIRCd.Message do
   # Extracts the trailing from the parameters if present.
   @spec extract_trailing([String.t()]) :: {[String.t()], String.t() | nil}
   defp extract_trailing(parts) do
-    # Find the index of the part where the trailing begins (first part containing a ':')
-    trailing_index = Enum.find_index(parts, &String.contains?(&1, ":"))
+    # Find the index of the part where the trailing begins (first part starting with ':')
+    trailing_index = Enum.find_index(parts, &String.starts_with?(&1, ":"))
 
     case trailing_index do
       nil ->
