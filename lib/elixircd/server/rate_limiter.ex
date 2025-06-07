@@ -15,7 +15,7 @@ defmodule ElixIRCd.Server.RateLimiter do
     Handles connection-based rate limiting.
     """
 
-    use Hammer, backend: :ets
+    use Hammer, backend: :ets, algorithm: :token_bucket
   end
 
   defmodule Message do
@@ -23,7 +23,7 @@ defmodule ElixIRCd.Server.RateLimiter do
     Handles message-based rate limiting.
     """
 
-    use Hammer, backend: :ets
+    use Hammer, backend: :ets, algorithm: :token_bucket
   end
 
   defmodule Violation do
@@ -119,13 +119,17 @@ defmodule ElixIRCd.Server.RateLimiter do
   defp check_connection_rate(ip_string, throttle) do
     rate_key = "rate:#{ip_string}"
 
-    # Convert token bucket config to scale/limit format
-    # For refill_rate 0.5 tokens/sec with cost 3, allow 1 request per 6 seconds
-    scale_ms = trunc(throttle[:cost] * 1000 / throttle[:refill_rate])
+    refill_rate = throttle[:refill_rate]
+    capacity = throttle[:capacity]
+    cost = throttle[:cost]
 
-    case Connection.hit(rate_key, scale_ms, 1) do
-      {:allow, _count} -> :ok
-      {:deny, retry_ms} -> handle_connection_violation(ip_string, throttle, retry_ms)
+    case Connection.hit(rate_key, refill_rate, capacity, cost) do
+      {:allow, _count} ->
+        :ok
+
+      {:deny, _timeout} ->
+        retry_ms = calculate_token_wait_time(Connection, rate_key, refill_rate, capacity, cost)
+        handle_connection_violation(ip_string, throttle, retry_ms)
     end
   end
 
@@ -170,17 +174,18 @@ defmodule ElixIRCd.Server.RateLimiter do
     violation_key = "disconnect:#{rate_key}"
 
     refill_rate = throttle[:refill_rate]
+    capacity = throttle[:capacity]
     cost = throttle[:cost]
     window_ms = throttle[:window_ms]
     disconnect_threshold = throttle[:disconnect_threshold]
 
-    # Convert token bucket config to scale/limit format
-    # For refill_rate 0.5 tokens/sec with cost 5, allow 1 request per 10 seconds
-    scale_ms = trunc(cost * 1000 / refill_rate)
+    case Message.hit(rate_key, refill_rate, capacity, cost) do
+      {:allow, _count} ->
+        :ok
 
-    case Message.hit(rate_key, scale_ms, 1) do
-      {:allow, count} -> :ok
-      {:deny, retry_ms} -> handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms)
+      {:deny, _timeout} ->
+        retry_ms = calculate_token_wait_time(Message, rate_key, refill_rate, capacity, cost)
+        handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms)
     end
   end
 
@@ -224,6 +229,34 @@ defmodule ElixIRCd.Server.RateLimiter do
     case command do
       "" -> nil
       _ -> String.upcase(command)
+    end
+  end
+
+  @spec calculate_token_wait_time(module(), String.t(), float(), non_neg_integer(), non_neg_integer()) ::
+          non_neg_integer()
+  defp calculate_token_wait_time(table_name, rate_key, refill_rate, capacity, cost) do
+    now = System.system_time(:second)
+
+    case :ets.lookup(table_name, rate_key) do
+      [] ->
+        # No bucket exists, calculate time from empty bucket
+        trunc(cost * 1000 / refill_rate)
+
+      [{^rate_key, stored_level, last_update}] ->
+        # Calculate current tokens (exact same logic as hit/5)
+        new_tokens = trunc((now - last_update) * refill_rate)
+        current_tokens = min(capacity, stored_level + new_tokens)
+
+        # Calculate how many more tokens we need
+        tokens_needed = cost - current_tokens
+
+        if tokens_needed <= 0 do
+          # We have enough tokens now
+          0
+        else
+          # Calculate time to accumulate the needed tokens
+          trunc(tokens_needed * 1000 / refill_rate)
+        end
     end
   end
 end
