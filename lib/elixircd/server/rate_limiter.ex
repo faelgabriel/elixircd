@@ -232,8 +232,7 @@ defmodule ElixIRCd.Server.RateLimiter do
     end
   end
 
-  @spec calculate_token_wait_time(module(), String.t(), float(), non_neg_integer(), non_neg_integer()) ::
-          non_neg_integer()
+  @spec calculate_token_wait_time(atom(), String.t(), number(), pos_integer(), pos_integer()) :: pos_integer()
   defp calculate_token_wait_time(table_name, rate_key, refill_rate, capacity, cost) do
     now = System.system_time(:second)
 

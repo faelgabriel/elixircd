@@ -33,7 +33,16 @@ defmodule ElixIRCd.Server.Connection do
       :ok -> handle_success_connection(pid, transport, connection_data)
       {:error, :throttled, retry_after_ms} -> handle_throttled_connection(pid, retry_after_ms)
       {:error, :throttled_exceeded} -> :close
+      {:error, :max_connections_exceeded} -> handle_max_connections_exceeded(pid)
     end
+  end
+
+  @spec handle_max_connections_exceeded(pid :: pid()) :: :close
+  defp handle_max_connections_exceeded(pid) do
+    Message.build(%{command: "ERROR", params: [], trailing: "Too many simultaneous connections from your IP address."})
+    |> Dispatcher.broadcast(pid)
+
+    :close
   end
 
   @spec handle_success_connection(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
