@@ -103,6 +103,22 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
       assert_sent_messages_amount(pid, 0)
     end
+
+    test "handles max connections exceeded" do
+      RateLimiter
+      |> expect(:check_connection, fn {192, 168, 1, 3} ->
+        {:error, :max_connections_exceeded}
+      end)
+
+      pid = self()
+
+      assert :close = Connection.handle_connect(pid, :tcp, %{ip_address: {192, 168, 1, 3}, port_connected: 6667})
+      assert [] = get_records(User)
+
+      assert_sent_messages([
+        {pid, ~r/\AERROR :Too many simultaneous connections from your IP address.\r\n/}
+      ])
+    end
   end
 
   describe "handle_receive/2" do
