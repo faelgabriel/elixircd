@@ -76,7 +76,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
       end)
     end
 
-    test "handles WHOIS command with orphaned channel reference" do
+    test "handles WHOIS command with orphaned channel reference (edge case)" do
       Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick")

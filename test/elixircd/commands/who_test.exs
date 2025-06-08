@@ -276,14 +276,11 @@ defmodule ElixIRCd.Commands.WhoTest do
         message = %Message{command: "WHO", params: ["anick*"]}
         assert :ok = Who.handle(user, message)
 
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{another_user1.nick} H*@ :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{another_user1.nick} H*@ :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
+        ])
       end)
     end
 
@@ -298,14 +295,11 @@ defmodule ElixIRCd.Commands.WhoTest do
         message = %Message{command: "WHO", params: ["anick*"]}
         assert :ok = Who.handle(user, message)
 
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{another_user1.nick} H*@ :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{another_user1.nick} H*@ :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
+        ])
       end)
     end
 
@@ -320,14 +314,11 @@ defmodule ElixIRCd.Commands.WhoTest do
         message = %Message{command: "WHO", params: ["anick*"]}
         assert :ok = Who.handle(user, message)
 
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{another_user1.nick} H :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{another_user1.nick} H :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
+        ])
       end)
     end
 
@@ -343,14 +334,11 @@ defmodule ElixIRCd.Commands.WhoTest do
         message = %Message{command: "WHO", params: ["*", "o"]}
         assert :ok = Who.handle(user, message)
 
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{another_user.nick} H* :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} * :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{another_user.nick} H* :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} * :End of WHO list\r\n"}
+        ])
       end)
     end
 
@@ -368,14 +356,49 @@ defmodule ElixIRCd.Commands.WhoTest do
         message = %Message{command: "WHO", params: [channel.name, "o"]}
         assert :ok = Who.handle(user, message)
 
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{another_user1.nick} H* :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{another_user1.nick} H* :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles WHO command with mask target for user with no channels" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "testuser")
+        target_user = insert(:user, nick: "anick2", modes: ["o"])
+
+        message = %Message{command: "WHO", params: ["anick*"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{target_user.nick} H* :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles WHO command with mask target and orphaned channel reference (edge case)" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "testuser")
+        target_user = insert(:user, nick: "anick2")
+
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        # Delete the channel to create an orphaned reference
+        Memento.Query.delete_record(channel)
+
+        message = %Message{command: "WHO", params: ["anick*"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{target_user.nick} H :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} anick* :End of WHO list\r\n"}
+        ])
       end)
     end
   end
