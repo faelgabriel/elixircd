@@ -67,6 +67,20 @@ defmodule ElixIRCd.Repositories.UserChannels do
   end
 
   @doc """
+  Get all user channels by the user pids.
+  """
+  @spec get_by_user_pids([pid()]) :: [UserChannel.t()]
+  def get_by_user_pids([]), do: []
+
+  def get_by_user_pids(pids) do
+    conditions =
+      Enum.map(pids, fn pid -> {:==, :user_pid, pid} end)
+      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
+
+    Memento.Query.select(UserChannel, conditions)
+  end
+
+  @doc """
   Get all user channels by the channel name.
   """
   @spec get_by_channel_name(String.t()) :: [UserChannel.t()]
@@ -97,8 +111,12 @@ defmodule ElixIRCd.Repositories.UserChannels do
   """
   @spec count_users_by_channel_name(String.t()) :: integer()
   def count_users_by_channel_name(channel_name) do
-    # Future: Use a query to count the number of users in a channel by the channel name.
-    get_by_channel_name(channel_name)
+    channel_name_key = CaseMapping.normalize(channel_name)
+
+    # Use Mnesia's index for efficient lookup - this is optimal since UserChannel has an index on channel_name_key.
+    # This only reads records matching the channel instead of scanning the entire table with foldl or fetching all
+    # records into memory.
+    :mnesia.index_read(UserChannel, channel_name_key, :channel_name_key)
     |> Enum.count()
   end
 
@@ -107,13 +125,14 @@ defmodule ElixIRCd.Repositories.UserChannels do
   returning a list of tuples with the channel name and the number of users.
   """
   @spec count_users_by_channel_names([String.t()]) :: [{String.t(), integer()}]
-  def count_users_by_channel_names(channel_names) do
-    user_channels = get_by_channel_names(channel_names)
+  def count_users_by_channel_names([]), do: []
 
-    Enum.reduce(channel_names, [], fn channel_name, acc ->
-      channel_name_key = CaseMapping.normalize(channel_name)
-      users_count = Enum.count(user_channels, &(&1.channel_name_key == channel_name_key))
-      [{channel_name, users_count} | acc]
+  def count_users_by_channel_names(channel_names) do
+    # Optimize by using individual count queries instead of fetching all records
+    # This is more efficient for counting operations
+    Enum.map(channel_names, fn channel_name ->
+      users_count = count_users_by_channel_name(channel_name)
+      {channel_name, users_count}
     end)
   end
 end

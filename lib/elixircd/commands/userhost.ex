@@ -1,6 +1,6 @@
 defmodule ElixIRCd.Commands.Userhost do
   @moduledoc """
-  This module defines the USER command.
+  This module defines the USERHOST command.
   """
 
   @behaviour ElixIRCd.Command
