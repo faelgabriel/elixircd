@@ -75,7 +75,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   defp ip_exception?(ip, config) do
     exceptions = Keyword.get(config, :exceptions, [])
 
-    # Future: Use a configuration builder that parses the IP and CIDR,
+    # Pending: Use a configuration builder that parses the IP and CIDR,
     # so that it does not need to be parsed every call here
     exception_ips =
       Keyword.get(exceptions, :ips, [])
@@ -200,7 +200,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   defp message_exception?(user, config) do
     exceptions = Keyword.get(config, :exceptions, [])
 
-    # Future: Use a configuration builder that normalizes the nicknames
+    # Pending: Use a configuration builder that normalizes the nicknames
     exception_nicknames =
       Keyword.get(exceptions, :nicknames, [])
       |> Enum.map(fn nickname -> CaseMapping.normalize(nickname) end)

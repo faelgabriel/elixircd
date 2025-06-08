@@ -108,7 +108,7 @@ defmodule ElixIRCd.Server.Connection do
   defp handle_invalid_utf8(user, data) do
     Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
 
-    # Future: When "standard-replies" is implemented and negotiated with the user, use the FAIL command.
+    # Pending: When "standard-replies" is implemented and negotiated with the user, use the FAIL command.
     # Message.build(%{
     #   prefix: :server,
     #   command: "FAIL",

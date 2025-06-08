@@ -122,7 +122,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     if is_nil(registered_nick.email) do
       notify(user, "Your nickname has been successfully registered.")
     else
-      # Future: send email in a background job or task queue
+      # Pending: Send email in a background job or task queue
       send_verification_email(registered_nick.email, user.nick, verify_code)
 
       unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
