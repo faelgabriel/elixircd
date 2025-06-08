@@ -253,24 +253,82 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 #### User Modes
 
-- **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
-- **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
-- **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
-- **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
+- **+i (Invisible)**: Hides the user from WHO/WHOIS if not in shared channels. ✅
+- **+o (Operator)**: Grants operator privileges on the network. ✅
+- **+w (Wallops)**: Receives wallops messages from operators. ✅
+- **+z (Secure Connection)**: Indicates user is connected via SSL/TLS (set by server). ✅
+- **+Z (Secure Messages Only)**: Only allows messages from users also on SSL/TLS. ❌
+- **+r (Registered)**: Set by services to indicate the user is identified. ❌
+- **+R (Only Registered)**: User will only receive messages from registered users. ❌
+- **+B (Bot)**: Marks the user as a bot. ❌
+- **+T (No CTCP)**: Prevents the user from receiving CTCP messages. ❌
+- **+x (Hidden Hostname)**: Hides the user’s real hostname, replacing it with a cloaked one. ❌
+- **+g (Caller-ID)**: Blocks private messages unless the sender is accepted. ❌
+- **+s (Server Notices)**: Enables reception of server notices. ❌
+- **+d (Deaf to Channel)**: Blocks all channel messages to this user. ❌
+- **+D (Deaf to PRIVMSGs)**: Blocks all private messages except from ops/services. ❌
+- **+p (Private)**: Hides the user from WHOIS output except to operators. ❌
+- **+H (Hide Operator Status)**: Hides operator status from WHOIS. ❌
+- **+W (Whois Notify)**: Notifies when someone uses WHOIS on you. ❌
+- **+t (VHost Flag)**: Indicates a virtual host was applied. ❌
 
 #### Channel Modes
 
-- **+b (Ban)**: Prevents a user or host from joining the channel. ✅
-- **+i (Invite Only)**: Restricts channel access to invited users only. ✅
-- **+k (Key)**: Requires a password to join the channel. ✅
-- **+l (Limit)**: Limits the number of users who can join the channel. ✅
-- **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
+**Basic Channel Modes:**
+
+- **+b (Ban)**: Prevents a user/hostmask from joining the channel. ✅
+- **+e (Ban Exception)**: Allows specified users to bypass bans. ❌
+- **+I (Invite Exception)**: Allows specific users to bypass invite-only restriction. ❌
+- **+i (Invite Only)**: Channel requires an invite to join. ✅
+- **+k (Key)**: Requires a password to join. ✅
+- **+l (Limit)**: Limits how many users can join. ✅
+- **+m (Moderated)**: Only users with voice or higher can send messages. ✅
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
-- **+o (Operator)**: Grants operator status to a user. ✅
-- **+p (Private)**: Hides the channel from the LIST command. ✅
-- **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
-- **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
-- **+v (Voice)**: Grants voice status to a user. ✅
+- **+p (Private)**: Hides the channel from LIST and WHOIS. ✅
+- **+s (Secret)**: Hides the channel from LIST and WHOIS (stronger than +p). ✅
+- **+t (Topic Lock)**: Only channel ops can change the topic. ✅
+
+**User Status Modes in Channel:**
+
+- **+o (Operator)**: Grants operator status in the channel. ✅
+- **+v (Voice)**: Grants ability to speak in +m channels. ✅
+- **+h (Half-Operator)**: Grants half-op status. ❌
+- **+a (Admin)**: Grants admin status in the channel. ❌
+- **+q (Owner)**: Grants full ownership status. ❌
+
+**Protection and Security Modes:**
+
+- **+c (No Colors)**: Blocks ANSI color codes in messages. ❌
+- **+C (No CTCP)**: Blocks CTCP messages in the channel. ❌
+- **+T (No NOTICEs)**: Blocks NOTICE messages in the channel. ❌
+- **+z (SSL/TLS Only)**: Only allows users on secure connections to join. ❌
+- **+Z (All Secure)**: Indicates all members are on SSL (set by server). ❌
+- **+R (Registered Only)**: Only registered users may join. ❌
+- **+M (Registered Moderated)**: Only registered users may speak. ❌
+- **+K (No Knock)**: Disables use of the /KNOCK command. ❌
+- **+V (No Invites)**: Disables the /INVITE command. ❌
+- **+N (No Nick Changes)**: Prevents nick changes in the channel. ❌
+
+**Advanced Modes:**
+
+- **+f (Flood Protection)**: Enables flood protection (parameterized). ❌
+- **+F (Advanced Flood)**: Advanced flood control using thresholds. ❌
+- **+j (Join Throttling)**: Limits how often users can join (parameterized). ❌
+- **+G (Censor)**: Filters bad words from messages. ❌
+- **+S (Strip Colors)**: Strips all color codes from messages. ❌
+- **+L (Link Redirect)**: Redirects excess users to another channel if full. ❌
+- **+u (Auditorium)**: Hides users from /NAMES and /WHO except to ops. ❌
+- **+r (Registered Channel)**: Marks the channel as registered (services set only). ❌
+- **+H (History)**: Enables channel message history. ❌
+- **+P (Permanent)**: Channel persists even when empty. ❌
+- **+D (Delayed Join)**: Hides JOIN messages until user speaks. ❌
+- **+d (Silent Join Delay)**: Further delays JOIN visibility. ❌
+
+**Operator-Only Modes:**
+
+- **+A (Admin Only)**: Only server administrators may join. ❌
+- **+O (Oper Only)**: Only IRC operators may join. ❌
+- **+Q (No Kicks)**: Only U:Lined services may kick users. ❌
 
 ### Services
 
@@ -278,6 +336,9 @@ ElixIRCd includes integrated IRC services, eliminating the need to connect exter
 
 - **NickServ**: Register and manage nicknames. ✴️
 - **ChanServ**: Register and manage channels. ✴️
+- **MemoServ**: Allows users to send and receive messages to offline users. ❌
+- **OperServ**: Provides tools for IRC operators to manage the network. ❌
+- **BotServ**: Allows users to assign a bot to their channel for various management tasks. ❌
 
 ### IRCv3 Specifications
 
