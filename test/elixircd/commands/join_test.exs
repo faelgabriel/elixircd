@@ -302,4 +302,97 @@ defmodule ElixIRCd.Commands.JoinTest do
       :ok = Application.put_env(:elixircd, :channel, original_channel_config)
     end
   end
+
+  describe "handle/2 - Extended NAMES in JOIN (UHNAMES)" do
+    test "handles JOIN command with UHNAMES capability enabled shows extended format" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["UHNAMES"], ident: "~testuser", hostname: "test.example.com")
+        channel = insert(:channel)
+        another_user = insert(:user, nick: "another_user", ident: "~another", hostname: "another.example.com")
+        insert(:user_channel, user: another_user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid,
+           ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}!~testuser@test.example.com @another_user!~another@another.example.com\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
+          {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command without UHNAMES capability shows traditional format" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [], ident: "~testuser", hostname: "test.example.com")
+        channel = insert(:channel)
+        another_user = insert(:user, nick: "another_user", ident: "~another", hostname: "another.example.com")
+        insert(:user_channel, user: another_user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick} @another_user\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
+          {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command creating new channel with UHNAMES enabled" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["UHNAMES"], ident: "~creator", hostname: "creator.example.com")
+        message = %Message{command: "JOIN", params: ["#newchannel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #newchannel\r\n"},
+          {user.pid, ":irc.test MODE #newchannel +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 331 #{user.nick} #newchannel :No topic is set\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #newchannel :@#{user.nick}!~creator@creator.example.com\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #newchannel :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with mixed capability users in existing channel" do
+      Memento.transaction!(fn ->
+        channel = insert(:channel)
+
+        uhnames_user =
+          insert(:user, nick: "uhnames_user", capabilities: ["UHNAMES"], ident: "~uhuser", hostname: "uh.example.com")
+
+        insert(:user_channel, user: uhnames_user, channel: channel, modes: ["v"])
+
+        normal_user =
+          insert(:user, nick: "normal_user", capabilities: [], ident: "~normal", hostname: "normal.example.com")
+
+        insert(:user_channel, user: normal_user, channel: channel)
+
+        joining_user = insert(:user, capabilities: ["UHNAMES"], ident: "~joining", hostname: "joining.example.com")
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(joining_user, message)
+
+        assert_sent_messages([
+          {joining_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"},
+          {joining_user.pid, ":irc.test 332 #{joining_user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {joining_user.pid,
+           ":irc.test 353 = #{joining_user.nick} #{channel.name} :#{joining_user.nick}!~joining@joining.example.com normal_user!~normal@normal.example.com +uhnames_user!~uhuser@uh.example.com\r\n"},
+          {joining_user.pid, ":irc.test 366 #{joining_user.nick} #{channel.name} :End of NAMES list.\r\n"},
+          {uhnames_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"},
+          {normal_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"}
+        ])
+      end)
+    end
+  end
 end

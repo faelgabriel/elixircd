@@ -127,7 +127,7 @@ defmodule ElixIRCd.Commands.Join do
         prefix: :server,
         command: :rpl_namreply,
         params: ["=", user.nick, channel.name],
-        trailing: get_user_channels_nicks(user_channels)
+        trailing: get_user_channels_nicks(user, user_channels)
       }),
       Message.build(%{
         prefix: :server,
@@ -304,12 +304,14 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  @spec get_user_channels_nicks([UserChannel.t()]) :: String.t()
-  defp get_user_channels_nicks(user_channels) do
+  @spec get_user_channels_nicks(User.t(), [UserChannel.t()]) :: String.t()
+  defp get_user_channels_nicks(requesting_user, user_channels) do
     users_by_pid =
       Enum.map(user_channels, & &1.user_pid)
       |> Users.get_by_pids()
       |> Map.new(fn user -> {user.pid, user} end)
+
+    use_extended_names = "UHNAMES" in requesting_user.capabilities
 
     user_channels
     |> Enum.map(fn user_channel ->
@@ -318,7 +320,8 @@ defmodule ElixIRCd.Commands.Join do
     end)
     |> Enum.sort_by(fn {_user, user_channel} -> user_channel.created_at end, :desc)
     |> Enum.map_join(" ", fn {user, user_channel} ->
-      user_mode_symbol(user_channel) <> user.nick
+      prefix = user_mode_symbol(user_channel)
+      prefix <> format_user_for_join(user, use_extended_names)
     end)
   end
 
@@ -330,6 +333,10 @@ defmodule ElixIRCd.Commands.Join do
       true -> ""
     end
   end
+
+  @spec format_user_for_join(User.t(), boolean()) :: String.t()
+  defp format_user_for_join(user, true = _use_extended_names), do: user_mask(user)
+  defp format_user_for_join(user, false = _use_extended_names), do: user.nick
 
   @spec check_user_channel_limit(User.t(), String.t()) :: :ok | {:error, :channel_limit_per_prefix_reached}
   defp check_user_channel_limit(user, channel_name) do

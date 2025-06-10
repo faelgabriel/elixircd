@@ -285,31 +285,16 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 #### Enhanced Commands and Extensions
 
-- **Capability Negotiation**: Capability negotiation mechanism between clients and servers. ✴️
-- **Message Tags**: Additional metadata in messages. ❌
-- **Account Authentication and Registration**: Secure SASL authentication mechanism. ❌
-- **Account Tracking**: Account notifications and tagging. ❌
-- **Away Notifications**: Real-time notifications of user "away" status changes. ❌
-- **Batches**: Sending messages in batches. ❌
+- **Capability Negotiation**: Capability negotiation mechanism between clients and servers. ✅
 - **Bot Mode**: Identification of bots in channels. ❌
 - **Changing User Properties**: Dynamic updating of user properties. ❌
-- **Client-Only Tags**: Attaching metadata to messages not transmitted to the server. ❌
-- **Echo Message**: Clients receive a copy of their sent messages. ❌
-- **Invite Notify**: Notifications when a user is invited to a channel. ❌
-- **Labeled Responses**: Associating responses with sent commands. ❌
 - **Listing Users**: Enhanced user information in channel queries. ❌
-- **Message IDs**: Unique identifiers for messages. ❌
-- **Monitor**: Efficient tracking of user online/offline status. ❌
-- **Server Time**: Timestamp information for messages. ❌
-- **Standard Replies**: Standardized format for server and client replies. ❌
-- **Strict Transport Security (STS)**: Automatic TLS encryption upgrade. ❌
-- **UTF8ONLY**: Configurable support for UTF-8 only traffic. ✅
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ✅
 
 #### Commands
 
-- **CAP**: Negotiate client capabilities with the server. ✴️
+- **CAP**: Negotiate client capabilities with the server. ✅
 - **AUTHENTICATE**: Log in to a client account using SASL authentication. ❌
 - **ACCOUNT**: Notify clients of friends' new logins. ❌
 - **CHGHOST**: Notify clients about changes in friends' usernames and hostnames. ❌
@@ -321,7 +306,27 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
 - **WHO**: Extended to allow clients to request additional information. ❌
 
-### Server Capabilities
+#### Capabilities
+
+- **Account Authentication and Registration** (SASL): Secure SASL authentication mechanism. ❌
+- **Account Tracking** (ACCOUNT-NOTIFY): Account notifications and tagging. ❌
+- **Away Notifications** (AWAY-NOTIFY): Real-time notifications of user "away" status changes. ❌
+- **Batches** (BATCH): Sending messages in batches. ❌
+- **Client-Only Tags** (CLIENT-TAGS): Attaching metadata to messages not transmitted to the server. ❌
+- **Echo Message** (ECHO-MESSAGE): Clients receive a copy of their sent messages. ❌
+- **Extended Names** (UHNAMES): Adds full user hostmasks to NAMES replies. ✅
+- **Extended User Mode** (UHMODES): Allows clients to see additional user modes in WHO and related replies. ❌
+- **Invite Notify** (INVITE-NOTIFY): Notifications when a user is invited to a channel. ❌
+- **Labeled Responses** (LABELED-RESPONSE): Associating responses with sent commands. ❌
+- **Message IDs** (MSGID): Unique identifiers for messages. ❌
+- **Message Tags** (MESSAGE-TAGS): Additional metadata in messages. ❌
+- **Monitor** (MONITOR): Efficient tracking of user online/offline status. ❌
+- **Server Time** (SERVER-TIME): Timestamp information for messages. ❌
+- **Standard Replies** (STANDARD-REPLIES): Standardized format for server and client replies. ❌
+- **Strict Transport Security (STS)** (STS): Automatic TLS encryption upgrade. ❌
+- **UTF-8 Only** (UTF8ONLY): Configurable support for UTF-8 only traffic. ✅
+
+### Server Features
 
 - **Connection Pooling**: Efficient management of a pool of connections. ✅
 - **High Concurrency**: Efficient handling of multiple connections and messages. ✅
