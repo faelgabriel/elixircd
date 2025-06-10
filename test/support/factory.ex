@@ -48,6 +48,7 @@ defmodule ElixIRCd.Factory do
       registered: Map.get(attrs, :registered, true),
       password: Map.get(attrs, :password, nil),
       away_message: Map.get(attrs, :away_message, nil),
+      capabilities: Map.get(attrs, :capabilities, []),
       last_activity: Map.get(attrs, :last_activity, :erlang.system_time(:second)),
       registered_at: registered_at,
       identified_as: Map.get(attrs, :identified_as, nil),

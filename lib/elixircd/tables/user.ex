@@ -22,6 +22,7 @@ defmodule ElixIRCd.Tables.User do
       :password,
       :away_message,
       :identified_as,
+      :capabilities,
       :last_activity,
       :registered_at,
       :created_at
@@ -44,6 +45,7 @@ defmodule ElixIRCd.Tables.User do
           password: String.t() | nil,
           away_message: String.t() | nil,
           identified_as: String.t() | nil,
+          capabilities: [String.t()],
           last_activity: integer(),
           registered_at: DateTime.t() | nil,
           created_at: DateTime.t()
@@ -63,6 +65,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:password) => String.t() | nil,
           optional(:away_message) => String.t() | nil,
           optional(:identified_as) => String.t() | nil,
+          optional(:capabilities) => [String.t()],
           optional(:last_activity) => integer(),
           optional(:registered_at) => DateTime.t() | nil,
           optional(:created_at) => DateTime.t()
@@ -77,6 +80,7 @@ defmodule ElixIRCd.Tables.User do
       attrs
       |> Map.put_new(:registered, false)
       |> Map.put_new(:modes, [])
+      |> Map.put_new(:capabilities, [])
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> handle_nick_key()

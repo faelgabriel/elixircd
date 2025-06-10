@@ -86,13 +86,13 @@ config :elixircd,
     utf8_only: true
   ],
   # Features Configuration
-  # TODO: Move some features to other configurations
+  # TODO: Move some features to other configurations. E.g. support_extended_names to capabilities
   features: [
     # Case mapping rules (:rfc1459, :strict_rfc1459, :ascii)
     # Important: Changing case mapping after the server has started and
     # users/channels exist may lead to unexpected behavior.
     case_mapping: :rfc1459,
-    # TODO: Support for extended NAMES with hostmasks
+    # Support for extended NAMES with hostmasks (UHNAMES capability)
     support_extended_names: true,
     # TODO: Support for CALLERID (mode +g)
     support_callerid_mode: true,

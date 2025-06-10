@@ -5,7 +5,7 @@ defmodule ElixIRCd.Commands.Names do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -23,27 +23,169 @@ defmodule ElixIRCd.Commands.Names do
     |> Dispatcher.broadcast(user)
   end
 
-  @impl true
   def handle(user, %{command: "NAMES", params: []}) do
-    # If no channels specified, show all channels and free users
-    channels = Channels.get_all()
-    handle_channels(user, channels)
-    handle_free_users(user)
+    handle_all_names(user)
   end
 
-  @impl true
-  def handle(user, %{command: "NAMES", params: [channel_names]}) do
+  def handle(user, %{command: "NAMES", params: [channel_names | _rest]}) do
     channel_names
     |> String.split(",")
     |> Enum.map(&String.trim/1)
-    |> Enum.each(&handle_channel(user, &1))
+    |> Enum.each(&handle_single_channel_names_with_validation(user, &1))
   end
 
-  @spec handle_channels(User.t(), [Channel.t()]) :: :ok
-  defp handle_channels(user, channels) do
-    channels
-    |> Enum.filter(&can_see_channel?(user, &1))
-    |> Enum.each(&handle_channel(user, &1.name))
+  @spec handle_all_names(User.t()) :: :ok
+  defp handle_all_names(user) do
+    Channels.get_all()
+    |> Enum.each(fn channel -> handle_channel_names_silent(user, channel) end)
+
+    handle_free_users(user)
+  end
+
+  @spec handle_single_channel_names_with_validation(User.t(), String.t()) :: :ok
+  defp handle_single_channel_names_with_validation(user, channel_name) do
+    case channel_name?(channel_name) do
+      true ->
+        handle_single_channel_names(user, channel_name)
+
+      false ->
+        send_no_such_channel_error(user, channel_name)
+    end
+  end
+
+  @spec handle_single_channel_names(User.t(), String.t()) :: :ok
+  defp handle_single_channel_names(user, channel_name) do
+    case Channels.get_by_name(channel_name) do
+      {:ok, channel} ->
+        if channel_visible_to_user?(channel, user) do
+          send_names_reply(user, channel)
+        else
+          send_no_such_channel_error(user, channel_name)
+        end
+
+      {:error, :channel_not_found} ->
+        send_no_such_channel_error(user, channel_name)
+    end
+  end
+
+  @spec handle_channel_names_silent(User.t(), Channel.t()) :: :ok
+  defp handle_channel_names_silent(user, channel) do
+    if channel_visible_to_user?(channel, user) do
+      send_names_reply(user, channel)
+    end
+
+    :ok
+  end
+
+  @spec channel_visible_to_user?(Channel.t(), User.t()) :: boolean()
+  defp channel_visible_to_user?(channel, user) do
+    is_member =
+      case UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+        {:ok, _user_channel} -> true
+        {:error, :user_channel_not_found} -> false
+      end
+
+    is_secret = "s" in channel.modes
+    is_private = "p" in channel.modes
+
+    cond do
+      is_member -> true
+      is_secret -> false
+      is_private -> false
+      true -> true
+    end
+  end
+
+  @spec send_names_reply(User.t(), Channel.t()) :: :ok
+  defp send_names_reply(user, channel) do
+    user_channels = UserChannels.get_by_channel_name(channel.name)
+    users_by_pid = get_users_by_pid(user_channels)
+
+    visible_nicks =
+      get_visible_nick_pairs(user, user_channels, users_by_pid)
+      |> get_sorted_nicks()
+
+    unless Enum.empty?(visible_nicks) do
+      nicks_string = Enum.join(visible_nicks, " ")
+
+      [
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_namreply,
+          params: [user.nick, get_channel_status(channel), channel.name],
+          trailing: nicks_string
+        }),
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_endofnames,
+          params: [user.nick, channel.name],
+          trailing: "End of /NAMES list"
+        })
+      ]
+      |> Dispatcher.broadcast(user)
+    end
+  end
+
+  @spec send_no_such_channel_error(User.t(), String.t()) :: :ok
+  defp send_no_such_channel_error(user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_nosuchchannel,
+      params: [user.nick, channel_name],
+      trailing: "No such channel"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  @spec get_channel_status(Channel.t()) :: String.t()
+  defp get_channel_status(channel) do
+    cond do
+      "s" in channel.modes -> "@"
+      "p" in channel.modes -> "*"
+      true -> "="
+    end
+  end
+
+  @spec get_users_by_pid([UserChannel.t()]) :: %{pid() => User.t()}
+  defp get_users_by_pid(user_channels) do
+    Enum.map(user_channels, & &1.user_pid)
+    |> Users.get_by_pids()
+    |> Map.new(fn user -> {user.pid, user} end)
+  end
+
+  @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: [{String.t(), String.t()}]
+  defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
+    is_operator = "o" in user.modes
+    use_extended_names = "UHNAMES" in user.capabilities
+
+    user_channels
+    |> Enum.map(fn uc ->
+      found_user = Map.get(users_by_pid, uc.user_pid)
+
+      if found_user && user_visible?(found_user, is_operator) do
+        prefix = get_user_prefix(uc)
+        formatted_user = prefix <> format_user_display(found_user, use_extended_names)
+        {formatted_user, found_user.nick}
+      else
+        nil
+      end
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  @spec user_visible?(User.t(), boolean()) :: boolean()
+  defp user_visible?(user, is_operator) do
+    case is_operator do
+      true -> true
+      false -> "i" not in user.modes
+    end
+  end
+
+  @spec get_sorted_nicks([{String.t(), String.t()}]) :: [String.t()]
+  defp get_sorted_nicks(nick_pairs) do
+    nick_pairs
+    |> Enum.sort_by(fn {_formatted, nick} -> String.downcase(nick) end)
+    |> Enum.map(fn {formatted, _nick} -> formatted end)
   end
 
   @spec handle_free_users(User.t()) :: :ok
@@ -68,7 +210,10 @@ defmodule ElixIRCd.Commands.Names do
       |> Enum.sort_by(& &1.nick)
 
     if free_users != [] do
-      free_user_list = Enum.map_join(free_users, " ", & &1.nick)
+      use_extended_names = "UHNAMES" in user.capabilities
+
+      free_user_list =
+        Enum.map_join(free_users, " ", &format_user_display(&1, use_extended_names))
 
       Message.build(%{
         prefix: :server,
@@ -86,133 +231,8 @@ defmodule ElixIRCd.Commands.Names do
       })
       |> Dispatcher.broadcast(user)
     end
-  end
 
-  @spec handle_channel(User.t(), String.t()) :: :ok
-  defp handle_channel(user, channel_name) do
-    if channel_name?(channel_name) do
-      process_existing_channel(user, channel_name)
-    else
-      send_no_such_channel(user, channel_name)
-    end
-  end
-
-  @spec process_existing_channel(User.t(), String.t()) :: :ok
-  defp process_existing_channel(user, channel_name) do
-    case Channels.get_by_name(channel_name) do
-      {:ok, channel} -> process_channel_visibility(user, channel)
-      {:error, :channel_not_found} -> send_no_such_channel(user, channel_name)
-    end
-  end
-
-  @spec process_channel_visibility(User.t(), Channel.t()) :: :ok
-  defp process_channel_visibility(user, channel) do
-    if can_see_channel?(user, channel) do
-      user_channels = UserChannels.get_by_channel_name(channel.name)
-      send_channel_names(user, channel, user_channels)
-    else
-      send_no_such_channel(user, channel.name)
-    end
-  end
-
-  @spec send_no_such_channel(User.t(), String.t()) :: :ok
-  defp send_no_such_channel(user, channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_nosuchchannel,
-      params: [user.nick, channel_name],
-      trailing: "No such channel"
-    })
-    |> Dispatcher.broadcast(user)
-  end
-
-  @spec can_see_channel?(User.t(), Channel.t()) :: boolean()
-  defp can_see_channel?(user, channel) do
-    if "s" in channel.modes or "p" in channel.modes do
-      # For secret/private channels, only show if user is a member
-      case UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
-        {:ok, _user_channel} -> true
-        {:error, :user_channel_not_found} -> false
-      end
-    else
-      # Public channels are visible to everyone
-      true
-    end
-  end
-
-  @spec send_channel_names(User.t(), Channel.t(), [UserChannel.t()]) :: :ok
-  defp send_channel_names(user, channel, user_channels) do
-    users_by_pid = get_users_by_pid(user_channels)
-    sorted_nicks = get_sorted_nicks(user, user_channels, users_by_pid)
-
-    send_names_response(user, channel, sorted_nicks)
-  end
-
-  @spec get_users_by_pid([UserChannel.t()]) :: %{pid() => User.t()}
-  defp get_users_by_pid(user_channels) do
-    user_channels
-    |> Enum.map(& &1.user_pid)
-    |> Users.get_by_pids()
-    |> Enum.reduce(%{}, fn u, acc -> Map.put(acc, u.pid, u) end)
-  end
-
-  @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: [{String.t(), String.t()}]
-  defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
-    is_operator = "o" in user.modes
-
-    user_channels
-    |> Enum.map(fn uc ->
-      found_user = Map.get(users_by_pid, uc.user_pid)
-
-      if found_user && user_visible?(found_user, is_operator) do
-        {get_user_prefix(uc) <> found_user.nick, found_user.nick}
-      else
-        nil
-      end
-    end)
-    |> Enum.reject(&is_nil/1)
-  end
-
-  @spec user_visible?(User.t(), boolean()) :: boolean()
-  defp user_visible?(user, is_operator) do
-    is_operator || "i" not in user.modes
-  end
-
-  @spec get_sorted_nicks(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: String.t()
-  defp get_sorted_nicks(user, user_channels, users_by_pid) do
-    visible_nick_pairs = get_visible_nick_pairs(user, user_channels, users_by_pid)
-    sorted_pairs = Enum.sort_by(visible_nick_pairs, fn {_, nick} -> nick end)
-    Enum.map_join(sorted_pairs, " ", fn {formatted, _} -> formatted end)
-  end
-
-  @spec send_names_response(User.t(), Channel.t(), String.t()) :: :ok
-  defp send_names_response(user, channel, sorted_nicks) do
-    channel_symbol = get_channel_symbol(channel)
-
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_namreply,
-      params: [user.nick, channel_symbol, channel.name],
-      trailing: sorted_nicks
-    })
-    |> Dispatcher.broadcast(user)
-
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_endofnames,
-      params: [user.nick, channel.name],
-      trailing: "End of /NAMES list"
-    })
-    |> Dispatcher.broadcast(user)
-  end
-
-  @spec get_channel_symbol(Channel.t()) :: String.t()
-  defp get_channel_symbol(channel) do
-    cond do
-      "s" in channel.modes -> "@"
-      "p" in channel.modes -> "*"
-      true -> "="
-    end
+    :ok
   end
 
   @spec get_user_prefix(UserChannel.t()) :: String.t()
@@ -223,4 +243,8 @@ defmodule ElixIRCd.Commands.Names do
       true -> ""
     end
   end
+
+  @spec format_user_display(User.t(), boolean()) :: String.t()
+  defp format_user_display(user, true = _use_extended_names), do: user_mask(user)
+  defp format_user_display(user, false = _use_extended_names), do: user.nick
 end

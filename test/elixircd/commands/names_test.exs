@@ -234,5 +234,78 @@ defmodule ElixIRCd.Commands.NamesTest do
         ])
       end)
     end
+
+    test "handles NAMES command with all channels when some channels are deleted" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#test")
+        user1 = insert(:user, nick: "testuser")
+        insert(:user_channel, user: user1, channel: channel)
+        Memento.Query.delete_record(channel)
+
+        message = %Message{command: "NAMES", params: []}
+        assert :ok = Names.handle(user, message)
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles NAMES command with UHNAMES capability enabled" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["UHNAMES"])
+        channel = insert(:channel, name: "#channel")
+        user1 = insert(:user, nick: "user1", ident: "~ident1", hostname: "host1.example.com")
+        insert(:user_channel, user: user1, channel: channel)
+
+        message = %Message{command: "NAMES", params: [channel.name]}
+        assert :ok = Names.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :user1!~ident1@host1.example.com\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NAMES command without UHNAMES capability" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [])
+        channel = insert(:channel, name: "#channel2")
+        user1 = insert(:user, nick: "user1", ident: "~ident1", hostname: "host1.example.com")
+        insert(:user_channel, user: user1, channel: channel)
+        message = %Message{command: "NAMES", params: [channel.name]}
+        assert :ok = Names.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :user1\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NAMES command with free users and UHNAMES capability" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["UHNAMES"])
+        _free_user = insert(:user, nick: "free_user", ident: "~freeuser", hostname: "freehost.example.com")
+        message = %Message{command: "NAMES", params: []}
+        assert :ok = Names.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} * * :free_user!~freeuser@freehost.example.com\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NAMES command with all channels including secret channel not visible to user" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        secret_channel = insert(:channel, name: "#secret", modes: ["s"])
+        other_user = insert(:user, nick: "other_user")
+        insert(:user_channel, user: other_user, channel: secret_channel)
+        message = %Message{command: "NAMES", params: []}
+        assert :ok = Names.handle(user, message)
+        assert_sent_messages([])
+      end)
+    end
   end
 end
