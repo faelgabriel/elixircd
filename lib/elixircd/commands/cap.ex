@@ -16,6 +16,10 @@ defmodule ElixIRCd.Commands.Cap do
     "UHNAMES" => %{
       name: "UHNAMES",
       description: "Extended NAMES reply with full user@host format"
+    },
+    "EXTENDED-UHLIST" => %{
+      name: "EXTENDED-UHLIST",
+      description: "Extended user modes in WHO replies"
     }
   }
 
@@ -102,7 +106,8 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec get_capabilities_list() :: String.t()
   defp get_capabilities_list do
-    extended_names_supported = Application.get_env(:elixircd, :features)[:support_extended_names] || false
+    extended_names_supported = Application.get_env(:elixircd, :capabilities)[:extended_names] || false
+    extended_uhlist_supported = Application.get_env(:elixircd, :capabilities)[:extended_uhlist] || false
     base_caps = []
 
     caps =
@@ -110,6 +115,13 @@ defmodule ElixIRCd.Commands.Cap do
         ["UHNAMES" | base_caps]
       else
         base_caps
+      end
+
+    caps =
+      if extended_uhlist_supported do
+        ["EXTENDED-UHLIST" | caps]
+      else
+        caps
       end
 
     Enum.join(caps, " ")

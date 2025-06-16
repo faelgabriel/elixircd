@@ -248,7 +248,7 @@ defmodule ElixIRCd.Commands.Who do
         user_target.hostname,
         Application.get_env(:elixircd, :server)[:hostname],
         user_target.nick,
-        user_statuses(user_target, user_channel)
+        user_statuses(user, user_target, user_channel)
       ],
       trailing: "0 #{user_target.realname}"
     })
@@ -268,12 +268,29 @@ defmodule ElixIRCd.Commands.Who do
     end
   end
 
-  @spec user_statuses(User.t(), UserChannel.t() | nil) :: String.t()
-  defp user_statuses(user, user_channel) do
-    user_away_status(user) <>
-      irc_operator_symbol(user) <>
-      channel_operator_symbol(user_channel) <>
-      channel_voice_symbol(user_channel)
+  @spec user_statuses(User.t(), User.t(), UserChannel.t() | nil) :: String.t()
+  defp user_statuses(requesting_user, user_target, user_channel) do
+    use_extended_uhlist = "EXTENDED-UHLIST" in requesting_user.capabilities
+
+    base_status =
+      user_away_status(user_target) <>
+        irc_operator_symbol(user_target) <>
+        channel_operator_symbol(user_channel) <>
+        channel_voice_symbol(user_channel)
+
+    if use_extended_uhlist do
+      base_status <> extended_user_modes(user_target)
+    else
+      base_status
+    end
+  end
+
+  @spec extended_user_modes(User.t()) :: String.t()
+  defp extended_user_modes(%User{modes: modes}) do
+    # Filter out standard modes that are already displayed (o for operator is shown as *)
+    # and show additional user modes
+    extended_modes = modes -- ["o"]
+    Enum.join(extended_modes, "")
   end
 
   @spec user_away_status(User.t()) :: String.t()

@@ -4,6 +4,7 @@ defmodule ElixIRCd.Utils.Isupport do
   """
 
   alias ElixIRCd.Commands.Mode.ChannelModes
+  alias ElixIRCd.Commands.Mode.UserModes
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
@@ -36,6 +37,7 @@ defmodule ElixIRCd.Utils.Isupport do
     user_config = Application.get_env(:elixircd, :user)
     channel_config = Application.get_env(:elixircd, :channel)
     server_config = Application.get_env(:elixircd, :server)
+    capabilities_config = Application.get_env(:elixircd, :capabilities)
     features_config = Application.get_env(:elixircd, :features)
     settings_config = Application.get_env(:elixircd, :settings)
 
@@ -57,11 +59,18 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:string, "STATUSMSG", channel_config[:status_message_targets]),
       format_feature(:boolean, "EXCEPTS", channel_config[:support_ban_exceptions]),
       format_feature(:boolean, "INVEX", channel_config[:support_invite_exceptions]),
-      format_feature(:boolean, "UHNAMES", features_config[:support_extended_names]),
+      format_feature(:boolean, "UHNAMES", capabilities_config[:extended_names]),
+      format_feature(:boolean, "EXTENDED-UHLIST", capabilities_config[:extended_uhlist]),
+      format_feature(:string, "UMODES", get_user_modes()),
       format_feature(:boolean, "CALLERID", features_config[:support_callerid_mode]),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only])
     ]
     |> Enum.reject(&is_nil/1)
+  end
+
+  @spec get_user_modes() :: String.t()
+  defp get_user_modes do
+    UserModes.modes() |> Enum.join("")
   end
 
   @spec format_chanmodes() :: String.t()

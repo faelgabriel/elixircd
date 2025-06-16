@@ -85,6 +85,12 @@ config :elixircd,
     # Whether to enforce UTF-8 only traffic support
     utf8_only: true
   ],
+  capabilities: [
+    # Whether to support extended NAMES with hostmasks (UHNAMES capability)
+    extended_names: true,
+    # Whether to support extended user modes in WHO replies (extended-uhlist capability)
+    extended_uhlist: true
+  ],
   # Features Configuration
   # TODO: Move some features to other configurations. E.g. support_extended_names to capabilities
   features: [
@@ -92,8 +98,6 @@ config :elixircd,
     # Important: Changing case mapping after the server has started and
     # users/channels exist may lead to unexpected behavior.
     case_mapping: :rfc1459,
-    # Support for extended NAMES with hostmasks (UHNAMES capability)
-    support_extended_names: true,
     # TODO: Support for CALLERID (mode +g)
     support_callerid_mode: true,
     # TODO: Maximum number of monitored nicknames per user
