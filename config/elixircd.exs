@@ -82,24 +82,20 @@ config :elixircd,
   ],
   # Settings Configuration
   settings: [
-    # Whether to enforce UTF-8 only traffic support
-    utf8_only: true
-  ],
-  # Features Configuration
-  # TODO: Move some features to other configurations. E.g. support_extended_names to capabilities
-  features: [
     # Case mapping rules (:rfc1459, :strict_rfc1459, :ascii)
     # Important: Changing case mapping after the server has started and
     # users/channels exist may lead to unexpected behavior.
     case_mapping: :rfc1459,
-    # Support for extended NAMES with hostmasks (UHNAMES capability)
-    support_extended_names: true,
-    # TODO: Support for CALLERID (mode +g)
-    support_callerid_mode: true,
-    # TODO: Maximum number of monitored nicknames per user
-    max_monitored_nicks: 100,
-    # TODO: Maximum number of silence list entries per user
-    max_silence_entries: 20
+    # Whether to enforce UTF-8 only traffic support
+    utf8_only: true
+  ],
+  capabilities: [
+    # Whether to support extended NAMES with hostmasks (uhnames capability)
+    extended_names: true,
+    # Whether to support extended user modes in WHO replies (extended-uhlist capability)
+    extended_uhlist: true,
+    # TODO: Whether to support CALLERID user mode (+g) for call blocking
+    callerid: true
   ],
   # Network Listeners Configuration
   listeners: [
@@ -131,7 +127,11 @@ config :elixircd,
     # Maximum length allowed for nicknames
     max_nick_length: 30,
     # Maximum length allowed for AWAY messages
-    max_away_message_length: 200
+    max_away_message_length: 200,
+    # TODO: Maximum number of monitored nicknames per user (MONITOR command)
+    max_monitored_nicks: 100,
+    # TODO: Maximum number of silence list entries per user (SILENCE command)
+    max_silence_entries: 20
   ],
   # Channel Configuration
   channel: [

@@ -308,23 +308,23 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 #### Capabilities
 
-- **Account Authentication and Registration** (SASL): Secure SASL authentication mechanism. ❌
-- **Account Tracking** (ACCOUNT-NOTIFY): Account notifications and tagging. ❌
-- **Away Notifications** (AWAY-NOTIFY): Real-time notifications of user "away" status changes. ❌
-- **Batches** (BATCH): Sending messages in batches. ❌
-- **Client-Only Tags** (CLIENT-TAGS): Attaching metadata to messages not transmitted to the server. ❌
-- **Echo Message** (ECHO-MESSAGE): Clients receive a copy of their sent messages. ❌
-- **Extended Names** (UHNAMES): Adds full user hostmasks to NAMES replies. ✅
-- **Extended User Mode** (UHMODES): Allows clients to see additional user modes in WHO and related replies. ❌
-- **Invite Notify** (INVITE-NOTIFY): Notifications when a user is invited to a channel. ❌
-- **Labeled Responses** (LABELED-RESPONSE): Associating responses with sent commands. ❌
-- **Message IDs** (MSGID): Unique identifiers for messages. ❌
-- **Message Tags** (MESSAGE-TAGS): Additional metadata in messages. ❌
-- **Monitor** (MONITOR): Efficient tracking of user online/offline status. ❌
-- **Server Time** (SERVER-TIME): Timestamp information for messages. ❌
-- **Standard Replies** (STANDARD-REPLIES): Standardized format for server and client replies. ❌
-- **Strict Transport Security (STS)** (STS): Automatic TLS encryption upgrade. ❌
-- **UTF-8 Only** (UTF8ONLY): Configurable support for UTF-8 only traffic. ✅
+- **Account Authentication and Registration** (sasl): Secure SASL authentication mechanism. ❌
+- **Account Tracking** (account-notify): Account notifications and tagging. ❌
+- **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ❌
+- **Batches** (batch): Sending messages in batches. ❌
+- **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ❌
+- **Echo Message** (echo-message): Clients receive a copy of their sent messages. ❌
+- **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
+- **Extended User Mode** (extended-uhlist): Allows clients to see additional user modes in WHO and related replies. ✅
+- **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ❌
+- **Labeled Responses** (labeled-response): Associating responses with sent commands. ❌
+- **Message IDs** (msgid): Unique identifiers for messages. ❌
+- **Message Tags** (message-tags): Additional metadata in messages. ❌
+- **Monitor** (monitor): Efficient tracking of user online/offline status. ❌
+- **Server Time** (server-time): Timestamp information for messages. ❌
+- **Standard Replies** (standard-replies): Standardized format for server and client replies. ❌
+- **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ❌
+- **UTF-8 Only** (utf8only): Configurable support for UTF-8 only traffic. ✅
 
 ### Server Features
 

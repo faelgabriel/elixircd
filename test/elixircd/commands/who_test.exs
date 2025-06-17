@@ -401,5 +401,83 @@ defmodule ElixIRCd.Commands.WhoTest do
         ])
       end)
     end
+
+    test "handles WHO command with EXTENDED-UHLIST capability enabled shows extended user modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["EXTENDED-UHLIST"])
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        # Create a user with additional modes (i=invisible, w=wallops)
+        target_user = insert(:user, modes: ["i", "w"], away_message: nil)
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H@iw :0 realname\r\n"},
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "handles WHO command without EXTENDED-UHLIST capability shows only standard modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [])
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        # Create a user with additional modes (i=invisible, w=wallops)
+        target_user = insert(:user, modes: ["i", "w"], away_message: nil)
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H@ :0 realname\r\n"},
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "handles WHO command with EXTENDED-UHLIST capability filters out operator mode already shown as *" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["EXTENDED-UHLIST"])
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        # Create an IRC operator user with additional modes (o=operator is shown as *, i=invisible, w=wallops)
+        target_user = insert(:user, modes: ["o", "i", "w"], away_message: nil)
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H*@iw :0 realname\r\n"},
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
   end
 end

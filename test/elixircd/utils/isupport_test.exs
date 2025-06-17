@@ -12,7 +12,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
     test "sends ISUPPORT messages to the user" do
       original_channel_config = Application.get_env(:elixircd, :channel)
       original_user_config = Application.get_env(:elixircd, :user)
-      original_features_config = Application.get_env(:elixircd, :features)
+      original_capabilities_config = Application.get_env(:elixircd, :capabilities)
       original_settings_config = Application.get_env(:elixircd, :settings)
 
       channel_config = [
@@ -30,25 +30,26 @@ defmodule ElixIRCd.Utils.IsupportTest do
 
       user_config = [
         max_away_message_length: 200,
-        max_nick_length: 30
-      ]
-
-      features_config = [
-        case_mapping: :rfc1459,
-        support_extended_names: true,
-        support_callerid_mode: true,
+        max_nick_length: 30,
         max_monitored_nicks: 100,
         max_silence_entries: 20
       ]
 
-      settings_config = [
-        utf8_only: true
+      capabilities_config = [
+        extended_names: true,
+        extended_uhlist: true,
+        callerid: true
       ]
 
-      :ok = Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config, channel_config))
-      :ok = Application.put_env(:elixircd, :user, Keyword.merge(original_user_config, user_config))
-      :ok = Application.put_env(:elixircd, :features, Keyword.merge(original_features_config, features_config))
-      :ok = Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
+      settings_config = [
+        utf8_only: true,
+        case_mapping: :rfc1459
+      ]
+
+      Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config, channel_config))
+      Application.put_env(:elixircd, :user, Keyword.merge(original_user_config, user_config))
+      Application.put_env(:elixircd, :capabilities, Keyword.merge(original_capabilities_config, capabilities_config))
+      Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
 
       user = insert(:user)
       assert :ok = Isupport.send_isupport_messages(user)
@@ -60,13 +61,15 @@ defmodule ElixIRCd.Utils.IsupportTest do
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
          ":irc.test 005 #{user.nick} MONITOR=100 SILENCE=20 CHANMODES=b,k,l,imnpst TARGMAX=JOIN:4,NOTICE:4,PART:4,PRIVMSG:4 STATUSMSG=@+ :are supported by this server\r\n"},
-        {user.pid, ":irc.test 005 #{user.nick} INVEX UHNAMES CALLERID UTF8ONLY :are supported by this server\r\n"}
+        {user.pid,
+         ":irc.test 005 #{user.nick} INVEX UHNAMES EXTENDED-UHLIST UMODES=iowZ CALLERID :are supported by this server\r\n"},
+        {user.pid, ":irc.test 005 #{user.nick} UTF8ONLY :are supported by this server\r\n"}
       ])
 
-      :ok = Application.put_env(:elixircd, :channel, original_channel_config)
-      :ok = Application.put_env(:elixircd, :user, original_user_config)
-      :ok = Application.put_env(:elixircd, :features, original_features_config)
-      :ok = Application.put_env(:elixircd, :settings, original_settings_config)
+      Application.put_env(:elixircd, :channel, original_channel_config)
+      Application.put_env(:elixircd, :user, original_user_config)
+      Application.put_env(:elixircd, :capabilities, original_capabilities_config)
+      Application.put_env(:elixircd, :settings, original_settings_config)
     end
   end
 end

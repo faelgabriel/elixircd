@@ -10,7 +10,7 @@ defmodule ElixIRCd.Utils.CaseMapping do
   """
   @spec normalize(String.t()) :: String.t()
   def normalize(string) do
-    case_mapping = Application.get_env(:elixircd, :features)[:case_mapping] || :rfc1459
+    case_mapping = Application.get_env(:elixircd, :settings)[:case_mapping] || :rfc1459
 
     case case_mapping do
       :rfc1459 -> normalize(string, :rfc1459)
