@@ -38,7 +38,6 @@ defmodule ElixIRCd.Utils.Isupport do
     channel_config = Application.get_env(:elixircd, :channel)
     server_config = Application.get_env(:elixircd, :server)
     capabilities_config = Application.get_env(:elixircd, :capabilities)
-    features_config = Application.get_env(:elixircd, :features)
     settings_config = Application.get_env(:elixircd, :settings)
 
     [
@@ -48,12 +47,12 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:list, "CHANTYPES", channel_config[:channel_prefixes]),
       format_feature(:numeric, "NICKLEN", user_config[:max_nick_length]),
       format_feature(:string, "NETWORK", server_config[:name]),
-      format_feature(:string, "CASEMAPPING", features_config[:case_mapping]),
+      format_feature(:string, "CASEMAPPING", settings_config[:case_mapping]),
       format_feature(:numeric, "TOPICLEN", channel_config[:max_topic_length]),
       format_feature(:numeric, "KICKLEN", channel_config[:max_kick_message_length]),
       format_feature(:numeric, "AWAYLEN", user_config[:max_away_message_length]),
-      format_feature(:numeric, "MONITOR", features_config[:max_monitored_nicks]),
-      format_feature(:numeric, "SILENCE", features_config[:max_silence_entries]),
+      format_feature(:numeric, "MONITOR", user_config[:max_monitored_nicks]),
+      format_feature(:numeric, "SILENCE", user_config[:max_silence_entries]),
       format_feature(:string, "CHANMODES", format_chanmodes()),
       format_feature(:map, "TARGMAX", channel_config[:max_command_targets]),
       format_feature(:string, "STATUSMSG", channel_config[:status_message_targets]),
@@ -62,7 +61,7 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:boolean, "UHNAMES", capabilities_config[:extended_names]),
       format_feature(:boolean, "EXTENDED-UHLIST", capabilities_config[:extended_uhlist]),
       format_feature(:string, "UMODES", get_user_modes()),
-      format_feature(:boolean, "CALLERID", features_config[:support_callerid_mode]),
+      format_feature(:boolean, "CALLERID", capabilities_config[:callerid]),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only])
     ]
     |> Enum.reject(&is_nil/1)

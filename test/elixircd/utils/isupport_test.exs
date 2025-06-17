@@ -13,7 +13,6 @@ defmodule ElixIRCd.Utils.IsupportTest do
       original_channel_config = Application.get_env(:elixircd, :channel)
       original_user_config = Application.get_env(:elixircd, :user)
       original_capabilities_config = Application.get_env(:elixircd, :capabilities)
-      original_features_config = Application.get_env(:elixircd, :features)
       original_settings_config = Application.get_env(:elixircd, :settings)
 
       channel_config = [
@@ -31,29 +30,25 @@ defmodule ElixIRCd.Utils.IsupportTest do
 
       user_config = [
         max_away_message_length: 200,
-        max_nick_length: 30
-      ]
-
-      capabilities_config = [
-        extended_names: true,
-        extended_uhlist: true
-      ]
-
-      features_config = [
-        case_mapping: :rfc1459,
-        support_callerid_mode: true,
+        max_nick_length: 30,
         max_monitored_nicks: 100,
         max_silence_entries: 20
       ]
 
+      capabilities_config = [
+        extended_names: true,
+        extended_uhlist: true,
+        callerid: true
+      ]
+
       settings_config = [
-        utf8_only: true
+        utf8_only: true,
+        case_mapping: :rfc1459
       ]
 
       Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config, channel_config))
       Application.put_env(:elixircd, :user, Keyword.merge(original_user_config, user_config))
       Application.put_env(:elixircd, :capabilities, Keyword.merge(original_capabilities_config, capabilities_config))
-      Application.put_env(:elixircd, :features, Keyword.merge(original_features_config, features_config))
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
 
       user = insert(:user)
@@ -74,7 +69,6 @@ defmodule ElixIRCd.Utils.IsupportTest do
       Application.put_env(:elixircd, :channel, original_channel_config)
       Application.put_env(:elixircd, :user, original_user_config)
       Application.put_env(:elixircd, :capabilities, original_capabilities_config)
-      Application.put_env(:elixircd, :features, original_features_config)
       Application.put_env(:elixircd, :settings, original_settings_config)
     end
   end
