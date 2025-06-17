@@ -152,8 +152,8 @@ config :elixircd,
     max_list_entries: %{"b" => 100, "e" => 50, "I" => 50},
     # Maximum length of a kick message
     max_kick_message_length: 255,
-    # TODO: Maximum mode changes per MODE command
-    max_modes_per_command: 4,
+    # Maximum mode changes per MODE command
+    max_modes_per_command: 20,
     # Maximum length for a channel topic
     max_topic_length: 300,
     # TODO: Channel status prefixes and corresponding modes

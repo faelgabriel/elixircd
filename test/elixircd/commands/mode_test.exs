@@ -362,6 +362,23 @@ defmodule ElixIRCd.Commands.ModeTest do
         ])
       end)
     end
+
+    test "handles MODE command for channel when mode changes exceed the limit" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        # Test with 21 modes (over limit of 20)
+        message = %Message{command: "MODE", params: [channel.name, "+tnmislpovbktnmislpovb"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 472 #{user.nick} #{channel.name} :Too many channel modes in one command (maximum is 20)\r\n"}
+        ])
+      end)
+    end
   end
 
   describe "handle/2 for user" do
