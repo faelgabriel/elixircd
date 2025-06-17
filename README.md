@@ -382,7 +382,7 @@ mix deps.get
 Ensuring code quality assurance is essential for the stability of the project. You can run all the necessary checks, including compilation warnings, code formatting, linting, security analysis, dependency audits, documentation checks, and static analysis, with a single command:
 
 ```bash
-mix check.all
+mix check
 ```
 
 ### Running Tests

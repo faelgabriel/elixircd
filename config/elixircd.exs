@@ -154,7 +154,7 @@ config :elixircd,
     max_kick_message_length: 255,
     # TODO: Maximum mode changes per MODE command
     max_modes_per_command: 4,
-    # TODO: Maximum length for a channel topic
+    # Maximum length for a channel topic
     max_topic_length: 300,
     # TODO: Channel status prefixes and corresponding modes
     # Format: {"modes": "prefixes"}

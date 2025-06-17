@@ -15,7 +15,7 @@ defmodule ElixIRCd.Commands.Topic do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @type topic_errors :: :channel_not_found | :user_channel_not_found | :user_is_not_operator
+  @type topic_errors :: :channel_not_found | :user_channel_not_found | :user_is_not_operator | :topic_too_long
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -57,7 +57,8 @@ defmodule ElixIRCd.Commands.Topic do
   def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: new_topic_text}) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
-         :ok <- check_user_permission(channel, user_channel) do
+         :ok <- check_user_permission(channel, user_channel),
+         :ok <- validate_topic_length(new_topic_text) do
       updated_channel = Channels.update(channel, %{topic: normalize_topic(new_topic_text, user)})
       user_channels = UserChannels.get_by_channel_name(channel.name)
 
@@ -71,6 +72,19 @@ defmodule ElixIRCd.Commands.Topic do
   defp check_user_permission(channel, user_channel) do
     if "t" in channel.modes and "o" not in user_channel.modes do
       {:error, :user_is_not_operator}
+    else
+      :ok
+    end
+  end
+
+  @spec validate_topic_length(String.t()) :: :ok | {:error, :topic_too_long}
+  defp validate_topic_length(""), do: :ok
+
+  defp validate_topic_length(topic_text) do
+    max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
+
+    if String.length(topic_text) > max_topic_length do
+      {:error, :topic_too_long}
     else
       :ok
     end
@@ -159,6 +173,18 @@ defmodule ElixIRCd.Commands.Topic do
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  defp send_channel_topic_error(:topic_too_long, user, _channel_name) do
+    max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
+
+    Message.build(%{
+      prefix: :server,
+      command: :err_inputtoolong,
+      params: [user.nick],
+      trailing: "Topic too long (maximum length: #{max_topic_length} characters)"
     })
     |> Dispatcher.broadcast(user)
   end
