@@ -196,6 +196,5 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert updated_channel.topic == nil
       end)
     end
-
   end
 end

@@ -150,7 +150,7 @@ config :elixircd,
     # TODO: Maximum entries for each list mode (bans, exceptions, etc)
     # Format: {"mode": max_count, ...}
     max_list_entries: %{"b" => 100, "e" => 50, "I" => 50},
-    # TODO: Maximum length of a kick message
+    # Maximum length of a kick message
     max_kick_message_length: 255,
     # TODO: Maximum mode changes per MODE command
     max_modes_per_command: 4,

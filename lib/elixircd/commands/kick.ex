@@ -22,6 +22,7 @@ defmodule ElixIRCd.Commands.Kick do
           | :user_is_not_operator
           | :target_user_not_found
           | :target_user_channel_not_found
+          | :kick_message_too_long
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -45,6 +46,7 @@ defmodule ElixIRCd.Commands.Kick do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
+         :ok <- validate_kick_message(reason),
          {:ok, target_user} <- get_target_user(target_nick),
          {:ok, target_user_channel} <- get_target_user_channel(target_user, channel) do
       user_channels = UserChannels.get_by_channel_name(channel.name)
@@ -62,6 +64,19 @@ defmodule ElixIRCd.Commands.Kick do
       :ok
     else
       {:error, :user_is_not_operator}
+    end
+  end
+
+  @spec validate_kick_message(String.t() | nil) :: :ok | {:error, :kick_message_too_long}
+  defp validate_kick_message(nil), do: :ok
+
+  defp validate_kick_message(reason) do
+    max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
+
+    if String.length(reason) > max_kick_message_length do
+      {:error, :kick_message_too_long}
+    else
+      :ok
     end
   end
 
@@ -120,6 +135,18 @@ defmodule ElixIRCd.Commands.Kick do
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not channel operator"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  defp send_user_kick_error(:kick_message_too_long, user, channel_name, _target_nick) do
+    max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
+
+    Message.build(%{
+      prefix: :server,
+      command: :err_inputtoolong,
+      params: [user.nick, channel_name],
+      trailing: "Kick reason too long (maximum length is #{max_kick_message_length} characters)"
     })
     |> Dispatcher.broadcast(user)
   end

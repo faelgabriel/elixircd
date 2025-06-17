@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.KickTest do
 
   alias ElixIRCd.Commands.Kick
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.UserChannels
 
   describe "handle/2" do
     test "handles KICK command with user not registered" do
@@ -80,6 +81,30 @@ defmodule ElixIRCd.Commands.KickTest do
         assert_sent_messages([
           {user.pid, ":irc.test 482 #{user.nick} #channel :You're not channel operator\r\n"}
         ])
+      end)
+    end
+
+    test "handles KICK command with kick reason exceeding maximum length" do
+      Memento.transaction!(fn ->
+        max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        target_user = insert(:user, nick: "target")
+        insert(:user_channel, user: target_user, channel: channel)
+
+        too_long_reason = String.duplicate("a", max_kick_message_length + 1)
+        message = %Message{command: "KICK", params: ["#channel", "target"], trailing: too_long_reason}
+        assert :ok = Kick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 417 #{user.nick} #channel :Kick reason too long (maximum length is #{max_kick_message_length} characters)\r\n"}
+        ])
+
+        # Verify the target user was not kicked
+        {:ok, _target_user_channel} = UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel.name)
       end)
     end
 
