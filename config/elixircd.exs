@@ -156,9 +156,6 @@ config :elixircd,
     max_modes_per_command: 20,
     # Maximum length for a channel topic
     max_topic_length: 300,
-    # TODO: Channel status prefixes and corresponding modes
-    # Format: {"modes": "prefixes"}
-    status_prefixes: %{modes: "ov", prefixes: "@+"},
     # TODO: Support for status-specific messages
     status_message_targets: "@+",
     # TODO: Maximum targets for specific commands
