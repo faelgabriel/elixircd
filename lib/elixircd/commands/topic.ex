@@ -58,7 +58,7 @@ defmodule ElixIRCd.Commands.Topic do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(channel, user_channel),
-         :ok <- validate_topic_length(new_topic_text) do
+         :ok <- check_topic_length(new_topic_text) do
       updated_channel = Channels.update(channel, %{topic: normalize_topic(new_topic_text, user)})
       user_channels = UserChannels.get_by_channel_name(channel.name)
 
@@ -77,10 +77,10 @@ defmodule ElixIRCd.Commands.Topic do
     end
   end
 
-  @spec validate_topic_length(String.t()) :: :ok | {:error, :topic_too_long}
-  defp validate_topic_length(""), do: :ok
+  @spec check_topic_length(String.t()) :: :ok | {:error, :topic_too_long}
+  defp check_topic_length(""), do: :ok
 
-  defp validate_topic_length(topic_text) do
+  defp check_topic_length(topic_text) do
     max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
 
     if String.length(topic_text) > max_topic_length do

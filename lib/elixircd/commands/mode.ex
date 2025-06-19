@@ -72,7 +72,7 @@ defmodule ElixIRCd.Commands.Mode do
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
          {validated_modes, invalid_modes} <- ChannelModes.parse_mode_changes(mode_string, values),
-         :ok <- validate_mode_limit(validated_modes) do
+         :ok <- check_mode_limit(validated_modes) do
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
 
       if length(missing_value_modes) > 0 do
@@ -113,8 +113,8 @@ defmodule ElixIRCd.Commands.Mode do
     end
   end
 
-  @spec validate_mode_limit([ChannelModes.mode_change()]) :: :ok | {:error, :too_many_modes}
-  defp validate_mode_limit(validated_modes) do
+  @spec check_mode_limit([ChannelModes.mode_change()]) :: :ok | {:error, :too_many_modes}
+  defp check_mode_limit(validated_modes) do
     max_modes_limit = Application.get_env(:elixircd, :channel)[:max_modes_per_command] || 20
 
     if length(validated_modes) > max_modes_limit do

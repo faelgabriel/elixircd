@@ -46,7 +46,7 @@ defmodule ElixIRCd.Commands.Kick do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
-         :ok <- validate_kick_message(reason),
+         :ok <- check_message_length(reason),
          {:ok, target_user} <- get_target_user(target_nick),
          {:ok, target_user_channel} <- get_target_user_channel(target_user, channel) do
       user_channels = UserChannels.get_by_channel_name(channel.name)
@@ -67,10 +67,10 @@ defmodule ElixIRCd.Commands.Kick do
     end
   end
 
-  @spec validate_kick_message(String.t() | nil) :: :ok | {:error, :kick_message_too_long}
-  defp validate_kick_message(nil), do: :ok
+  @spec check_message_length(String.t() | nil) :: :ok | {:error, :kick_message_too_long}
+  defp check_message_length(nil), do: :ok
 
-  defp validate_kick_message(reason) do
+  defp check_message_length(reason) do
     max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
 
     if String.length(reason) > max_kick_message_length do
