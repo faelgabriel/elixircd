@@ -147,9 +147,9 @@ config :elixircd,
     support_ban_exceptions: true,
     # TODO: Support for invite exceptions (mode +I)
     support_invite_exceptions: true,
-    # TODO: Maximum entries for each list mode (bans, exceptions, etc)
+    # Maximum entries for each list mode (bans, exceptions, etc)
     # Format: {"mode": max_count, ...}
-    max_list_entries: %{"b" => 100, "e" => 50, "I" => 50},
+    max_list_entries: %{"b" => 100},
     # Maximum length of a kick message
     max_kick_message_length: 255,
     # Maximum mode changes per MODE command

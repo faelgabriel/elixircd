@@ -53,6 +53,12 @@ defmodule ElixIRCd.MessageCase do
       defp assert_sent_message_contains(target, pattern) do
         Assertions.assert_sent_message_contains(@agent_name, target, pattern)
       end
+
+      # Asserts that a specific number of messages sent to a target contain a specified pattern.
+      @spec assert_sent_messages_count_containing(pid(), String.t() | Regex.t(), integer()) :: :ok
+      defp assert_sent_messages_count_containing(target, pattern, expected_count) do
+        Assertions.assert_sent_messages_count_containing(@agent_name, target, pattern, expected_count)
+      end
     end
   end
 end
@@ -144,6 +150,32 @@ defmodule ElixIRCd.MessageCase.Assertions do
       Assertion failed: No message matching pattern was found for target #{inspect(target)}.
       Pattern: #{inspect(pattern)}
       Messages sent to target: #{inspect(sent_msgs_for_target, binaries: :as_strings, limit: :infinity)}
+      """
+    end
+
+    :ok
+  end
+
+  @doc false
+  @spec assert_sent_messages_count_containing(atom(), pid(), String.t() | Regex.t(), integer()) :: :ok
+  def assert_sent_messages_count_containing(agent_name, target, pattern, expected_count) do
+    ensure_agent_running!(agent_name)
+
+    sent_messages = Agent.get(agent_name, &Enum.reverse(&1))
+
+    sent_msgs_for_target =
+      Enum.filter(sent_messages, fn {pid, _} -> pid == target end)
+      |> Enum.map(fn {_, msg} -> msg end)
+
+    matching_messages = Enum.filter(sent_msgs_for_target, fn msg -> message_match?(pattern, msg) end)
+    actual_count = length(matching_messages)
+
+    if actual_count != expected_count do
+      raise AssertionError, """
+      Assertion failed: Expected #{expected_count} messages matching pattern, but found #{actual_count} for target #{inspect(target)}.
+      Pattern: #{inspect(pattern)}
+      Matching messages: #{inspect(matching_messages, binaries: :as_strings, limit: :infinity)}
+      All messages sent to target: #{inspect(sent_msgs_for_target, binaries: :as_strings, limit: :infinity)}
       """
     end
 

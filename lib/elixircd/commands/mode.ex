@@ -133,7 +133,13 @@ defmodule ElixIRCd.Commands.Mode do
       |> DateTime.to_unix()
       |> Integer.to_string()
 
-    ChannelBans.get_by_channel_name_key(channel.name_key)
+    max_list_entries = Application.get_env(:elixircd, :channel)[:max_list_entries] || %{}
+    max_entries = Map.get(max_list_entries, "b", 100)
+
+    channel_bans = ChannelBans.get_by_channel_name_key(channel.name_key)
+    total_entries = length(channel_bans)
+
+    Enum.take(channel_bans, max_entries)
     |> Enum.each(fn channel_ban ->
       Message.build(%{
         prefix: :server,
@@ -148,6 +154,16 @@ defmodule ElixIRCd.Commands.Mode do
       })
       |> Dispatcher.broadcast(user)
     end)
+
+    if total_entries > max_entries do
+      Message.build(%{
+        prefix: :server,
+        command: "NOTICE",
+        params: [user.nick],
+        trailing: "Ban list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+      })
+      |> Dispatcher.broadcast(user)
+    end
 
     Message.build(%{
       prefix: :server,

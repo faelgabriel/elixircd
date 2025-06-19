@@ -164,4 +164,68 @@ defmodule ElixIRCd.MessageCaseTest do
       end
     end
   end
+
+  describe "assert_sent_messages_count_containing/3" do
+    test "passes when exact count of messages match string pattern", %{target_pid: pid} do
+      Connection.handle_send(pid, "367 BAN user1!*@*")
+      Connection.handle_send(pid, "367 BAN user2!*@*")
+      Connection.handle_send(pid, "368 END of ban list")
+
+      assert_sent_messages_count_containing(pid, ~r/367/, 2)
+    end
+
+    test "passes when exact count of messages match regex pattern", %{target_pid: pid} do
+      Connection.handle_send(pid, "User123 joined")
+      Connection.handle_send(pid, "User456 joined")
+      Connection.handle_send(pid, "Admin left")
+
+      assert_sent_messages_count_containing(pid, ~r/User\d+ joined/, 2)
+    end
+
+    test "passes when count is zero for non-matching pattern", %{target_pid: pid} do
+      Connection.handle_send(pid, "Hello world!")
+      Connection.handle_send(pid, "Goodbye world!")
+
+      assert_sent_messages_count_containing(pid, ~r/farewell/, 0)
+    end
+
+    test "passes when exact string match is used", %{target_pid: pid} do
+      Connection.handle_send(pid, "EXACT_MATCH")
+      Connection.handle_send(pid, "EXACT_MATCH")
+      Connection.handle_send(pid, "DIFFERENT")
+
+      assert_sent_messages_count_containing(pid, "EXACT_MATCH", 2)
+    end
+
+    test "fails when count doesn't match expected", %{target_pid: pid} do
+      Connection.handle_send(pid, "367 BAN user1!*@*")
+      Connection.handle_send(pid, "367 BAN user2!*@*")
+      Connection.handle_send(pid, "368 END of ban list")
+
+      assert_raise ExUnit.AssertionError, fn ->
+        assert_sent_messages_count_containing(pid, ~r/367/, 3)
+      end
+    end
+
+    test "fails with detailed error message when count doesn't match", %{target_pid: pid} do
+      Connection.handle_send(pid, "367 BAN user1!*@*")
+      Connection.handle_send(pid, "368 END of ban list")
+
+      error =
+        assert_raise ExUnit.AssertionError, fn ->
+          assert_sent_messages_count_containing(pid, ~r/367/, 2)
+        end
+
+      assert error.message =~ "Expected 2 messages matching pattern, but found 1"
+      assert error.message =~ "Pattern: ~r/367/"
+      assert error.message =~ "Matching messages: [\"367 BAN user1!*@*\"]"
+    end
+
+    @tag :skip_message_agent
+    test "raises an error if the agent is not running", %{target_pid: pid} do
+      assert_raise RuntimeError, fn ->
+        assert_sent_messages_count_containing(pid, "pattern", 1)
+      end
+    end
+  end
 end
