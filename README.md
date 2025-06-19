@@ -25,7 +25,7 @@
   - [Modes](#modes)
   - [Services](#services)
   - [IRCv3 Specifications](#ircv3-specifications)
-  - [Server Capabilities](#server-capabilities)
+  - [Server Features](#server-features)
 - [Development](#development)
 - [Contributing](#contributing)
 - [License](#license)
