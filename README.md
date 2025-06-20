@@ -265,7 +265,7 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 - **+B (Bot)**: Marks the user as a bot. ❌
 - **+g (Caller ID)**: Block messages from users not on an access list. ❌
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ❌
-- **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
+- **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
 - **+r (Registered)**: Indicates the user is registered and identified with services. ✴️
 - **+R (Registered Only)**: Only allows messages from registered users. ❌
@@ -346,7 +346,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ❌
 - **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ❌
 - **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
-- **Extended User Mode** (extended-uhlist): Allows clients to see additional user modes in WHO and related replies. ✅
+- **Extended User Mode** (extended-uhlist): Adds additional user modes in WHO and related replies. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ❌
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ❌
 - **Message IDs** (msgid): Unique identifiers for messages. ❌
