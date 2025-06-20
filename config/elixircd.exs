@@ -93,9 +93,7 @@ config :elixircd,
     # Whether to support extended NAMES with hostmasks (uhnames capability)
     extended_names: true,
     # Whether to support extended user modes in WHO replies (extended-uhlist capability)
-    extended_uhlist: true,
-    # TODO: Whether to support CALLERID user mode (+g) for call blocking
-    callerid: true
+    extended_uhlist: true
   ],
   # Network Listeners Configuration
   listeners: [
@@ -127,11 +125,7 @@ config :elixircd,
     # Maximum length allowed for nicknames
     max_nick_length: 30,
     # Maximum length allowed for AWAY messages
-    max_away_message_length: 200,
-    # TODO: Maximum number of monitored nicknames per user (MONITOR command)
-    max_monitored_nicks: 100,
-    # TODO: Maximum number of silence list entries per user (SILENCE command)
-    max_silence_entries: 20
+    max_away_message_length: 200
   ],
   # Channel Configuration
   channel: [
@@ -141,12 +135,7 @@ config :elixircd,
     max_channel_name_length: 64,
     # Channel limits (maximum number of channels per user per prefix)
     # Format: %{"prefix" => max_count, ...}
-    # For example, %{"#" => 20, "&" => 5} means a user can join up to 20 #-channels and 5 &-channels
     channel_join_limits: %{"#" => 20, "&" => 5},
-    # TODO: Support for ban exceptions (mode +e)
-    support_ban_exceptions: true,
-    # TODO: Support for invite exceptions (mode +I)
-    support_invite_exceptions: true,
     # Maximum entries for each list mode (bans, exceptions, etc)
     # Format: {"mode": max_count, ...}
     max_list_entries: %{"b" => 100},
@@ -155,12 +144,7 @@ config :elixircd,
     # Maximum mode changes per MODE command
     max_modes_per_command: 20,
     # Maximum length for a channel topic
-    max_topic_length: 300,
-    # TODO: Support for status-specific messages
-    status_message_targets: "@+",
-    # TODO: Maximum targets for specific commands
-    # Format: {"command": max_targets, ...}
-    max_command_targets: %{"PRIVMSG" => 4, "NOTICE" => 4, "JOIN" => 4, "PART" => 4}
+    max_topic_length: 300
   ],
   # IRC Bot Services Configuration
   services: [
@@ -178,60 +162,12 @@ config :elixircd,
       wait_register_time: 120,
       # Days until an unverified nickname registration expires (0 = never expires)
       unverified_expire_days: 1,
-      # TODO: Maximum number of nicks a user can register/group
-      # max_nicks_per_user: 3,
-      # TODO: Whether to allow nick grouping features (GROUP, UNGROUP, SET NEVERGROUP etc.)
-      # allow_nick_grouping: true,
-      # TODO: Whether users must be authenticated (identified) to change account settings
-      # require_auth_for_changes: true,
-      # TODO: Allow password recovery via email (requires email server config and email_required or user SET EMAIL)
-      # allow_password_recovery: true,
-      # TODO: Authentication session timeout in minutes (0 = session never expires)
-      # auth_session_timeout: 0,
       # Duration (in seconds) a nickname remains reserved after REGAIN command
       regain_reservation_duration: 60,
-      # TODO: Maximum failed password attempts before temporary lockout
-      # max_failed_logins: 5,
-      # TODO: Lockout period (in minutes) after exceeding failed attempts
-      # failed_login_block_duration: 15,
-      # TODO: Allow nickname authentication via SSL/TLS certificates (using CERT command)
-      # allow_cert_auth: false,
-      # TODO: Maximum number of hosts allowed in a user's ACCESS list
-      # max_access_hosts: 10,
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
-        # TODO: Default for: SET EMAILMEMOS {ON|OFF|ONLY}
-        # email_memos: :off,
-        # TODO: Default for: SET ENFORCE {ON|OFF} (Master switch for KILL etc.)
-        # enforce: true,
-        # TODO: Default for: SET ENFORCETIME <seconds> (Delay for KILL ON)
-        # enforce_time: 60,
         # Default for: SET HIDE EMAIL {ON|OFF}
         hide_email: false
-        # TODO: Default for: SET HIDE STATUS {ON|OFF}
-        # hide_status: false,
-        # TODO: Default for: SET HIDE USERMASK {ON|OFF}
-        # hide_usermask: false,
-        # TODO: Default for: SET HIDE QUIT {ON|OFF}
-        # hide_quit: false,
-        # TODO: Default for: SET KILL {ON|QUICK|IMMED|OFF}
-        # kill: :on,
-        # TODO: Default for: SET LANGUAGE <language_code>
-        # language: "en",
-        # TODO: Default for: SET MSG {ON|OFF} (true=PRIVMSG, false=NOTICE)
-        # msg: false,
-        # TODO: Default for: SET NEVERGROUP {ON|OFF}
-        # never_group: false,
-        # TODO: Default for: SET NEVEROP {ON|OFF}
-        # never_op: false,
-        # TODO: Default for: SET NOGREET {ON|OFF}
-        # no_greet: false,
-        # TODO: Default for: SET PRIVATE {ON|OFF}
-        # private: false,
-        # TODO: Default for: SET QUIETCHG {ON|OFF}
-        # quiet_chg: false,
-        # TODO: Default for: SET SECURE {ON|OFF}
-        # secure: false
       ]
     ],
     # ChanServ Configuration
@@ -249,14 +185,10 @@ config :elixircd,
       ],
       # Days until an unused registered channel expires due to inactivity
       channel_expire_days: 90,
-      # TODO: Should dropping a channel require a confirmation code/step?
-      # require_drop_confirmation: true,
       # Default Channel Settings (Applied when a channel is first registered)
       settings: [
         # Default for: SET ENTRYMSG <message>
         entrymsg: nil,
-        # TODO: Default for: SET MODELOCK <modes>
-        # mode_lock: nil,
         # Default for: SET KEEPTOPIC {ON|OFF}
         keeptopic: true,
         # Default for: SET OPNOTICE {ON|OFF}
@@ -276,38 +208,7 @@ config :elixircd,
         # Default for: SET TOPICLOCK {ON|OFF}
         topiclock: false
       ]
-      # TODO: Flag mappings for predefined XOP levels
-      # xop_levels: [
-      #   # SOP - Superior Operator Preset
-      #   sop: "+AFORsekbhituav",
-      #   # AOP - Administrator/Advanced Operator Preset
-      #   aop: "+AORehkbituv",
-      #   # HOP - Half Operator Preset
-      #   hop: "+HRehkitv",
-      #   # VOP - Voice Preset
-      #   vop: "+Vv"
-      # ]
-      # TODO: Define custom roles here if implementing the ROLE command
-      # custom_roles: [
-      #   moderator: "+HRehkbituv",
-      #   helper: "+Vv"
-      # ]
     ]
-  ],
-  # TODO: Cloaking Configuration
-  cloak: [
-    # Enable or disable cloak service
-    enabled: true,
-    # String prepended to cloak
-    prefix: "cloak-",
-    # String appended to cloak
-    suffix: ".users.network",
-    # Hashing method for cloak (md5, sha1, sha256, sha512)
-    hash_method: :sha256,
-    # Secret key for deterministic cloak
-    secret_key: "secret_key",
-    # Length of cloak
-    length: 12
   ],
   # Ident Service Configuration
   ident_service: [

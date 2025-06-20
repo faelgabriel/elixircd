@@ -51,17 +51,10 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:numeric, "TOPICLEN", channel_config[:max_topic_length]),
       format_feature(:numeric, "KICKLEN", channel_config[:max_kick_message_length]),
       format_feature(:numeric, "AWAYLEN", user_config[:max_away_message_length]),
-      format_feature(:numeric, "MONITOR", user_config[:max_monitored_nicks]),
-      format_feature(:numeric, "SILENCE", user_config[:max_silence_entries]),
       format_feature(:string, "CHANMODES", format_chanmodes()),
-      format_feature(:map, "TARGMAX", channel_config[:max_command_targets]),
-      format_feature(:string, "STATUSMSG", channel_config[:status_message_targets]),
-      format_feature(:boolean, "EXCEPTS", channel_config[:support_ban_exceptions]),
-      format_feature(:boolean, "INVEX", channel_config[:support_invite_exceptions]),
       format_feature(:boolean, "UHNAMES", capabilities_config[:extended_names]),
       format_feature(:boolean, "EXTENDED-UHLIST", capabilities_config[:extended_uhlist]),
       format_feature(:string, "UMODES", format_umodes()),
-      format_feature(:boolean, "CALLERID", capabilities_config[:callerid]),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only])
     ]
     |> Enum.reject(&is_nil/1)

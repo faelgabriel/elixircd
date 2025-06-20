@@ -234,6 +234,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **QUIT**: Disconnect from the server. ✅
 - **LUSERS**: Get statistics about the size of the network. ✅
 - **ISON**: Check if specified users are online. ✅
+- **SILENCE**: Manage a list of users whose messages are blocked. ❌
 - **VERSION**: Respond to queries about the server's version. ✅
 - **STATS**: Provide server statistics. ✅
 - **INFO**: Provide information about the server. ✅
@@ -242,6 +243,14 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **ADMIN**: Provide information about the server administrator. ✅
 - **OPER**: Allow operators to gain elevated privileges on the server. ✅
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✅
+- **OPERWALL**: Send messages to operators only. ❌
+- **GLOBOPS**: Send global operator messages to all operators on the network. ❌
+- **WATCH**: Track when specific nicknames enter or leave the network. ❌
+- **SAJOIN**: Force a user to join a channel. ❌
+- **SAPART**: Force a user to part a channel. ❌
+- **SVSNICK**: Force a nickname change on a user. ❌
+- **SVSMODE**: Change user or channel modes as services. ❌
+- **SWHOIS**: Set additional WHOIS information for a user. ❌
 - **KILL**: Allow operators to disconnect a user from the network. ✅
 - **REHASH**: Enable operators to reload the server's configuration. ✅
 - **RESTART**: Allow operators to restart the server. ✅
@@ -253,24 +262,40 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 #### User Modes
 
+- **+B (Bot)**: Marks the user as a bot. ❌
+- **+g (Caller ID)**: Block messages from users not on an access list. ❌
+- **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ❌
 - **+i (Invisible)**: Hides the user from WHO searches and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
+- **+r (Registered)**: Indicates the user is registered and identified with services. ✴️
+- **+R (Registered Only)**: Only allows messages from registered users. ❌
+- **+s (Snomask)**: Allows reception of server notices. ❌
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
+- **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ❌
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
 
 #### Channel Modes
 
 - **+b (Ban)**: Prevents a user or host from joining the channel. ✅
+- **+C (No CTCP)**: Blocks CTCP messages to the channel. ❌
+- **+e (Ban Exception)**: Exempts users from channel bans. ❌
+- **+f (Flood Protection)**: Protects the channel from flooding. ❌
+- **+h (Half-operator)**: Grants half-operator status to a user. ❌
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
+- **+I (Invite Exception)**: Exempts users from invite-only restriction. ❌
 - **+k (Key)**: Requires a password to join the channel. ✅
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
 - **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
 - **+o (Operator)**: Grants operator status to a user. ✅
 - **+p (Private)**: Hides the channel from the LIST command. ✅
+- **+q (Owner)**: Grants channel owner status to a user (higher than operator). ❌
+- **+r (Registered Channel)**: Indicates the channel is registered with services. ❌
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
 - **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
+- **+u (Auditorium)**: Hides join/part/quit messages except for users with voice or higher. ❌
 - **+v (Voice)**: Grants voice status to a user. ✅
+- **+z (Secure Only)**: Restricts channel access to users with secure connections only. ❌
 
 ### Services
 
@@ -297,7 +322,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **CAP**: Negotiate client capabilities with the server. ✅
 - **AUTHENTICATE**: Log in to a client account using SASL authentication. ❌
 - **ACCOUNT**: Notify clients of friends' new logins. ❌
-- **CHGHOST**: Notify clients about changes in friends' usernames and hostnames. ❌
+- **CHGHOST**: Notify clients about changes in friends' hostnames. ❌
 - **INVITE**: Alert other clients when someone is invited to a channel. ❌
 - **JOIN**: Extended to include usernames and hostnames in join messages. ❌
 - **MONITOR**: Track when specific nicknames enter or leave the network. ❌
@@ -305,15 +330,21 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **TAGMSG**: Send messages with tags but without text content. ❌
 - **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
 - **WHO**: Extended to allow clients to request additional information. ❌
+- **BATCH**: Group multiple related messages into a single logical batch. ❌
+- **SETNAME**: Allow clients to change their real name (GECOS) during the session. ❌
 
 #### Capabilities
 
 - **Account Authentication and Registration** (sasl): Secure SASL authentication mechanism. ❌
+- **Account Tag** (account-tag): Attach account name to messages via IRCv3 message tags. ❌
 - **Account Tracking** (account-notify): Account notifications and tagging. ❌
 - **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ❌
 - **Batches** (batch): Sending messages in batches. ❌
+- **Capability Notifications** (cap-notify): Notify clients when server capabilities change dynamically. ❌
+- **Change Host** (chghost): Real-time notifications when a user's hostname changes. ❌
 - **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ❌
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ❌
+- **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ❌
 - **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
 - **Extended User Mode** (extended-uhlist): Allows clients to see additional user modes in WHO and related replies. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ❌
@@ -321,7 +352,9 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Message IDs** (msgid): Unique identifiers for messages. ❌
 - **Message Tags** (message-tags): Additional metadata in messages. ❌
 - **Monitor** (monitor): Efficient tracking of user online/offline status. ❌
+- **Multi-Prefix** (multi-prefix): Display multiple status prefixes for users in channel responses. ❌
 - **Server Time** (server-time): Timestamp information for messages. ❌
+- **Set Name** (setname): Allow clients to change their real name during the session. ❌
 - **Standard Replies** (standard-replies): Standardized format for server and client replies. ❌
 - **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ❌
 - **UTF-8 Only** (utf8only): Configurable support for UTF-8 only traffic. ✅
