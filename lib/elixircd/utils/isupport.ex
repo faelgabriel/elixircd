@@ -43,7 +43,7 @@ defmodule ElixIRCd.Utils.Isupport do
     [
       format_feature(:numeric, "MODES", channel_config[:max_modes_per_command]),
       format_feature(:map, "CHANLIMIT", channel_config[:channel_join_limits]),
-      format_feature(:prefix, "PREFIX", channel_config[:status_prefixes]),
+      format_feature(:string, "PREFIX", format_prefix()),
       format_feature(:list, "CHANTYPES", channel_config[:channel_prefixes]),
       format_feature(:numeric, "NICKLEN", user_config[:max_nick_length]),
       format_feature(:string, "NETWORK", server_config[:name]),
@@ -60,16 +60,21 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:boolean, "INVEX", channel_config[:support_invite_exceptions]),
       format_feature(:boolean, "UHNAMES", capabilities_config[:extended_names]),
       format_feature(:boolean, "EXTENDED-UHLIST", capabilities_config[:extended_uhlist]),
-      format_feature(:string, "UMODES", get_user_modes()),
+      format_feature(:string, "UMODES", format_umodes()),
       format_feature(:boolean, "CALLERID", capabilities_config[:callerid]),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only])
     ]
     |> Enum.reject(&is_nil/1)
   end
 
-  @spec get_user_modes() :: String.t()
-  defp get_user_modes do
+  @spec format_umodes() :: String.t()
+  defp format_umodes do
     UserModes.modes() |> Enum.join("")
+  end
+
+  @spec format_prefix() :: String.t()
+  defp format_prefix do
+    "(ov)@+"
   end
 
   @spec format_chanmodes() :: String.t()
@@ -115,7 +120,6 @@ defmodule ElixIRCd.Utils.Isupport do
   defp format_feature(:numeric, name, value), do: "#{name}=#{value}"
   defp format_feature(:string, name, value), do: "#{name}=#{value}"
   defp format_feature(:list, name, list) when is_list(list), do: "#{name}=#{Enum.join(list, "")}"
-  defp format_feature(:prefix, name, %{modes: modes, prefixes: prefixes}), do: "#{name}=(#{modes})#{prefixes}"
   defp format_feature(:boolean, _name, false), do: nil
   defp format_feature(:boolean, name, true), do: name
 end

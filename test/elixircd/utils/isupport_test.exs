@@ -18,7 +18,6 @@ defmodule ElixIRCd.Utils.IsupportTest do
       channel_config = [
         max_modes_per_command: 4,
         channel_join_limits: %{"#" => 20, "&" => 5},
-        status_prefixes: %{modes: "ov", prefixes: "@+"},
         channel_prefixes: ["#", "&"],
         max_topic_length: 300,
         max_kick_message_length: 255,

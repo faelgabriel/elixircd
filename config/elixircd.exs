@@ -147,18 +147,15 @@ config :elixircd,
     support_ban_exceptions: true,
     # TODO: Support for invite exceptions (mode +I)
     support_invite_exceptions: true,
-    # TODO: Maximum entries for each list mode (bans, exceptions, etc)
+    # Maximum entries for each list mode (bans, exceptions, etc)
     # Format: {"mode": max_count, ...}
-    max_list_entries: %{"b" => 100, "e" => 50, "I" => 50},
-    # TODO: Maximum length of a kick message
+    max_list_entries: %{"b" => 100},
+    # Maximum length of a kick message
     max_kick_message_length: 255,
-    # TODO: Maximum mode changes per MODE command
-    max_modes_per_command: 4,
-    # TODO: Maximum length for a channel topic
+    # Maximum mode changes per MODE command
+    max_modes_per_command: 20,
+    # Maximum length for a channel topic
     max_topic_length: 300,
-    # TODO: Channel status prefixes and corresponding modes
-    # Format: {"modes": "prefixes"}
-    status_prefixes: %{modes: "ov", prefixes: "@+"},
     # TODO: Support for status-specific messages
     status_message_targets: "@+",
     # TODO: Maximum targets for specific commands

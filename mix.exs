@@ -31,7 +31,7 @@ defmodule ElixIRCd.MixProject do
 
   defp aliases do
     [
-      "check.all": [
+      check: [
         "compile --warnings-as-errors",
         "format --check-formatted",
         "credo --strict",

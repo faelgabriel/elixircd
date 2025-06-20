@@ -304,6 +304,36 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
+    test "handles MODE command for channel to list bans when over the max_list_entries limit" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        # Create 150 bans (over the default limit of 100)
+        ban_masks = for i <- 1..150, do: "user#{i}!*@*"
+        _channel_bans = for mask <- ban_masks, do: insert(:channel_ban, channel: channel, mask: mask)
+
+        message = %Message{command: "MODE", params: [channel.name, "+b"]}
+        assert :ok = Mode.handle(user, message)
+
+        # Verify we have exactly 100 ban messages (367 replies)
+        assert_sent_messages_count_containing(user.pid, ~r/367/, 100)
+
+        # Verify the truncation notice is present
+        assert_sent_message_contains(
+          user.pid,
+          ~r/Ban list for #{Regex.escape(channel.name)} too long, showing first 100 of 150 entries/
+        )
+
+        # Verify the end message is present
+        assert_sent_message_contains(user.pid, ~r/368.*End of channel ban list/)
+
+        # Verify we have exactly 102 messages total (100 bans + 1 truncation notice + 1 end)
+        assert_sent_messages_amount(user.pid, 102)
+      end)
+    end
+
     test "handles MODE command for channel when invalid modes sent" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -359,6 +389,23 @@ defmodule ElixIRCd.Commands.ModeTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 482 #{user.nick} #{channel.name} :You're not a channel operator\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for channel when mode changes exceed the limit" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        # Test with 21 modes (over limit of 20)
+        message = %Message{command: "MODE", params: [channel.name, "+tnmislpovbktnmislpovb"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 472 #{user.nick} #{channel.name} :Too many channel modes in one command (maximum is 20)\r\n"}
         ])
       end)
     end

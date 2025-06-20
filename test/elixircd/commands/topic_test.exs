@@ -175,5 +175,26 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert updated_channel.topic == nil
       end)
     end
+
+    test "handles TOPIC command with topic message exceeding maximum length" do
+      Memento.transaction!(fn ->
+        max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
+        user = insert(:user)
+        channel = insert(:channel, modes: [], topic: nil)
+        insert(:user_channel, user: user, channel: channel)
+
+        too_long_topic = String.duplicate("a", max_topic_length + 1)
+        message = %Message{command: "TOPIC", params: [channel.name], trailing: too_long_topic}
+        assert :ok = Topic.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 417 #{user.nick} :Topic too long (maximum length: #{max_topic_length} characters)\r\n"}
+        ])
+
+        # Verify the topic was not changed
+        updated_channel = Memento.Query.read(Channel, channel.name_key)
+        assert updated_channel.topic == nil
+      end)
+    end
   end
 end

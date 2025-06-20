@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @type channel_mode_errors :: :channel_not_found | :user_channel_not_found | :user_is_not_operator
+  @type channel_mode_errors :: :channel_not_found | :user_channel_not_found | :user_is_not_operator | :too_many_modes
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -70,8 +70,9 @@ defmodule ElixIRCd.Commands.Mode do
   defp handle_channel_mode(user, channel_name, mode_string, values) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
-         :ok <- check_user_permission(user_channel) do
-      {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
+         :ok <- check_user_permission(user_channel),
+         {validated_modes, invalid_modes} <- ChannelModes.parse_mode_changes(mode_string, values),
+         :ok <- check_mode_limit(validated_modes) do
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
 
       if length(missing_value_modes) > 0 do
@@ -112,6 +113,17 @@ defmodule ElixIRCd.Commands.Mode do
     end
   end
 
+  @spec check_mode_limit([ChannelModes.mode_change()]) :: :ok | {:error, :too_many_modes}
+  defp check_mode_limit(validated_modes) do
+    max_modes_limit = Application.get_env(:elixircd, :channel)[:max_modes_per_command] || 20
+
+    if length(validated_modes) > max_modes_limit do
+      {:error, :too_many_modes}
+    else
+      :ok
+    end
+  end
+
   @spec send_channel_mode_listing(list(String.t()), User.t(), Channel.t()) :: :ok
   defp send_channel_mode_listing([], _user, _channel), do: :ok
 
@@ -121,7 +133,13 @@ defmodule ElixIRCd.Commands.Mode do
       |> DateTime.to_unix()
       |> Integer.to_string()
 
-    ChannelBans.get_by_channel_name_key(channel.name_key)
+    max_list_entries = Application.get_env(:elixircd, :channel)[:max_list_entries] || %{}
+    max_entries = Map.get(max_list_entries, "b", 100)
+
+    channel_bans = ChannelBans.get_by_channel_name_key(channel.name_key)
+    total_entries = length(channel_bans)
+
+    Enum.take(channel_bans, max_entries)
     |> Enum.each(fn channel_ban ->
       Message.build(%{
         prefix: :server,
@@ -136,6 +154,16 @@ defmodule ElixIRCd.Commands.Mode do
       })
       |> Dispatcher.broadcast(user)
     end)
+
+    if total_entries > max_entries do
+      Message.build(%{
+        prefix: :server,
+        command: "NOTICE",
+        params: [user.nick],
+        trailing: "Ban list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+      })
+      |> Dispatcher.broadcast(user)
+    end
 
     Message.build(%{
       prefix: :server,
@@ -173,6 +201,18 @@ defmodule ElixIRCd.Commands.Mode do
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  defp send_channel_mode_error(:too_many_modes, user, channel_name) do
+    max_modes_limit = Application.get_env(:elixircd, :channel)[:max_modes_per_command] || 20
+
+    Message.build(%{
+      prefix: :server,
+      command: :err_unknownmode,
+      params: [user.nick, channel_name],
+      trailing: "Too many channel modes in one command (maximum is #{max_modes_limit})"
     })
     |> Dispatcher.broadcast(user)
   end
