@@ -3,31 +3,25 @@ defmodule ElixIRCd.Jobs.JobBehavior do
   Behavior for job modules in the ElixIRCd job queue system.
 
   Job modules implementing this behavior should define:
-  - `enqueue/0` - Called once at application startup to schedule the initial job
-  - `run/0` - The main job execution logic
-  - `type/0` - Returns the job type atom for this job module
+  - `schedule/0` - Called once at application startup to schedule the initial job for periodic jobs
+  - `run/1` - The main job execution logic
   """
 
   alias ElixIRCd.Tables.Job
 
   @doc """
-  Enqueues the initial job for this job type.
-  This is called once at application startup.
+  Schedules the initial job for this job type.
+  This is called once at application startup for periodic jobs.
   """
-  @callback enqueue() :: Job.t()
+  @callback schedule() :: Job.t()
 
   @doc """
   Executes the main job logic.
   This is called by the JobQueue system when the job is ready to run.
+  The job struct contains all job information including payload, attempt count, etc.
   Should return :ok on success or {:error, reason} on failure.
   """
-  @callback run() :: :ok | {:error, term()}
+  @callback run(Job.t()) :: :ok | {:error, term()}
 
-  @doc """
-  Returns the job type atom for this job module.
-  This is used internally by the JobQueue system.
-  """
-  @callback type() :: atom()
-
-  @optional_callbacks [enqueue: 0]
+  @optional_callbacks [schedule: 0]
 end

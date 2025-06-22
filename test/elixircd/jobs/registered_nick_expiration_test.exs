@@ -19,11 +19,18 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpirationTest do
       old_created_time = DateTime.add(current_time, -(nick_expire_days + 1), :day)
       old_nick = insert(:registered_nick, %{nickname: "old_nick", last_seen_at: nil, created_at: old_created_time})
 
-      {:ok, %{active_nick: active_nick, expired_nick: expired_nick, old_nick: old_nick}}
+      job = build(:job)
+
+      {:ok, %{active_nick: active_nick, expired_nick: expired_nick, old_nick: old_nick, job: job}}
     end
 
-    test "removes expired nicknames", %{active_nick: active_nick, expired_nick: expired_nick, old_nick: old_nick} do
-      RegisteredNickExpiration.run()
+    test "removes expired nicknames", %{
+      active_nick: active_nick,
+      expired_nick: expired_nick,
+      old_nick: old_nick,
+      job: job
+    } do
+      RegisteredNickExpiration.run(job)
 
       Memento.transaction!(fn ->
         assert {:ok, _registered_nick} = RegisteredNicks.get_by_nickname(active_nick.nickname)
@@ -32,10 +39,10 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpirationTest do
       end)
     end
 
-    test "enqueue creates a job with correct parameters" do
-      job = RegisteredNickExpiration.enqueue()
+    test "schedule creates a job with correct parameters" do
+      job = RegisteredNickExpiration.schedule()
 
-      assert job.type == :registered_nick_expiration
+      assert job.module == RegisteredNickExpiration
       assert job.status == :queued
       assert job.max_attempts == 3
       assert job.retry_delay_ms == 30_000

@@ -6,7 +6,7 @@ defmodule ElixIRCd.Tables.Job do
   use Memento.Table,
     attributes: [
       :id,
-      :type,
+      :module,
       :payload,
       :status,
       :scheduled_at,
@@ -18,12 +18,12 @@ defmodule ElixIRCd.Tables.Job do
       :created_at,
       :updated_at
     ],
-    index: [:status, :scheduled_at, :type],
+    index: [:status, :scheduled_at, :module],
     type: :set
 
   @type t :: %__MODULE__{
           id: String.t(),
-          type: atom(),
+          module: module(),
           payload: map(),
           status: :queued | :processing | :done | :failed,
           scheduled_at: DateTime.t(),
@@ -46,7 +46,7 @@ defmodule ElixIRCd.Tables.Job do
 
     %__MODULE__{
       id: id,
-      type: Map.fetch!(attrs, :type),
+      module: Map.fetch!(attrs, :module),
       payload: Map.get(attrs, :payload, %{}),
       status: :queued,
       scheduled_at: Map.get(attrs, :scheduled_at, now),

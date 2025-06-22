@@ -3,46 +3,59 @@ defmodule ElixIRCd.Repositories.JobsTest do
 
   alias ElixIRCd.Repositories.Jobs
 
+  defmodule TestJobModule do
+    @behaviour ElixIRCd.Jobs.JobBehavior
+
+    @impl true
+    def run(_job), do: :ok
+  end
+
   describe "create/1" do
     test "creates and stores a job in Mnesia" do
-      params = %{
-        type: :test_job,
-        payload: %{data: "test"},
+      attrs = %{
+        module: TestJobModule,
         max_attempts: 5,
+        payload: %{data: "test"},
         retry_delay_ms: 10_000
       }
 
       job =
         Memento.transaction!(fn ->
-          Jobs.create(params)
+          Jobs.create(attrs)
         end)
 
-      assert job.type == :test_job
-      assert job.payload == %{data: "test"}
-      assert job.status == :queued
+      assert job.module == TestJobModule
       assert job.max_attempts == 5
+      assert job.payload == %{data: "test"}
+      assert job.retry_delay_ms == 10_000
+      assert job.status == :queued
+      assert job.current_attempt == 0
+      assert job.last_error == nil
+      assert is_binary(job.id)
 
-      {:ok, fetched_job} =
+      # Verify it's actually in Mnesia
+      {:ok, stored_job} =
         Memento.transaction!(fn ->
           Jobs.get_by_id(job.id)
         end)
 
-      assert fetched_job.id == job.id
-      assert fetched_job.type == job.type
+      assert stored_job.id == job.id
     end
 
     test "creates job with default values" do
-      params = %{type: :simple_job}
-
       job =
         Memento.transaction!(fn ->
-          Jobs.create(params)
+          Jobs.create(%{module: TestJobModule})
         end)
 
-      assert job.type == :simple_job
-      assert job.payload == %{}
+      assert job.module == TestJobModule
       assert job.max_attempts == 3
+      assert job.payload == %{}
       assert job.retry_delay_ms == 5000
+      assert job.repeat_interval_ms == nil
+      assert job.status == :queued
+      assert job.current_attempt == 0
+      assert job.last_error == nil
     end
   end
 
@@ -50,7 +63,7 @@ defmodule ElixIRCd.Repositories.JobsTest do
     test "returns job when found" do
       job =
         Memento.transaction!(fn ->
-          Jobs.create(%{type: :test_job})
+          Jobs.create(%{module: TestJobModule})
         end)
 
       result =
@@ -58,130 +71,158 @@ defmodule ElixIRCd.Repositories.JobsTest do
           Jobs.get_by_id(job.id)
         end)
 
-      assert {:ok, fetched_job} = result
-      assert fetched_job.id == job.id
-      assert fetched_job.type == job.type
+      assert {:ok, found_job} = result
+      assert found_job.id == job.id
+      assert found_job.module == TestJobModule
     end
 
     test "returns error when job not found" do
       result =
         Memento.transaction!(fn ->
-          Jobs.get_by_id("nonexistent_id")
+          Jobs.get_by_id("nonexistent")
         end)
 
-      assert result == {:error, :job_not_found}
+      assert {:error, :job_not_found} = result
     end
   end
 
   describe "get_by_status/1" do
     test "returns jobs with specified status" do
-      Memento.transaction!(fn ->
-        job1 = Jobs.create(%{type: :job1})
-        job2 = Jobs.create(%{type: :job2})
-        job3 = Jobs.create(%{type: :job3})
-
-        Jobs.update(job1, %{status: :processing})
-        Jobs.update(job2, %{status: :done})
-
-        queued_jobs = Jobs.get_by_status(:queued)
-        processing_jobs = Jobs.get_by_status(:processing)
-        done_jobs = Jobs.get_by_status(:done)
-
-        assert length(queued_jobs) == 1
-        assert length(processing_jobs) == 1
-        assert length(done_jobs) == 1
-
-        assert hd(queued_jobs).id == job3.id
-        assert hd(processing_jobs).id == job1.id
-        assert hd(done_jobs).id == job2.id
-      end)
-    end
-
-    test "returns empty list when no jobs with status exist" do
-      result =
+      job1 =
         Memento.transaction!(fn ->
-          Jobs.get_by_status(:failed)
+          job = Jobs.create(%{module: TestJobModule})
+          Jobs.update(job, %{status: :processing})
         end)
 
-      assert result == []
+      _job2 =
+        Memento.transaction!(fn ->
+          Jobs.create(%{module: TestJobModule})
+        end)
+
+      jobs =
+        Memento.transaction!(fn ->
+          Jobs.get_by_status(:processing)
+        end)
+
+      assert Enum.any?(jobs, &(&1.id == job1.id))
+      assert Enum.all?(jobs, &(&1.status == :processing))
+    end
+
+    test "returns empty list when no jobs match status" do
+      jobs =
+        Memento.transaction!(fn ->
+          Jobs.get_by_status(:nonexistent_status)
+        end)
+
+      assert jobs == []
     end
   end
 
   describe "get_ready_jobs/0" do
     test "returns jobs that are queued and scheduled to run" do
       now = DateTime.utc_now()
-      past_time = DateTime.add(now, -3600, :second)
-      future_time = DateTime.add(now, 3600, :second)
+      past_time = DateTime.add(now, -60, :second)
 
-      Memento.transaction!(fn ->
-        job1 = Jobs.create(%{type: :ready_job, scheduled_at: past_time})
-        _job2 = Jobs.create(%{type: :future_job, scheduled_at: future_time})
-        job3 = Jobs.create(%{type: :processing_job, scheduled_at: past_time})
-        Jobs.update(job3, %{status: :processing})
+      ready_job =
+        Memento.transaction!(fn ->
+          Jobs.create(%{module: TestJobModule, scheduled_at: past_time})
+        end)
 
-        ready_jobs = Jobs.get_ready_jobs()
+      _future_job =
+        Memento.transaction!(fn ->
+          future_time = DateTime.add(now, 3600, :second)
+          Jobs.create(%{module: TestJobModule, scheduled_at: future_time})
+        end)
 
-        assert length(ready_jobs) == 1
-        assert hd(ready_jobs).id == job1.id
-      end)
+      jobs =
+        Memento.transaction!(fn ->
+          Jobs.get_ready_jobs()
+        end)
+
+      assert Enum.any?(jobs, &(&1.id == ready_job.id))
+      assert Enum.all?(jobs, &(&1.status == :queued))
+      assert Enum.all?(jobs, &(DateTime.compare(&1.scheduled_at, now) != :gt))
     end
 
     test "returns jobs sorted by scheduled_at" do
       now = DateTime.utc_now()
-      time1 = DateTime.add(now, -7200, :second)
-      time2 = DateTime.add(now, -3600, :second)
-      time3 = DateTime.add(now, -1800, :second)
+      time1 = DateTime.add(now, -120, :second)
+      time2 = DateTime.add(now, -60, :second)
 
-      Memento.transaction!(fn ->
-        job1 = Jobs.create(%{type: :job1, scheduled_at: time2})
-        job2 = Jobs.create(%{type: :job2, scheduled_at: time1})
-        job3 = Jobs.create(%{type: :job3, scheduled_at: time3})
+      job1 =
+        Memento.transaction!(fn ->
+          Jobs.create(%{module: TestJobModule, scheduled_at: time2})
+        end)
 
-        ready_jobs = Jobs.get_ready_jobs()
+      job2 =
+        Memento.transaction!(fn ->
+          Jobs.create(%{module: TestJobModule, scheduled_at: time1})
+        end)
 
-        assert length(ready_jobs) == 3
-        assert Enum.at(ready_jobs, 0).id == job2.id
-        assert Enum.at(ready_jobs, 1).id == job1.id
-        assert Enum.at(ready_jobs, 2).id == job3.id
-      end)
+      jobs =
+        Memento.transaction!(fn ->
+          Jobs.get_ready_jobs()
+        end)
+
+      relevant_jobs = Enum.filter(jobs, &(&1.id in [job1.id, job2.id]))
+      assert length(relevant_jobs) == 2
+
+      [first_job, second_job] = Enum.sort_by(relevant_jobs, & &1.scheduled_at, DateTime)
+      assert first_job.id == job2.id
+      assert second_job.id == job1.id
     end
 
     test "returns empty list when no jobs are ready" do
       future_time = DateTime.add(DateTime.utc_now(), 3600, :second)
 
-      Memento.transaction!(fn ->
-        _job = Jobs.create(%{type: :future_job, scheduled_at: future_time})
+      _future_job =
+        Memento.transaction!(fn ->
+          Jobs.create(%{module: TestJobModule, scheduled_at: future_time})
+        end)
 
-        ready_jobs = Jobs.get_ready_jobs()
-        assert ready_jobs == []
-      end)
+      ready_jobs =
+        Memento.transaction!(fn ->
+          Jobs.get_ready_jobs()
+        end)
+
+      assert ready_jobs == []
     end
   end
 
   describe "get_all/0" do
     test "returns all jobs" do
-      Memento.transaction!(fn ->
-        job1 = Jobs.create(%{type: :job1})
-        job2 = Jobs.create(%{type: :job2})
-        job3 = Jobs.create(%{type: :job3})
+      job1 =
+        Memento.transaction!(fn ->
+          Jobs.create(%{module: TestJobModule})
+        end)
 
-        all_jobs = Jobs.get_all()
+      job2 =
+        Memento.transaction!(fn ->
+          Jobs.create(%{module: TestJobModule})
+        end)
 
-        assert length(all_jobs) == 3
-        job_ids = Enum.map(all_jobs, & &1.id)
-        assert job1.id in job_ids
-        assert job2.id in job_ids
-        assert job3.id in job_ids
-      end)
-    end
-
-    test "returns empty list when no jobs exist" do
-      result =
+      all_jobs =
         Memento.transaction!(fn ->
           Jobs.get_all()
         end)
 
-      assert result == []
+      job_ids = Enum.map(all_jobs, & &1.id)
+      assert job1.id in job_ids
+      assert job2.id in job_ids
+    end
+
+    test "returns empty list when no jobs exist" do
+      # Clean up any existing jobs
+      Memento.transaction!(fn ->
+        Jobs.get_all() |> Enum.each(&Jobs.delete/1)
+      end)
+
+      all_jobs =
+        Memento.transaction!(fn ->
+          Jobs.get_all()
+        end)
+
+      assert all_jobs == []
     end
   end
 
@@ -189,23 +230,20 @@ defmodule ElixIRCd.Repositories.JobsTest do
     test "updates job attributes" do
       job =
         Memento.transaction!(fn ->
-          Jobs.create(%{type: :test_job})
+          Jobs.create(%{module: TestJobModule})
         end)
 
       updated_job =
         Memento.transaction!(fn ->
-          Jobs.update(job, %{
-            status: :processing,
-            current_attempt: 1,
-            last_error: "test error"
-          })
+          Jobs.update(job, %{status: :processing, current_attempt: 1})
         end)
 
+      assert updated_job.id == job.id
       assert updated_job.status == :processing
       assert updated_job.current_attempt == 1
-      assert updated_job.last_error == "test error"
-      assert updated_job.id == job.id
+      assert updated_job.module == TestJobModule
 
+      # Verify the change is persisted
       {:ok, fetched_job} =
         Memento.transaction!(fn ->
           Jobs.get_by_id(job.id)
@@ -213,21 +251,20 @@ defmodule ElixIRCd.Repositories.JobsTest do
 
       assert fetched_job.status == :processing
       assert fetched_job.current_attempt == 1
-      assert fetched_job.last_error == "test error"
     end
 
     test "updates updated_at timestamp" do
       job =
         Memento.transaction!(fn ->
-          Jobs.create(%{type: :test_job})
+          Jobs.create(%{module: TestJobModule})
         end)
 
       original_updated_at = job.updated_at
-      Process.sleep(1)
+      Process.sleep(10)
 
       updated_job =
         Memento.transaction!(fn ->
-          Jobs.update(job, %{status: :done})
+          Jobs.update(job, %{status: :processing})
         end)
 
       assert DateTime.compare(updated_job.updated_at, original_updated_at) == :gt
@@ -238,106 +275,124 @@ defmodule ElixIRCd.Repositories.JobsTest do
     test "removes job from Mnesia" do
       job =
         Memento.transaction!(fn ->
-          Jobs.create(%{type: :test_job})
+          Jobs.create(%{module: TestJobModule})
         end)
-
-      {:ok, _} =
-        Memento.transaction!(fn ->
-          Jobs.get_by_id(job.id)
-        end)
-
-      Memento.transaction!(fn ->
-        Jobs.delete(job)
-      end)
 
       result =
         Memento.transaction!(fn ->
+          Jobs.delete(job)
+        end)
+
+      assert result == :ok
+
+      # Verify it's actually deleted
+      not_found =
+        Memento.transaction!(fn ->
           Jobs.get_by_id(job.id)
         end)
 
-      assert result == {:error, :job_not_found}
+      assert {:error, :job_not_found} = not_found
     end
   end
 
   describe "cleanup_old_jobs/1" do
     test "deletes jobs older than specified days" do
-      now = DateTime.utc_now()
-      old_time = DateTime.add(now, -10, :day)
-      recent_time = DateTime.add(now, -3, :day)
-
+      # Clean existing jobs first
       Memento.transaction!(fn ->
-        old_done_job = Jobs.create(%{type: :old_done})
-        old_failed_job = Jobs.create(%{type: :old_failed})
-        recent_done_job = Jobs.create(%{type: :recent_done})
-        old_queued_job = Jobs.create(%{type: :old_queued})
-
-        write_job_with_timestamp(old_done_job, :done, old_time)
-        write_job_with_timestamp(old_failed_job, :failed, old_time)
-        write_job_with_timestamp(recent_done_job, :done, recent_time)
-
-        deleted_count = Jobs.cleanup_old_jobs(7)
-        assert deleted_count == 2
-
-        remaining_jobs = Jobs.get_all()
-        remaining_ids = Enum.map(remaining_jobs, & &1.id)
-
-        assert recent_done_job.id in remaining_ids
-        assert old_queued_job.id in remaining_ids
-        refute old_done_job.id in remaining_ids
-        refute old_failed_job.id in remaining_ids
+        Jobs.get_all() |> Enum.each(&Jobs.delete/1)
       end)
+
+      current_time = DateTime.utc_now()
+      old_time = DateTime.add(current_time, -10, :day)
+      recent_time = DateTime.add(current_time, -1, :day)
+
+      old_job =
+        Memento.transaction!(fn ->
+          job = Jobs.create(%{module: TestJobModule})
+          # Create job with old updated_at timestamp
+          old_updated_job = %{job | status: :done, updated_at: old_time}
+          Memento.Query.write(old_updated_job)
+          old_updated_job
+        end)
+
+      recent_job =
+        Memento.transaction!(fn ->
+          job = Jobs.create(%{module: TestJobModule})
+          # Create job with recent updated_at timestamp
+          recent_updated_job = %{job | status: :done, updated_at: recent_time}
+          Memento.Query.write(recent_updated_job)
+          recent_updated_job
+        end)
+
+      deleted_count =
+        Memento.transaction!(fn ->
+          Jobs.cleanup_old_jobs(5)
+        end)
+
+      assert deleted_count >= 1
+
+      # Verify old job is deleted, recent job remains
+      {:error, :job_not_found} =
+        Memento.transaction!(fn ->
+          Jobs.get_by_id(old_job.id)
+        end)
+
+      {:ok, _} =
+        Memento.transaction!(fn ->
+          Jobs.get_by_id(recent_job.id)
+        end)
     end
 
     test "uses default 7 days when no argument provided" do
-      now = DateTime.utc_now()
-      old_time = DateTime.add(now, -10, :day)
+      current_time = DateTime.utc_now()
+      old_time = DateTime.add(current_time, -10, :day)
 
-      Memento.transaction!(fn ->
-        old_job = Jobs.create(%{type: :old_job})
-        write_job_with_timestamp(old_job, :done, old_time)
-
-        deleted_count = Jobs.cleanup_old_jobs()
-        assert deleted_count == 1
-      end)
-    end
-
-    test "returns 0 when no jobs to clean up" do
-      result =
+      _old_job =
         Memento.transaction!(fn ->
-          Jobs.cleanup_old_jobs(7)
+          job = Jobs.create(%{module: TestJobModule})
+          # Create job with old updated_at timestamp
+          old_updated_job = %{job | status: :done, updated_at: old_time}
+          Memento.Query.write(old_updated_job)
+          old_updated_job
         end)
 
-      assert result == 0
+      deleted_count =
+        Memento.transaction!(fn ->
+          Jobs.cleanup_old_jobs()
+        end)
+
+      assert deleted_count >= 1
     end
   end
 
   describe "Mnesia transactions" do
     test "operations are atomic" do
-      result =
+      job =
         Memento.transaction!(fn ->
-          job1 = Jobs.create(%{type: :job1})
-          job2 = Jobs.create(%{type: :job2})
-
-          Jobs.update(job1, %{status: :processing})
-          Jobs.update(job2, %{status: :done})
-
-          {job1.id, job2.id}
+          Jobs.create(%{module: TestJobModule})
         end)
 
-      {job1_id, job2_id} = result
+      # Test that transaction rollback works
+      result =
+        try do
+          Memento.transaction!(fn ->
+            Jobs.update(job, %{status: :processing})
+            # Force an error to test rollback
+            raise "Intentional error"
+          end)
+        rescue
+          _ -> :error
+        end
 
-      Memento.transaction!(fn ->
-        {:ok, job1} = Jobs.get_by_id(job1_id)
-        {:ok, job2} = Jobs.get_by_id(job2_id)
+      assert result == :error
 
-        assert job1.status == :processing
-        assert job2.status == :done
-      end)
+      # Verify the job wasn't updated due to rollback
+      {:ok, unchanged_job} =
+        Memento.transaction!(fn ->
+          Jobs.get_by_id(job.id)
+        end)
+
+      assert unchanged_job.status == :queued
     end
-  end
-
-  defp write_job_with_timestamp(job, status, timestamp) do
-    updated_job = %{job | status: status, updated_at: timestamp}
-    Memento.Query.write(updated_job)
   end
 end

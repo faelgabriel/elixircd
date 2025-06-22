@@ -17,12 +17,12 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpiration do
   @cleanup_interval 24 * 60 * 60 * 1000
 
   @impl true
-  @spec enqueue() :: Job.t()
-  def enqueue do
+  @spec schedule() :: Job.t()
+  def schedule do
     first_run_at = DateTime.add(DateTime.utc_now(), @first_cleanup_interval, :millisecond)
 
     JobQueue.enqueue(
-      :registered_channel_expiration,
+      __MODULE__,
       %{},
       scheduled_at: first_run_at,
       max_attempts: 3,
@@ -32,12 +32,8 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpiration do
   end
 
   @impl true
-  @spec type() :: atom()
-  def type, do: :registered_channel_expiration
-
-  @impl true
-  @spec run() :: :ok
-  def run do
+  @spec run(Job.t()) :: :ok
+  def run(_job) do
     Logger.info("Starting expiration of unused channels")
     expired_count = expire_old_channels()
     Logger.info("Channel expiration completed. #{expired_count} channels were removed.")

@@ -7,7 +7,7 @@ defmodule ElixIRCd.JobQueue do
   - Per-job recurrence control with repeat_interval_ms
   - Crash-safe retry logic
   - Single worker loop for sequential job execution
-  - Static job handlers configuration
+  - Dynamic job handler discovery based on JobBehavior implementation
   - Job management utilities (cancel, retry, statistics, cleanup)
   """
 
@@ -15,18 +15,12 @@ defmodule ElixIRCd.JobQueue do
 
   require Logger
 
+  alias ElixIRCd.Jobs.JobBehavior
   alias ElixIRCd.Repositories.Jobs
   alias ElixIRCd.Tables.Job
 
   @poll_interval 5_000
   @concurrent_jobs 1
-
-  @job_modules [
-    ElixIRCd.Jobs.RegisteredChannelExpiration,
-    ElixIRCd.Jobs.RegisteredNickExpiration,
-    ElixIRCd.Jobs.ReservedNickCleanup,
-    ElixIRCd.Jobs.UnverifiedNickExpiration
-  ]
 
   @doc """
   Starts the JobQueue GenServer.
@@ -39,10 +33,14 @@ defmodule ElixIRCd.JobQueue do
   @doc """
   Enqueue a new job.
   """
-  @spec enqueue(atom(), map(), keyword()) :: Job.t()
-  def enqueue(job_type, payload \\ %{}, opts \\ []) do
+  @spec enqueue(module(), map(), keyword()) :: Job.t()
+  def enqueue(job_module, payload \\ %{}, opts \\ []) do
+    unless implements_job_behavior?(job_module) do
+      raise ArgumentError, "Module #{job_module} does not implement ElixIRCd.Jobs.JobBehavior"
+    end
+
     job_params = %{
-      type: job_type,
+      module: job_module,
       payload: payload,
       scheduled_at: Keyword.get(opts, :scheduled_at, DateTime.utc_now()),
       max_attempts: Keyword.get(opts, :max_attempts, 3),
@@ -55,7 +53,7 @@ defmodule ElixIRCd.JobQueue do
         Jobs.create(job_params)
       end)
 
-    Logger.info("Job enqueued: #{job.id} (type: #{job.type})")
+    Logger.info("Job enqueued: #{job.id} (module: #{job.module})")
     job
   end
 
@@ -183,7 +181,7 @@ defmodule ElixIRCd.JobQueue do
   @spec init(map()) :: {:ok, map()}
   def init(_state) do
     recover_stuck_jobs()
-    enqueue_initial_jobs(@job_modules)
+    schedule_initial_jobs()
     send(self(), :poll_jobs)
     {:ok, %{}}
   end
@@ -196,12 +194,21 @@ defmodule ElixIRCd.JobQueue do
     {:noreply, state}
   end
 
-  @spec enqueue_initial_jobs(list()) :: :ok
-  defp enqueue_initial_jobs(job_modules) do
-    Enum.each(job_modules, fn module ->
-      module.enqueue()
-      Logger.info("Initial job enqueued from #{module}")
+  @spec schedule_initial_jobs() :: :ok
+  defp schedule_initial_jobs do
+    discover_job_modules()
+    |> Enum.each(fn module ->
+      if function_exported?(module, :schedule, 0) do
+        module.schedule()
+        Logger.info("Initial job scheduled from #{module}")
+      end
     end)
+  end
+
+  @spec discover_job_modules() :: [module()]
+  defp discover_job_modules do
+    {:ok, modules} = :application.get_key(:elixircd, :modules)
+    Enum.filter(modules, &implements_job_behavior?/1)
   end
 
   @spec process_ready_jobs() :: :ok
@@ -210,25 +217,16 @@ defmodule ElixIRCd.JobQueue do
 
     ready_jobs
     |> Enum.take(@concurrent_jobs)
-    |> Enum.each(&execute_job/1)
-
-    :ok
-  end
-
-  @spec execute_job(Job.t()) :: :ok
-  defp execute_job(job) do
-    if job.status == :processing do
-      Logger.warning("Skipping job already in processing state: #{job.id}")
-    else
-      execute_job_process(job)
-    end
+    |> Enum.each(&execute_job_process/1)
 
     :ok
   end
 
   @spec execute_job_process(Job.t()) :: :ok
   defp execute_job_process(job) do
-    Logger.info("Executing job: #{job.id} (type: #{job.type}, attempt: #{job.current_attempt + 1}/#{job.max_attempts})")
+    current_attempt = job.current_attempt + 1
+    max_attempts = job.max_attempts
+    Logger.info("Executing job: #{job.id} (module: #{job.module}, attempt: #{current_attempt}/#{max_attempts})")
 
     updated_job =
       Memento.transaction!(fn ->
@@ -238,7 +236,7 @@ defmodule ElixIRCd.JobQueue do
         })
       end)
 
-    result = dispatch_job(updated_job)
+    result = updated_job.module.run(updated_job)
 
     Memento.transaction!(fn ->
       case result do
@@ -250,20 +248,10 @@ defmodule ElixIRCd.JobQueue do
     :ok
   end
 
-  @spec dispatch_job(Job.t()) :: :ok | {:error, term()}
-  defp dispatch_job(job) do
-    case find_job_module(job.type) do
-      nil ->
-        {:error, "Unknown job type: #{job.type}"}
-
-      module ->
-        module.run()
-    end
-  end
-
-  @spec find_job_module(atom()) :: module() | nil
-  defp find_job_module(job_type) do
-    Enum.find(@job_modules, &(&1.type() == job_type))
+  @spec implements_job_behavior?(module()) :: boolean()
+  defp implements_job_behavior?(module) do
+    behaviours = module.module_info(:attributes)[:behaviour] || []
+    JobBehavior in behaviours
   end
 
   @spec handle_job_success(Job.t()) :: :ok
@@ -309,7 +297,7 @@ defmodule ElixIRCd.JobQueue do
     next_run_at = DateTime.add(DateTime.utc_now(), job.repeat_interval_ms, :millisecond)
 
     new_job_params = %{
-      type: job.type,
+      module: job.module,
       payload: job.payload,
       scheduled_at: next_run_at,
       max_attempts: job.max_attempts,
@@ -318,7 +306,7 @@ defmodule ElixIRCd.JobQueue do
     }
 
     Jobs.create(new_job_params)
-    Logger.info("Recurring job scheduled for #{next_run_at}: #{job.type}")
+    Logger.info("Recurring job scheduled for #{next_run_at}: #{job.module}")
 
     :ok
   end
@@ -327,9 +315,9 @@ defmodule ElixIRCd.JobQueue do
   defp maybe_filter_by_status(jobs, nil), do: jobs
   defp maybe_filter_by_status(jobs, status), do: Enum.filter(jobs, &(&1.status == status))
 
-  @spec maybe_filter_by_type([Job.t()], atom() | nil) :: [Job.t()]
+  @spec maybe_filter_by_type([Job.t()], module() | nil) :: [Job.t()]
   defp maybe_filter_by_type(jobs, nil), do: jobs
-  defp maybe_filter_by_type(jobs, type), do: Enum.filter(jobs, &(&1.type == type))
+  defp maybe_filter_by_type(jobs, module), do: Enum.filter(jobs, &(&1.module == module))
 
   @spec maybe_limit([Job.t()], pos_integer() | nil) :: [Job.t()]
   defp maybe_limit(jobs, nil), do: jobs
@@ -347,8 +335,8 @@ defmodule ElixIRCd.JobQueue do
 
   defp group_jobs_by_type(jobs) do
     jobs
-    |> Enum.group_by(& &1.type)
-    |> Enum.into(%{}, fn {type, jobs} -> {type, length(jobs)} end)
+    |> Enum.group_by(& &1.module)
+    |> Enum.into(%{}, fn {module, jobs} -> {module, length(jobs)} end)
   end
 
   defp count_recent_failures(jobs, now) do

@@ -7,6 +7,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
+  alias ElixIRCd.Tables.Job
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredNick
@@ -162,6 +163,23 @@ defmodule ElixIRCd.Factory do
       reserved_until: Map.get(attrs, :reserved_until, nil),
       settings: Map.get(attrs, :settings, RegisteredNick.Settings.new()),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:job, attrs) do
+    %Job{
+      id: Map.get(attrs, :id, "job_#{random_string(8)}"),
+      module: Map.get(attrs, :module, ElixIRCd.Jobs.RegisteredNickExpiration),
+      payload: Map.get(attrs, :payload, %{}),
+      status: Map.get(attrs, :status, :queued),
+      scheduled_at: Map.get(attrs, :scheduled_at, DateTime.utc_now()),
+      current_attempt: Map.get(attrs, :current_attempt, 0),
+      max_attempts: Map.get(attrs, :max_attempts, 3),
+      retry_delay_ms: Map.get(attrs, :retry_delay_ms, 5000),
+      repeat_interval_ms: Map.get(attrs, :repeat_interval_ms, nil),
+      last_error: Map.get(attrs, :last_error, nil),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now()),
+      updated_at: Map.get(attrs, :updated_at, DateTime.utc_now())
     }
   end
 

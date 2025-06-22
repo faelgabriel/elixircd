@@ -7,11 +7,12 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.JobQueue
+  alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Services.Nickserv.Register
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.RegisteredNick.Settings
-  alias ElixIRCd.Utils.Mailer
 
   describe "handle/2" do
     test "handles REGISTER command with insufficient parameters" do
@@ -203,12 +204,15 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         %{mock_registered_nick | verify_code: params[:verify_code]}
       end)
 
-      Mailer
-      |> expect(:send_verification_email, fn email_address, nickname, code ->
-        assert email_address == email
-        assert nickname == user.nick
-        assert is_binary(code) && String.length(code) == 8
-        {:ok, %{}}
+      JobQueue
+      |> expect(:enqueue, fn job_type, payload, opts ->
+        assert job_type == VerificationEmailDelivery
+        assert payload["email"] == email
+        assert payload["nickname"] == user.nick
+        assert is_binary(payload["verification_code"]) && String.length(payload["verification_code"]) == 8
+        assert opts[:max_attempts] == 3
+        assert opts[:retry_delay_ms] == 30_000
+        %{id: "test-job-id", type: job_type, payload: payload}
       end)
 
       :ok = Register.handle(user, ["REGISTER", password, email])
@@ -221,6 +225,47 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         {user.pid, ~r/NickServ.*NOTICE.*\x02#{user.nick}\x02 is now registered to \x02#{email}\x02/},
         {user.pid, ~r/NickServ.*NOTICE.*To identify in the future, type:.*/}
       ])
+    end
+
+    test "enqueues verification email job when email is provided" do
+      Memento.transaction!(fn ->
+        user = insert(:user, created_at: DateTime.add(DateTime.utc_now(), -3600))
+
+        expect(ElixIRCd.Repositories.RegisteredNicks, :get_by_nickname, fn _nick ->
+          {:error, :registered_nick_not_found}
+        end)
+
+        expect(ElixIRCd.Repositories.RegisteredNicks, :create, fn _nick_attrs ->
+          %ElixIRCd.Tables.RegisteredNick{
+            nickname_key: user.nick_key,
+            nickname: user.nick,
+            password_hash: "hashed_password",
+            email: "test@example.com",
+            registered_by: "#{user.nick}!#{user.ident}@#{user.hostname}",
+            verify_code: "abc123",
+            verified_at: nil,
+            last_seen_at: DateTime.utc_now(),
+            reserved_until: nil,
+            settings: %ElixIRCd.Tables.RegisteredNick.Settings{},
+            created_at: DateTime.utc_now()
+          }
+        end)
+
+        expect(ElixIRCd.JobQueue, :enqueue, fn job_module, payload, opts ->
+          assert job_module == ElixIRCd.Jobs.VerificationEmailDelivery
+          assert payload["email"] == "test@example.com"
+          assert payload["nickname"] == user.nick
+          assert is_binary(payload["verification_code"])
+          assert opts[:max_attempts] == 3
+          assert opts[:retry_delay_ms] == 30_000
+          %{id: "test-job-id", module: job_module, payload: payload}
+        end)
+
+        result = Register.handle(user, ["REGISTER", "securepassword123", "test@example.com"])
+
+        # Verify the service completed successfully
+        assert result == :ok
+      end)
     end
   end
 
@@ -243,7 +288,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         password = "password123"
         email = "user@example.com"
 
-        expect(Mailer, :send_verification_email, fn _, _, _ -> {:ok, %{}} end)
+        expect(JobQueue, :enqueue, fn _, _, _ -> %{id: "test-job-id"} end)
 
         assert :ok = Register.handle(user, ["REGISTER", password, email])
 
@@ -276,7 +321,7 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
         password = "password123"
         email = "user@example.com"
 
-        expect(Mailer, :send_verification_email, fn _, _, _ -> {:ok, %{}} end)
+        expect(JobQueue, :enqueue, fn _, _, _ -> %{id: "test-job-id"} end)
 
         assert :ok = Register.handle(user, ["REGISTER", password, email])
 

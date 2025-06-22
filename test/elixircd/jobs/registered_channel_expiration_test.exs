@@ -21,15 +21,18 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpirationTest do
       old_channel =
         insert(:registered_channel, %{name: "#old_channel", last_used_at: nil, created_at: old_created_time})
 
-      {:ok, %{active_channel: active_channel, expired_channel: expired_channel, old_channel: old_channel}}
+      job = build(:job)
+
+      {:ok, %{active_channel: active_channel, expired_channel: expired_channel, old_channel: old_channel, job: job}}
     end
 
     test "removes expired channels", %{
       active_channel: active_channel,
       expired_channel: expired_channel,
-      old_channel: old_channel
+      old_channel: old_channel,
+      job: job
     } do
-      RegisteredChannelExpiration.run()
+      RegisteredChannelExpiration.run(job)
 
       Memento.transaction!(fn ->
         assert {:ok, _registered_channel} = RegisteredChannels.get_by_name(active_channel.name)
@@ -38,10 +41,10 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpirationTest do
       end)
     end
 
-    test "enqueue creates a job with correct parameters" do
-      job = RegisteredChannelExpiration.enqueue()
+    test "schedule creates a job with correct parameters" do
+      job = RegisteredChannelExpiration.schedule()
 
-      assert job.type == :registered_channel_expiration
+      assert job.module == RegisteredChannelExpiration
       assert job.status == :queued
       assert job.max_attempts == 3
       assert job.retry_delay_ms == 30_000
@@ -50,23 +53,22 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpirationTest do
     end
 
     test "returns correct job type" do
-      assert RegisteredChannelExpiration.type() == :registered_channel_expiration
     end
 
-    test "does not remove recently created channels" do
+    test "does not remove recently created channels", %{job: job} do
       current_time = DateTime.utc_now()
 
       recent_channel =
         insert(:registered_channel, %{name: "#recent_channel", created_at: current_time, last_used_at: current_time})
 
-      RegisteredChannelExpiration.run()
+      RegisteredChannelExpiration.run(job)
 
       Memento.transaction!(fn ->
         assert {:ok, _registered_channel} = RegisteredChannels.get_by_name(recent_channel.name)
       end)
     end
 
-    test "removes channel that has been unused since creation for long time" do
+    test "removes channel that has been unused since creation for long time", %{job: job} do
       current_time = DateTime.utc_now()
       channel_expire_days = Application.get_env(:elixircd, :services)[:chanserv][:channel_expire_days] || 90
 
@@ -79,7 +81,7 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpirationTest do
           last_used_at: old_time
         })
 
-      RegisteredChannelExpiration.run()
+      RegisteredChannelExpiration.run(job)
 
       Memento.transaction!(fn ->
         assert {:error, :registered_channel_not_found} = RegisteredChannels.get_by_name(unused_old_channel.name)

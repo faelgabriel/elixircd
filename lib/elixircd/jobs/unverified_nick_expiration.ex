@@ -17,16 +17,12 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpiration do
   @cleanup_interval 6 * 60 * 60 * 1000
 
   @impl true
-  @spec type() :: atom()
-  def type, do: :unverified_nick_expiration
-
-  @impl true
-  @spec enqueue() :: Job.t()
-  def enqueue do
+  @spec schedule() :: Job.t()
+  def schedule do
     first_run_at = DateTime.add(DateTime.utc_now(), @first_cleanup_interval, :millisecond)
 
     JobQueue.enqueue(
-      :unverified_nick_expiration,
+      __MODULE__,
       %{},
       scheduled_at: first_run_at,
       max_attempts: 3,
@@ -36,8 +32,8 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpiration do
   end
 
   @impl true
-  @spec run() :: :ok
-  def run do
+  @spec run(Job.t()) :: :ok
+  def run(_job) do
     Logger.info("Starting expiration of unverified nicknames")
     expired_count = expire_unverified_nicknames()
     Logger.info("Unverified nickname expiration completed. #{expired_count} nicknames were removed.")

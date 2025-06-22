@@ -36,15 +36,18 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpirationTest do
           created_at: expired_time
         })
 
-      {:ok, %{verified_nick: verified_nick, unexpired_nick: unexpired_nick, expired_nick: expired_nick}}
+      job = build(:job)
+
+      {:ok, %{verified_nick: verified_nick, unexpired_nick: unexpired_nick, expired_nick: expired_nick, job: job}}
     end
 
     test "removes only expired unverified nicknames", %{
       verified_nick: verified_nick,
       unexpired_nick: unexpired_nick,
-      expired_nick: expired_nick
+      expired_nick: expired_nick,
+      job: job
     } do
-      UnverifiedNickExpiration.run()
+      UnverifiedNickExpiration.run(job)
 
       Memento.transaction!(fn ->
         assert {:ok, _registered_nick} = RegisteredNicks.get_by_nickname(verified_nick.nickname)
@@ -53,25 +56,15 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpirationTest do
       end)
     end
 
-    test "enqueue creates a job when enabled" do
-      # Mock configuration with enabled unverified expiration
-      original_config = Application.get_env(:elixircd, :services, [])
+    test "schedule creates a job with correct parameters" do
+      job = UnverifiedNickExpiration.schedule()
 
-      Application.put_env(:elixircd, :services, nickserv: [unverified_expire_days: 1])
-
-      try do
-        job = UnverifiedNickExpiration.enqueue()
-
-        assert job.type == :unverified_nick_expiration
-        assert job.status == :queued
-        assert job.max_attempts == 3
-        assert job.retry_delay_ms == 30_000
-        # 6 hours
-        assert job.repeat_interval_ms == 6 * 60 * 60 * 1000
-        assert DateTime.compare(job.scheduled_at, DateTime.utc_now()) == :gt
-      after
-        Application.put_env(:elixircd, :services, original_config)
-      end
+      assert job.module == UnverifiedNickExpiration
+      assert job.status == :queued
+      assert job.max_attempts == 3
+      assert job.retry_delay_ms == 30_000
+      assert job.repeat_interval_ms == 6 * 60 * 60 * 1000
+      assert DateTime.compare(job.scheduled_at, DateTime.utc_now()) == :gt
     end
   end
 end

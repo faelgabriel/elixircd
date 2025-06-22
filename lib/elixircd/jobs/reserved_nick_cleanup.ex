@@ -18,12 +18,12 @@ defmodule ElixIRCd.Jobs.ReservedNickCleanup do
   @cleanup_interval 10 * 60 * 1000
 
   @impl true
-  @spec enqueue() :: Job.t()
-  def enqueue do
+  @spec schedule() :: Job.t()
+  def schedule do
     first_run_at = DateTime.add(DateTime.utc_now(), @first_cleanup_interval, :millisecond)
 
     JobQueue.enqueue(
-      :reserved_nick_cleanup,
+      __MODULE__,
       %{},
       scheduled_at: first_run_at,
       max_attempts: 3,
@@ -33,12 +33,8 @@ defmodule ElixIRCd.Jobs.ReservedNickCleanup do
   end
 
   @impl true
-  @spec type() :: atom()
-  def type, do: :reserved_nick_cleanup
-
-  @impl true
-  @spec run() :: :ok
-  def run do
+  @spec run(Job.t()) :: :ok
+  def run(_job) do
     Logger.debug("Starting cleanup of expired nickname reservations")
     cleaned_count = cleanup_expired_reservations()
 
