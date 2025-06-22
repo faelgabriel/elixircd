@@ -52,6 +52,23 @@ defmodule ElixIRCd.JobQueueTest do
     end
   end
 
+  defp wait_for_job_with_error(job_id, retries \\ 50) do
+    case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
+      {:ok, job} when job.current_attempt >= 1 and job.last_error != nil ->
+        job
+
+      {:ok, _job} when retries > 0 ->
+        Process.sleep(10)
+        wait_for_job_with_error(job_id, retries - 1)
+
+      {:ok, job} ->
+        job
+
+      error ->
+        flunk("Failed to get job: #{inspect(error)}")
+    end
+  end
+
   describe "enqueue/3" do
     test "enqueues a job successfully with defaults" do
       job = JobQueue.enqueue(:registered_nick_expiration)
@@ -523,7 +540,7 @@ defmodule ElixIRCd.JobQueueTest do
         send(pid, :poll_jobs)
       end)
 
-      final_job = wait_for_job_status_change(job.id, :queued)
+      final_job = wait_for_job_with_error(job.id)
       assert final_job.current_attempt >= 1
       assert final_job.last_error != nil
     end
