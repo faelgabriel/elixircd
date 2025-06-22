@@ -38,21 +38,20 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpiration do
   @impl true
   @spec run() :: :ok
   def run do
-    Memento.transaction!(fn ->
-      Logger.info("Starting expiration of unverified nicknames")
-      expired_count = expire_unverified_nicknames()
-      Logger.info("Unverified nickname expiration completed. #{expired_count} nicknames were removed.")
-
-      :ok
-    end)
+    Logger.info("Starting expiration of unverified nicknames")
+    expired_count = expire_unverified_nicknames()
+    Logger.info("Unverified nickname expiration completed. #{expired_count} nicknames were removed.")
+    :ok
   end
 
   @spec expire_unverified_nicknames() :: integer()
   defp expire_unverified_nicknames do
-    RegisteredNicks.get_all()
-    |> Enum.filter(&check_unverified_nick_expiration/1)
-    |> Enum.map(&remove_expired_nick/1)
-    |> length()
+    Memento.transaction!(fn ->
+      RegisteredNicks.get_all()
+      |> Enum.filter(&check_unverified_nick_expiration/1)
+      |> Enum.map(&remove_expired_nick/1)
+      |> length()
+    end)
   end
 
   @spec remove_expired_nick(RegisteredNick.t()) :: String.t()

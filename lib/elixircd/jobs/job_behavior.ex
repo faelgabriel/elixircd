@@ -19,6 +19,7 @@ defmodule ElixIRCd.Jobs.JobBehavior do
   @doc """
   Executes the main job logic.
   This is called by the JobQueue system when the job is ready to run.
+  Should return :ok on success or {:error, reason} on failure.
   """
   @callback run() :: :ok | {:error, term()}
 

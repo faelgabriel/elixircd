@@ -19,6 +19,7 @@ defmodule ElixIRCd.JobQueue do
   alias ElixIRCd.Tables.Job
 
   @poll_interval 5_000
+  @concurrent_jobs 1
 
   @job_modules [
     ElixIRCd.Jobs.RegisteredNickExpiration,
@@ -179,6 +180,7 @@ defmodule ElixIRCd.JobQueue do
   @impl true
   @spec init(map()) :: {:ok, map()}
   def init(_state) do
+    recover_stuck_jobs()
     enqueue_initial_jobs(@job_modules)
     send(self(), :poll_jobs)
     {:ok, %{}}
@@ -202,11 +204,11 @@ defmodule ElixIRCd.JobQueue do
 
   @spec process_ready_jobs() :: :ok
   defp process_ready_jobs do
-    Memento.transaction!(fn ->
-      Jobs.get_ready_jobs()
-      |> Enum.take(1)
-      |> Enum.each(&execute_job/1)
-    end)
+    ready_jobs = Memento.transaction!(fn -> Jobs.get_ready_jobs() end)
+
+    ready_jobs
+    |> Enum.take(@concurrent_jobs)
+    |> Enum.each(&execute_job/1)
 
     :ok
   end
@@ -227,10 +229,12 @@ defmodule ElixIRCd.JobQueue do
     Logger.info("Executing job: #{job.id} (type: #{job.type}, attempt: #{job.current_attempt + 1}/#{job.max_attempts})")
 
     updated_job =
-      Jobs.update(job, %{
-        status: :processing,
-        current_attempt: job.current_attempt + 1
-      })
+      Memento.transaction!(fn ->
+        Jobs.update(job, %{
+          status: :processing,
+          current_attempt: job.current_attempt + 1
+        })
+      end)
 
     result = dispatch_job(updated_job)
 
@@ -351,5 +355,27 @@ defmodule ElixIRCd.JobQueue do
       job.status == :failed and
         DateTime.diff(now, job.updated_at, :hour) <= 24
     end)
+  end
+
+  @spec recover_stuck_jobs() :: :ok
+  defp recover_stuck_jobs do
+    Memento.transaction!(fn ->
+      stuck_jobs = Jobs.get_by_status(:processing)
+
+      Enum.each(stuck_jobs, fn job ->
+        Logger.warning("Recovering stuck job from previous crash: #{job.id}")
+
+        Jobs.update(job, %{
+          status: :queued,
+          scheduled_at: DateTime.add(DateTime.utc_now(), job.retry_delay_ms, :millisecond)
+        })
+      end)
+
+      if length(stuck_jobs) > 0 do
+        Logger.info("Recovered #{length(stuck_jobs)} stuck jobs")
+      end
+    end)
+
+    :ok
   end
 end

@@ -529,6 +529,140 @@ defmodule ElixIRCd.JobQueueTest do
     end
   end
 
+  describe "recover_stuck_jobs/0" do
+    test "recovers jobs stuck in processing state" do
+      now = DateTime.utc_now()
+      future_time = DateTime.add(now, 3600, :second)
+
+      stuck_job1 = JobQueue.enqueue(:registered_nick_expiration, %{}, scheduled_at: future_time)
+      stuck_job2 = JobQueue.enqueue(:unverified_nick_expiration, %{}, scheduled_at: future_time)
+      queued_job = JobQueue.enqueue(:registered_nick_expiration, %{}, scheduled_at: future_time)
+      done_job = JobQueue.enqueue(:unverified_nick_expiration, %{}, scheduled_at: future_time)
+      failed_job = JobQueue.enqueue(:registered_nick_expiration, %{}, scheduled_at: future_time)
+
+      Memento.transaction!(fn ->
+        {:ok, job1} = Jobs.get_by_id(stuck_job1.id)
+        Jobs.update(job1, %{status: :processing, current_attempt: 1})
+
+        {:ok, job2} = Jobs.get_by_id(stuck_job2.id)
+        Jobs.update(job2, %{status: :processing, current_attempt: 2})
+
+        {:ok, job_done} = Jobs.get_by_id(done_job.id)
+        Jobs.update(job_done, %{status: :done})
+
+        {:ok, job_failed} = Jobs.get_by_id(failed_job.id)
+        Jobs.update(job_failed, %{status: :failed})
+      end)
+
+      log_output =
+        capture_log(fn ->
+          {:ok, pid} = GenServer.start(JobQueue, %{})
+          Process.sleep(100)
+          GenServer.stop(pid, :normal, 1000)
+        end)
+
+      Memento.transaction!(fn ->
+        {:ok, recovered_job1} = Jobs.get_by_id(stuck_job1.id)
+        assert recovered_job1.status == :queued
+        assert DateTime.compare(recovered_job1.scheduled_at, now) == :gt
+
+        {:ok, recovered_job2} = Jobs.get_by_id(stuck_job2.id)
+        assert recovered_job2.status == :queued
+        assert DateTime.compare(recovered_job2.scheduled_at, now) == :gt
+
+        {:ok, unchanged_queued} = Jobs.get_by_id(queued_job.id)
+        assert unchanged_queued.status in [:queued, :done]
+
+        {:ok, unchanged_done} = Jobs.get_by_id(done_job.id)
+        assert unchanged_done.status == :done
+
+        {:ok, unchanged_failed} = Jobs.get_by_id(failed_job.id)
+        assert unchanged_failed.status == :failed
+      end)
+
+      assert log_output =~ "Recovering stuck job from previous crash: #{stuck_job1.id}"
+      assert log_output =~ "Recovering stuck job from previous crash: #{stuck_job2.id}"
+    end
+
+    test "does nothing when no stuck jobs exist" do
+      future_time = DateTime.add(DateTime.utc_now(), 3600, :second)
+
+      _queued_job = JobQueue.enqueue(:registered_nick_expiration, %{}, scheduled_at: future_time)
+      done_job = JobQueue.enqueue(:unverified_nick_expiration, %{}, scheduled_at: future_time)
+      failed_job = JobQueue.enqueue(:registered_nick_expiration, %{}, scheduled_at: future_time)
+
+      Memento.transaction!(fn ->
+        {:ok, job_done} = Jobs.get_by_id(done_job.id)
+        Jobs.update(job_done, %{status: :done})
+
+        {:ok, job_failed} = Jobs.get_by_id(failed_job.id)
+        Jobs.update(job_failed, %{status: :failed})
+      end)
+
+      log_output =
+        capture_log(fn ->
+          {:ok, pid} = GenServer.start(JobQueue, %{})
+          Process.sleep(100)
+          GenServer.stop(pid, :normal, 1000)
+        end)
+
+      refute log_output =~ "Recovering stuck job"
+      refute log_output =~ "Recovered"
+    end
+
+    test "reschedules stuck jobs with correct retry delay" do
+      now = DateTime.utc_now()
+      custom_retry_delay = 60_000
+
+      job = JobQueue.enqueue(:registered_nick_expiration, %{}, retry_delay_ms: custom_retry_delay)
+
+      Memento.transaction!(fn ->
+        {:ok, job_record} = Jobs.get_by_id(job.id)
+        Jobs.update(job_record, %{status: :processing, current_attempt: 1})
+      end)
+
+      capture_log(fn ->
+        {:ok, pid} = GenServer.start(JobQueue, %{})
+        Process.sleep(100)
+        GenServer.stop(pid, :normal, 1000)
+      end)
+
+      Memento.transaction!(fn ->
+        {:ok, recovered_job} = Jobs.get_by_id(job.id)
+        assert recovered_job.status == :queued
+
+        expected_time = DateTime.add(now, custom_retry_delay, :millisecond)
+        time_diff = DateTime.diff(recovered_job.scheduled_at, expected_time, :millisecond)
+
+        assert abs(time_diff) < 5000
+      end)
+    end
+
+    test "preserves job attempt count during recovery" do
+      future_time = DateTime.add(DateTime.utc_now(), 3600, :second)
+      job = JobQueue.enqueue(:registered_nick_expiration, %{}, scheduled_at: future_time)
+
+      original_attempt = 2
+
+      Memento.transaction!(fn ->
+        {:ok, job_record} = Jobs.get_by_id(job.id)
+        Jobs.update(job_record, %{status: :processing, current_attempt: original_attempt})
+      end)
+
+      capture_log(fn ->
+        {:ok, pid} = GenServer.start(JobQueue, %{})
+        Process.sleep(100)
+        GenServer.stop(pid, :normal, 1000)
+      end)
+
+      Memento.transaction!(fn ->
+        {:ok, recovered_job} = Jobs.get_by_id(job.id)
+        assert recovered_job.status == :queued
+        assert recovered_job.current_attempt == original_attempt
+      end)
+    end
+  end
+
   describe "error handling coverage" do
     setup :set_mimic_global
 

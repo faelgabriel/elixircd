@@ -38,21 +38,20 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
   @impl true
   @spec run() :: :ok
   def run do
-    Memento.transaction!(fn ->
-      Logger.info("Starting expiration of unused nicknames")
-      expired_count = expire_old_nicknames()
-      Logger.info("Expiration completed. #{expired_count} nicknames were removed.")
-
-      :ok
-    end)
+    Logger.info("Starting expiration of unused nicknames")
+    expired_count = expire_old_nicknames()
+    Logger.info("Expiration completed. #{expired_count} nicknames were removed.")
+    :ok
   end
 
   @spec expire_old_nicknames() :: integer()
   defp expire_old_nicknames do
-    RegisteredNicks.get_all()
-    |> Enum.filter(&check_nick_expiration/1)
-    |> Enum.map(&remove_expired_nick/1)
-    |> length()
+    Memento.transaction!(fn ->
+      RegisteredNicks.get_all()
+      |> Enum.filter(&check_nick_expiration/1)
+      |> Enum.map(&remove_expired_nick/1)
+      |> length()
+    end)
   end
 
   @spec remove_expired_nick(RegisteredNick.t()) :: String.t()
