@@ -23,7 +23,9 @@ defmodule ElixIRCd.JobQueue do
 
   @job_modules [
     ElixIRCd.Jobs.RegisteredNickExpiration,
-    ElixIRCd.Jobs.UnverifiedNickExpiration
+    ElixIRCd.Jobs.UnverifiedNickExpiration,
+    ElixIRCd.Jobs.RegisteredChannelExpiration,
+    ElixIRCd.Jobs.ReservedNickCleanup
   ]
 
   @doc """
