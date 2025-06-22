@@ -1,12 +1,10 @@
-defmodule ElixIRCd.Schedulers.UnverifiedNickExpirationTest do
-  @moduledoc false
-
+defmodule ElixIRCd.Jobs.UnverifiedNickExpirationTest do
   use ElixIRCd.DataCase, async: false
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Jobs.UnverifiedNickExpiration
   alias ElixIRCd.Repositories.RegisteredNicks
-  alias ElixIRCd.Schedulers.UnverifiedNickExpiration
 
   describe "handles unverified nick expiration cleanup" do
     setup do
@@ -46,17 +44,34 @@ defmodule ElixIRCd.Schedulers.UnverifiedNickExpirationTest do
       unexpired_nick: unexpired_nick,
       expired_nick: expired_nick
     } do
-      {:ok, pid} =
-        GenServer.start_link(UnverifiedNickExpiration, %{last_cleanup: nil}, name: :test_unverified_expiration)
-
-      send(pid, :cleanup)
-      Process.sleep(100)
+      UnverifiedNickExpiration.run()
 
       Memento.transaction!(fn ->
         assert {:ok, _registered_nick} = RegisteredNicks.get_by_nickname(verified_nick.nickname)
         assert {:ok, _registered_nick} = RegisteredNicks.get_by_nickname(unexpired_nick.nickname)
         assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(expired_nick.nickname)
       end)
+    end
+
+    test "enqueue creates a job when enabled" do
+      # Mock configuration with enabled unverified expiration
+      original_config = Application.get_env(:elixircd, :services, [])
+
+      Application.put_env(:elixircd, :services, nickserv: [unverified_expire_days: 1])
+
+      try do
+        job = UnverifiedNickExpiration.enqueue()
+
+        assert job.type == :unverified_nick_expiration
+        assert job.status == :queued
+        assert job.max_attempts == 3
+        assert job.retry_delay_ms == 30_000
+        # 6 hours
+        assert job.repeat_interval_ms == 6 * 60 * 60 * 1000
+        assert DateTime.compare(job.scheduled_at, DateTime.utc_now()) == :gt
+      after
+        Application.put_env(:elixircd, :services, original_config)
+      end
     end
   end
 end
