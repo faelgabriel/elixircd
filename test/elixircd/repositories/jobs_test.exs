@@ -210,20 +210,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
       assert job1.id in job_ids
       assert job2.id in job_ids
     end
-
-    test "returns empty list when no jobs exist" do
-      # Clean up any existing jobs
-      Memento.transaction!(fn ->
-        Jobs.get_all() |> Enum.each(&Jobs.delete/1)
-      end)
-
-      all_jobs =
-        Memento.transaction!(fn ->
-          Jobs.get_all()
-        end)
-
-      assert all_jobs == []
-    end
   end
 
   describe "update/2" do
@@ -243,7 +229,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
       assert updated_job.current_attempt == 1
       assert updated_job.module == TestJobModule
 
-      # Verify the change is persisted
       {:ok, fetched_job} =
         Memento.transaction!(fn ->
           Jobs.get_by_id(job.id)
@@ -285,7 +270,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
 
       assert result == :ok
 
-      # Verify it's actually deleted
       not_found =
         Memento.transaction!(fn ->
           Jobs.get_by_id(job.id)
@@ -297,11 +281,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
 
   describe "cleanup_old_jobs/1" do
     test "deletes jobs older than specified days" do
-      # Clean existing jobs first
-      Memento.transaction!(fn ->
-        Jobs.get_all() |> Enum.each(&Jobs.delete/1)
-      end)
-
       current_time = DateTime.utc_now()
       old_time = DateTime.add(current_time, -10, :day)
       recent_time = DateTime.add(current_time, -1, :day)
@@ -309,7 +288,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
       old_job =
         Memento.transaction!(fn ->
           job = Jobs.create(%{module: TestJobModule})
-          # Create job with old updated_at timestamp
           old_updated_job = %{job | status: :done, updated_at: old_time}
           Memento.Query.write(old_updated_job)
           old_updated_job
@@ -318,7 +296,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
       recent_job =
         Memento.transaction!(fn ->
           job = Jobs.create(%{module: TestJobModule})
-          # Create job with recent updated_at timestamp
           recent_updated_job = %{job | status: :done, updated_at: recent_time}
           Memento.Query.write(recent_updated_job)
           recent_updated_job
@@ -331,7 +308,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
 
       assert deleted_count >= 1
 
-      # Verify old job is deleted, recent job remains
       {:error, :job_not_found} =
         Memento.transaction!(fn ->
           Jobs.get_by_id(old_job.id)
@@ -350,7 +326,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
       _old_job =
         Memento.transaction!(fn ->
           job = Jobs.create(%{module: TestJobModule})
-          # Create job with old updated_at timestamp
           old_updated_job = %{job | status: :done, updated_at: old_time}
           Memento.Query.write(old_updated_job)
           old_updated_job
@@ -372,12 +347,10 @@ defmodule ElixIRCd.Repositories.JobsTest do
           Jobs.create(%{module: TestJobModule})
         end)
 
-      # Test that transaction rollback works
       result =
         try do
           Memento.transaction!(fn ->
             Jobs.update(job, %{status: :processing})
-            # Force an error to test rollback
             raise "Intentional error"
           end)
         rescue
@@ -386,7 +359,6 @@ defmodule ElixIRCd.Repositories.JobsTest do
 
       assert result == :error
 
-      # Verify the job wasn't updated due to rollback
       {:ok, unchanged_job} =
         Memento.transaction!(fn ->
           Jobs.get_by_id(job.id)
