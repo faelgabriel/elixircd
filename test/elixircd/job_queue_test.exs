@@ -26,14 +26,6 @@ defmodule ElixIRCd.JobQueueTest do
     end
   end
 
-  setup do
-    Memento.transaction!(fn ->
-      Jobs.get_all() |> Enum.each(&Jobs.delete/1)
-    end)
-
-    :ok
-  end
-
   @spec wait_until((-> boolean()), non_neg_integer()) :: :ok
   defp wait_until(fun, attempts \\ 50) do
     if fun.() do
@@ -199,10 +191,6 @@ defmodule ElixIRCd.JobQueueTest do
 
   describe "get_detailed_stats/0" do
     test "returns detailed statistics" do
-      Memento.transaction!(fn ->
-        Jobs.get_all() |> Enum.each(&Jobs.delete/1)
-      end)
-
       now = DateTime.utc_now()
       overdue_time = DateTime.add(now, -3600, :second)
       future_time = DateTime.add(now, 3600, :second)
@@ -441,10 +429,6 @@ defmodule ElixIRCd.JobQueueTest do
 
   describe "cleanup_old_jobs/1" do
     test "cleans up old jobs with default days_to_keep" do
-      Memento.transaction!(fn ->
-        Jobs.get_all() |> Enum.each(&Jobs.delete/1)
-      end)
-
       now = DateTime.utc_now()
       old_time = DateTime.add(now, -8, :day)
       recent_time = DateTime.add(now, -5, :day)
@@ -467,10 +451,6 @@ defmodule ElixIRCd.JobQueueTest do
     end
 
     test "cleans up old jobs with custom days_to_keep" do
-      Memento.transaction!(fn ->
-        Jobs.get_all() |> Enum.each(&Jobs.delete/1)
-      end)
-
       now = DateTime.utc_now()
       old_time = DateTime.add(now, -4, :day)
       recent_time = DateTime.add(now, -2, :day)
