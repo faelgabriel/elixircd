@@ -50,7 +50,7 @@ defmodule ElixIRCd.JobQueue do
         Jobs.create(job_params)
       end)
 
-    Logger.info("Job enqueued: #{job.id} (module: #{job.module})")
+    Logger.info("Job enqueued: #{inspect(job.module)} (id: #{job.id})")
     job
   end
 
@@ -89,10 +89,10 @@ defmodule ElixIRCd.JobQueue do
   defp cancel_job_if_possible(job, job_id) do
     if job.status in [:queued, :processing] do
       Jobs.update(job, %{status: :failed, last_error: "Cancelled by admin"})
-      Logger.info("Job cancelled: #{job_id}")
+      Logger.info("Job cancelled: #{inspect(job.module)} (id: #{job_id})")
       :ok
     else
-      Logger.warning("Cannot cancel job in status #{job.status}: #{job_id}")
+      Logger.warning("Cannot cancel job in status #{job.status}: #{inspect(job.module)} (id: #{job_id})")
       {:error, :job_not_cancellable}
     end
   end
@@ -120,10 +120,10 @@ defmodule ElixIRCd.JobQueue do
         last_error: nil
       })
 
-      Logger.info("Job retry scheduled: #{job_id}")
+      Logger.info("Job retry scheduled: #{inspect(job.module)} (id: #{job_id})")
       :ok
     else
-      Logger.warning("Cannot retry job in status #{job.status}: #{job_id}")
+      Logger.warning("Cannot retry job in status #{job.status}: #{inspect(job.module)} (id: #{job_id})")
       {:error, :job_not_retryable}
     end
   end
@@ -202,7 +202,6 @@ defmodule ElixIRCd.JobQueue do
     |> Enum.each(fn module ->
       if function_exported?(module, :schedule, 0) do
         module.schedule()
-        Logger.info("Initial job scheduled from #{module}")
       end
     end)
   end
@@ -228,7 +227,7 @@ defmodule ElixIRCd.JobQueue do
   defp execute_job_process(job) do
     current_attempt = job.current_attempt + 1
     max_attempts = job.max_attempts
-    Logger.info("Executing job: #{job.id} (module: #{job.module}, attempt: #{current_attempt}/#{max_attempts})")
+    Logger.info("Executing job: #{inspect(job.module)} (id: #{job.id}, attempt: #{current_attempt}/#{max_attempts})")
 
     updated_job =
       Memento.transaction!(fn ->
@@ -308,7 +307,7 @@ defmodule ElixIRCd.JobQueue do
     }
 
     Jobs.create(new_job_params)
-    Logger.info("Recurring job scheduled for #{next_run_at}: #{job.module}")
+    Logger.info("Recurring job scheduled for #{next_run_at}: #{inspect(job.module)}")
 
     :ok
   end
@@ -355,7 +354,7 @@ defmodule ElixIRCd.JobQueue do
       stuck_jobs = Jobs.get_by_status(:processing)
 
       Enum.each(stuck_jobs, fn job ->
-        Logger.warning("Recovering stuck job from previous crash: #{job.id}")
+        Logger.warning("Recovering stuck job from previous crash: #{inspect(job.module)} (id: #{job.id})")
 
         Jobs.update(job, %{
           status: :queued,
