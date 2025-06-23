@@ -1,12 +1,10 @@
-defmodule ElixIRCd.Schedulers.UnverifiedNickExpirationTest do
-  @moduledoc false
-
+defmodule ElixIRCd.Jobs.UnverifiedNickExpirationTest do
   use ElixIRCd.DataCase, async: false
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Jobs.UnverifiedNickExpiration
   alias ElixIRCd.Repositories.RegisteredNicks
-  alias ElixIRCd.Schedulers.UnverifiedNickExpiration
 
   describe "handles unverified nick expiration cleanup" do
     setup do
@@ -38,25 +36,35 @@ defmodule ElixIRCd.Schedulers.UnverifiedNickExpirationTest do
           created_at: expired_time
         })
 
-      {:ok, %{verified_nick: verified_nick, unexpired_nick: unexpired_nick, expired_nick: expired_nick}}
+      job = build(:job)
+
+      {:ok, %{verified_nick: verified_nick, unexpired_nick: unexpired_nick, expired_nick: expired_nick, job: job}}
     end
 
     test "removes only expired unverified nicknames", %{
       verified_nick: verified_nick,
       unexpired_nick: unexpired_nick,
-      expired_nick: expired_nick
+      expired_nick: expired_nick,
+      job: job
     } do
-      {:ok, pid} =
-        GenServer.start_link(UnverifiedNickExpiration, %{last_cleanup: nil}, name: :test_unverified_expiration)
-
-      send(pid, :cleanup)
-      Process.sleep(100)
+      UnverifiedNickExpiration.run(job)
 
       Memento.transaction!(fn ->
         assert {:ok, _registered_nick} = RegisteredNicks.get_by_nickname(verified_nick.nickname)
         assert {:ok, _registered_nick} = RegisteredNicks.get_by_nickname(unexpired_nick.nickname)
         assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(expired_nick.nickname)
       end)
+    end
+
+    test "schedule creates a job with correct parameters" do
+      job = UnverifiedNickExpiration.schedule()
+
+      assert job.module == UnverifiedNickExpiration
+      assert job.status == :queued
+      assert job.max_attempts == 3
+      assert job.retry_delay_ms == 30_000
+      assert job.repeat_interval_ms == 6 * 60 * 60 * 1000
+      assert DateTime.compare(job.scheduled_at, DateTime.utc_now()) == :gt
     end
   end
 end

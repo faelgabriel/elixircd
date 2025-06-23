@@ -4,9 +4,15 @@ defmodule ElixIRCd.Utils.MnesiaTest do
   use ExUnit.Case, async: false
   use Mimic
 
+  alias ElixIRCd.JobQueue
   alias ElixIRCd.Utils.Mnesia
 
   setup do
+    # The JobQueue GenServer can cause race conditions during tests due to the Jobs table,
+    # so we stop it before running the tests and restart it afterward.
+    Supervisor.terminate_child(ElixIRCd, JobQueue)
+    on_exit(fn -> Supervisor.restart_child(ElixIRCd, JobQueue) end)
+
     on_exit(fn -> Mnesia.setup_mnesia(recreate: true) end)
   end
 

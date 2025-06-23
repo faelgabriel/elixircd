@@ -26,8 +26,7 @@ defmodule ElixIRCd do
       [
         ElixIRCd.Server.RateLimiter,
         ElixIRCd.Server.Listeners,
-        ElixIRCd.Schedulers.RegisteredNickExpiration,
-        ElixIRCd.Schedulers.UnverifiedNickExpiration
+        ElixIRCd.JobQueue
       ],
       strategy: :one_for_one,
       name: __MODULE__

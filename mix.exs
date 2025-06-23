@@ -52,22 +52,27 @@ defmodule ElixIRCd.MixProject do
 
   defp deps do
     [
-      {:bamboo, "~> 2.4"},
-      {:bamboo_mua, "~> 0.2"},
+      # Core dependencies
+      {:argon2_elixir, "~> 4.0"},
       {:bandit, "~> 1.5"},
       {:cidr, ">= 1.1.0"},
+      {:hammer, "~> 7.0"},
+      {:memento, "~> 0.4"},
+      {:thousand_island, "~> 1.3"},
+      {:websock_adapter, "~> 0.5"},
+
+      # Email dependencies
+      {:bamboo, "~> 2.4"},
+      {:bamboo_mua, "~> 0.2"},
+
+      # Development and testing tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:doctor, "~> 0.21", only: :dev},
       {:excoveralls, "~> 0.18", only: :test},
-      {:hammer, "~> 7.0"},
-      {:memento, "~> 0.4"},
-      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:mimic, "~> 1.10", only: [:dev, :test]},
-      {:argon2_elixir, "~> 4.0"},
-      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false},
-      {:thousand_island, "~> 1.3"},
-      {:websock_adapter, "~> 0.5"}
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
     ]
   end
 

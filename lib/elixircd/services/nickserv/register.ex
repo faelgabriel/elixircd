@@ -5,10 +5,11 @@ defmodule ElixIRCd.Services.Nickserv.Register do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Mailer, only: [send_verification_email: 3]
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, email_required_format: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
+  alias ElixIRCd.JobQueue
+  alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.User
 
@@ -122,8 +123,16 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     if is_nil(registered_nick.email) do
       notify(user, "Your nickname has been successfully registered.")
     else
-      # Pending: Send email in a background job or task queue
-      send_verification_email(registered_nick.email, user.nick, verify_code)
+      JobQueue.enqueue(
+        VerificationEmailDelivery,
+        %{
+          "email" => registered_nick.email,
+          "nickname" => user.nick,
+          "verification_code" => verify_code
+        },
+        max_attempts: 3,
+        retry_delay_ms: 30_000
+      )
 
       unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
 
