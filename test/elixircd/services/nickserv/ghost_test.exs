@@ -154,13 +154,11 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
   @spec assert_disconnect_process_message_sent :: :ok
   defp assert_disconnect_process_message_sent do
-    Process.sleep(50)
-
     receive do
       {:ghost_test, {:disconnect, message}} ->
         assert message =~ "Killed"
     after
-      100 -> flunk("No disconnect message was sent to the target user")
+      150 -> flunk("No disconnect message was sent to the target user")
     end
   end
 end

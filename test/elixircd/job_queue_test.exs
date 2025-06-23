@@ -10,7 +10,6 @@ defmodule ElixIRCd.JobQueueTest do
   alias ElixIRCd.Repositories.Jobs
   alias ElixIRCd.Tables.Job
 
-  # Mock job module for testing
   defmodule TestJobModule do
     @behaviour ElixIRCd.Jobs.JobBehavior
 
@@ -35,55 +34,69 @@ defmodule ElixIRCd.JobQueueTest do
     :ok
   end
 
-  defp wait_for_job_status_change(job_id, initial_status, retries \\ 50) do
-    case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
-      {:ok, job} when job.status != initial_status ->
-        job
-
-      {:ok, _job} when retries > 0 ->
+  @spec wait_until((-> boolean()), non_neg_integer()) :: :ok
+  defp wait_until(fun, attempts \\ 50) do
+    if fun.() do
+      :ok
+    else
+      if attempts > 0 do
         Process.sleep(10)
-        wait_for_job_status_change(job_id, initial_status, retries - 1)
-
-      {:ok, job} ->
-        job
-
-      error ->
-        flunk("Failed to get job: #{inspect(error)}")
+        wait_until(fun, attempts - 1)
+      else
+        flunk("Condition not met in time")
+      end
     end
   end
 
-  defp wait_for_job_status(job_id, expected_status, retries \\ 50) do
-    case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
-      {:ok, job} when job.status == expected_status ->
-        job
+  @spec wait_until_with_result((-> {:ok, any()} | :ok | any()), non_neg_integer()) :: any()
+  defp wait_until_with_result(fun, attempts \\ 50) do
+    case fun.() do
+      {:ok, result} ->
+        result
 
-      {:ok, _job} when retries > 0 ->
+      :ok ->
+        :ok
+
+      _ when attempts > 0 ->
         Process.sleep(10)
-        wait_for_job_status(job_id, expected_status, retries - 1)
+        wait_until_with_result(fun, attempts - 1)
 
-      {:ok, job} ->
-        job
-
-      error ->
-        flunk("Failed to get job: #{inspect(error)}")
+      _ ->
+        flunk("Condition not met in time")
     end
   end
 
-  defp wait_for_job_with_error(job_id, retries \\ 50) do
-    case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
-      {:ok, job} when job.current_attempt >= 1 and job.last_error != nil ->
-        job
+  @spec wait_for_job_status_change(String.t(), atom()) :: ElixIRCd.Tables.Job.t()
+  defp wait_for_job_status_change(job_id, initial_status) do
+    wait_until_with_result(fn ->
+      case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
+        {:ok, job} when job.status != initial_status -> {:ok, job}
+        {:ok, _job} -> :retry
+        error -> flunk("Failed to get job: #{inspect(error)}")
+      end
+    end)
+  end
 
-      {:ok, _job} when retries > 0 ->
-        Process.sleep(10)
-        wait_for_job_with_error(job_id, retries - 1)
+  @spec wait_for_job_status(String.t(), atom()) :: ElixIRCd.Tables.Job.t()
+  defp wait_for_job_status(job_id, expected_status) do
+    wait_until_with_result(fn ->
+      case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
+        {:ok, job} when job.status == expected_status -> {:ok, job}
+        {:ok, _job} -> :retry
+        error -> flunk("Failed to get job: #{inspect(error)}")
+      end
+    end)
+  end
 
-      {:ok, job} ->
-        job
-
-      error ->
-        flunk("Failed to get job: #{inspect(error)}")
-    end
+  @spec wait_for_job_with_error(String.t()) :: ElixIRCd.Tables.Job.t()
+  defp wait_for_job_with_error(job_id) do
+    wait_until_with_result(fn ->
+      case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
+        {:ok, job} when job.current_attempt >= 1 and job.last_error != nil -> {:ok, job}
+        {:ok, _job} -> :retry
+        error -> flunk("Failed to get job: #{inspect(error)}")
+      end
+    end)
   end
 
   describe "enqueue/3" do
@@ -496,7 +509,13 @@ defmodule ElixIRCd.JobQueueTest do
 
       pid = Process.whereis(JobQueue)
       send(pid, :poll_jobs)
-      Process.sleep(50)
+
+      wait_until(fn ->
+        case Memento.transaction!(fn -> Jobs.get_by_id(job.id) end) do
+          {:ok, updated_job} -> updated_job.status == :queued and updated_job.current_attempt == 0
+          _ -> false
+        end
+      end)
 
       {:ok, updated_job} = Memento.transaction!(fn -> Jobs.get_by_id(job.id) end)
       assert updated_job.status == :queued
@@ -510,7 +529,15 @@ defmodule ElixIRCd.JobQueueTest do
       pid = Process.whereis(JobQueue)
       send(pid, :poll_jobs)
 
-      updated_job = wait_for_job_status_change(job.id, :queued)
+      updated_job =
+        wait_until_with_result(fn ->
+          case Memento.transaction!(fn -> Jobs.get_by_id(job.id) end) do
+            {:ok, job_record} when job_record.last_error != nil -> {:ok, job_record}
+            {:ok, _job_record} -> :retry
+            error -> flunk("Failed to get job: #{inspect(error)}")
+          end
+        end)
+
       assert updated_job.status in [:queued, :failed]
       assert updated_job.last_error =~ "Unknown job module"
     end
@@ -633,7 +660,15 @@ defmodule ElixIRCd.JobQueueTest do
       log_output =
         capture_log(fn ->
           {:ok, pid} = GenServer.start(JobQueue, %{})
-          Process.sleep(100)
+
+          wait_until(fn ->
+            Process.alive?(pid) and
+              case Memento.transaction!(fn -> Jobs.get_by_id(stuck_job1.id) end) do
+                {:ok, job} -> job.status == :queued
+                _ -> false
+              end
+          end)
+
           GenServer.stop(pid, :normal, 1000)
         end)
 
@@ -678,7 +713,11 @@ defmodule ElixIRCd.JobQueueTest do
       log_output =
         capture_log(fn ->
           {:ok, pid} = GenServer.start(JobQueue, %{})
-          Process.sleep(100)
+
+          wait_until(fn ->
+            Process.alive?(pid)
+          end)
+
           GenServer.stop(pid, :normal, 1000)
         end)
 
@@ -699,7 +738,11 @@ defmodule ElixIRCd.JobQueueTest do
 
       capture_log(fn ->
         {:ok, pid} = GenServer.start(JobQueue, %{})
-        Process.sleep(100)
+
+        wait_until(fn ->
+          Process.alive?(pid)
+        end)
+
         GenServer.stop(pid, :normal, 1000)
       end)
 
@@ -727,7 +770,15 @@ defmodule ElixIRCd.JobQueueTest do
 
       capture_log(fn ->
         {:ok, pid} = GenServer.start(JobQueue, %{})
-        Process.sleep(100)
+
+        wait_until(fn ->
+          Process.alive?(pid) and
+            case Memento.transaction!(fn -> Jobs.get_by_id(job.id) end) do
+              {:ok, recovered_job} -> recovered_job.status == :queued
+              _ -> false
+            end
+        end)
+
         GenServer.stop(pid, :normal, 1000)
       end)
 
