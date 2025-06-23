@@ -245,7 +245,7 @@ defmodule ElixIRCd.Repositories.JobsTest do
         end)
 
       original_updated_at = job.updated_at
-      Process.sleep(10)
+      Process.sleep(1)
 
       updated_job =
         Memento.transaction!(fn ->

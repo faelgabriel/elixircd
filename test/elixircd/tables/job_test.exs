@@ -94,7 +94,7 @@ defmodule ElixIRCd.Tables.JobTest do
 
     test "automatically updates updated_at timestamp" do
       job = Job.new(%{module: TestJobModule})
-      Process.sleep(10)
+      Process.sleep(1)
 
       updated_job = Job.update(job, %{status: :processing})
 

@@ -177,8 +177,8 @@ defmodule ElixIRCd.JobQueue do
   @impl true
   @spec init(map()) :: {:ok, map()}
   def init(_state) do
-    recover_stuck_jobs()
     schedule_initial_jobs()
+    send(self(), :recover_stuck_jobs)
     send(self(), :poll_jobs)
     {:ok, %{}}
   end
@@ -188,6 +188,11 @@ defmodule ElixIRCd.JobQueue do
   def handle_info(:poll_jobs, state) do
     process_ready_jobs()
     Process.send_after(self(), :poll_jobs, @poll_interval)
+    {:noreply, state}
+  end
+
+  def handle_info(:recover_stuck_jobs, state) do
+    recover_stuck_jobs()
     {:noreply, state}
   end
 
