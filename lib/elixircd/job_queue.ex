@@ -1,14 +1,6 @@
 defmodule ElixIRCd.JobQueue do
   @moduledoc """
-  A GenServer-based job queue system that supports:
-  - Mnesia-backed persistence
-  - Per-job retry handling with configurable max_attempts and retry_delay_ms
-  - Job status tracking (:queued, :processing, :done, :failed)
-  - Per-job recurrence control with repeat_interval_ms
-  - Crash-safe retry logic
-  - Single worker loop for sequential job execution
-  - Dynamic job handler discovery based on JobBehavior implementation
-  - Job management utilities (cancel, retry, statistics, cleanup)
+  A GenServer-based job queue system.
   """
 
   use GenServer
@@ -33,7 +25,12 @@ defmodule ElixIRCd.JobQueue do
   @doc """
   Enqueue a new job.
   """
-  @spec enqueue(module(), map(), keyword()) :: Job.t()
+  @spec enqueue(module(), map(), [
+          {:scheduled_at, DateTime.t()}
+          | {:max_attempts, pos_integer()}
+          | {:retry_delay_ms, pos_integer()}
+          | {:repeat_interval_ms, pos_integer() | nil}
+        ]) :: Job.t()
   def enqueue(job_module, payload \\ %{}, opts \\ []) do
     unless implements_job_behavior?(job_module) do
       raise ArgumentError, "Module #{job_module} does not implement ElixIRCd.Jobs.JobBehavior"

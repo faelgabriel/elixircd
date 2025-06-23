@@ -21,9 +21,7 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpiration do
   def schedule do
     first_run_at = DateTime.add(DateTime.utc_now(), @first_cleanup_interval, :millisecond)
 
-    JobQueue.enqueue(
-      __MODULE__,
-      %{},
+    JobQueue.enqueue(__MODULE__, %{},
       scheduled_at: first_run_at,
       max_attempts: 3,
       retry_delay_ms: 30_000,
