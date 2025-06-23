@@ -678,8 +678,11 @@ defmodule ElixIRCd.JobQueueTest do
         assert unchanged_failed.status == :failed
       end)
 
-      assert log_output =~ "Recovering stuck job from previous crash: #{stuck_job1.id}"
-      assert log_output =~ "Recovering stuck job from previous crash: #{stuck_job2.id}"
+      assert log_output =~
+               "Recovering stuck job from previous crash: #{inspect(RegisteredNickExpiration)} (id: #{stuck_job1.id})"
+
+      assert log_output =~
+               "Recovering stuck job from previous crash: #{inspect(UnverifiedNickExpiration)} (id: #{stuck_job2.id})"
     end
 
     test "does nothing when no stuck jobs exist" do
