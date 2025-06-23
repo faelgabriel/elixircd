@@ -28,10 +28,4 @@ defmodule ElixIRCd.Jobs.VerificationEmailDelivery do
         {:error, error_message}
     end
   end
-
-  def run(%Job{payload: payload}) do
-    error_message = "Invalid payload for verification_email_delivery job: #{inspect(payload)}"
-    Logger.error(error_message)
-    {:error, error_message}
-  end
 end

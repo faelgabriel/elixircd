@@ -10,16 +10,12 @@ defmodule ElixIRCd.Jobs.JobBehavior do
   alias ElixIRCd.Tables.Job
 
   @doc """
-  Schedules the initial job for this job type.
-  This is called once at application startup for periodic jobs.
+  Schedules the job.
   """
   @callback schedule() :: Job.t()
 
   @doc """
-  Executes the main job logic.
-  This is called by the JobQueue system when the job is ready to run.
-  The job struct contains all job information including payload, attempt count, etc.
-  Should return :ok on success or {:error, reason} on failure.
+  Runs the job.
   """
   @callback run(Job.t()) :: :ok | {:error, term()}
 

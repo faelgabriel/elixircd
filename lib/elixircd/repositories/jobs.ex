@@ -72,7 +72,7 @@ defmodule ElixIRCd.Repositories.Jobs do
   @doc """
   Delete all jobs with :done or :failed status older than the specified number of days.
   """
-  @spec cleanup_old_jobs(pos_integer()) :: integer()
+  @spec cleanup_old_jobs(pos_integer()) :: non_neg_integer()
   def cleanup_old_jobs(days_to_keep \\ 7) do
     cutoff_date = DateTime.utc_now() |> DateTime.add(-days_to_keep, :day)
 

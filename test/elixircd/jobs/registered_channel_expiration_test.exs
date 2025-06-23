@@ -52,9 +52,6 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpirationTest do
       assert DateTime.compare(job.scheduled_at, DateTime.utc_now()) == :gt
     end
 
-    test "returns correct job type" do
-    end
-
     test "does not remove recently created channels", %{job: job} do
       current_time = DateTime.utc_now()
 
