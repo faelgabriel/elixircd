@@ -320,18 +320,18 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 #### Commands
 
 - **CAP**: Negotiate client capabilities with the server. ✅
-- **AUTHENTICATE**: Log in to a client account using SASL authentication. ❌
-- **ACCOUNT**: Notify clients of friends' new logins. ❌
-- **CHGHOST**: Notify clients about changes in friends' hostnames. ❌
-- **INVITE**: Alert other clients when someone is invited to a channel. ❌
+- **AUTHENTICATE**: Authenticate a user using SASL mechanisms. ❌
+- **ACCOUNT**: Notify clients when a user's account status changes. ❌
+- **CHGHOST**: Forcefully change a user's ident and hostname. ❌
+- **INVITE**: Extended to optionally include account information. ❌
 - **JOIN**: Extended to include usernames and hostnames in join messages. ❌
-- **MONITOR**: Track when specific nicknames enter or leave the network. ❌
-- **NAMES**: List nicknames on a channel, extended to include account names. ❌
+- **MONITOR**: Track when specific nicknames go online or offline. ❌
+- **NAMES**: Extended to include account names when supported. ❌
 - **TAGMSG**: Send messages with tags but without text content. ❌
-- **WEBIRC**: Provide real IP addresses of clients connecting through a gateway. ❌
-- **WHO**: Extended to allow clients to request additional information. ❌
-- **BATCH**: Group multiple related messages into a single logical batch. ❌
-- **SETNAME**: Allow clients to change their real name (GECOS) during the session. ❌
+- **WEBIRC**: Allow gateways to pass real client IP and hostname to the server. ❌
+- **WHO**: Extended to include additional information. ❌
+- **BATCH**: Group related messages for batch delivery. ❌
+- **SETNAME**: Allow clients to change their real name (GECOS). ❌
 
 #### Capabilities
 
