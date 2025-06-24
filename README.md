@@ -262,7 +262,7 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 #### User Modes
 
-- **+B (Bot)**: Marks the user as a bot. ❌
+- **+B (Bot)**: Marks the user as a bot. ✅
 - **+g (Caller ID)**: Block messages from users not on an access list. ❌
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ❌
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅

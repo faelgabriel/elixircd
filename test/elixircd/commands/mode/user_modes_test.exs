@@ -15,23 +15,23 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
     end
 
     test "handles modes" do
-      modes = ["i", "w", "o", "Z"]
+      modes = ["B", "i", "w", "o", "Z"]
 
-      assert "+iwoZ" == UserModes.display_modes(modes)
+      assert "+BiwoZ" == UserModes.display_modes(modes)
     end
   end
 
   describe "display_mode_changes/1" do
     test "handles add modes" do
-      mode_changes = [add: "i", add: "w"]
+      mode_changes = [add: "B", add: "i", add: "w"]
 
-      assert "+iw" == UserModes.display_mode_changes(mode_changes)
+      assert "+Biw" == UserModes.display_mode_changes(mode_changes)
     end
 
     test "handles remove modes" do
-      mode_changes = [remove: "i", remove: "w"]
+      mode_changes = [remove: "B", remove: "i", remove: "w"]
 
-      assert "-iw" == UserModes.display_mode_changes(mode_changes)
+      assert "-Biw" == UserModes.display_mode_changes(mode_changes)
     end
 
     test "handles add and remove same modes" do

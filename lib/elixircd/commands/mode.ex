@@ -5,7 +5,7 @@ defmodule ElixIRCd.Commands.Mode do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1, channel_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1, channel_operator?: 1, irc_operator?: 1]
 
   alias ElixIRCd.Commands.Mode.ChannelModes
   alias ElixIRCd.Commands.Mode.UserModes
@@ -13,6 +13,7 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Repositories.ChannelBans
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -29,13 +30,7 @@ defmodule ElixIRCd.Commands.Mode do
 
   @impl true
   def handle(user, %{command: "MODE", params: []}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user.nick, "MODE"],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    send_needmoreparams_error(user)
   end
 
   @impl true
@@ -76,13 +71,7 @@ defmodule ElixIRCd.Commands.Mode do
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
 
       if length(missing_value_modes) > 0 do
-        Message.build(%{
-          prefix: :server,
-          command: :err_needmoreparams,
-          params: [user.nick, "MODE"],
-          trailing: "Not enough parameters"
-        })
-        |> Dispatcher.broadcast(user)
+        send_needmoreparams_error(user)
       else
         {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
 
@@ -219,31 +208,30 @@ defmodule ElixIRCd.Commands.Mode do
 
   @spec handle_user_mode(User.t(), String.t(), String.t() | nil) :: :ok
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick == receiver_nick do
-    Message.build(%{prefix: :server, command: :rpl_umodeis, params: [user.nick, UserModes.display_modes(user.modes)]})
-    |> Dispatcher.broadcast(user)
+    send_umodeis_response(user, UserModes.display_modes(user.modes))
+  end
+
+  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick != receiver_nick do
+    if irc_operator?(user) do
+      case Users.get_by_nick(receiver_nick) do
+        {:ok, target_user} -> send_umodeis_response(user, UserModes.display_modes(target_user.modes))
+        {:error, :user_not_found} -> send_user_not_found_error(user, receiver_nick)
+      end
+    else
+      send_usersdontmatch_error(user)
+    end
   end
 
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, _mode_string) when user_nick != receiver_nick do
-    Message.build(%{
-      prefix: :server,
-      command: :err_usersdontmatch,
-      params: [user.nick],
-      trailing: "Cannot change mode for other users"
-    })
-    |> Dispatcher.broadcast(user)
+    send_usersdontmatch_error(user)
   end
 
-  defp handle_user_mode(user, _receiver_nick, mode_string) do
+  defp handle_user_mode(user, _receiver_nick, mode_string) when is_binary(mode_string) do
     {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
     {updated_user, applied_changes} = UserModes.apply_mode_changes(user, validated_modes)
 
     if length(applied_changes) > 0 do
-      Message.build(%{
-        prefix: user_mask(user),
-        command: "MODE",
-        params: [updated_user.nick, UserModes.display_mode_changes(applied_changes)]
-      })
-      |> Dispatcher.broadcast(updated_user)
+      send_user_mode_change(updated_user, UserModes.display_mode_changes(applied_changes), updated_user)
     end
 
     send_invalid_modes(invalid_modes, updated_user)
@@ -263,5 +251,58 @@ defmodule ElixIRCd.Commands.Mode do
       })
       |> Dispatcher.broadcast(user)
     end)
+  end
+
+  @spec send_user_not_found_error(User.t(), String.t()) :: :ok
+  defp send_user_not_found_error(user, receiver_nick) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_nosuchnick,
+      params: [user.nick, receiver_nick],
+      trailing: "No such nick"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  @spec send_umodeis_response(User.t(), String.t()) :: :ok
+  defp send_umodeis_response(user, modes) do
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_umodeis,
+      params: [user.nick, modes]
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  @spec send_usersdontmatch_error(User.t()) :: :ok
+  defp send_usersdontmatch_error(user) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_usersdontmatch,
+      params: [user.nick],
+      trailing: "Cannot change mode for other users"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  @spec send_needmoreparams_error(User.t()) :: :ok
+  defp send_needmoreparams_error(user) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_needmoreparams,
+      params: [user.nick, "MODE"],
+      trailing: "Not enough parameters"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  @spec send_user_mode_change(User.t(), String.t(), User.t() | list(User.t())) :: :ok
+  defp send_user_mode_change(user, mode_changes, targets) do
+    Message.build(%{
+      prefix: user_mask(user),
+      command: "MODE",
+      params: [user.nick, mode_changes]
+    })
+    |> Dispatcher.broadcast(targets)
   end
 end

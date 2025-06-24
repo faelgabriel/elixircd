@@ -270,6 +270,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_notopic), do: "331"
   defp numeric_reply(:rpl_topic), do: "332"
   defp numeric_reply(:rpl_topicwhotime), do: "333"
+  defp numeric_reply(:rpl_whoisbot), do: "335"
   defp numeric_reply(:rpl_inviting), do: "341"
   defp numeric_reply(:rpl_version), do: "351"
   defp numeric_reply(:rpl_whoreply), do: "352"

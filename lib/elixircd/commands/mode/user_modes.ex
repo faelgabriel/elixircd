@@ -6,7 +6,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
-  @modes ["i", "o", "w", "Z"]
+  @modes ["B", "i", "o", "w", "Z"]
   @modes_handled_by_server_to_add ["o", "Z"]
   @modes_handled_by_server_to_remove ["Z"]
 

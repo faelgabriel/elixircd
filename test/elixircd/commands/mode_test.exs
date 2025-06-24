@@ -453,7 +453,7 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
-    test "handles MODE command for user that list another user modes" do
+    test "handles MODE command for non-operator listing another user modes" do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user, modes: ["i", "w", "o", "Z"])
@@ -463,6 +463,33 @@ defmodule ElixIRCd.Commands.ModeTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 502 #{user.nick} :Cannot change mode for other users\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for operator listing another user modes" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"])
+        another_user = insert(:user, modes: ["i", "w", "B", "Z"])
+
+        message = %Message{command: "MODE", params: [another_user.nick]}
+        assert :ok = Mode.handle(operator, message)
+
+        assert_sent_messages([
+          {operator.pid, ":irc.test 221 #{operator.nick} +iwBZ\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for operator listing non-existent user modes" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"])
+
+        message = %Message{command: "MODE", params: ["nonexistent"]}
+        assert :ok = Mode.handle(operator, message)
+
+        assert_sent_messages([
+          {operator.pid, ":irc.test 401 #{operator.nick} nonexistent :No such nick\r\n"}
         ])
       end)
     end
@@ -477,6 +504,27 @@ defmodule ElixIRCd.Commands.ModeTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 502 #{user.nick} :Cannot change mode for other users\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for user setting and removing +B on themselves" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: [])
+
+        message = %Message{command: "MODE", params: [user.nick, "+B"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} MODE #{user.nick} +B\r\n"}
+        ])
+
+        user_with_mode = %{user | modes: ["B"]}
+        message = %Message{command: "MODE", params: [user_with_mode.nick, "-B"]}
+        assert :ok = Mode.handle(user_with_mode, message)
+
+        assert_sent_messages([
+          {user_with_mode.pid, ":#{user_mask(user_with_mode)} MODE #{user_with_mode.nick} -B\r\n"}
         ])
       end)
     end
