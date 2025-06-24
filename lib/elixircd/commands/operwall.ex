@@ -9,7 +9,7 @@ defmodule ElixIRCd.Commands.Operwall do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1, user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
@@ -43,13 +43,13 @@ defmodule ElixIRCd.Commands.Operwall do
   end
 
   @spec operwall_message(User.t(), String.t()) :: :ok
-  defp operwall_message(_sender, message) do
+  defp operwall_message(sender, message) do
     target_operators = Users.get_by_mode("o")
 
     Message.build(%{
-      prefix: :server,
-      command: "NOTICE",
-      params: ["$opers"],
+      prefix: user_mask(sender),
+      command: "WALLOPS",
+      params: [],
       trailing: message
     })
     |> Dispatcher.broadcast(target_operators)

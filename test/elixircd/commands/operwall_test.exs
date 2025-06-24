@@ -5,6 +5,7 @@ defmodule ElixIRCd.Commands.OperWallTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Commands.Operwall
   alias ElixIRCd.Message
@@ -72,11 +73,11 @@ defmodule ElixIRCd.Commands.OperWallTest do
 
         assert :ok = Operwall.handle(sender, message)
 
-        # All operators should receive the message, including the sender
+        # All operators should receive the message as WALLOPS from sender
         assert_sent_messages([
-          {sender.pid, ":irc.test NOTICE $opers :Server maintenance in 10 minutes\r\n"},
-          {operator1.pid, ":irc.test NOTICE $opers :Server maintenance in 10 minutes\r\n"},
-          {operator2.pid, ":irc.test NOTICE $opers :Server maintenance in 10 minutes\r\n"}
+          {sender.pid, ":#{user_mask(sender)} WALLOPS :Server maintenance in 10 minutes\r\n"},
+          {operator1.pid, ":#{user_mask(sender)} WALLOPS :Server maintenance in 10 minutes\r\n"},
+          {operator2.pid, ":#{user_mask(sender)} WALLOPS :Server maintenance in 10 minutes\r\n"}
         ])
 
         # Regular user should not receive any messages
