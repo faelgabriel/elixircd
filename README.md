@@ -243,7 +243,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **ADMIN**: Provide information about the server administrator. ✅
 - **OPER**: Allow operators to gain elevated privileges on the server. ✅
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✅
-- **OPERWALL**: Send messages to operators only. ❌
+- **OPERWALL**: Send messages to operators only. ✅
 - **GLOBOPS**: Send global operator messages to all operators on the network. ❌
 - **WATCH**: Track when specific nicknames enter or leave the network. ❌
 - **SAJOIN**: Force a user to join a channel. ❌

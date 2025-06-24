@@ -29,6 +29,7 @@ defmodule ElixIRCd.Command do
     "NICK" => Commands.Nick,
     "NOTICE" => Commands.Notice,
     "OPER" => Commands.Oper,
+    "OPERWALL" => Commands.Operwall,
     "PART" => Commands.Part,
     "PASS" => Commands.Pass,
     "PING" => Commands.Ping,
