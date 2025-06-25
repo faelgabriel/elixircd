@@ -52,7 +52,8 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UHNAMES EXTENDED-UHLIST UMODES=iowZ UTF8ONLY :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UHNAMES EXTENDED-UHLIST UMODES=BiowZ BOT=B :are supported by this server\r\n"},
+        {user.pid, ":irc.test 005 #{user.nick} UTF8ONLY :are supported by this server\r\n"}
       ])
 
       Application.put_env(:elixircd, :channel, original_channel_config)
@@ -87,7 +88,8 @@ defmodule ElixIRCd.Utils.IsupportTest do
          ":irc.test 005 #{user.nick} MODES=20 CHANLIMIT=#:20,&:5 PREFIX=(ov)@+ CHANTYPES=#& NICKLEN=30 :are supported by this server\r\n"},
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
-        {user.pid, ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UMODES=iowZ :are supported by this server\r\n"}
+        {user.pid,
+         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UMODES=BiowZ BOT=B :are supported by this server\r\n"}
       ])
 
       Application.put_env(:elixircd, :capabilities, original_capabilities_config)

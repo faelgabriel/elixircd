@@ -64,7 +64,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
            ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
           {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BiowZ biklmnopstv\r\n"}
           # LUSERS messages are mocked as we don't care about it here
           # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
@@ -111,7 +111,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
            ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
           {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BiowZ biklmnopstv\r\n"}
           # LUSERS messages are mocked as we don't care about it here
           # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
@@ -155,7 +155,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
          ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
         {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
         {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-        {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"}
+        {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BiowZ biklmnopstv\r\n"}
         # LUSERS messages are mocked as we don't care about it here
         # ISUPPORT messages are mocked as we don't care about it here
         # MOTD messages are mocked as we don't care about it here
@@ -199,7 +199,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
            ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
           {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} iowZ biklmnopstv\r\n"},
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BiowZ biklmnopstv\r\n"},
           # LUSERS messages are mocked as we don't care about it here
           # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here

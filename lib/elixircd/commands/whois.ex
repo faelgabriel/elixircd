@@ -115,6 +115,8 @@ defmodule ElixIRCd.Commands.Whois do
       |> Dispatcher.broadcast(user)
     end
 
+    send_bot_whois_response(user, target_user)
+
     if target_user.identified_as do
       Message.build(%{
         prefix: :server,
@@ -213,5 +215,18 @@ defmodule ElixIRCd.Commands.Whois do
 
     # Don't show secret channels to users not in them
     if is_secret and not user_in_channel, do: nil, else: channel.name
+  end
+
+  @spec send_bot_whois_response(User.t(), User.t()) :: :ok
+  defp send_bot_whois_response(user, %User{modes: modes, nick: target_nick} = _target_user) do
+    if "B" in modes do
+      Message.build(%{
+        prefix: :server,
+        command: :rpl_whoisbot,
+        params: [user.nick, target_nick],
+        trailing: "Is a bot on this server"
+      })
+      |> Dispatcher.broadcast(user)
+    end
   end
 end
