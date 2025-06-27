@@ -263,12 +263,14 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 #### User Modes
 
+These modes are applied to users themselves, affecting their behavior and access to the server.
+
 - **+B (Bot)**: Marks the user as a bot. ✅
-- **+g (Caller ID)**: Block messages from users not on an access list. ✅
+- **+g (Caller ID)**: Blocks private messages from users not on your accept list. ✅
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ❌
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
-- **+r (Registered)**: Indicates the user is registered and identified with services. ✴️
+- **+r (Registered)**: Indicates the user is registered and identified with services. ✅
 - **+R (Registered Only)**: Only allows messages from registered users. ❌
 - **+s (Snomask)**: Allows reception of server notices. ❌
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
@@ -277,33 +279,91 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 #### Channel Modes
 
-- **+b (Ban)**: Prevents a user or host from joining the channel. ✅
+These modes are applied to channels themselves, affecting channel behavior and access control.
+
 - **+C (No CTCP)**: Blocks CTCP messages to the channel. ❌
-- **+e (Ban Exception)**: Exempts users from channel bans. ❌
 - **+f (Flood Protection)**: Protects the channel from flooding. ❌
-- **+h (Half-operator)**: Grants half-operator status to a user. ❌
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
-- **+I (Invite Exception)**: Exempts users from invite-only restriction. ❌
 - **+k (Key)**: Requires a password to join the channel. ✅
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
 - **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
-- **+o (Operator)**: Grants operator status to a user. ✅
 - **+p (Private)**: Hides the channel from the LIST command. ✅
-- **+q (Owner)**: Grants channel owner status to a user (higher than operator). ❌
 - **+r (Registered Channel)**: Indicates the channel is registered with services. ❌
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
-- **+t (Topic)**: Restricts the ability to change the channel topic to operators only. ✅
+- **+t (Topic)**: Restricts topic changes to users with operator privileges. ✅
 - **+u (Auditorium)**: Hides join/part/quit messages except for users with voice or higher. ❌
-- **+v (Voice)**: Grants voice status to a user. ✅
 - **+z (Secure Only)**: Restricts channel access to users with secure connections only. ❌
+
+#### Channel List Modes
+
+These modes maintain lists of entries for access control and restrictions.
+
+- **+b (Ban)**: Prevents a user or host from joining the channel. ✅
+- **+e (Ban Exception)**: Exempts users from channel bans. ❌
+- **+I (Invite Exception)**: Exempts users from invite-only restriction. ❌
+
+#### Channel User Modes
+
+These modes are applied to users within channels, granting them specific privileges or status.
+
+- **+q (Owner)**: Grants channel owner status to a user (higher than operator). ❌
+- **+h (Half-operator)**: Grants half-operator status to a user. ❌
+- **+o (Operator)**: Grants operator status to a user. ✅
+- **+v (Voice)**: Grants voice status to a user. ✅
 
 ### Services
 
 ElixIRCd includes integrated IRC services, eliminating the need to connect external services to the server.
 
-- **NickServ**: Register and manage nicknames. ✴️
-- **ChanServ**: Register and manage channels. ✴️
+#### NickServ
+
+NickServ allows users to register and manage nicknames, providing authentication and nickname protection services.
+
+- **HELP**: Display help information and available commands. ✅
+- **REGISTER**: Register a nickname with a password. ✅
+- **VERIFY**: Verify a registered nickname via email confirmation. ✅
+- **IDENTIFY**: Authenticate with a registered nickname. ✅
+- **LOGOUT**: Log out from a registered nickname. ✅
+- **GHOST**: Disconnect a user using your registered nickname. ✅
+- **REGAIN**: Regain your registered nickname from another user. ✅
+- **RELEASE**: Release a nickname that is being held for you. ✅
+- **RECOVER**: Forcefully disconnect another user using nickname and reclaim it. ❌
+- **DROP**: Delete a registered nickname permanently. ✅
+- **INFO**: Display information about a registered nickname. ✅
+- **SET**: Configure settings for your registered nickname. ✅
+- **ACCESS**: Manage the access list for your nickname. ❌
+- **ALIST**: Display channels or nicknames associated with your account. ❌
+- **STATUS**: Check the identification status of one or more nicknames. ❌
+- **GROUP**: Group a nickname with your current registered nickname. ❌
+- **UNGROUP**: Remove a nickname from your group. ❌
+- **LISTCHANS**: List channels where you have access. ❌
+
+#### ChanServ
+
+ChanServ allows users to register and manage channels, providing channel administration and access control services.
+
+- **HELP**: Display help information and available commands. ✅
+- **REGISTER**: Register a channel with ChanServ. ✅
+- **DROP**: Delete a registered channel permanently. ✅
+- **INFO**: Display information about a registered channel. ✅
+- **SET**: Configure settings for a registered channel. ✅
+- **TRANSFER**: Transfer ownership of a registered channel to another user. ✅
+- **ACCESS**: Manage the channel access list. ❌
+- **ALIST**: Display channel access list entries. ❌
+- **FLAGS**: Manage user flags and permissions for the channel. ❌
+- **OP**: Grant operator status to a user in the channel. ❌
+- **DEOP**: Remove operator status from a user in the channel. ❌
+- **VOICE**: Grant voice status to a user in the channel. ❌
+- **DEVOICE**: Remove voice status from a user in the channel. ❌
+- **KICK**: Kick a user from the channel. ❌
+- **BAN**: Ban a user or hostmask from the channel. ❌
+- **UNBAN**: Remove a ban on a user or hostmask. ❌
+- **INVITE**: Invite a user to the channel. ❌
+- **TOPIC**: Change the channel topic. ❌
+- **CLEAR**: Clear various channel settings (modes, bans, ops, etc.). ❌
+- **STATUS**: Check a user's access level in the channel. ❌
+- **SYNC**: Synchronize channel modes with the access list. ❌
 
 ### IRCv3 Specifications
 
@@ -325,7 +385,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **ACCOUNT**: Notify clients when a user's account status changes. ❌
 - **CHGHOST**: Forcefully change a user's ident and hostname. ❌
 - **INVITE**: Extended to optionally include account information. ❌
-- **JOIN**: Extended to include usernames and hostnames in join messages. ❌
+- **JOIN**: Extended to include account name and real name in join messages. ❌
 - **MONITOR**: Track when specific nicknames go online or offline. ❌
 - **NAMES**: Extended to include account names when supported. ❌
 - **TAGMSG**: Send messages with tags but without text content. ❌
