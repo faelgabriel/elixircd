@@ -200,6 +200,50 @@ defmodule ElixIRCd.Commands.WhoisTest do
       end)
     end
 
+    test "handles WHOIS command with registered user (+r mode)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", modes: ["r"])
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+          {user.pid, ":irc.test 307 #{user.nick} #{target_user.nick} :has identified for this nick\r\n"},
+          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
+          {user.pid,
+           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+          {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles WHOIS command with unregistered user (no +r mode)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick", modes: [])
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        # Should not include the 307 registered response
+        assert_sent_messages([
+          {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
+          {user.pid,
+           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+          {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
+      end)
+    end
+
     test "handles WHOIS command with user nick target and target user is away" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -261,6 +305,40 @@ defmodule ElixIRCd.Commands.WhoisTest do
         ])
       end)
     end
+
+    test "handles WHOIS command with modern IRC numeric order (registered, identified, bot, operator, away)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        target_user =
+          insert(:user,
+            nick: "target_nick",
+            modes: ["r", "B", "o"],
+            identified_as: "TestAccount",
+            away_message: "Busy coding"
+          )
+
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+          {user.pid, ":irc.test 307 #{user.nick} #{target_user.nick} :has identified for this nick\r\n"},
+          {user.pid, ":irc.test 330 #{user.nick} #{target_user.nick} TestAccount :is logged in as TestAccount\r\n"},
+          {user.pid, ":irc.test 335 #{user.nick} #{target_user.nick} :Is a bot on this server\r\n"},
+          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
+          {user.pid,
+           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :Busy coding\r\n"},
+          {user.pid, ":irc.test 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
+          {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+          {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
+      end)
+    end
   end
 
   @spec assert_user_whois_message(User.t(), User.t(), Channel.t()) :: :ok
@@ -268,19 +346,21 @@ defmodule ElixIRCd.Commands.WhoisTest do
     assert_sent_messages(
       [
         {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+        target_user.modes |> Enum.find(fn mode -> mode == "r" end) &&
+          {user.pid, ":irc.test 307 #{user.nick} #{target_user.nick} :has identified for this nick\r\n"},
+        target_user.identified_as &&
+          {user.pid,
+           ":irc.test 330 #{user.nick} #{target_user.nick} #{target_user.identified_as} :is logged in as #{target_user.identified_as}\r\n"},
+        target_user.modes |> Enum.find(fn mode -> mode == "B" end) &&
+          {user.pid, ":irc.test 335 #{user.nick} #{target_user.nick} :Is a bot on this server\r\n"},
         {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
         {user.pid,
          ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
-        {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
         target_user.away_message &&
           {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :#{target_user.away_message}\r\n"},
         target_user.modes |> Enum.find(fn mode -> mode == "o" end) &&
           {user.pid, ":irc.test 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
-        target_user.modes |> Enum.find(fn mode -> mode == "B" end) &&
-          {user.pid, ":irc.test 335 #{user.nick} #{target_user.nick} :Is a bot on this server\r\n"},
-        target_user.identified_as &&
-          {user.pid,
-           ":irc.test 330 #{user.nick} #{target_user.nick} #{target_user.identified_as} :is logged in as #{target_user.identified_as}\r\n"},
+        {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
         {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
       ]
       |> Enum.reject(&(&1 == nil))

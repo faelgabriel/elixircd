@@ -27,11 +27,12 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
     test "handles DROP command with no parameters for a registered nick" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)
-        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname)
+        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
 
         assert :ok = Drop.handle(user, ["DROP"])
 
         assert_sent_messages([
+          {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
@@ -40,6 +41,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
+        assert "r" not in updated_user.modes
       end)
     end
 
@@ -73,11 +75,12 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
     test "handles DROP command for identified user dropping their own nick" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)
-        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname)
+        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
 
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname])
 
         assert_sent_messages([
+          {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
@@ -86,6 +89,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
+        assert "r" not in updated_user.modes
       end)
     end
 
@@ -146,12 +150,39 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
         user = insert(:user)
-        target_user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname)
+
+        target_user =
+          insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
 
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, password])
 
         {:ok, updated_target_user} = Users.get_by_pid(target_user.pid)
         assert updated_target_user.identified_as == nil
+        assert "r" not in updated_target_user.modes
+      end)
+    end
+
+    test "handles DROP command for user identified as nickname but using different current nick" do
+      Memento.transaction!(fn ->
+        password = "correct_password"
+        password_hash = Argon2.hash_pwd_salt(password)
+        registered_nick = insert(:registered_nick, password_hash: password_hash)
+
+        user = insert(:user, nick: "different_nick", identified_as: registered_nick.nickname, modes: ["r"])
+
+        assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, password])
+
+        assert_sent_messages([
+          {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
+        ])
+
+        assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.identified_as == nil
+        assert "r" not in updated_user.modes
       end)
     end
   end

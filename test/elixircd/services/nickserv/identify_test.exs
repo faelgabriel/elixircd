@@ -41,6 +41,25 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
       end)
     end
 
+    test "blocks IDENTIFY attempt for different account without logout" do
+      Memento.transaction!(fn ->
+        current_registered_nick = insert(:registered_nick, nickname: "current_account")
+        other_registered_nick = insert(:registered_nick, nickname: "other_account")
+
+        user = insert(:user, identified_as: current_registered_nick.nickname)
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", other_registered_nick.nickname, "password"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are already identified as \x02#{current_registered_nick.nickname}\x02. Please /msg NickServ LOGOUT first.\r\n"}
+        ])
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.identified_as == current_registered_nick.nickname
+      end)
+    end
+
     test "handles IDENTIFY command for unregistered nickname" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -84,7 +103,8 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -108,7 +128,8 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Your current nickname will now be recognized with your account.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Your current nickname will now be recognized with your account.\r\n"},
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
