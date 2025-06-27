@@ -309,18 +309,20 @@ defmodule ElixIRCd.Commands.WhoisTest do
     test "handles WHOIS command with modern IRC numeric order (registered, identified, bot, operator, away)" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        target_user = insert(:user,
-          nick: "target_nick",
-          modes: ["r", "B", "o"],
-          identified_as: "TestAccount",
-          away_message: "Busy coding"
-        )
+
+        target_user =
+          insert(:user,
+            nick: "target_nick",
+            modes: ["r", "B", "o"],
+            identified_as: "TestAccount",
+            away_message: "Busy coding"
+          )
+
         channel = insert(:channel)
         insert(:user_channel, user: target_user, channel: channel)
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
         assert :ok = Whois.handle(user, message)
-
 
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},

@@ -150,7 +150,9 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
         user = insert(:user)
-        target_user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
+
+        target_user =
+          insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
 
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, password])
 

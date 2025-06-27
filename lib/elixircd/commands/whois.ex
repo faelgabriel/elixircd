@@ -64,41 +64,44 @@ defmodule ElixIRCd.Commands.Whois do
   end
 
   def whois_message(user, _target_nick, target_user, target_user_channels_display) when target_user != nil do
-    idle_seconds = (:erlang.system_time(:second) - target_user.last_activity) |> to_string()
-    signon_time = target_user.registered_at |> DateTime.to_unix()
-
     []
-    |> maybe_add_whoisuser(user, target_user)
+    |> add_whoisuser(user, target_user)
     |> maybe_add_whoisregnick(user, target_user)
     |> maybe_add_whoisaccount(user, target_user)
     |> maybe_add_whoisbot(user, target_user)
-    |> maybe_add_whoischannels(user, target_user, target_user_channels_display)
-    |> maybe_add_whoisserver(user, target_user)
+    |> add_whoischannels(user, target_user, target_user_channels_display)
+    |> add_whoisserver(user, target_user)
     |> maybe_add_away(user, target_user)
     |> maybe_add_whoisoperator(user, target_user)
-    |> maybe_add_whoisidle(user, target_user, idle_seconds, signon_time)
+    |> add_whoisidle(user, target_user)
     |> Dispatcher.broadcast(user)
   end
 
-  @spec maybe_add_whoisuser([Message.t()], User.t(), User.t()) :: [Message.t()]
-  defp maybe_add_whoisuser(messages, user, target_user) do
-    messages ++ [Message.build(%{
-      prefix: :server,
-      command: :rpl_whoisuser,
-      params: [user.nick, target_user.nick, target_user.ident, target_user.hostname, "*"],
-      trailing: target_user.realname
-    })]
+  @spec add_whoisuser([Message.t()], User.t(), User.t()) :: [Message.t()]
+  defp add_whoisuser(messages, user, target_user) do
+    messages ++
+      [
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_whoisuser,
+          params: [user.nick, target_user.nick, target_user.ident, target_user.hostname, "*"],
+          trailing: target_user.realname
+        })
+      ]
   end
 
   @spec maybe_add_whoisregnick([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisregnick(messages, user, target_user) do
     if "r" in target_user.modes do
-      messages ++ [Message.build(%{
-        prefix: :server,
-        command: :rpl_whoisregnick,
-        params: [user.nick, target_user.nick],
-        trailing: "has identified for this nick"
-      })]
+      messages ++
+        [
+          Message.build(%{
+            prefix: :server,
+            command: :rpl_whoisregnick,
+            params: [user.nick, target_user.nick],
+            trailing: "has identified for this nick"
+          })
+        ]
     else
       messages
     end
@@ -107,12 +110,15 @@ defmodule ElixIRCd.Commands.Whois do
   @spec maybe_add_whoisaccount([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisaccount(messages, user, target_user) do
     if target_user.identified_as do
-      messages ++ [Message.build(%{
-        prefix: :server,
-        command: :rpl_whoisaccount,
-        params: [user.nick, target_user.nick, target_user.identified_as],
-        trailing: "is logged in as #{target_user.identified_as}"
-      })]
+      messages ++
+        [
+          Message.build(%{
+            prefix: :server,
+            command: :rpl_whoisaccount,
+            params: [user.nick, target_user.nick, target_user.identified_as],
+            trailing: "is logged in as #{target_user.identified_as}"
+          })
+        ]
     else
       messages
     end
@@ -121,46 +127,60 @@ defmodule ElixIRCd.Commands.Whois do
   @spec maybe_add_whoisbot([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisbot(messages, user, target_user) do
     if "B" in target_user.modes do
-      messages ++ [Message.build(%{
-        prefix: :server,
-        command: :rpl_whoisbot,
-        params: [user.nick, target_user.nick],
-        trailing: "Is a bot on this server"
-      })]
+      messages ++
+        [
+          Message.build(%{
+            prefix: :server,
+            command: :rpl_whoisbot,
+            params: [user.nick, target_user.nick],
+            trailing: "Is a bot on this server"
+          })
+        ]
     else
       messages
     end
   end
 
-  @spec maybe_add_whoischannels([Message.t()], User.t(), User.t(), [String.t()]) :: [Message.t()]
-  defp maybe_add_whoischannels(messages, user, target_user, target_user_channels_display) do
-    messages ++ [Message.build(%{
-      prefix: :server,
-      command: :rpl_whoischannels,
-      params: [user.nick, target_user.nick],
-      trailing: target_user_channels_display |> Enum.join(" ")
-    })]
+  @spec add_whoischannels([Message.t()], User.t(), User.t(), [String.t()]) :: [Message.t()]
+  defp add_whoischannels(messages, user, target_user, target_user_channels_display) do
+    messages ++
+      [
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_whoischannels,
+          params: [user.nick, target_user.nick],
+          trailing: target_user_channels_display |> Enum.join(" ")
+        })
+      ]
   end
 
-  @spec maybe_add_whoisserver([Message.t()], User.t(), User.t()) :: [Message.t()]
-  defp maybe_add_whoisserver(messages, user, target_user) do
-    messages ++ [Message.build(%{
-      prefix: :server,
-      command: :rpl_whoisserver,
-      params: [user.nick, target_user.nick, "ElixIRCd", Application.spec(:elixircd, :vsn)],
-      trailing: "Elixir IRC daemon"
-    })]
+  @spec add_whoisserver([Message.t()], User.t(), User.t()) :: [Message.t()]
+  defp add_whoisserver(messages, user, target_user) do
+    version = Application.spec(:elixircd, :vsn) || "dev"
+
+    messages ++
+      [
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_whoisserver,
+          params: [user.nick, target_user.nick, "ElixIRCd", version],
+          trailing: "Elixir IRC daemon"
+        })
+      ]
   end
 
   @spec maybe_add_away([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_away(messages, user, target_user) do
     if target_user.away_message != nil do
-      messages ++ [Message.build(%{
-        prefix: :server,
-        command: :rpl_away,
-        params: [user.nick, target_user.nick],
-        trailing: target_user.away_message
-      })]
+      messages ++
+        [
+          Message.build(%{
+            prefix: :server,
+            command: :rpl_away,
+            params: [user.nick, target_user.nick],
+            trailing: target_user.away_message
+          })
+        ]
     else
       messages
     end
@@ -169,25 +189,34 @@ defmodule ElixIRCd.Commands.Whois do
   @spec maybe_add_whoisoperator([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisoperator(messages, user, target_user) do
     if "o" in target_user.modes do
-      messages ++ [Message.build(%{
-        prefix: :server,
-        command: :rpl_whoisoperator,
-        params: [user.nick, target_user.nick],
-        trailing: "is an IRC operator"
-      })]
+      messages ++
+        [
+          Message.build(%{
+            prefix: :server,
+            command: :rpl_whoisoperator,
+            params: [user.nick, target_user.nick],
+            trailing: "is an IRC operator"
+          })
+        ]
     else
       messages
     end
   end
 
-  @spec maybe_add_whoisidle([Message.t()], User.t(), User.t(), String.t(), integer()) :: [Message.t()]
-  defp maybe_add_whoisidle(messages, user, target_user, idle_seconds, signon_time) do
-    messages ++ [Message.build(%{
-      prefix: :server,
-      command: :rpl_whoisidle,
-      params: [user.nick, target_user.nick, idle_seconds, signon_time],
-      trailing: "seconds idle, signon time"
-    })]
+  @spec add_whoisidle([Message.t()], User.t(), User.t()) :: [Message.t()]
+  defp add_whoisidle(messages, user, target_user) do
+    idle_seconds = (:erlang.system_time(:second) - target_user.last_activity) |> to_string()
+    signon_time = target_user.registered_at |> DateTime.to_unix() |> to_string()
+
+    messages ++
+      [
+        Message.build(%{
+          prefix: :server,
+          command: :rpl_whoisidle,
+          params: [user.nick, target_user.nick, idle_seconds, signon_time],
+          trailing: "seconds idle, signon time"
+        })
+      ]
   end
 
   @spec get_target_user(User.t(), String.t()) :: {User.t() | nil, [String.t()]}

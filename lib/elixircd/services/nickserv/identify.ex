@@ -45,8 +45,10 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     cond do
       user.identified_as && user.identified_as != nickname ->
         notify(user, "You are already identified as \x02#{user.identified_as}\x02. Please /msg NickServ LOGOUT first.")
+
       user.identified_as == nickname ->
         notify(user, "You are already identified as \x02#{nickname}\x02.")
+
       true ->
         verify_nickname_and_password(user, nickname, password)
     end
@@ -80,10 +82,11 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
     new_modes = user.modes ++ ["r"]
 
-    updated_user = Users.update(user, %{
-      identified_as: registered_nick.nickname,
-      modes: new_modes
-    })
+    updated_user =
+      Users.update(user, %{
+        identified_as: registered_nick.nickname,
+        modes: new_modes
+      })
 
     notify(updated_user, "You are now identified for \x02#{registered_nick.nickname}\x02.")
 
