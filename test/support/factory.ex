@@ -12,6 +12,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserAccept
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.CaseMapping
 
@@ -53,6 +54,14 @@ defmodule ElixIRCd.Factory do
       last_activity: Map.get(attrs, :last_activity, :erlang.system_time(:second)),
       registered_at: registered_at,
       identified_as: Map.get(attrs, :identified_as, nil),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:user_accept, attrs) do
+    %UserAccept{
+      user_pid: Map.get(attrs, :user_pid, new_pid()),
+      accepted_user_pid: Map.get(attrs, :accepted_user_pid, new_pid()),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
@@ -298,6 +307,30 @@ defmodule ElixIRCd.Factory do
   def insert(:registered_nick, attrs) do
     Memento.transaction!(fn ->
       build(:registered_nick, attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:user_accept, attrs) do
+    accepted_user =
+      case Map.get(attrs, :accepted_user) do
+        nil -> insert(:user)
+        accepted_user -> accepted_user
+      end
+
+    user =
+      case Map.get(attrs, :user) do
+        nil -> insert(:user)
+        user -> user
+      end
+
+    updated_attrs =
+      attrs
+      |> Map.put(:user_pid, user.pid)
+      |> Map.put(:accepted_user_pid, accepted_user.pid)
+
+    Memento.transaction!(fn ->
+      build(:user_accept, updated_attrs)
       |> Memento.Query.write()
     end)
   end

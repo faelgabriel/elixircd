@@ -100,6 +100,20 @@ defmodule ElixIRCd.Repositories.UsersTest do
     end
   end
 
+  describe "get_by_nicks/1" do
+    test "returns a list of users by nick" do
+      user1 = insert(:user)
+      user2 = insert(:user)
+
+      result = Memento.transaction!(fn -> Users.get_by_nicks([user1.nick, user2.nick]) end)
+      assert Enum.sort(result) == Enum.sort([user1, user2])
+    end
+
+    test "returns an empty list when no nicks are given" do
+      assert [] == Memento.transaction!(fn -> Users.get_by_nicks([]) end)
+    end
+  end
+
   describe "get_by_match_mask/1" do
     test "returns a list of users that match the mask" do
       insert(:user, hostname: "any")

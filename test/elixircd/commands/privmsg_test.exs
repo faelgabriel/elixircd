@@ -284,5 +284,20 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         verify!()
       end)
     end
+
+    test "handles PRIVMSG command for user with +g mode (sender gets blocked notification)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user, modes: ["g"])
+
+        message = %Message{command: "PRIVMSG", params: [another_user.nick], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 716 #{user.nick} #{another_user.nick} :Your message has been blocked. #{another_user.nick} is only accepting messages from authorized users.\r\n"}
+        ])
+      end)
+    end
   end
 end

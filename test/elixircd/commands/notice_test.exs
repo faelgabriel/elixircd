@@ -111,5 +111,20 @@ defmodule ElixIRCd.Commands.NoticeTest do
         ])
       end)
     end
+
+    test "handles NOTICE command for user with +g mode (sender gets blocked notification)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user, modes: ["g"])
+
+        message = %Message{command: "NOTICE", params: [another_user.nick], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 716 #{user.nick} #{another_user.nick} :Your message has been blocked. #{another_user.nick} is only accepting messages from authorized users.\r\n"}
+        ])
+      end)
+    end
   end
 end

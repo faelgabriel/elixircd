@@ -11,6 +11,7 @@ defmodule ElixIRCd.Command do
   alias ElixIRCd.Tables.User
 
   @commands %{
+    "ACCEPT" => Commands.Accept,
     "ADMIN" => Commands.Admin,
     "AWAY" => Commands.Away,
     "CAP" => Commands.Cap,

@@ -196,5 +196,16 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       assert updated_user.modes == ["Z"]
       assert applied_modes == []
     end
+
+    test "handles add and remove +g modes" do
+      user = insert(:user, modes: [])
+      validated_modes = [{:add, "g"}, {:remove, "g"}]
+
+      {updated_user, applied_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == [{:add, "g"}, {:remove, "g"}]
+    end
   end
 end

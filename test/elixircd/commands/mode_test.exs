@@ -394,18 +394,22 @@ defmodule ElixIRCd.Commands.ModeTest do
     end
 
     test "handles MODE command for channel when mode changes exceed the limit" do
+      original_config = Application.get_env(:elixircd, :channel)
+      Application.put_env(:elixircd, :channel, original_config |> Keyword.put(:max_modes_per_command, 4))
+      on_exit(fn -> Application.put_env(:elixircd, :channel, original_config) end)
+
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, modes: [])
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
-        # Test with 21 modes (over limit of 20)
-        message = %Message{command: "MODE", params: [channel.name, "+tnmislpovbktnmislpovb"]}
+        # Test with 5 modes (over limit of 4)
+        message = %Message{command: "MODE", params: [channel.name, "+tnmis"]}
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test 472 #{user.nick} #{channel.name} :Too many channel modes in one command (maximum is 20)\r\n"}
+           ":irc.test 472 #{user.nick} #{channel.name} :Too many channel modes in one command (maximum is 4)\r\n"}
         ])
       end)
     end
@@ -525,6 +529,27 @@ defmodule ElixIRCd.Commands.ModeTest do
 
         assert_sent_messages([
           {user_with_mode.pid, ":#{user_mask(user_with_mode)} MODE #{user_with_mode.nick} -B\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for user setting and removing +g on themselves" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: [])
+
+        message = %Message{command: "MODE", params: [user.nick, "+g"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} MODE #{user.nick} +g\r\n"}
+        ])
+
+        user_with_mode = %{user | modes: ["g"]}
+        message = %Message{command: "MODE", params: [user_with_mode.nick, "-g"]}
+        assert :ok = Mode.handle(user_with_mode, message)
+
+        assert_sent_messages([
+          {user_with_mode.pid, ":#{user_mask(user_with_mode)} MODE #{user_with_mode.nick} -g\r\n"}
         ])
       end)
     end
