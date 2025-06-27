@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.AcceptTest do
   alias ElixIRCd.Commands.Accept
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserAccepts
+  alias ElixIRCd.Tables.User
 
   describe "handle/2" do
     test "handles ACCEPT command for unregistered user" do
@@ -137,7 +138,6 @@ defmodule ElixIRCd.Commands.AcceptTest do
         message = %Message{command: "ACCEPT", params: []}
         assert :ok = Accept.handle(user, message)
 
-        # Check that we get messages containing the accept list entries and end message
         assert_sent_messages_count_containing(user.pid, ~r/281.*TestUser/, 2)
         assert_sent_messages_count_containing(user.pid, ~r/282/, 1)
       end)
@@ -152,7 +152,6 @@ defmodule ElixIRCd.Commands.AcceptTest do
         message = %Message{command: "ACCEPT", params: ["#{target_user1.nick},#{target_user2.nick}"]}
         assert :ok = Accept.handle(user, message)
 
-        # Should get two confirmation messages
         assert_sent_messages_count_containing(user.pid, ~r/287.*has been added/, 2)
       end)
     end
@@ -170,6 +169,40 @@ defmodule ElixIRCd.Commands.AcceptTest do
 
         assert_sent_messages_count_containing(user.pid, ~r/288/, 1)
         assert_sent_messages_count_containing(user.pid, ~r/287/, 1)
+      end)
+    end
+
+    test "handles ACCEPT command removing non-existent user" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        message = %Message{command: "ACCEPT", params: ["-nonexistent"]}
+        assert :ok = Accept.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 401 #{user.nick} nonexistent :No such nick\r\n"}
+        ])
+      end)
+    end
+
+    test "handles ACCEPT command listing accept list with deleted accepted user" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user1 = insert(:user, nick: "TestUser1")
+        target_user2 = insert(:user, nick: "TestUser2")
+
+        insert(:user_accept, user: user, accepted_user: target_user1)
+        insert(:user_accept, user: user, accepted_user: target_user2)
+
+        # Simulate the accepted user being deleted
+        Memento.Query.delete(User, target_user1.pid)
+
+        message = %Message{command: "ACCEPT", params: []}
+        assert :ok = Accept.handle(user, message)
+
+        # Should only get one accept list entry (for the existing user)
+        assert_sent_messages_count_containing(user.pid, ~r/281.*TestUser2/, 1)
+        assert_sent_messages_count_containing(user.pid, ~r/282/, 1)
       end)
     end
   end

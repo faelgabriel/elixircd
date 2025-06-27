@@ -292,7 +292,6 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_rehashing), do: "382"
   defp numeric_reply(:rpl_time), do: "391"
   defp numeric_reply(:rpl_umodegmsg), do: "716"
-  defp numeric_reply(:rpl_umodegnotice), do: "717"
   # Error replies
   defp numeric_reply(:err_nosuchnick), do: "401"
   defp numeric_reply(:err_nosuchchannel), do: "403"
@@ -308,7 +307,6 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_notonchannel), do: "442"
   defp numeric_reply(:err_useronchannel), do: "443"
   defp numeric_reply(:err_notregistered), do: "451"
-  defp numeric_reply(:err_acceptfull), do: "456"
   defp numeric_reply(:err_acceptnot), do: "457"
   defp numeric_reply(:err_acceptexist), do: "458"
   defp numeric_reply(:err_needmoreparams), do: "461"
