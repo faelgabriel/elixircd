@@ -25,6 +25,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "REGISTER"), do: send_register_help(user)
   defp send_help_for_command(user, "VERIFY"), do: send_verify_help(user)
   defp send_help_for_command(user, "IDENTIFY"), do: send_identify_help(user)
+  defp send_help_for_command(user, "LOGOUT"), do: send_logout_help(user)
   defp send_help_for_command(user, "GHOST"), do: send_ghost_help(user)
   defp send_help_for_command(user, "REGAIN"), do: send_regain_help(user)
   defp send_help_for_command(user, "RELEASE"), do: send_release_help(user)
@@ -134,6 +135,23 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "Examples:",
       "    \x02/msg NickServ IDENTIFY mypassword\x02",
       "    \x02/msg NickServ IDENTIFY MyNick mypassword\x02"
+    ])
+  end
+
+  @spec send_logout_help(User.t()) :: :ok
+  defp send_logout_help(user) do
+    notify(user, [
+      "Help for \x02LOGOUT\x02:",
+      format_help("LOGOUT", [], "Logs you out from your current account."),
+      "",
+      "This command logs you out from your current NickServ account,",
+      "removing your authenticated status and any privileges associated",
+      "with your account. You will need to identify again to regain access.",
+      "",
+      "Syntax: \x02LOGOUT\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ LOGOUT\x02"
     ])
   end
 
@@ -321,6 +339,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "The following commands are available:",
       "\x02REGISTER\x02     - Register a nickname",
       "\x02IDENTIFY\x02     - Identify to your nickname",
+      "\x02LOGOUT\x02       - Log out from your current account",
       "\x02VERIFY\x02       - Verify a registered nickname",
       "\x02GHOST\x02        - Kill a ghost session using your nickname",
       "\x02REGAIN\x02       - Regain your nickname from another user",

@@ -10,8 +10,10 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
+  alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -40,10 +42,13 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   defp identify_nickname(user, nickname, password) do
     Logger.debug("IDENTIFY attempt for nickname #{nickname} from #{user_mask(user)}")
 
-    if user.identified_as == nickname do
-      notify(user, "You are already identified as \x02#{nickname}\x02.")
-    else
-      verify_nickname_and_password(user, nickname, password)
+    cond do
+      user.identified_as && user.identified_as != nickname ->
+        notify(user, "You are already identified as \x02#{user.identified_as}\x02. Please /msg NickServ LOGOUT first.")
+      user.identified_as == nickname ->
+        notify(user, "You are already identified as \x02#{nickname}\x02.")
+      true ->
+        verify_nickname_and_password(user, nickname, password)
     end
   end
 
@@ -73,13 +78,25 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
       last_seen_at: DateTime.utc_now()
     })
 
-    Users.update(user, %{identified_as: registered_nick.nickname})
+    new_modes = user.modes ++ ["r"]
 
-    notify(user, "You are now identified for \x02#{registered_nick.nickname}\x02.")
+    updated_user = Users.update(user, %{
+      identified_as: registered_nick.nickname,
+      modes: new_modes
+    })
 
-    if user.nick != registered_nick.nickname do
-      notify(user, "Your current nickname will now be recognized with your account.")
+    notify(updated_user, "You are now identified for \x02#{registered_nick.nickname}\x02.")
+
+    if updated_user.nick != registered_nick.nickname do
+      notify(updated_user, "Your current nickname will now be recognized with your account.")
     end
+
+    Message.build(%{
+      prefix: :server,
+      command: "MODE",
+      params: [updated_user.nick, "+r"]
+    })
+    |> Dispatcher.broadcast(updated_user)
   end
 
   @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok

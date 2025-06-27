@@ -6,9 +6,9 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
-  @modes ["B", "g", "i", "o", "w", "Z"]
-  @modes_handled_by_server_to_add ["o", "Z"]
-  @modes_handled_by_server_to_remove ["Z"]
+  @modes ["B", "g", "i", "o", "r", "w", "Z"]
+  @modes_handled_by_server_to_add ["o", "r", "Z"]
+  @modes_handled_by_server_to_remove ["r", "Z"]
 
   @type mode :: String.t()
   @type mode_change :: {:add, mode()} | {:remove, mode()}

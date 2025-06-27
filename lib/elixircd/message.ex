@@ -260,6 +260,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_ison), do: "303"
   defp numeric_reply(:rpl_unaway), do: "305"
   defp numeric_reply(:rpl_nowaway), do: "306"
+  defp numeric_reply(:rpl_whoisregnick), do: "307"
   defp numeric_reply(:rpl_whoisuser), do: "311"
   defp numeric_reply(:rpl_whoisserver), do: "312"
   defp numeric_reply(:rpl_whoisoperator), do: "313"

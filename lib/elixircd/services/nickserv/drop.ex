@@ -7,8 +7,10 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
 
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
 
+  alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -59,15 +61,31 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     case Users.get_by_nick(registered_nick.nickname) do
       {:ok, target_user} ->
         if target_user.identified_as == registered_nick.nickname do
-          Users.update(target_user, %{identified_as: nil})
+          new_modes = List.delete(target_user.modes, "r")
+          updated_target_user = Users.update(target_user, %{identified_as: nil, modes: new_modes})
+
+          Message.build(%{
+            prefix: :server,
+            command: "MODE",
+            params: [updated_target_user.nick, "-r"]
+          })
+          |> Dispatcher.broadcast(updated_target_user)
         end
 
       {:error, :user_not_found} ->
         :ok
     end
 
-    if user.identified_as == registered_nick.nickname do
-      Users.update(user, %{identified_as: nil})
+    if user.identified_as == registered_nick.nickname and user.nick != registered_nick.nickname do
+      new_modes = List.delete(user.modes, "r")
+      updated_user = Users.update(user, %{identified_as: nil, modes: new_modes})
+
+      Message.build(%{
+        prefix: :server,
+        command: "MODE",
+        params: [updated_user.nick, "-r"]
+      })
+      |> Dispatcher.broadcast(updated_user)
     end
 
     RegisteredNicks.delete(cleared_nickname)
