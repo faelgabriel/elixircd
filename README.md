@@ -230,6 +230,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **USERHOST**: Provide information about a list of nicknames. ✅
 - **USERS**: List users logged into the server. ✅
 - **AWAY**: Set an away message. ✅
+- **ACCEPT**: Manage a list of users allowed to bypass +g (Caller ID) restrictions. ✅
 - **PING/PONG**: Test the presence of an active connection. ✅
 - **QUIT**: Disconnect from the server. ✅
 - **LUSERS**: Get statistics about the size of the network. ✅
@@ -263,7 +264,7 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 #### User Modes
 
 - **+B (Bot)**: Marks the user as a bot. ✅
-- **+g (Caller ID)**: Block messages from users not on an access list. ❌
+- **+g (Caller ID)**: Block messages from users not on an access list. ✅
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ❌
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅

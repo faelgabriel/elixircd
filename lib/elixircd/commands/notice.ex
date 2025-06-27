@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.Notice do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -87,23 +88,51 @@ defmodule ElixIRCd.Commands.Notice do
 
   defp handle_user_message(user, target_nick, message) do
     case Users.get_by_nick(target_nick) do
-      {:ok, receiver_user} ->
-        Message.build(%{
-          prefix: user_mask(user),
-          command: "NOTICE",
-          params: [target_nick],
-          trailing: message
-        })
-        |> Dispatcher.broadcast(receiver_user)
-
-      {:error, :user_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_nosuchnick,
-          params: [user.nick, target_nick],
-          trailing: "No such nick"
-        })
-        |> Dispatcher.broadcast(user)
+      {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message)
+      {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
     end
+  end
+
+  @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
+  defp handle_user_message(user, receiver_user, target_nick, message) do
+    if "g" in receiver_user.modes and
+         is_nil(UserAccepts.get_by_user_pid_and_accepted_user_pid(receiver_user.pid, user.pid)) do
+      handle_blocked_user_message(user, receiver_user)
+    else
+      handle_normal_user_message(user, receiver_user, target_nick, message)
+    end
+  end
+
+  @spec handle_blocked_user_message(User.t(), User.t()) :: :ok
+  defp handle_blocked_user_message(sender, recipient) do
+    Message.build(%{
+      prefix: :server,
+      command: :rpl_umodegmsg,
+      params: [sender.nick, recipient.nick],
+      trailing: "Your message has been blocked. #{recipient.nick} is only accepting messages from authorized users."
+    })
+    |> Dispatcher.broadcast(sender)
+  end
+
+  @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
+  defp handle_normal_user_message(user, receiver_user, target_nick, message) do
+    Message.build(%{
+      prefix: user_mask(user),
+      command: "NOTICE",
+      params: [target_nick],
+      trailing: message
+    })
+    |> Dispatcher.broadcast(receiver_user)
+  end
+
+  @spec handle_user_not_found(User.t(), String.t()) :: :ok
+  defp handle_user_not_found(user, target_nick) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_nosuchnick,
+      params: [user.nick, target_nick],
+      trailing: "No such nick"
+    })
+    |> Dispatcher.broadcast(user)
   end
 end

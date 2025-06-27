@@ -84,6 +84,22 @@ defmodule ElixIRCd.Repositories.Users do
   end
 
   @doc """
+  Get all users by the nicks.
+  """
+  @spec get_by_nicks([String.t()]) :: [User.t()]
+  def get_by_nicks([]), do: []
+
+  def get_by_nicks(nicks) do
+    nick_keys = Enum.map(nicks, &CaseMapping.normalize/1)
+
+    conditions =
+      Enum.map(nick_keys, fn nick_key -> {:==, :nick_key, nick_key} end)
+      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
+
+    Memento.Query.select(User, conditions)
+  end
+
+  @doc """
   Get all users that match the mask.
   """
   @spec get_by_match_mask(String.t()) :: [User.t()]
