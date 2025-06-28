@@ -5,7 +5,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Formatting, only: [contains_formatting?: 1, ctcp_message?: 1]
+  import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1]
 
   import ElixIRCd.Utils.Protocol,
     only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1, service_name?: 1]

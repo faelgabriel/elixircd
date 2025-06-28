@@ -1,6 +1,6 @@
-defmodule ElixIRCd.Utils.Formatting do
+defmodule ElixIRCd.Utils.MessageText do
   @moduledoc """
-  Utility functions for IRC formatting character detection.
+  Utility functions for inspecting IRC MessageText.
   """
 
   # IRC formatting control characters
@@ -25,9 +25,6 @@ defmodule ElixIRCd.Utils.Formatting do
 
   @doc """
   Checks if a message contains IRC formatting characters.
-
-  Returns true if the message contains any IRC formatting control characters
-  such as colors, bold, underline, reverse, italic, strikethrough, monospace, or reset.
   """
   @spec contains_formatting?(String.t()) :: boolean()
   def contains_formatting?(message_text) do

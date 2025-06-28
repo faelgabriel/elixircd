@@ -5,7 +5,7 @@ defmodule ElixIRCd.Commands.Notice do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Formatting, only: [contains_formatting?: 1]
+  import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1]
 
   alias ElixIRCd.Message
