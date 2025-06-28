@@ -154,9 +154,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         ])
       end)
     end
-  end
 
-  describe "handle/2 with +c mode (No colors)" do
     test "blocks messages with color codes when +c mode is set" do
       Memento.transaction!(fn ->
         user = insert(:user)

@@ -343,9 +343,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
-  end
 
-  describe "handle/2 with +C mode (No CTCP)" do
     test "blocks CTCP messages for regular users when +C mode is set" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -464,9 +462,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
-  end
 
-  describe "handle/2 with +c mode (No colors)" do
     test "blocks messages with color codes when +c mode is set" do
       Memento.transaction!(fn ->
         user = insert(:user)
