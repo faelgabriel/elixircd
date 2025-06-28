@@ -222,7 +222,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
       end)
     end
 
-    test "handles WHOIS command with unregistered user (no +r mode)" do
+    test "handles WHOIS command with user not registered (no +r mode)" do
       Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "target_nick", modes: [])

@@ -112,7 +112,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       end)
     end
 
-    test "handles NOTICE command for user with +g mode (sender gets blocked notification)" do
+    test "handles NOTICE command for user with +g mode and sender is not registered (sender gets blocked notification)" do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user, modes: ["g"])
@@ -123,6 +123,34 @@ defmodule ElixIRCd.Commands.NoticeTest do
         assert_sent_messages([
           {user.pid,
            ":irc.test 716 #{user.nick} #{another_user.nick} :Your message has been blocked. #{another_user.nick} is only accepting messages from authorized users.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command for user with +R mode and sender is not registered (sender gets blocked notification)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "TargetUser", modes: ["R"])
+        message = %Message{command: "NOTICE", params: [target_user.nick], trailing: "Hello"}
+
+        Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 477 #{user.nick} #{target_user.nick} :You must be identified to message this user\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command for user with +R mode and sender is registered (target gets message)" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["r"])
+        target_user = insert(:user, nick: "TargetUser", modes: ["R"])
+        message = %Message{command: "NOTICE", params: [target_user.nick], trailing: "Hello"}
+
+        Notice.handle(user, message)
+
+        assert_sent_messages([
+          {target_user.pid, ":#{user_mask(user)} NOTICE #{target_user.nick} :Hello\r\n"}
         ])
       end)
     end

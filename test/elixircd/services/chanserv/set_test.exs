@@ -771,7 +771,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       end)
     end
 
-    test "handles SUCCESSOR with unregistered nickname" do
+    test "handles SUCCESSOR with non-existent nickname" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         non_existent_nick = "non_existent_nick"

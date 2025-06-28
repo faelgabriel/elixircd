@@ -98,12 +98,28 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec handle_user_message(User.t(), User.t(), String.t(), Message.t()) :: :ok
   defp handle_user_message(user, target_user, target_nick, message) do
-    if "g" in target_user.modes and
-         is_nil(UserAccepts.get_by_user_pid_and_accepted_user_pid(target_user.pid, user.pid)) do
-      handle_blocked_user_message(user, target_user)
-    else
-      handle_normal_user_message(user, target_user, target_nick, message)
+    cond do
+      "R" in target_user.modes and "r" not in user.modes ->
+        handle_restricted_user_message(user, target_user)
+
+      "g" in target_user.modes and
+          is_nil(UserAccepts.get_by_user_pid_and_accepted_user_pid(target_user.pid, user.pid)) ->
+        handle_blocked_user_message(user, target_user)
+
+      true ->
+        handle_normal_user_message(user, target_user, target_nick, message)
     end
+  end
+
+  @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
+  defp handle_restricted_user_message(sender, recipient) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_cannotsendtouser,
+      params: [sender.nick, recipient.nick],
+      trailing: "You must be identified to message this user"
+    })
+    |> Dispatcher.broadcast(sender)
   end
 
   @spec handle_blocked_user_message(User.t(), User.t()) :: :ok

@@ -12,7 +12,7 @@ defmodule ElixIRCd.Commands.AcceptTest do
   alias ElixIRCd.Tables.User
 
   describe "handle/2" do
-    test "handles ACCEPT command for unregistered user" do
+    test "handles ACCEPT command for user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
 

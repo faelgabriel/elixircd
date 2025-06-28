@@ -60,7 +60,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
       end)
     end
 
-    test "handles IDENTIFY command for unregistered nickname" do
+    test "handles IDENTIFY command for nickname that is not registered" do
       Memento.transaction!(fn ->
         user = insert(:user)
 

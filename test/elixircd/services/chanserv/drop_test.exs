@@ -37,7 +37,7 @@ defmodule ElixIRCd.Services.Chanserv.DropTest do
       end)
     end
 
-    test "handles DROP command for unregistered channel" do
+    test "handles DROP command for channel not registered" do
       Memento.transaction!(fn ->
         channel_name = "#nonexistentchannel"
         user = insert(:user, identified_as: "founder")

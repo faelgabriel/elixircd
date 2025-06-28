@@ -100,7 +100,7 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       assert reply == user.nick
     end
 
-    test "returns reply for unregistered user" do
+    test "returns reply for user not registered" do
       user = build(:user, %{registered: false})
       reply = Protocol.user_reply(user)
 
@@ -121,7 +121,7 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       assert "nick!useriduser@host" == Protocol.user_mask(user)
     end
 
-    test "builds a user mask for unregistered user" do
+    test "builds a user mask for user not registered" do
       user = build(:user, registered: false)
       assert "*" == Protocol.user_mask(user)
     end

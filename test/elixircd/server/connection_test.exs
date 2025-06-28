@@ -255,7 +255,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
   end
 
   describe "handle_disconnect/3" do
-    test "handles disconnect successfully for unregistered user" do
+    test "handles disconnect successfully for user not registered" do
       user = insert(:user, registered: false)
 
       assert :ok = Connection.handle_disconnect(user.pid, user.transport, "Test disconnect")
