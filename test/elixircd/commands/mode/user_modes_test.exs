@@ -7,17 +7,28 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
 
   alias ElixIRCd.Commands.Mode.UserModes
 
-  describe "display_modes/1" do
+  describe "display_modes/2" do
     test "handles empty modes" do
+      user = insert(:user, modes: [])
       modes = []
 
-      assert "" == UserModes.display_modes(modes)
+      assert "" == UserModes.display_modes(user, modes)
     end
 
-    test "handles modes" do
-      modes = ["B", "i", "w", "o", "Z"]
+    test "handles modes for regular user" do
+      user = insert(:user, modes: [])
+      modes = ["B", "H", "i", "w", "o", "Z"]
 
-      assert "+BiwoZ" == UserModes.display_modes(modes)
+      # Regular user should not see "H" operator-only mode
+      assert "+BiwoZ" == UserModes.display_modes(user, modes)
+    end
+
+    test "handles modes for operator user" do
+      user = insert(:user, modes: ["o"])
+      modes = ["B", "H", "i", "w", "o", "Z"]
+
+      # Operator should see all modes including "H"
+      assert "+BHiwoZ" == UserModes.display_modes(user, modes)
     end
   end
 
@@ -135,7 +146,7 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       user = insert(:user, modes: [])
       validated_modes = [{:add, "i"}, {:add, "w"}]
 
-      {updated_user, applied_modes} =
+      {updated_user, applied_modes, _unauthorized_modes} =
         Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
 
       assert updated_user.modes == ["i", "w"]
@@ -146,7 +157,7 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       user = insert(:user, modes: ["i", "w"])
       validated_modes = [{:remove, "i"}, {:remove, "w"}]
 
-      {updated_user, applied_modes} =
+      {updated_user, applied_modes, _unauthorized_modes} =
         Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
 
       assert updated_user.modes == []
@@ -157,7 +168,7 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       user = insert(:user, modes: [])
       validated_modes = [{:add, "i"}, {:add, "w"}, {:remove, "i"}, {:remove, "w"}]
 
-      {updated_user, applied_modes} =
+      {updated_user, applied_modes, _unauthorized_modes} =
         Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
 
       assert updated_user.modes == []
@@ -168,7 +179,7 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       user = insert(:user, modes: ["i", "w"])
       validated_modes = [{:remove, "i"}, {:add, "w"}, {:remove, "w"}, {:add, "i"}]
 
-      {updated_user, applied_modes} =
+      {updated_user, applied_modes, _unauthorized_modes} =
         Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
 
       assert updated_user.modes == ["i"]
@@ -179,7 +190,7 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       user = insert(:user, modes: [])
       validated_modes = [{:add, "o"}, {:add, "Z"}]
 
-      {updated_user, applied_modes} =
+      {updated_user, applied_modes, _unauthorized_modes} =
         Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
 
       assert updated_user.modes == []
@@ -190,7 +201,7 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       user = insert(:user, modes: ["Z"])
       validated_modes = [{:remove, "Z"}]
 
-      {updated_user, applied_modes} =
+      {updated_user, applied_modes, _unauthorized_modes} =
         Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
 
       assert updated_user.modes == ["Z"]
@@ -201,11 +212,73 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       user = insert(:user, modes: [])
       validated_modes = [{:add, "g"}, {:remove, "g"}]
 
-      {updated_user, applied_modes} =
+      {updated_user, applied_modes, _unauthorized_modes} =
         Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
 
       assert updated_user.modes == []
       assert applied_modes == [{:add, "g"}, {:remove, "g"}]
+    end
+
+    test "handles operator-restricted modes when user is not an operator" do
+      user = insert(:user, modes: [])
+      validated_modes = [{:add, "H"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == []
+      assert unauthorized_modes == [{:add, "H"}]
+    end
+
+    test "handles automatic H mode removal when operator mode is removed" do
+      user = insert(:user, modes: ["o", "H"])
+      validated_modes = [{:remove, "o"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert "H" not in updated_user.modes
+      assert "o" not in updated_user.modes
+      assert applied_modes == [{:remove, "o"}, {:remove, "H"}]
+      assert unauthorized_modes == []
+    end
+
+    test "handles automatic H mode removal when adding H mode and removing operator" do
+      user = insert(:user, modes: ["o"])
+      validated_modes = [{:add, "H"}, {:remove, "o"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert "H" not in updated_user.modes
+      assert "o" not in updated_user.modes
+      assert applied_modes == [{:add, "H"}, {:remove, "o"}, {:remove, "H"}]
+      assert unauthorized_modes == []
+    end
+
+    test "handles adding mode that user already has" do
+      user = insert(:user, modes: ["i"])
+      validated_modes = [{:add, "i"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == ["i"]
+      assert applied_modes == []
+      assert unauthorized_modes == []
+    end
+
+    test "handles removing mode that user does not have" do
+      user = insert(:user, modes: [])
+      validated_modes = [{:remove, "i"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == []
+      assert unauthorized_modes == []
     end
   end
 end

@@ -177,7 +177,7 @@ defmodule ElixIRCd.Commands.Names do
   defp user_visible?(user, is_operator) do
     case is_operator do
       true -> true
-      false -> "i" not in user.modes
+      false -> "i" not in user.modes and "H" not in user.modes
     end
   end
 
@@ -203,7 +203,7 @@ defmodule ElixIRCd.Commands.Names do
       |> Enum.filter(fn target ->
         cond do
           "o" in user.modes -> true
-          "i" not in target.modes -> true
+          "i" not in target.modes and "H" not in target.modes -> true
           true -> false
         end
       end)

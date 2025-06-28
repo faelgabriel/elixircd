@@ -479,5 +479,59 @@ defmodule ElixIRCd.Commands.WhoTest do
         )
       end)
     end
+
+    test "handles WHO command with EXTENDED-UHLIST capability filters operator-restricted modes for non-operators" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["EXTENDED-UHLIST"], modes: [])
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        # Create a user with operator-restricted mode H (hidden) and other modes
+        target_user = insert(:user, modes: ["H", "i", "w"], away_message: nil)
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name]}
+        assert :ok = Who.handle(user, message)
+
+        # Non-operator should not see the H mode, only i and w
+        assert_sent_messages(
+          [
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H@iw :0 realname\r\n"},
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "handles WHO command with EXTENDED-UHLIST capability shows operator-restricted modes for operators" do
+      Memento.transaction!(fn ->
+        operator_user = insert(:user, capabilities: ["EXTENDED-UHLIST"], modes: ["o"])
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: operator_user)
+
+        # Create a user with operator-restricted mode H (hidden) and other modes
+        target_user = insert(:user, modes: ["H", "i", "w"], away_message: nil)
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name]}
+        assert :ok = Who.handle(operator_user, message)
+
+        # IRC operator should see all modes including the H mode
+        assert_sent_messages(
+          [
+            {operator_user.pid,
+             ":irc.test 352 #{operator_user.nick} #{channel.name} #{operator_user.ident} hostname irc.test #{target_user.nick} H@Hiw :0 realname\r\n"},
+            {operator_user.pid,
+             ":irc.test 352 #{operator_user.nick} #{channel.name} #{operator_user.ident} hostname irc.test #{operator_user.nick} H* :0 realname\r\n"},
+            {operator_user.pid, ":irc.test 315 #{operator_user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
   end
 end

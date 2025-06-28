@@ -5,8 +5,9 @@ defmodule ElixIRCd.Commands.Who do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_reply: 1, normalize_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_reply: 1, normalize_mask: 1, irc_operator?: 1]
 
+  alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
@@ -76,6 +77,7 @@ defmodule ElixIRCd.Commands.Who do
       users_in_channel
       |> filter_out_hidden_channel(channel, user_shares_channel?)
       |> filter_out_invisible_users_for_channel(user_shares_channel?)
+      |> filter_out_hidden_users_for_channel(user, user_shares_channel?)
       |> maybe_filter_operators(filters)
       |> Enum.map(fn user_target ->
         user_channel = Enum.find(user_channels_list, fn uc -> uc.user_pid == user_target.pid end)
@@ -93,6 +95,7 @@ defmodule ElixIRCd.Commands.Who do
       normalize_mask(mask)
       |> Users.get_by_match_mask()
       |> filter_out_invisible_users_for_mask(user_pids_sharing_channels_keys)
+      |> filter_out_hidden_users_for_mask(user, user_pids_sharing_channels_keys)
       |> maybe_filter_operators(filters)
 
     # Early return if no users match
@@ -181,6 +184,20 @@ defmodule ElixIRCd.Commands.Who do
   defp filter_out_invisible_users_for_mask(users, user_pids_sharing_channels_keys) do
     users
     |> Enum.reject(&("i" in &1.modes and &1.pid not in user_pids_sharing_channels_keys))
+  end
+
+  @spec filter_out_hidden_users_for_channel([User.t()], User.t(), boolean()) :: [User.t()]
+  defp filter_out_hidden_users_for_channel(users, requesting_user, user_shares_channel?) do
+    users
+    |> Enum.reject(&("H" in &1.modes and !irc_operator?(requesting_user) and !user_shares_channel?))
+  end
+
+  @spec filter_out_hidden_users_for_mask([User.t()], User.t(), [pid()]) :: [User.t()]
+  defp filter_out_hidden_users_for_mask(users, requesting_user, user_pids_sharing_channels_keys) do
+    users
+    |> Enum.reject(
+      &("H" in &1.modes and !irc_operator?(requesting_user) and &1.pid not in user_pids_sharing_channels_keys)
+    )
   end
 
   @spec filter_out_hidden_channel([User.t()], Channel.t(), boolean()) :: [User.t()]
@@ -279,18 +296,25 @@ defmodule ElixIRCd.Commands.Who do
         channel_voice_symbol(user_channel)
 
     if use_extended_uhlist do
-      base_status <> extended_user_modes(user_target)
+      base_status <> extended_user_modes(requesting_user, user_target)
     else
       base_status
     end
   end
 
-  @spec extended_user_modes(User.t()) :: String.t()
-  defp extended_user_modes(%User{modes: modes}) do
-    # Filter out standard modes that are already displayed (o for operator is shown as *)
-    # and show additional user modes
+  @spec extended_user_modes(User.t(), User.t()) :: String.t()
+  defp extended_user_modes(requesting_user, %User{modes: modes}) do
+    modes_restricted_to_operators = Mode.UserModes.modes_restricted_to_operators()
     extended_modes = modes -- ["o"]
-    Enum.join(extended_modes, "")
+
+    filtered_modes =
+      if irc_operator?(requesting_user) do
+        extended_modes
+      else
+        extended_modes -- modes_restricted_to_operators
+      end
+
+    Enum.join(filtered_modes, "")
   end
 
   @spec user_away_status(User.t()) :: String.t()

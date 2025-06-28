@@ -267,7 +267,7 @@ These modes are applied to users themselves, affecting their behavior and access
 
 - **+B (Bot)**: Marks the user as a bot. ✅
 - **+g (Caller ID)**: Blocks private messages from users not on your accept list. ✅
-- **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ❌
+- **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ✅
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
 - **+r (Registered)**: Indicates the user is registered and identified with services. ✅

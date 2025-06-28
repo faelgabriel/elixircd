@@ -553,5 +553,18 @@ defmodule ElixIRCd.Commands.ModeTest do
         ])
       end)
     end
+
+    test "handles MODE command for non-operator attempting to set operator-restricted modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: [])
+
+        message = %Message{command: "MODE", params: [user.nick, "+H"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You don't have privileges to change mode H\r\n"}
+        ])
+      end)
+    end
   end
 end

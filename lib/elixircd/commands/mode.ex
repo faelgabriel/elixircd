@@ -208,13 +208,13 @@ defmodule ElixIRCd.Commands.Mode do
 
   @spec handle_user_mode(User.t(), String.t(), String.t() | nil) :: :ok
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick == receiver_nick do
-    send_umodeis_response(user, UserModes.display_modes(user.modes))
+    send_umodeis_response(user, UserModes.display_modes(user, user.modes))
   end
 
   defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick != receiver_nick do
     if irc_operator?(user) do
       case Users.get_by_nick(receiver_nick) do
-        {:ok, target_user} -> send_umodeis_response(user, UserModes.display_modes(target_user.modes))
+        {:ok, target_user} -> send_umodeis_response(user, UserModes.display_modes(user, target_user.modes))
         {:error, :user_not_found} -> send_user_not_found_error(user, receiver_nick)
       end
     else
@@ -228,12 +228,14 @@ defmodule ElixIRCd.Commands.Mode do
 
   defp handle_user_mode(user, _receiver_nick, mode_string) when is_binary(mode_string) do
     {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-    {updated_user, applied_changes} = UserModes.apply_mode_changes(user, validated_modes)
+    {updated_user, applied_changes, unauthorized_modes} = UserModes.apply_mode_changes(user, validated_modes)
 
     if length(applied_changes) > 0 do
-      send_user_mode_change(updated_user, UserModes.display_mode_changes(applied_changes), updated_user)
+      mode_changes_display = UserModes.display_mode_changes(applied_changes)
+      send_user_mode_change(updated_user, updated_user.nick, mode_changes_display, updated_user)
     end
 
+    send_noprivileges_error(user, unauthorized_modes)
     send_invalid_modes(invalid_modes, updated_user)
   end
 
@@ -296,13 +298,29 @@ defmodule ElixIRCd.Commands.Mode do
     |> Dispatcher.broadcast(user)
   end
 
-  @spec send_user_mode_change(User.t(), String.t(), User.t() | list(User.t())) :: :ok
-  defp send_user_mode_change(user, mode_changes, targets) do
+  @spec send_user_mode_change(User.t(), String.t(), String.t(), User.t() | list(User.t())) :: :ok
+  defp send_user_mode_change(user, target_nick, mode_changes, targets) do
     Message.build(%{
       prefix: user_mask(user),
       command: "MODE",
-      params: [user.nick, mode_changes]
+      params: [target_nick, mode_changes]
     })
     |> Dispatcher.broadcast(targets)
+  end
+
+  @spec send_noprivileges_error(User.t(), list({atom(), String.t()})) :: :ok
+  defp send_noprivileges_error(_user, []), do: :ok
+
+  defp send_noprivileges_error(user, unauthorized_modes) do
+    unauthorized_modes
+    |> Enum.each(fn {_, mode} ->
+      Message.build(%{
+        prefix: :server,
+        command: :err_noprivileges,
+        params: [user.nick],
+        trailing: "Permission Denied- You don't have privileges to change mode #{mode}"
+      })
+      |> Dispatcher.broadcast(user)
+    end)
   end
 end
