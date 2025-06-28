@@ -327,5 +327,142 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
+
+    test "blocks CTCP messages for users not in channel when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
+        ])
+      end)
+    end
+  end
+
+  describe "handle/2 with +C mode (No CTCP)" do
+    test "blocks CTCP messages for regular users when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks VERSION CTCP messages for regular users when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01VERSION\x01"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
+        ])
+      end)
+    end
+
+    test "allows CTCP messages for channel operators when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :\x01ACTION waves\x01\r\n"}
+        ])
+      end)
+    end
+
+    test "allows CTCP messages for voice users when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01ACTION dances\x01"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :\x01ACTION dances\x01\r\n"}
+        ])
+      end)
+    end
+
+    test "allows regular messages when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello everyone!"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello everyone!\r\n"}
+        ])
+      end)
+    end
+
+    test "allows CTCP messages when +C mode is not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :\x01ACTION waves\x01\r\n"}
+        ])
+      end)
+    end
+
+    test "handles malformed CTCP messages correctly" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01This is not a CTCP"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :\x01This is not a CTCP\r\n"}
+        ])
+      end)
+    end
   end
 end

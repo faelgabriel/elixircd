@@ -52,7 +52,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UHNAMES EXTENDED-UHLIST UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"},
+         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,Cimnpst UHNAMES EXTENDED-UHLIST UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"},
         {user.pid, ":irc.test 005 #{user.nick} UTF8ONLY :are supported by this server\r\n"}
       ])
 
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,Cimnpst UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"}
       ])
 
       Application.put_env(:elixircd, :capabilities, original_capabilities_config)

@@ -52,7 +52,8 @@ defmodule ElixIRCd.Commands.Privmsg do
   @spec handle_channel_message(User.t(), String.t(), Message.t()) :: :ok
   defp handle_channel_message(user, channel_name, message) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         :ok <- check_channel_modes(channel, user) do
+         :ok <- check_channel_modes(channel, user),
+         :ok <- check_ctcp_restrictions(channel, user, message) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
@@ -77,6 +78,15 @@ defmodule ElixIRCd.Commands.Privmsg do
           command: :err_cannotsendtochan,
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel"
+        })
+        |> Dispatcher.broadcast(user)
+
+      {:error, :ctcp_blocked} ->
+        Message.build(%{
+          prefix: :server,
+          command: "404",
+          params: [user.nick, channel_name],
+          trailing: "Cannot send CTCP to channel (+C)"
         })
         |> Dispatcher.broadcast(user)
     end
@@ -200,6 +210,29 @@ defmodule ElixIRCd.Commands.Privmsg do
       {:error, :user_can_not_send}
     else
       :ok
+    end
+  end
+
+  @spec check_ctcp_restrictions(Channel.t(), User.t(), Message.t()) :: :ok | {:error, :ctcp_blocked}
+  defp check_ctcp_restrictions(channel, user, message) do
+    if "C" in channel.modes and ctcp_message?(message) and not user_can_send_ctcp?(channel, user) do
+      {:error, :ctcp_blocked}
+    else
+      :ok
+    end
+  end
+
+  @spec ctcp_message?(Message.t()) :: boolean()
+  defp ctcp_message?(message) do
+    message_text = extract_message_text(message)
+    String.starts_with?(message_text, "\x01") and String.ends_with?(message_text, "\x01")
+  end
+
+  @spec user_can_send_ctcp?(Channel.t(), User.t()) :: boolean()
+  defp user_can_send_ctcp?(channel, user) do
+    case UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+      {:ok, user_channel} -> channel_operator?(user_channel) or channel_voice?(user_channel)
+      {:error, :user_channel_not_found} -> false
     end
   end
 end
