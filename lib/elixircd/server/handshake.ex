@@ -177,7 +177,9 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec send_user_modes(User.t()) :: :ok
   defp send_user_modes(%User{nick: nick, modes: modes} = user) when modes != [] do
-    Message.build(%{prefix: nick, command: "MODE", params: [nick], trailing: Mode.UserModes.display_modes(modes)})
+    mode_display = Mode.UserModes.display_modes(user, modes)
+
+    Message.build(%{prefix: nick, command: "MODE", params: [nick], trailing: mode_display})
     |> Dispatcher.broadcast(user)
   end
 
