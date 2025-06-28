@@ -5,6 +5,8 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @behaviour ElixIRCd.Command
 
+  import ElixIRCd.Utils.Formatting, only: [contains_formatting?: 1, ctcp_message?: 1]
+
   import ElixIRCd.Utils.Protocol,
     only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1, service_name?: 1]
 
@@ -32,10 +34,12 @@ defmodule ElixIRCd.Commands.Privmsg do
       # 2. The message is included in params (alternative client format)
       # The extract_message_text/1 function normalizes these different formats
       when trailing != nil or length(message.params) > 1 do
+    message_text = extract_message_text(message)
+
     cond do
-      channel_name?(target) -> handle_channel_message(user, target, message)
+      channel_name?(target) -> handle_channel_message(user, target, message_text)
       service_name?(target) -> handle_service_message(user, target, message)
-      true -> handle_user_message(user, target, message)
+      true -> handle_user_message(user, target, message_text)
     end
   end
 
@@ -49,16 +53,15 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(user)
   end
 
-  @spec handle_channel_message(User.t(), String.t(), Message.t()) :: :ok
-  defp handle_channel_message(user, channel_name, message) do
+  @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok
+  defp handle_channel_message(user, channel_name, message_text) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          :ok <- check_channel_modes(channel, user),
-         :ok <- check_ctcp_restrictions(channel, user, message) do
+         :ok <- check_ctcp_restrictions(channel, user, message_text),
+         :ok <- check_formatting_restrictions(channel, user, message_text) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
-
-      message_text = extract_message_text(message)
 
       Message.build(%{prefix: user_mask(user), command: "PRIVMSG", params: [channel.name], trailing: message_text})
       |> Dispatcher.broadcast(channel_users_without_user)
@@ -89,6 +92,15 @@ defmodule ElixIRCd.Commands.Privmsg do
           trailing: "Cannot send CTCP to channel (+C)"
         })
         |> Dispatcher.broadcast(user)
+
+      {:error, :formatting_blocked} ->
+        Message.build(%{
+          prefix: :server,
+          command: "404",
+          params: [user.nick, channel_name],
+          trailing: "Cannot send to channel (+c - no colors allowed)"
+        })
+        |> Dispatcher.broadcast(user)
     end
   end
 
@@ -98,16 +110,16 @@ defmodule ElixIRCd.Commands.Privmsg do
     Service.dispatch(user, target_service, command_list)
   end
 
-  @spec handle_user_message(User.t(), String.t(), Message.t()) :: :ok
-  defp handle_user_message(user, target_nick, message) do
+  @spec handle_user_message(User.t(), String.t(), String.t()) :: :ok
+  defp handle_user_message(user, target_nick, message_text) do
     case Users.get_by_nick(target_nick) do
-      {:ok, target_user} -> handle_user_message(user, target_user, target_nick, message)
+      {:ok, target_user} -> handle_user_message(user, target_user, target_nick, message_text)
       {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
     end
   end
 
-  @spec handle_user_message(User.t(), User.t(), String.t(), Message.t()) :: :ok
-  defp handle_user_message(user, target_user, target_nick, message) do
+  @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
+  defp handle_user_message(user, target_user, target_nick, message_text) do
     cond do
       "R" in target_user.modes and "r" not in user.modes ->
         handle_restricted_user_message(user, target_user)
@@ -117,7 +129,7 @@ defmodule ElixIRCd.Commands.Privmsg do
         handle_blocked_user_message(user, target_user)
 
       true ->
-        handle_normal_user_message(user, target_user, target_nick, message)
+        handle_normal_user_message(user, target_user, target_nick, message_text)
     end
   end
 
@@ -143,10 +155,8 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(sender)
   end
 
-  @spec handle_normal_user_message(User.t(), User.t(), String.t(), Message.t()) :: :ok
-  defp handle_normal_user_message(user, target_user, target_nick, message) do
-    message_text = extract_message_text(message)
-
+  @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
+  defp handle_normal_user_message(user, target_user, target_nick, message_text) do
     Message.build(%{prefix: user_mask(user), command: "PRIVMSG", params: [target_nick], trailing: message_text})
     |> Dispatcher.broadcast(target_user)
 
@@ -213,19 +223,13 @@ defmodule ElixIRCd.Commands.Privmsg do
     end
   end
 
-  @spec check_ctcp_restrictions(Channel.t(), User.t(), Message.t()) :: :ok | {:error, :ctcp_blocked}
-  defp check_ctcp_restrictions(channel, user, message) do
-    if "C" in channel.modes and ctcp_message?(message) and not user_can_send_ctcp?(channel, user) do
+  @spec check_ctcp_restrictions(Channel.t(), User.t(), String.t()) :: :ok | {:error, :ctcp_blocked}
+  defp check_ctcp_restrictions(channel, user, message_text) do
+    if "C" in channel.modes and ctcp_message?(message_text) and not user_can_send_ctcp?(channel, user) do
       {:error, :ctcp_blocked}
     else
       :ok
     end
-  end
-
-  @spec ctcp_message?(Message.t()) :: boolean()
-  defp ctcp_message?(message) do
-    message_text = extract_message_text(message)
-    String.starts_with?(message_text, "\x01") and String.ends_with?(message_text, "\x01")
   end
 
   @spec user_can_send_ctcp?(Channel.t(), User.t()) :: boolean()
@@ -233,6 +237,15 @@ defmodule ElixIRCd.Commands.Privmsg do
     case UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
       {:ok, user_channel} -> channel_operator?(user_channel) or channel_voice?(user_channel)
       {:error, :user_channel_not_found} -> false
+    end
+  end
+
+  @spec check_formatting_restrictions(Channel.t(), User.t(), String.t()) :: :ok | {:error, :formatting_blocked}
+  defp check_formatting_restrictions(channel, _user, message_text) do
+    if "c" in channel.modes and contains_formatting?(message_text) do
+      {:error, :formatting_blocked}
+    else
+      :ok
     end
   end
 end

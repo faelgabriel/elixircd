@@ -842,5 +842,57 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
       assert updated_channel.modes == []
       assert applied_changes == []
     end
+
+    test "handles add +c mode (no colors)" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:add, "c"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["c"]
+      assert applied_changes == [{:add, "c"}]
+    end
+
+    test "handles remove +c mode (no colors)" do
+      user = insert(:user)
+      channel = insert(:channel, modes: ["c"])
+
+      validated_modes = [{:remove, "c"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == [{:remove, "c"}]
+    end
+
+    test "handles add +c mode when already set" do
+      user = insert(:user)
+      channel = insert(:channel, modes: ["c"])
+
+      validated_modes = [{:add, "c"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["c"]
+      assert applied_changes == []
+    end
+
+    test "handles remove +c mode when not set" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:remove, "c"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == []
+    end
   end
 end

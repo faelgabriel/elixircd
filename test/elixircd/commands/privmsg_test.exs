@@ -465,4 +465,176 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
       end)
     end
   end
+
+  describe "handle/2 with +c mode (No colors)" do
+    test "blocks messages with color codes when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x03Hello world"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with bold formatting when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x02Bold text\x02"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with underline formatting when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x1FUnderlined text\x1F"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with italic formatting when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x1DItalic text\x1D"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with reverse formatting when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x16Reverse text\x16"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with multiple formatting codes when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x02\x03Bold and colored\x0F"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "allows plain text messages when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello everyone!"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello everyone!\r\n"}
+        ])
+      end)
+    end
+
+    test "allows formatted messages when +c mode is not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x02Bold text\x02"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :\x02Bold text\x02\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks formatted messages with alternative client format when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name, "\x03Red", "text"], trailing: nil}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "allows plain text messages with alternative client format when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name, "Plain", "text"], trailing: nil}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Plain text\r\n"}
+        ])
+      end)
+    end
+  end
 end

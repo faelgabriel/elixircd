@@ -5,6 +5,7 @@ defmodule ElixIRCd.Commands.Notice do
 
   @behaviour ElixIRCd.Command
 
+  import ElixIRCd.Utils.Formatting, only: [contains_formatting?: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1]
 
   alias ElixIRCd.Message
@@ -13,6 +14,7 @@ defmodule ElixIRCd.Commands.Notice do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -45,15 +47,16 @@ defmodule ElixIRCd.Commands.Notice do
   end
 
   @impl true
-  def handle(user, %{command: "NOTICE", params: [target], trailing: message}) do
+  def handle(user, %{command: "NOTICE", params: [target], trailing: message_text}) do
     if channel_name?(target),
-      do: handle_channel_message(user, target, message),
-      else: handle_user_message(user, target, message)
+      do: handle_channel_message(user, target, message_text),
+      else: handle_user_message(user, target, message_text)
   end
 
-  defp handle_channel_message(user, channel_name, message) do
+  defp handle_channel_message(user, channel_name, message_text) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
+         :ok <- check_formatting_restrictions(channel, message_text) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
@@ -62,7 +65,7 @@ defmodule ElixIRCd.Commands.Notice do
         prefix: user_mask(user),
         command: "NOTICE",
         params: [channel.name],
-        trailing: message
+        trailing: message_text
       })
       |> Dispatcher.broadcast(channel_users_without_user)
     else
@@ -83,18 +86,27 @@ defmodule ElixIRCd.Commands.Notice do
           trailing: "No such channel"
         })
         |> Dispatcher.broadcast(user)
+
+      {:error, :formatting_blocked} ->
+        Message.build(%{
+          prefix: :server,
+          command: "404",
+          params: [user.nick, channel_name],
+          trailing: "Cannot send to channel (+c - no colors allowed)"
+        })
+        |> Dispatcher.broadcast(user)
     end
   end
 
-  defp handle_user_message(user, target_nick, message) do
+  defp handle_user_message(user, target_nick, message_text) do
     case Users.get_by_nick(target_nick) do
-      {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message)
+      {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message_text)
       {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
     end
   end
 
   @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_user_message(user, receiver_user, target_nick, message) do
+  defp handle_user_message(user, receiver_user, target_nick, message_text) do
     cond do
       "R" in receiver_user.modes and "r" not in user.modes ->
         handle_restricted_user_message(user, receiver_user)
@@ -104,7 +116,7 @@ defmodule ElixIRCd.Commands.Notice do
         handle_blocked_user_message(user, receiver_user)
 
       true ->
-        handle_normal_user_message(user, receiver_user, target_nick, message)
+        handle_normal_user_message(user, receiver_user, target_nick, message_text)
     end
   end
 
@@ -131,12 +143,12 @@ defmodule ElixIRCd.Commands.Notice do
   end
 
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_normal_user_message(user, receiver_user, target_nick, message) do
+  defp handle_normal_user_message(user, receiver_user, target_nick, message_text) do
     Message.build(%{
       prefix: user_mask(user),
       command: "NOTICE",
       params: [target_nick],
-      trailing: message
+      trailing: message_text
     })
     |> Dispatcher.broadcast(receiver_user)
   end
@@ -150,5 +162,14 @@ defmodule ElixIRCd.Commands.Notice do
       trailing: "No such nick"
     })
     |> Dispatcher.broadcast(user)
+  end
+
+  @spec check_formatting_restrictions(Channel.t(), String.t()) :: :ok | {:error, :formatting_blocked}
+  defp check_formatting_restrictions(channel, message_text) do
+    if "c" in channel.modes and contains_formatting?(message_text) do
+      {:error, :formatting_blocked}
+    else
+      :ok
+    end
   end
 end
