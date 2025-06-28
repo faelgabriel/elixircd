@@ -97,11 +97,11 @@ defmodule ElixIRCd.Services.Chanserv.TransferTest do
       end)
     end
 
-    test "fails to transfer channel to an unregistered user" do
+    test "fails to transfer channel to a user not registered" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         founder = "founder"
-        new_founder = "unregistereduser"
+        new_founder = "not_registered_user"
         user = insert(:user, identified_as: founder)
 
         insert(:registered_channel, name: channel_name, founder: founder)

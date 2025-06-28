@@ -28,7 +28,7 @@ defmodule ElixIRCd.Services.Chanserv.InfoTest do
       end)
     end
 
-    test "handles INFO command for unregistered channel" do
+    test "handles INFO command for channel not registered" do
       Memento.transaction!(fn ->
         channel_name = "#nonexistentchannel"
         user = insert(:user)

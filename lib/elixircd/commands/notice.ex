@@ -95,12 +95,28 @@ defmodule ElixIRCd.Commands.Notice do
 
   @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_user_message(user, receiver_user, target_nick, message) do
-    if "g" in receiver_user.modes and
-         is_nil(UserAccepts.get_by_user_pid_and_accepted_user_pid(receiver_user.pid, user.pid)) do
-      handle_blocked_user_message(user, receiver_user)
-    else
-      handle_normal_user_message(user, receiver_user, target_nick, message)
+    cond do
+      "R" in receiver_user.modes and "r" not in user.modes ->
+        handle_restricted_user_message(user, receiver_user)
+
+      "g" in receiver_user.modes and
+          is_nil(UserAccepts.get_by_user_pid_and_accepted_user_pid(receiver_user.pid, user.pid)) ->
+        handle_blocked_user_message(user, receiver_user)
+
+      true ->
+        handle_normal_user_message(user, receiver_user, target_nick, message)
     end
+  end
+
+  @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
+  defp handle_restricted_user_message(sender, recipient) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_cannotsendtouser,
+      params: [sender.nick, recipient.nick],
+      trailing: "You must be identified to message this user"
+    })
+    |> Dispatcher.broadcast(sender)
   end
 
   @spec handle_blocked_user_message(User.t(), User.t()) :: :ok
