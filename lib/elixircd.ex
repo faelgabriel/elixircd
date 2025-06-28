@@ -20,7 +20,8 @@ defmodule ElixIRCd do
     init_database()
     ensure_certificate_exists()
 
-    :persistent_term.put(:app_start_time, DateTime.utc_now())
+          :persistent_term.put(:app_start_time, DateTime.utc_now())
+      :persistent_term.put(:server_start_time, DateTime.utc_now())
 
     Supervisor.start_link(
       [

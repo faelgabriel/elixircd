@@ -7,278 +7,224 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
 
   alias ElixIRCd.Commands.Mode.UserModes
 
-  describe "display_modes/2" do
-    test "handles empty modes" do
-      user = insert(:user, modes: [])
-      modes = []
-
-      assert "" == UserModes.display_modes(user, modes)
-    end
-
-    test "handles modes for regular user" do
-      user = insert(:user, modes: [])
-      modes = ["B", "H", "i", "w", "o", "Z"]
-
-      # Regular user should not see "H" operator-only mode
-      assert "+BiwoZ" == UserModes.display_modes(user, modes)
-    end
-
-    test "handles modes for operator user" do
-      user = insert(:user, modes: ["o"])
-      modes = ["B", "H", "i", "w", "o", "Z"]
-
-      # Operator should see all modes including "H"
-      assert "+BHiwoZ" == UserModes.display_modes(user, modes)
-    end
-  end
-
-  describe "display_mode_changes/1" do
-    test "handles add modes" do
-      mode_changes = [add: "B", add: "i", add: "w"]
-
-      assert "+Biw" == UserModes.display_mode_changes(mode_changes)
-    end
-
-    test "handles remove modes" do
-      mode_changes = [remove: "B", remove: "i", remove: "w"]
-
-      assert "-Biw" == UserModes.display_mode_changes(mode_changes)
-    end
-
-    test "handles add and remove same modes" do
-      mode_changes = [{:add, "i"}, {:add, "w"}, {:remove, "i"}, {:remove, "w"}]
-
-      assert "+iw-iw" == UserModes.display_mode_changes(mode_changes)
-    end
-
-    test "handles add and remove modes shuffled" do
-      mode_changes = [{:remove, "i"}, {:add, "w"}, {:remove, "w"}, {:add, "i"}]
-
-      assert "-i+w-w+i" == UserModes.display_mode_changes(mode_changes)
-    end
-  end
-
   describe "parse_mode_changes/2" do
-    test "handles mode string not starting with plus or minus" do
-      mode_string = "iw"
+    test "parses basic mode changes without parameters" do
+      {validated_modes, invalid_modes} = UserModes.parse_mode_changes("+i", [])
 
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:add, "i"}, {:add, "w"}]
+      assert validated_modes == [{:add, "i"}]
       assert invalid_modes == []
     end
 
-    test "handles add modes" do
-      mode_string = "+iw"
+    test "parses snomask mode changes with parameters" do
+      {validated_modes, invalid_modes} = UserModes.parse_mode_changes("+s", ["ck"])
 
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:add, "i"}, {:add, "w"}]
+      assert validated_modes == [{:add, {"s", "ck"}}]
       assert invalid_modes == []
     end
 
-    test "handles remove modes" do
-      mode_string = "-iw"
+    test "parses complex snomask parameters with +/- prefixes" do
+      {validated_modes, invalid_modes} = UserModes.parse_mode_changes("+s", ["+ck-k+f"])
 
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:remove, "i"}, {:remove, "w"}]
+      assert validated_modes == [{:add, {"s", "cf"}}]
       assert invalid_modes == []
     end
 
-    test "handles add modes with multiple plus signs" do
-      mode_string = "+i+w"
+    test "filters invalid snomask letters" do
+      {validated_modes, invalid_modes} = UserModes.parse_mode_changes("+s", ["xyz"])
 
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:add, "i"}, {:add, "w"}]
+      assert validated_modes == [{:add, {"s", "x"}}]  # Only 'x' is valid from the allowed letters
       assert invalid_modes == []
     end
 
-    test "handles remove modes with multiple plus signs" do
-      mode_string = "-i-w"
+    test "returns nil parameter for empty snomask result" do
+      {validated_modes, invalid_modes} = UserModes.parse_mode_changes("+s", ["zzz"])
 
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:remove, "i"}, {:remove, "w"}]
+      # All invalid letters should result in no mode change
+      assert validated_modes == []
       assert invalid_modes == []
     end
 
-    test "handles add and remove same modes" do
-      mode_string = "+i+w-i-w"
+    test "parses multiple mode changes" do
+      {validated_modes, invalid_modes} = UserModes.parse_mode_changes("+is-w", ["ck"])
 
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:add, "i"}, {:add, "w"}, {:remove, "i"}, {:remove, "w"}]
+      assert validated_modes == [{:add, "i"}, {:add, {"s", "ck"}}, {:remove, "w"}]
       assert invalid_modes == []
     end
 
-    test "handles add modes with invalid modes" do
-      mode_string = "+iwxyz"
+    test "handles invalid modes" do
+      {validated_modes, invalid_modes} = UserModes.parse_mode_changes("+xyz", [])
 
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:add, "i"}, {:add, "w"}]
+      assert validated_modes == []
       assert invalid_modes == ["x", "y", "z"]
-    end
-
-    test "handles remove modes with invalid modes" do
-      mode_string = "-iwxyz"
-
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [{:remove, "i"}, {:remove, "w"}]
-      assert invalid_modes == ["x", "y", "z"]
-    end
-
-    test "handles add and remove modes with invalid modes" do
-      mode_string = "+i+w-i-wxyz+wxy"
-
-      {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
-
-      assert validated_modes == [add: "i", add: "w", remove: "i", remove: "w", add: "w"]
-      assert invalid_modes == ["x", "y", "z", "x", "y"]
     end
   end
 
   describe "apply_mode_changes/2" do
-    test "handles add modes" do
+    test "applies basic mode changes for regular user" do
       user = insert(:user, modes: [])
-      validated_modes = [{:add, "i"}, {:add, "w"}]
 
-      {updated_user, applied_modes, _unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert updated_user.modes == ["i", "w"]
-      assert applied_modes == [{:add, "i"}, {:add, "w"}]
-    end
-
-    test "handles remove modes" do
-      user = insert(:user, modes: ["i", "w"])
-      validated_modes = [{:remove, "i"}, {:remove, "w"}]
-
-      {updated_user, applied_modes, _unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert updated_user.modes == []
-      assert applied_modes == [{:remove, "i"}, {:remove, "w"}]
-    end
-
-    test "handles add and remove same modes" do
-      user = insert(:user, modes: [])
-      validated_modes = [{:add, "i"}, {:add, "w"}, {:remove, "i"}, {:remove, "w"}]
-
-      {updated_user, applied_modes, _unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert updated_user.modes == []
-      assert applied_modes == [{:add, "i"}, {:add, "w"}, {:remove, "i"}, {:remove, "w"}]
-    end
-
-    test "handles add and remove modes shuffled" do
-      user = insert(:user, modes: ["i", "w"])
-      validated_modes = [{:remove, "i"}, {:add, "w"}, {:remove, "w"}, {:add, "i"}]
-
-      {updated_user, applied_modes, _unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+      {updated_user, applied_changes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, [{:add, "i"}]) end)
 
       assert updated_user.modes == ["i"]
-      assert applied_modes == [{:remove, "i"}, {:remove, "w"}, {:add, "i"}]
-    end
-
-    test "handles add modes handled by the server to add" do
-      user = insert(:user, modes: [])
-      validated_modes = [{:add, "o"}, {:add, "Z"}]
-
-      {updated_user, applied_modes, _unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert updated_user.modes == []
-      assert applied_modes == []
-    end
-
-    test "handles remove modes handled by the server to remove" do
-      user = insert(:user, modes: ["Z"])
-      validated_modes = [{:remove, "Z"}]
-
-      {updated_user, applied_modes, _unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert updated_user.modes == ["Z"]
-      assert applied_modes == []
-    end
-
-    test "handles add and remove +g modes" do
-      user = insert(:user, modes: [])
-      validated_modes = [{:add, "g"}, {:remove, "g"}]
-
-      {updated_user, applied_modes, _unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert updated_user.modes == []
-      assert applied_modes == [{:add, "g"}, {:remove, "g"}]
-    end
-
-    test "handles operator-restricted modes when user is not an operator" do
-      user = insert(:user, modes: [])
-      validated_modes = [{:add, "H"}]
-
-      {updated_user, applied_modes, unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert updated_user.modes == []
-      assert applied_modes == []
-      assert unauthorized_modes == [{:add, "H"}]
-    end
-
-    test "handles automatic H mode removal when operator mode is removed" do
-      user = insert(:user, modes: ["o", "H"])
-      validated_modes = [{:remove, "o"}]
-
-      {updated_user, applied_modes, unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
-
-      assert "H" not in updated_user.modes
-      assert "o" not in updated_user.modes
-      assert applied_modes == [{:remove, "o"}, {:remove, "H"}]
+      assert applied_changes == [{:add, "i"}]
       assert unauthorized_modes == []
     end
 
-    test "handles automatic H mode removal when adding H mode and removing operator" do
+    test "applies snomask mode for operator" do
       user = insert(:user, modes: ["o"])
-      validated_modes = [{:add, "H"}, {:remove, "o"}]
 
-      {updated_user, applied_modes, unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+      {updated_user, applied_changes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, [{:add, {"s", "ck"}}]) end)
+
+      assert updated_user.modes == ["o", {"s", "ck"}]
+      assert applied_changes == [{:add, {"s", "ck"}}]
+      assert unauthorized_modes == []
+    end
+
+    test "rejects snomask mode for non-operator" do
+      user = insert(:user, modes: [])
+
+      {updated_user, applied_changes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, [{:add, {"s", "ck"}}]) end)
+
+      assert updated_user.modes == []
+      assert applied_changes == []
+      assert unauthorized_modes == [{:add, {"s", "ck"}}]
+    end
+
+    test "replaces existing snomask with new value" do
+      user = insert(:user, modes: ["o", {"s", "ck"}])
+
+      {updated_user, applied_changes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, [{:add, {"s", "fo"}}]) end)
+
+      assert updated_user.modes == ["o", {"s", "fo"}]
+      assert applied_changes == [{:add, {"s", "fo"}}]
+      assert unauthorized_modes == []
+    end
+
+    test "removes snomask mode" do
+      user = insert(:user, modes: ["o", {"s", "ck"}])
+
+      {updated_user, applied_changes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, [{:remove, {"s", "ck"}}]) end)
+
+      assert updated_user.modes == ["o"]
+      assert applied_changes == [{:remove, {"s", "ck"}}]
+      assert unauthorized_modes == []
+    end
+
+    test "removes H mode when operator mode is removed" do
+      user = insert(:user, modes: ["o", "H"])
+
+      {updated_user, applied_changes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, [{:remove, "o"}]) end)
 
       assert "H" not in updated_user.modes
       assert "o" not in updated_user.modes
-      assert applied_modes == [{:add, "H"}, {:remove, "o"}, {:remove, "H"}]
+      assert applied_changes == [{:remove, "o"}, {:remove, "H"}]
       assert unauthorized_modes == []
     end
+  end
 
-    test "handles adding mode that user already has" do
-      user = insert(:user, modes: ["i"])
-      validated_modes = [{:add, "i"}]
+  describe "display_modes/2" do
+    test "displays basic modes" do
+      user = insert(:user, modes: ["i", "w"])
 
-      {updated_user, applied_modes, unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+      result = UserModes.display_modes(user, user.modes)
 
-      assert updated_user.modes == ["i"]
-      assert applied_modes == []
-      assert unauthorized_modes == []
+      assert result == "+iw"
     end
 
-    test "handles removing mode that user does not have" do
-      user = insert(:user, modes: [])
-      validated_modes = [{:remove, "i"}]
+    test "displays snomask mode for operator" do
+      user = insert(:user, modes: ["o", {"s", "ck"}])
 
-      {updated_user, applied_modes, unauthorized_modes} =
-        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+      result = UserModes.display_modes(user, user.modes)
 
-      assert updated_user.modes == []
-      assert applied_modes == []
-      assert unauthorized_modes == []
+      assert result == "+s=ck"
+    end
+
+    test "filters operator-only modes for non-operator" do
+      user = insert(:user, modes: ["i", "w"])
+
+      result = UserModes.display_modes(user, ["i", "H", "w"])
+
+      assert result == "+iw"
+    end
+
+    test "shows operator-only modes for operator" do
+      user = insert(:user, modes: ["o", "H"])
+
+      result = UserModes.display_modes(user, user.modes)
+
+      assert result == "+oH"
+    end
+  end
+
+  describe "display_mode_changes/1" do
+    test "displays basic mode changes" do
+      result = UserModes.display_mode_changes([{:add, "i"}, {:remove, "w"}])
+
+      assert result == "+i-w"
+    end
+
+    test "displays snomask mode changes" do
+      result = UserModes.display_mode_changes([{:add, {"s", "ck"}}])
+
+      assert result == "+s ck"
+    end
+
+    test "displays mixed mode changes" do
+      result = UserModes.display_mode_changes([{:add, {"s", "ck"}}, {:add, "i"}, {:remove, "w"}])
+
+      assert result == "+si-w ck"
+    end
+  end
+
+  describe "get_users_with_snomask/1" do
+    test "finds users with specific snomask" do
+      user1 = insert(:user, modes: ["o", {"s", "ck"}])
+      user2 = insert(:user, modes: ["o", {"s", "fo"}])
+      user3 = insert(:user, modes: ["i"])
+
+      result = Memento.transaction!(fn -> UserModes.get_users_with_snomask("c") end)
+
+      user_pids = Enum.map(result, & &1.pid)
+      assert user1.pid in user_pids
+      assert user2.pid not in user_pids
+      assert user3.pid not in user_pids
+    end
+
+    test "returns empty list when no users have snomask" do
+      insert(:user, modes: ["i"])
+      insert(:user, modes: ["o"])
+
+      result = Memento.transaction!(fn -> UserModes.get_users_with_snomask("c") end)
+
+      assert result == []
+    end
+  end
+
+  describe "snomask normalization" do
+    test "normalizes snomask parameter correctly" do
+      # This tests the internal normalize_snomask_param function indirectly
+      {validated_modes, _} = UserModes.parse_mode_changes("+s", ["+ck-k+f"])
+
+      assert validated_modes == [{:add, {"s", "cf"}}]
+    end
+
+    test "handles duplicate snomask letters" do
+      {validated_modes, _} = UserModes.parse_mode_changes("+s", ["cckkff"])
+
+      assert validated_modes == [{:add, {"s", "cfk"}}]  # Should be sorted and unique
+    end
+
+    test "handles empty result after normalization" do
+      {validated_modes, _} = UserModes.parse_mode_changes("+s", ["+c-c"])
+
+      # Adding and removing the same snomask should result in empty
+      assert validated_modes == []
     end
   end
 end

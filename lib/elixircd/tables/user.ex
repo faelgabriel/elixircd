@@ -30,6 +30,7 @@ defmodule ElixIRCd.Tables.User do
     index: [:nick_key, :ip_address],
     type: :set
 
+  @type mode :: String.t() | {String.t(), String.t()}
   @type t :: %__MODULE__{
           pid: pid(),
           transport: :tcp | :tls | :ws | :wss,
@@ -41,7 +42,7 @@ defmodule ElixIRCd.Tables.User do
           ident: String.t() | nil,
           realname: String.t() | nil,
           registered: boolean(),
-          modes: [String.t()],
+          modes: [mode()],
           password: String.t() | nil,
           away_message: String.t() | nil,
           identified_as: String.t() | nil,
@@ -61,7 +62,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:ident) => String.t() | nil,
           optional(:realname) => String.t() | nil,
           optional(:registered) => boolean(),
-          optional(:modes) => [String.t()],
+          optional(:modes) => [mode()],
           optional(:password) => String.t() | nil,
           optional(:away_message) => String.t() | nil,
           optional(:identified_as) => String.t() | nil,

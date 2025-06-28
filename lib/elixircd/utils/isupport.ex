@@ -61,9 +61,9 @@ defmodule ElixIRCd.Utils.Isupport do
     |> Enum.reject(&is_nil/1)
   end
 
-  @spec format_umodes() :: String.t()
+    @spec format_umodes() :: String.t()
   defp format_umodes do
-    UserModes.modes() |> Enum.join("")
+    UserModes.non_parameterized_modes() |> Enum.join("")
   end
 
   @spec format_prefix() :: String.t()

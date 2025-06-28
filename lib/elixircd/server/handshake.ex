@@ -143,7 +143,7 @@ defmodule ElixIRCd.Server.Handshake do
     server_hostname = Application.get_env(:elixircd, :server)[:hostname]
     app_version = "ElixIRCd-#{Application.spec(:elixircd, :vsn)}"
     server_start_date = :persistent_term.get(:server_start_time) |> Calendar.strftime("%Y-%m-%d")
-    usermodes = Mode.UserModes.modes() |> Enum.join("")
+    usermodes = Mode.UserModes.non_parameterized_modes() |> Enum.join("")
     channelmodes = Mode.ChannelModes.modes() |> Enum.join("")
 
     [

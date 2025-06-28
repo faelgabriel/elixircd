@@ -43,7 +43,7 @@ defmodule ElixIRCd.Commands.Mode do
 
     case channel_name?(target) do
       true -> handle_channel_mode(user, target, mode_string, values)
-      false -> handle_user_mode(user, target, mode_string)
+      false -> handle_user_mode(user, target, mode_string, values)
     end
   end
 
@@ -206,12 +206,12 @@ defmodule ElixIRCd.Commands.Mode do
     |> Dispatcher.broadcast(user)
   end
 
-  @spec handle_user_mode(User.t(), String.t(), String.t() | nil) :: :ok
-  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick == receiver_nick do
+  @spec handle_user_mode(User.t(), String.t(), String.t() | nil, list(String.t()) | nil) :: :ok
+  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil, nil) when user_nick == receiver_nick do
     send_umodeis_response(user, UserModes.display_modes(user, user.modes))
   end
 
-  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil) when user_nick != receiver_nick do
+  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, nil, nil) when user_nick != receiver_nick do
     if irc_operator?(user) do
       case Users.get_by_nick(receiver_nick) do
         {:ok, target_user} -> send_umodeis_response(user, UserModes.display_modes(user, target_user.modes))
@@ -222,12 +222,19 @@ defmodule ElixIRCd.Commands.Mode do
     end
   end
 
-  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, _mode_string) when user_nick != receiver_nick do
+  defp handle_user_mode(%{nick: user_nick} = user, receiver_nick, _mode_string, _values) when user_nick != receiver_nick do
     send_usersdontmatch_error(user)
   end
 
-  defp handle_user_mode(user, _receiver_nick, mode_string) when is_binary(mode_string) do
-    {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
+  defp handle_user_mode(user, _receiver_nick, mode_string, values) when is_binary(mode_string) do
+    # Check if we have parameters for parameterized modes
+    {validated_modes, invalid_modes} =
+      case values do
+        nil -> UserModes.parse_mode_changes(mode_string)
+        [] -> UserModes.parse_mode_changes(mode_string)
+        params -> UserModes.parse_mode_changes(mode_string, params)
+      end
+
     {updated_user, applied_changes, unauthorized_modes} = UserModes.apply_mode_changes(user, validated_modes)
 
     if length(applied_changes) > 0 do

@@ -271,8 +271,8 @@ These modes are applied to users themselves, affecting their behavior and access
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
 - **+r (Registered)**: Indicates the user is registered and identified with services. ✅
-- **+R (Registered Only)**: Only allows messages from registered users. ❌
-- **+s (Snomask)**: Allows reception of server notices. ❌
+- **+R (Registered Only)**: Only allows messages from registered users. ✅
+- **+s (Snomask)**: Allows reception of server notices. ✅
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
 - **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ❌
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
