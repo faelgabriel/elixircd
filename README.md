@@ -268,8 +268,10 @@ These modes are applied to users themselves, affecting their behavior and access
 - **+B (Bot)**: Marks the user as a bot. ✅
 - **+c (No CTCP replies)**: Prevents the user from sending CTCP replies. ❌
 - **+d (Deaf)**: Blocks channel messages from being received by the user. ❌
+- **+G (Profanity Filter)**: Filters incoming messages containing offensive words. ❌
 - **+g (Caller ID)**: Blocks private messages from users not on your accept list. ✅
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ✅
+- **+h (HelpOp)**: Marks the user as a help operator. ❌
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
 - **+p (Hide channels)**: Hides channels the user is in from WHOIS. ❌
@@ -289,16 +291,26 @@ These modes are applied to channels themselves, affecting channel behavior and a
 - **+A (Admin Only)**: Only IRC operators with admin access may join. ❌
 - **+C (No CTCP)**: Blocks CTCP messages to the channel. ✅
 - **+c (No colors)**: Blocks messages with colors. ❌
+- **+d (DelayMsg)**: Requires users to wait before sending messages after joining. ❌
 - **+f (Flood Protection)**: Protects the channel from flooding. ❌
+- **+H (History)**: Sends recent channel history to users when they join. ❌
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
+- **+j (Join Throttle)**: Limits the rate of joins to the channel. ❌
 - **+k (Key)**: Requires a password to join the channel. ✅
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
+- **+L (Redirect)**: Redirects users to another channel if they cannot join this one. ❌
 - **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
+- **+M (Registered Only Speak)**: Only registered users may speak. ❌
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
+- **+N (No Nick Changes)**: Prevents users from changing their nicknames while in the channel. ❌
+- **+O (Oper Only)**: Restricts channel access to IRC operators only. ❌
 - **+p (Private)**: Hides the channel from the LIST command. ✅
+- **+Q (No Kicks)**: Prevents users from being kicked from the channel. ❌
 - **+r (Registered Channel)**: Indicates the channel is registered with services. ❌
+- **+R (Registered Only Join)**: Only registered users may join the channel. ❌
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
 - **+t (Topic)**: Restricts topic changes to users with operator privileges. ✅
+- **+T (No NOTICEs)**: Blocks NOTICE messages in the channel. ❌
 - **+u (Auditorium)**: Hides join/part/quit messages except for users with voice or higher. ❌
 - **+z (Secure Only)**: Restricts channel access to users with secure connections only. ❌
 
