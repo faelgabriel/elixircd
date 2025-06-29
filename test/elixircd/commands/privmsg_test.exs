@@ -632,5 +632,162 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
+
+    test "blocks messages when +d mode is set with +n mode and user just joined" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["n", {"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 937 #{user.nick} #{channel.name} :You must wait 5 seconds after joining before speaking in this channel.\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set with +n mode and enough time has passed" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["n", {"d", "5"}])
+        past_time = DateTime.add(DateTime.utc_now(), -10, :second)
+        insert(:user_channel, user: user, channel: channel, created_at: past_time)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set with +n mode and user is channel operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["n", {"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"], created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set with +n mode and user has voice" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["n", {"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"], created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages when +d mode is set with +n mode and different delay values" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["n", {"d", "10"}])
+        insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 937 #{user.nick} #{channel.name} :You must wait 10 seconds after joining before speaking in this channel.\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set and +m mode is also set and user has voice and enough time passed" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["m", {"d", "5"}])
+        past_time = DateTime.add(DateTime.utc_now(), -10, :second)
+        insert(:user_channel, user: user, channel: channel, modes: ["v"], created_at: past_time)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set and +m mode is also set and user has voice (voice bypasses delay)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["m", {"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"], created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages when +d mode is set and +m mode is also set and user has no voice (blocked by moderation first)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["m", {"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+        ])
+      end)
+    end
   end
 end

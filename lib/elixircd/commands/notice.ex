@@ -6,7 +6,7 @@ defmodule ElixIRCd.Commands.Notice do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -16,6 +16,7 @@ defmodule ElixIRCd.Commands.Notice do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserChannel
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -55,8 +56,9 @@ defmodule ElixIRCd.Commands.Notice do
 
   defp handle_channel_message(user, channel_name, message_text) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
-         :ok <- check_formatting_restrictions(channel, message_text) do
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
+         :ok <- check_delay_message(channel, user_channel),
+         :ok <- check_formatting(channel, message_text) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
@@ -69,6 +71,15 @@ defmodule ElixIRCd.Commands.Notice do
       })
       |> Dispatcher.broadcast(channel_users_without_user)
     else
+      {:error, :delay_message_blocked, delay} ->
+        Message.build(%{
+          prefix: :server,
+          command: "937",
+          params: [user.nick, channel_name],
+          trailing: "You must wait #{delay} seconds after joining before speaking in this channel."
+        })
+        |> Dispatcher.broadcast(user)
+
       {:error, :user_channel_not_found} ->
         Message.build(%{
           prefix: :server,
@@ -164,12 +175,38 @@ defmodule ElixIRCd.Commands.Notice do
     |> Dispatcher.broadcast(user)
   end
 
-  @spec check_formatting_restrictions(Channel.t(), String.t()) :: :ok | {:error, :formatting_blocked}
-  defp check_formatting_restrictions(channel, message_text) do
+  @spec check_formatting(Channel.t(), String.t()) :: :ok | {:error, :formatting_blocked}
+  defp check_formatting(channel, message_text) do
     if "c" in channel.modes and contains_formatting?(message_text) do
       {:error, :formatting_blocked}
     else
       :ok
     end
+  end
+
+  @spec check_delay_message(Channel.t(), UserChannel.t()) :: :ok | {:error, :delay_message_blocked, integer()}
+  defp check_delay_message(%{modes: modes}, user_channel) do
+    with delay when is_integer(delay) <- extract_delay_mode_value(modes),
+         false <- channel_operator?(user_channel) or channel_voice?(user_channel),
+         false <- enough_delay_time_passed?(user_channel, delay) do
+      {:error, :delay_message_blocked, delay}
+    else
+      _ -> :ok
+    end
+  end
+
+  @spec extract_delay_mode_value([{String.t(), String.t()}]) :: integer() | nil
+  defp extract_delay_mode_value(modes) do
+    Enum.find_value(modes, fn
+      {"d", value} -> String.to_integer(value)
+      _ -> nil
+    end)
+  end
+
+  @spec enough_delay_time_passed?(UserChannel.t(), integer()) :: boolean()
+  defp enough_delay_time_passed?(user_channel, delay) do
+    join_time = DateTime.to_unix(user_channel.created_at, :second)
+    now = DateTime.to_unix(DateTime.utc_now(), :second)
+    now >= join_time + delay
   end
 end

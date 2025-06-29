@@ -290,8 +290,8 @@ These modes are applied to channels themselves, affecting channel behavior and a
 
 - **+A (Admin Only)**: Only IRC operators with admin access may join. ❌
 - **+C (No CTCP)**: Blocks CTCP messages to the channel. ✅
-- **+c (No colors)**: Blocks messages with colors. ✅
-- **+d (DelayMsg)**: Requires users to wait before sending messages after joining. ❌
+- **+c (No Colors)**: Blocks messages with colors. ✅
+- **+d (Delay Message)**: Requires users to wait before sending messages after joining. ✅
 - **+f (Flood Protection)**: Protects the channel from flooding. ❌
 - **+H (History)**: Sends recent channel history to users when they join. ❌
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
