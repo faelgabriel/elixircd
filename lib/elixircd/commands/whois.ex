@@ -188,14 +188,20 @@ defmodule ElixIRCd.Commands.Whois do
 
   @spec maybe_add_whoisoperator([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisoperator(messages, user, target_user) do
-    if "o" in target_user.modes do
+    if target_user.operator != nil do
+      trailing_message =
+        case target_user.operator.type do
+          nil -> "is an IRC operator"
+          type -> "is an IRC operator (#{type})"
+        end
+
       messages ++
         [
           Message.build(%{
             prefix: :server,
             command: :rpl_whoisoperator,
             params: [user.nick, target_user.nick],
-            trailing: "is an IRC operator"
+            trailing: trailing_message
           })
         ]
     else

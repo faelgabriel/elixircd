@@ -28,7 +28,8 @@ defmodule ElixIRCd.Utils.Protocol do
   Checks if a user is an IRC operator.
   """
   @spec irc_operator?(User.t()) :: boolean()
-  def irc_operator?(user), do: "o" in user.modes
+  def irc_operator?(%User{operator: nil}), do: false
+  def irc_operator?(%User{operator: %{}}), do: true
 
   @doc """
   Checks if a user is a channel operator.

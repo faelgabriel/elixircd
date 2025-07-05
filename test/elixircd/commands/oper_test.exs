@@ -44,7 +44,13 @@ defmodule ElixIRCd.Commands.OperTest do
       # Argon2id hashing
       # User: admin / Password: admin
       operators = [
-        {"admin", "$argon2id$v=19$m=4096,t=2,p=4$0Ikum7IgbC2CkId/UJQE7A$n1YVbtPj1nP4EfdL771tPCS1PmK+Q364g14ScJzBaSg"}
+        %{
+          nick: "admin",
+          password: "$argon2id$v=19$m=4096,t=2,p=4$0Ikum7IgbC2CkId/UJQE7A$n1YVbtPj1nP4EfdL771tPCS1PmK+Q364g14ScJzBaSg",
+          hostmasks: ["*@*"],
+          type: "admin",
+          vhost: nil
+        }
       ]
 
       original_config = Application.get_env(:elixircd, :operators)

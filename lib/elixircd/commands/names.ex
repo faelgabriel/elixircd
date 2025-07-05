@@ -155,7 +155,7 @@ defmodule ElixIRCd.Commands.Names do
 
   @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: [{String.t(), String.t()}]
   defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
-    is_operator = "o" in user.modes
+    is_operator = user.operator_authenticated
     use_extended_names = "UHNAMES" in user.capabilities
 
     user_channels
@@ -174,8 +174,8 @@ defmodule ElixIRCd.Commands.Names do
   end
 
   @spec user_visible?(User.t(), boolean()) :: boolean()
-  defp user_visible?(user, is_operator) do
-    case is_operator do
+  defp user_visible?(user, is_requesting_user_operator) do
+    case is_requesting_user_operator do
       true -> true
       false -> "i" not in user.modes and "H" not in user.modes
     end
@@ -202,7 +202,7 @@ defmodule ElixIRCd.Commands.Names do
       |> Enum.reject(fn u -> u.pid in channel_users or u.pid == user.pid end)
       |> Enum.filter(fn target ->
         cond do
-          "o" in user.modes -> true
+          user.operator_authenticated -> true
           "i" not in target.modes and "H" not in target.modes -> true
           true -> false
         end

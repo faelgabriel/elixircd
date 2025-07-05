@@ -8,9 +8,9 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
-  @modes ["B", "g", "H", "i", "o", "r", "R", "w", "Z"]
-  @modes_handled_by_server_to_add ["o", "r", "Z"]
-  @modes_handled_by_server_to_remove ["r", "Z"]
+  @modes ["B", "g", "H", "i", "O", "r", "R", "w", "Z"]
+  @modes_handled_by_server_to_add ["O", "r", "Z"]
+  @modes_handled_by_server_to_remove ["O", "r", "Z"]
   @modes_restricted_to_operators ["H"]
 
   @type mode :: String.t()
@@ -140,7 +140,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
 
   @spec removing_operator?([mode_change()]) :: boolean()
   defp removing_operator?(mode_changes) do
-    Enum.any?(mode_changes, &match?({:remove, "o"}, &1))
+    Enum.any?(mode_changes, &match?({:remove, "O"}, &1))
   end
 
   @spec has_or_adding_h_mode?(User.t(), [mode_change()]) :: boolean()

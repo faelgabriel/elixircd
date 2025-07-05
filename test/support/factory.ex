@@ -51,6 +51,7 @@ defmodule ElixIRCd.Factory do
       password: Map.get(attrs, :password, nil),
       away_message: Map.get(attrs, :away_message, nil),
       capabilities: Map.get(attrs, :capabilities, []),
+      operator: Map.get(attrs, :operator, nil),
       last_activity: Map.get(attrs, :last_activity, :erlang.system_time(:second)),
       registered_at: registered_at,
       identified_as: Map.get(attrs, :identified_as, nil),
@@ -84,6 +85,13 @@ defmodule ElixIRCd.Factory do
       text: Map.get(attrs, :text, "topic"),
       setter: Map.get(attrs, :setter, "setter"),
       set_at: Map.get(attrs, :set_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:user_operator, attrs) do
+    %User.Operator{
+      nick: Map.get(attrs, :nick, nil),
+      type: Map.get(attrs, :type, nil)
     }
   end
 

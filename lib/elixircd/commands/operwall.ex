@@ -9,12 +9,13 @@ defmodule ElixIRCd.Commands.Operwall do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1, user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Operators
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -36,7 +37,7 @@ defmodule ElixIRCd.Commands.Operwall do
 
   @impl true
   def handle(user, %{command: "OPERWALL", trailing: message}) do
-    case irc_operator?(user) do
+    case Operators.has_operator_privilege?(user, :operwall) do
       true -> operwall_message(user, message)
       false -> noprivileges_message(user)
     end
@@ -44,7 +45,8 @@ defmodule ElixIRCd.Commands.Operwall do
 
   @spec operwall_message(User.t(), String.t()) :: :ok
   defp operwall_message(sender, message) do
-    target_operators = Users.get_by_mode("o")
+    target_operators = Users.get_all()
+    |> Enum.filter(& &1.operator_authenticated)
 
     Message.build(%{
       prefix: user_mask(sender),

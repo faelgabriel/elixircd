@@ -246,7 +246,7 @@ defmodule ElixIRCd.Commands.Who do
   @spec maybe_filter_operators([User.t()], [String.t()]) :: [User.t()]
   defp maybe_filter_operators(users, filters) do
     case filter_operators?(filters) do
-      true -> Enum.filter(users, &("o" in &1.modes))
+      true -> Enum.filter(users, & &1.operator != nil)
       false -> users
     end
   end
@@ -305,7 +305,7 @@ defmodule ElixIRCd.Commands.Who do
   @spec extended_user_modes(User.t(), User.t()) :: String.t()
   defp extended_user_modes(requesting_user, %User{modes: modes}) do
     modes_restricted_to_operators = Mode.UserModes.modes_restricted_to_operators()
-    extended_modes = modes -- ["o"]
+    extended_modes = modes -- ["O"]
 
     filtered_modes =
       if irc_operator?(requesting_user) do
@@ -321,7 +321,8 @@ defmodule ElixIRCd.Commands.Who do
   defp user_away_status(%User{} = user), do: if(user.away_message != nil, do: "G", else: "H")
 
   @spec irc_operator_symbol(User.t()) :: String.t()
-  defp irc_operator_symbol(%User{modes: modes}), do: if("o" in modes, do: "*", else: "")
+  defp irc_operator_symbol(%User{operator: nil}), do: ""
+  defp irc_operator_symbol(%User{operator: %{}}), do: "*"
 
   @spec channel_operator_symbol(UserChannel.t() | nil) :: String.t()
   defp channel_operator_symbol(%UserChannel{modes: modes}), do: if("o" in modes, do: "@", else: "")

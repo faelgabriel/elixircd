@@ -230,10 +230,27 @@ config :elixircd,
   ],
   # IRC Operators Credentials
   operators: [
-    # Define IRC operators with nickname and Argon2id hashed password
-    # Example operator with nick "admin" and hashed "admin" password:
-    # {"admin", "$argon2id$v=19$m=4096,t=2,p=4$0Ikum7IgbC2CkId/UJQE7A$n1YVbtPj1nP4EfdL771tPCS1PmK+Q364g14ScJzBaSg"}
-  ]
+    # Example operator configuration:
+    # %{
+    #   nick: "rafael",
+    #   password: "$argon2id$v=19$m=4096,t=2,p=4$0Ikum7IgbC2CkId/UJQE7A$n1YVbtPj1nP4EfdL771tPCS1PmK+Q364g14ScJzBaSg",
+    #   hostmasks: ["*@127.0.0.1", "*@localhost"],
+    #   type: "netadmin",
+    #   vhost: "netadmin.example.com"
+    # }
+  ],
+  # Operator Type Definitions
+  operator_types: %{
+    "netadmin" => %{
+      privs: [:kill, :rehash, :die, :operwall, :override]
+    },
+    "admin" => %{
+      privs: [:kill, :rehash, :operwall]
+    },
+    "oper" => %{
+      privs: [:operwall]
+    }
+  }
 
 # Mailer Configuration
 config :elixircd, ElixIRCd.Utils.Mailer,

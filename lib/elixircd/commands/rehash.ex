@@ -5,12 +5,12 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
   import ElixIRCd.Utils.System, only: [load_configurations: 0]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Operators
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @impl true
   def handle(user, %{command: "REHASH"}) do
-    case irc_operator?(user) do
+    case Operators.has_operator_privilege?(user, :rehash) do
       true -> process_rehashing(user)
       false -> noprivileges_message(user)
     end

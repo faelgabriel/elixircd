@@ -5,12 +5,13 @@ defmodule ElixIRCd.Commands.Kill do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Operators
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -32,7 +33,7 @@ defmodule ElixIRCd.Commands.Kill do
 
   @impl true
   def handle(user, %{command: "KILL", params: [target_nick | _rest], trailing: reason}) do
-    with {:irc_operator?, true} <- {:irc_operator?, irc_operator?(user)},
+    with {:has_privilege?, true} <- {:has_privilege?, Operators.has_operator_privilege?(user, :kill)},
          {:ok, target_user} <- Users.get_by_nick(target_nick) do
       formatted_reason = if is_nil(reason), do: "", else: " (#{reason})"
       killed_message = "Killed (#{user.nick}#{formatted_reason})"
@@ -42,7 +43,7 @@ defmodule ElixIRCd.Commands.Kill do
 
       :ok
     else
-      {:irc_operator?, false} -> noprivileges_message(user)
+      {:has_privilege?, false} -> noprivileges_message(user)
       {:error, :user_not_found} -> target_not_found_message(user, target_nick)
     end
   end

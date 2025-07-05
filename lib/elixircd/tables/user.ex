@@ -3,6 +3,7 @@ defmodule ElixIRCd.Tables.User do
   Module for the User table.
   """
 
+  alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
 
   @enforce_keys [:pid, :transport, :ip_address, :port_connected, :registered, :modes, :last_activity, :created_at]
@@ -23,6 +24,7 @@ defmodule ElixIRCd.Tables.User do
       :away_message,
       :identified_as,
       :capabilities,
+      :operator,
       :last_activity,
       :registered_at,
       :created_at
@@ -46,6 +48,7 @@ defmodule ElixIRCd.Tables.User do
           away_message: String.t() | nil,
           identified_as: String.t() | nil,
           capabilities: [String.t()],
+          operator: User.Operator.t() | nil,
           last_activity: integer(),
           registered_at: DateTime.t() | nil,
           created_at: DateTime.t()
@@ -66,6 +69,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:away_message) => String.t() | nil,
           optional(:identified_as) => String.t() | nil,
           optional(:capabilities) => [String.t()],
+          optional(:operator) => User.Operator.t() | nil,
           optional(:last_activity) => integer(),
           optional(:registered_at) => DateTime.t() | nil,
           optional(:created_at) => DateTime.t()
@@ -81,6 +85,7 @@ defmodule ElixIRCd.Tables.User do
       |> Map.put_new(:registered, false)
       |> Map.put_new(:modes, [])
       |> Map.put_new(:capabilities, [])
+      |> Map.put_new(:operator, nil)
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> handle_nick_key()

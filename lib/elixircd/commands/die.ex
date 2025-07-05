@@ -5,12 +5,13 @@ defmodule ElixIRCd.Commands.Die do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Operators
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -21,7 +22,7 @@ defmodule ElixIRCd.Commands.Die do
 
   @impl true
   def handle(user, %{command: "DIE", trailing: reason}) do
-    case irc_operator?(user) do
+    case Operators.has_operator_privilege?(user, :die) do
       true -> handle_die(reason)
       false -> noprivileges_message(user)
     end
