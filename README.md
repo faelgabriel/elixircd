@@ -303,7 +303,7 @@ These modes are applied to channels themselves, affecting channel behavior and a
 - **+M (Registered Only Speak)**: Only registered users may speak. ❌
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
 - **+N (No Nick Changes)**: Prevents users from changing their nicknames while in the channel. ❌
-- **+O (Oper Only)**: Restricts channel access to IRC operators only. ❌
+- **+O (Oper Only)**: Restricts channel access to IRC operators only. ✅
 - **+p (Private)**: Hides the channel from the LIST command. ✅
 - **+Q (No Kicks)**: Prevents users from being kicked from the channel. ❌
 - **+r (Registered Channel)**: Indicates the channel is registered with services. ❌

@@ -894,5 +894,135 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
       assert updated_channel.modes == []
       assert applied_changes == []
     end
+
+    test "handles add +O mode (oper only) by IRC operator" do
+      user = insert(:user, modes: ["o"])
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:add, "O"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["O"]
+      assert applied_changes == [{:add, "O"}]
+    end
+
+    test "handles remove +O mode (oper only) by IRC operator" do
+      user = insert(:user, modes: ["o"])
+      channel = insert(:channel, modes: ["O"])
+
+      validated_modes = [{:remove, "O"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == [{:remove, "O"}]
+    end
+
+    test "handles add +O mode when already set by IRC operator" do
+      user = insert(:user, modes: ["o"])
+      channel = insert(:channel, modes: ["O"])
+
+      validated_modes = [{:add, "O"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["O"]
+      assert applied_changes == []
+    end
+
+    test "handles remove +O mode when not set by IRC operator" do
+      user = insert(:user, modes: ["o"])
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:remove, "O"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == []
+    end
+
+    test "rejects add +O mode by non-IRC operator with error message" do
+      user = insert(:user, modes: [])
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:add, "O"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == []
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+      ])
+    end
+
+    test "rejects remove +O mode by non-IRC operator with error message" do
+      user = insert(:user, modes: [])
+      channel = insert(:channel, modes: ["O"])
+
+      validated_modes = [{:remove, "O"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["O"]
+      assert applied_changes == []
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+      ])
+    end
+
+    test "handles add +O mode with other modes by IRC operator" do
+      user = insert(:user, modes: ["o"])
+      channel = insert(:channel, modes: ["t", "n"])
+
+      validated_modes = [{:add, "O"}, {:add, "s"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["n", "t", "O", "s"]
+      assert applied_changes == [{:add, "O"}, {:add, "s"}]
+    end
+
+    test "handles remove +O mode with other modes by IRC operator" do
+      user = insert(:user, modes: ["o"])
+      channel = insert(:channel, modes: ["t", "n", "O", "s"])
+
+      validated_modes = [{:remove, "O"}, {:remove, "s"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["n", "t"]
+      assert applied_changes == [{:remove, "O"}, {:remove, "s"}]
+    end
+
+    test "handles mixed +O mode operations with non-IRC operator" do
+      user = insert(:user, modes: [])
+      channel = insert(:channel, modes: ["t", "O"])
+
+      validated_modes = [{:add, "O"}, {:remove, "O"}, {:add, "n"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == ["O", "t", "n"]
+      assert applied_changes == [{:add, "n"}]
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"},
+        {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+      ])
+    end
   end
 end

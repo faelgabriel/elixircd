@@ -3,7 +3,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   This module includes the channel modes handler.
   """
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, normalize_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, normalize_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelBans
@@ -16,7 +16,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @modes ["b", "C", "c", "d", "i", "k", "l", "m", "n", "o", "p", "s", "t", "v"]
+  @modes ["b", "C", "c", "d", "i", "k", "l", "m", "n", "O", "o", "p", "s", "t", "v"]
   @modes_with_value_to_add ["b", "d", "k", "l", "o", "v"]
   @modes_with_value_to_replace ["d", "k", "l"]
   @modes_with_value_to_remove ["b", "o", "v"]
@@ -25,6 +25,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @modes_for_user_channel ["o", "v"]
   @modes_for_channel_ban ["b"]
   @modes_as_listing ["b"]
+  @modes_requiring_irc_operator ["O"]
 
   @type mode :: String.t() | {String.t(), String.t()}
   @type mode_change :: {:add, mode()} | {:remove, mode()}
@@ -206,6 +207,9 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     mode_flag = extract_mode_flag(mode)
 
     cond do
+      mode_flag in @modes_requiring_irc_operator ->
+        apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
+
       mode_flag in @modes_for_user_channel ->
         user_channel_mode_applied?(user, mode_change, channel.name)
         |> update_mode_changes(mode_change, applied_changes, new_modes)
@@ -237,6 +241,9 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     mode_flag = extract_mode_flag(mode)
 
     cond do
+      mode_flag in @modes_requiring_irc_operator ->
+        apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
+
       mode_flag in @modes_for_user_channel ->
         user_channel_mode_applied?(user, mode_change, channel.name)
         |> update_mode_changes(mode_change, applied_changes, new_modes)
@@ -263,6 +270,50 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @spec extract_mode_flag(mode()) :: String.t()
   defp extract_mode_flag({mode, _val}), do: mode
   defp extract_mode_flag(mode), do: mode
+
+  @spec apply_irc_operator_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp apply_irc_operator_mode(user, {:add, mode} = mode_change, _channel_name, applied_changes, new_modes) do
+    if irc_operator?(user) do
+      # ignore if the mode is already set
+      if Enum.member?(new_modes, mode) do
+        {applied_changes, new_modes}
+      else
+        {[mode_change | applied_changes], [mode | new_modes]}
+      end
+    else
+      Message.build(%{
+        prefix: :server,
+        command: :err_noprivileges,
+        params: [user.nick],
+        trailing: "Permission Denied- You're not an IRC operator"
+      })
+      |> Dispatcher.broadcast(user)
+
+      {applied_changes, new_modes}
+    end
+  end
+
+  defp apply_irc_operator_mode(user, {:remove, mode} = mode_change, _channel_name, applied_changes, new_modes) do
+    if irc_operator?(user) do
+      # ignore if the mode is not set
+      if Enum.member?(new_modes, mode) do
+        {[mode_change | applied_changes], List.delete(new_modes, mode)}
+      else
+        {applied_changes, new_modes}
+      end
+    else
+      Message.build(%{
+        prefix: :server,
+        command: :err_noprivileges,
+        params: [user.nick],
+        trailing: "Permission Denied- You're not an IRC operator"
+      })
+      |> Dispatcher.broadcast(user)
+
+      {applied_changes, new_modes}
+    end
+  end
 
   @spec user_channel_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
   defp user_channel_mode_applied?(user, {_action, {_mode_flag, target_nick}} = mode_change, channel_name) do

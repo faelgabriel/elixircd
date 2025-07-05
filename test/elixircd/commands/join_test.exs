@@ -301,6 +301,55 @@ defmodule ElixIRCd.Commands.JoinTest do
 
       :ok = Application.put_env(:elixircd, :channel, original_channel_config)
     end
+
+    test "handles JOIN command with +O mode and non-IRC operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: [])
+        channel = insert(:channel, modes: ["O"])
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 520 #{user.nick} #{channel.name} :Only IRC operators may join this channel (+O)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with +O mode and IRC operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        channel = insert(:channel, modes: ["O"])
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with +O mode combined with other restrictive modes and IRC operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        channel = insert(:channel, modes: ["O", "i", {"k", "password"}, {"l", "10"}])
+        insert(:channel_invite, channel: channel, user: user)
+        message = %Message{command: "JOIN", params: [channel.name, "password"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
   end
 
   describe "handle/2 - Extended NAMES in JOIN (UHNAMES)" do
