@@ -5,6 +5,7 @@ defmodule ElixIRCd.Commands.Notice do
 
   @behaviour ElixIRCd.Command
 
+  import ElixIRCd.Utils.MessageFilter, only: [should_silence_message?: 2]
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
 
@@ -119,6 +120,9 @@ defmodule ElixIRCd.Commands.Notice do
   @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_user_message(user, receiver_user, target_nick, message_text) do
     cond do
+      should_silence_message?(receiver_user, user) ->
+        :ok
+
       "R" in receiver_user.modes and "r" not in user.modes ->
         handle_restricted_user_message(user, receiver_user)
 

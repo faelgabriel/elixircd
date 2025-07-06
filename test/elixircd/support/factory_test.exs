@@ -15,6 +15,7 @@ defmodule ElixIRCd.FactoryTest do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Tables.UserSilence
 
   describe "build/2" do
     test "builds a user with default attributes" do
@@ -41,6 +42,18 @@ defmodule ElixIRCd.FactoryTest do
     test "builds a user accept with custom attributes as a keyword list" do
       user_pid = spawn(fn -> :ok end)
       assert %UserAccept{user_pid: ^user_pid} = Factory.build(:user_accept, user_pid: user_pid)
+    end
+
+    test "builds a user silence with default attributes" do
+      assert %UserSilence{} = Factory.build(:user_silence)
+    end
+
+    test "builds a user silence with custom attributes as a map" do
+      assert %UserSilence{mask: "custom!user@host"} = Factory.build(:user_silence, %{mask: "custom!user@host"})
+    end
+
+    test "builds a user silence with custom attributes as a keyword list" do
+      assert %UserSilence{mask: "custom!user@host"} = Factory.build(:user_silence, mask: "custom!user@host")
     end
 
     test "builds a channel with default attributes" do
@@ -193,6 +206,26 @@ defmodule ElixIRCd.FactoryTest do
       assert %UserAccept{} = user_accept = Factory.insert(:user_accept, user: user, accepted_user: accepted_user)
       assert user_accept.user_pid == user.pid
       assert user_accept.accepted_user_pid == accepted_user.pid
+    end
+
+    test "inserts a user silence into the database with default attributes" do
+      assert %UserSilence{} = Factory.insert(:user_silence)
+    end
+
+    test "inserts a user silence into the database with custom attributes as a map" do
+      user = Factory.insert(:user)
+
+      assert %UserSilence{} = user_silence = Factory.insert(:user_silence, %{user: user, mask: "test!user@host"})
+      assert user_silence.user_pid == user.pid
+      assert user_silence.mask == "test!user@host"
+    end
+
+    test "inserts a user silence into the database with custom attributes as a keyword list" do
+      user = Factory.insert(:user)
+
+      assert %UserSilence{} = user_silence = Factory.insert(:user_silence, user: user, mask: "test!user@host")
+      assert user_silence.user_pid == user.pid
+      assert user_silence.mask == "test!user@host"
     end
 
     test "inserts a channel into the database with default attributes" do

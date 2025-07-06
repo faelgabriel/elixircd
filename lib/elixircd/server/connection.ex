@@ -16,6 +16,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Repositories.UserSilences
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Tables.User
@@ -216,6 +217,7 @@ defmodule ElixIRCd.Server.Connection do
     UserChannels.delete_by_user_pid(user.pid)
     UserAccepts.delete_by_user_pid(user.pid)
     UserAccepts.delete_by_accepted_user_pid(user.pid)
+    UserSilences.delete_by_user_pid(user.pid)
     Users.delete(user)
 
     # Delete the channels that have no other users

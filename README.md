@@ -235,7 +235,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **QUIT**: Disconnect from the server. ✅
 - **LUSERS**: Get statistics about the size of the network. ✅
 - **ISON**: Check if specified users are online. ✅
-- **SILENCE**: Manage a list of users whose messages are blocked. ❌
+- **SILENCE**: Manage a list of users whose messages are blocked. ✅
 - **VERSION**: Respond to queries about the server's version. ✅
 - **STATS**: Provide server statistics. ✅
 - **INFO**: Provide information about the server. ✅

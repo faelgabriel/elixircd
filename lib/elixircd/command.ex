@@ -38,6 +38,7 @@ defmodule ElixIRCd.Command do
     "QUIT" => Commands.Quit,
     "REHASH" => Commands.Rehash,
     "RESTART" => Commands.Restart,
+    "SILENCE" => Commands.Silence,
     "STATS" => Commands.Stats,
     "TIME" => Commands.Time,
     "TOPIC" => Commands.Topic,
