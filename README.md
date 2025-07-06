@@ -266,13 +266,20 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 These modes are applied to users themselves, affecting their behavior and access to the server.
 
 - **+B (Bot)**: Marks the user as a bot. ✅
+- **+c (No CTCP replies)**: Prevents the user from sending CTCP replies. ❌
+- **+d (Deaf)**: Blocks channel messages from being received by the user. ❌
+- **+G (Profanity Filter)**: Filters incoming messages containing offensive words. ❌
 - **+g (Caller ID)**: Blocks private messages from users not on your accept list. ✅
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ✅
+- **+h (HelpOp)**: Marks the user as a help operator. ❌
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
+- **+p (Hide channels)**: Hides channels the user is in from WHOIS. ❌
 - **+r (Registered)**: Indicates the user is registered and identified with services. ✅
-- **+R (Registered Only)**: Only allows messages from registered users. ❌
+- **+R (Registered Only)**: Only allows messages from registered users. ✅
 - **+s (Snomask)**: Allows reception of server notices. ❌
+- **+S (Strip Colors)**: Strips colors from messages sent to the user. ❌
+- **+u (Soft Caller ID)**: Similar to +g, but not blocking WHOIS. ❌
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
 - **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ❌
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
@@ -281,17 +288,29 @@ These modes are applied to users themselves, affecting their behavior and access
 
 These modes are applied to channels themselves, affecting channel behavior and access control.
 
-- **+C (No CTCP)**: Blocks CTCP messages to the channel. ❌
+- **+A (Admin Only)**: Only IRC operators with admin access may join. ❌
+- **+C (No CTCP)**: Blocks CTCP messages to the channel. ✅
+- **+c (No Colors)**: Blocks messages with colors. ✅
+- **+d (Delay Message)**: Requires users to wait before sending messages after joining. ✅
 - **+f (Flood Protection)**: Protects the channel from flooding. ❌
+- **+H (History)**: Sends recent channel history to users when they join. ❌
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
+- **+j (Join Throttle)**: Limits the rate of joins to the channel. ✅
 - **+k (Key)**: Requires a password to join the channel. ✅
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
+- **+L (Redirect)**: Redirects users to another channel if they cannot join this one. ❌
 - **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
+- **+M (Registered Only Speak)**: Only registered users may speak. ❌
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
+- **+N (No Nick Changes)**: Prevents users from changing their nicknames while in the channel. ❌
+- **+O (Oper Only)**: Restricts channel access to IRC operators only. ✅
 - **+p (Private)**: Hides the channel from the LIST command. ✅
+- **+Q (No Kicks)**: Prevents users from being kicked from the channel. ❌
 - **+r (Registered Channel)**: Indicates the channel is registered with services. ❌
+- **+R (Registered Only Join)**: Only registered users may join the channel. ❌
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
 - **+t (Topic)**: Restricts topic changes to users with operator privileges. ✅
+- **+T (No NOTICEs)**: Blocks NOTICE messages in the channel. ❌
 - **+u (Auditorium)**: Hides join/part/quit messages except for users with voice or higher. ❌
 - **+z (Secure Only)**: Restricts channel access to users with secure connections only. ❌
 
@@ -307,9 +326,10 @@ These modes maintain lists of entries for access control and restrictions.
 
 These modes are applied to users within channels, granting them specific privileges or status.
 
-- **+q (Owner)**: Grants channel owner status to a user (higher than operator). ❌
+- **+a (Admin)**: Grants admin-level privileges. ❌
 - **+h (Half-operator)**: Grants half-operator status to a user. ❌
 - **+o (Operator)**: Grants operator status to a user. ✅
+- **+q (Owner)**: Grants channel owner status to a user. ❌
 - **+v (Voice)**: Grants voice status to a user. ✅
 
 ### Services

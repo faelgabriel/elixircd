@@ -7,7 +7,8 @@ defmodule ElixIRCd.Commands.Join do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, match_user_mask?: 2]
+  import ElixIRCd.Utils.Protocol,
+    only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, match_user_mask?: 2, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelBans
@@ -21,7 +22,14 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Tables.UserChannel
 
   @type channel_states :: :created | :existing
-  @type mode_error :: :channel_key_invalid | :channel_limit_reached | :user_banned | :user_not_invited
+  @type mode :: String.t() | {String.t(), String.t()}
+  @type mode_error ::
+          :channel_key_invalid
+          | :channel_limit_reached
+          | :user_banned
+          | :user_not_invited
+          | :user_not_operator
+          | :join_throttled
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -194,6 +202,26 @@ defmodule ElixIRCd.Commands.Join do
     |> Dispatcher.broadcast(user)
   end
 
+  defp send_join_channel_error(:user_not_operator, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: "520",
+      params: [user.nick, channel_name],
+      trailing: "Only IRC operators may join this channel (+O)"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
+  defp send_join_channel_error(:join_throttled, user, channel_name) do
+    Message.build(%{
+      prefix: :server,
+      command: "477",
+      params: [user.nick, channel_name],
+      trailing: "Channel join rate exceeded (+j)"
+    })
+    |> Dispatcher.broadcast(user)
+  end
+
   defp send_join_channel_error(error, user, channel_name) do
     Message.build(%{
       prefix: :server,
@@ -243,8 +271,10 @@ defmodule ElixIRCd.Commands.Join do
   defp check_modes(:existing, channel, user, join_value) do
     with :ok <- check_user_banned(channel, user),
          :ok <- check_user_invited(channel, user),
-         :ok <- check_channel_key(channel, user, join_value) do
-      check_channel_limit(channel, user)
+         :ok <- check_channel_key(channel, user, join_value),
+         :ok <- check_channel_limit(channel, user),
+         :ok <- check_join_throttle(channel, user) do
+      check_operator_only(channel, user)
     end
   end
 
@@ -353,6 +383,58 @@ defmodule ElixIRCd.Commands.Join do
 
     if channels_with_prefix >= max_channels do
       {:error, :channel_limit_per_prefix_reached}
+    else
+      :ok
+    end
+  end
+
+  @spec check_operator_only(Channel.t(), User.t()) :: :ok | {:error, :user_not_operator}
+  defp check_operator_only(channel, user) do
+    if "O" in channel.modes and not irc_operator?(user) do
+      {:error, :user_not_operator}
+    else
+      :ok
+    end
+  end
+
+  @spec check_join_throttle(Channel.t(), User.t()) :: :ok | {:error, :join_throttled}
+  defp check_join_throttle(channel, user) do
+    if irc_operator?(user) do
+      :ok
+    else
+      apply_join_throttle_check(channel)
+    end
+  end
+
+  @spec apply_join_throttle_check(Channel.t()) :: :ok | {:error, :join_throttled}
+  defp apply_join_throttle_check(channel) do
+    throttle_value = get_join_throttle_value(channel.modes)
+
+    case throttle_value do
+      nil -> :ok
+      value -> validate_join_throttle(channel.name, value)
+    end
+  end
+
+  @spec get_join_throttle_value([mode()]) :: String.t() | nil
+  defp get_join_throttle_value(modes) do
+    Enum.find_value(modes, fn
+      {"j", value} -> value
+      _ -> nil
+    end)
+  end
+
+  @spec validate_join_throttle(String.t(), String.t()) :: :ok | {:error, :join_throttled}
+  defp validate_join_throttle(channel_name, throttle_value) do
+    [joins_str, seconds_str] = String.split(throttle_value, ":")
+    max_joins = String.to_integer(joins_str)
+    time_window = String.to_integer(seconds_str)
+
+    since_time = DateTime.utc_now() |> DateTime.add(-time_window, :second)
+    recent_joins = UserChannels.count_recent_joins_by_channel_name(channel_name, since_time)
+
+    if recent_joins >= max_joins do
+      {:error, :join_throttled}
     else
       :ok
     end

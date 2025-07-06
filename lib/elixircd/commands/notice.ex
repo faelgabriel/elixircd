@@ -5,7 +5,8 @@ defmodule ElixIRCd.Commands.Notice do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1]
+  import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -13,7 +14,9 @@ defmodule ElixIRCd.Commands.Notice do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserChannel
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -45,15 +48,17 @@ defmodule ElixIRCd.Commands.Notice do
   end
 
   @impl true
-  def handle(user, %{command: "NOTICE", params: [target], trailing: message}) do
+  def handle(user, %{command: "NOTICE", params: [target], trailing: message_text}) do
     if channel_name?(target),
-      do: handle_channel_message(user, target, message),
-      else: handle_user_message(user, target, message)
+      do: handle_channel_message(user, target, message_text),
+      else: handle_user_message(user, target, message_text)
   end
 
-  defp handle_channel_message(user, channel_name, message) do
+  defp handle_channel_message(user, channel_name, message_text) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
+         :ok <- check_delay_message(channel, user_channel),
+         :ok <- check_formatting(channel, message_text) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
@@ -62,10 +67,19 @@ defmodule ElixIRCd.Commands.Notice do
         prefix: user_mask(user),
         command: "NOTICE",
         params: [channel.name],
-        trailing: message
+        trailing: message_text
       })
       |> Dispatcher.broadcast(channel_users_without_user)
     else
+      {:error, :delay_message_blocked, delay} ->
+        Message.build(%{
+          prefix: :server,
+          command: "937",
+          params: [user.nick, channel_name],
+          trailing: "You must wait #{delay} seconds after joining before speaking in this channel."
+        })
+        |> Dispatcher.broadcast(user)
+
       {:error, :user_channel_not_found} ->
         Message.build(%{
           prefix: :server,
@@ -83,18 +97,27 @@ defmodule ElixIRCd.Commands.Notice do
           trailing: "No such channel"
         })
         |> Dispatcher.broadcast(user)
+
+      {:error, :formatting_blocked} ->
+        Message.build(%{
+          prefix: :server,
+          command: "404",
+          params: [user.nick, channel_name],
+          trailing: "Cannot send to channel (+c - no colors allowed)"
+        })
+        |> Dispatcher.broadcast(user)
     end
   end
 
-  defp handle_user_message(user, target_nick, message) do
+  defp handle_user_message(user, target_nick, message_text) do
     case Users.get_by_nick(target_nick) do
-      {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message)
+      {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message_text)
       {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
     end
   end
 
   @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_user_message(user, receiver_user, target_nick, message) do
+  defp handle_user_message(user, receiver_user, target_nick, message_text) do
     cond do
       "R" in receiver_user.modes and "r" not in user.modes ->
         handle_restricted_user_message(user, receiver_user)
@@ -104,7 +127,7 @@ defmodule ElixIRCd.Commands.Notice do
         handle_blocked_user_message(user, receiver_user)
 
       true ->
-        handle_normal_user_message(user, receiver_user, target_nick, message)
+        handle_normal_user_message(user, receiver_user, target_nick, message_text)
     end
   end
 
@@ -131,12 +154,12 @@ defmodule ElixIRCd.Commands.Notice do
   end
 
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_normal_user_message(user, receiver_user, target_nick, message) do
+  defp handle_normal_user_message(user, receiver_user, target_nick, message_text) do
     Message.build(%{
       prefix: user_mask(user),
       command: "NOTICE",
       params: [target_nick],
-      trailing: message
+      trailing: message_text
     })
     |> Dispatcher.broadcast(receiver_user)
   end
@@ -150,5 +173,40 @@ defmodule ElixIRCd.Commands.Notice do
       trailing: "No such nick"
     })
     |> Dispatcher.broadcast(user)
+  end
+
+  @spec check_formatting(Channel.t(), String.t()) :: :ok | {:error, :formatting_blocked}
+  defp check_formatting(channel, message_text) do
+    if "c" in channel.modes and contains_formatting?(message_text) do
+      {:error, :formatting_blocked}
+    else
+      :ok
+    end
+  end
+
+  @spec check_delay_message(Channel.t(), UserChannel.t()) :: :ok | {:error, :delay_message_blocked, integer()}
+  defp check_delay_message(%{modes: modes}, user_channel) do
+    with delay when is_integer(delay) <- extract_delay_mode_value(modes),
+         false <- channel_operator?(user_channel) or channel_voice?(user_channel),
+         false <- enough_delay_time_passed?(user_channel, delay) do
+      {:error, :delay_message_blocked, delay}
+    else
+      _ -> :ok
+    end
+  end
+
+  @spec extract_delay_mode_value([{String.t(), String.t()}]) :: integer() | nil
+  defp extract_delay_mode_value(modes) do
+    Enum.find_value(modes, fn
+      {"d", value} -> String.to_integer(value)
+      _ -> nil
+    end)
+  end
+
+  @spec enough_delay_time_passed?(UserChannel.t(), integer()) :: boolean()
+  defp enough_delay_time_passed?(user_channel, delay) do
+    join_time = DateTime.to_unix(user_channel.created_at, :second)
+    now = DateTime.to_unix(DateTime.utc_now(), :second)
+    now >= join_time + delay
   end
 end

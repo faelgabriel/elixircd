@@ -5,6 +5,7 @@ defmodule ElixIRCd.Repositories.UserChannels do
 
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.CaseMapping
+  alias Memento.Query.Data
 
   @doc """
   Create a new user channel and write it to the database.
@@ -133,6 +134,20 @@ defmodule ElixIRCd.Repositories.UserChannels do
     Enum.map(channel_names, fn channel_name ->
       users_count = count_users_by_channel_name(channel_name)
       {channel_name, users_count}
+    end)
+  end
+
+  @doc """
+  Count recent joins to a channel within a time window.
+  """
+  @spec count_recent_joins_by_channel_name(String.t(), DateTime.t()) :: integer()
+  def count_recent_joins_by_channel_name(channel_name, since_time) do
+    channel_name_key = CaseMapping.normalize(channel_name)
+
+    :mnesia.index_read(UserChannel, channel_name_key, :channel_name_key)
+    |> Enum.count(fn user_channel_record ->
+      user_channel = Data.load(user_channel_record)
+      DateTime.compare(user_channel.created_at, since_time) != :lt
     end)
   end
 end

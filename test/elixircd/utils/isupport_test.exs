@@ -52,7 +52,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UHNAMES EXTENDED-UHLIST UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"},
+         ":irc.test 005 #{user.nick} CHANMODES=b,k,jl,CcdimnOpst UHNAMES EXTENDED-UHLIST UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"},
         {user.pid, ":irc.test 005 #{user.nick} UTF8ONLY :are supported by this server\r\n"}
       ])
 
@@ -63,8 +63,13 @@ defmodule ElixIRCd.Utils.IsupportTest do
     end
 
     test "excludes boolean features when set to false" do
+      original_channel_config = Application.get_env(:elixircd, :channel)
       original_capabilities_config = Application.get_env(:elixircd, :capabilities)
       original_settings_config = Application.get_env(:elixircd, :settings)
+
+      channel_config = [
+        max_modes_per_command: 20
+      ]
 
       capabilities_config = [
         extended_names: false,
@@ -76,6 +81,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
         case_mapping: :rfc1459
       ]
 
+      Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config, channel_config))
       Application.put_env(:elixircd, :capabilities, Keyword.merge(original_capabilities_config, capabilities_config))
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
 
@@ -89,9 +95,10 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=b,k,l,imnpst UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=b,k,jl,CcdimnOpst UMODES=BgHiorRwZ BOT=B :are supported by this server\r\n"}
       ])
 
+      Application.put_env(:elixircd, :channel, original_channel_config)
       Application.put_env(:elixircd, :capabilities, original_capabilities_config)
       Application.put_env(:elixircd, :settings, original_settings_config)
     end

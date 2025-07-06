@@ -154,5 +154,194 @@ defmodule ElixIRCd.Commands.NoticeTest do
         ])
       end)
     end
+
+    test "blocks messages with color codes when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x03Hello world"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with bold formatting when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x02Bold text\x02"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with underline formatting when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x1FUnderlined text\x1F"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages with multiple formatting codes when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x02\x03Bold and colored\x0F"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
+        ])
+      end)
+    end
+
+    test "allows plain text messages when +c mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["c"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello everyone!"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello everyone!\r\n"}
+        ])
+      end)
+    end
+
+    test "allows formatted messages when +c mode is not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x02Bold text\x02"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :\x02Bold text\x02\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks messages when +d mode is set and user just joined" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [{"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 937 #{user.nick} #{channel.name} :You must wait 5 seconds after joining before speaking in this channel.\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set and enough time has passed" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [{"d", "5"}])
+        past_time = DateTime.add(DateTime.utc_now(), -10, :second)
+        insert(:user_channel, user: user, channel: channel, created_at: past_time)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set and user is channel operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [{"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"], created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is set and user has voice" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [{"d", "5"}])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"], created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows messages when +d mode is not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now())
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
   end
 end
