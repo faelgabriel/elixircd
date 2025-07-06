@@ -8,7 +8,9 @@ defmodule ElixIRCd.Commands.JoinTest do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Commands.Join
+  alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.UserChannels
 
   describe "handle/2" do
     test "handles JOIN command with user not registered" do
@@ -350,10 +352,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         ])
       end)
     end
-  end
 
-  describe "handle/2 - Extended NAMES in JOIN (UHNAMES)" do
-    test "handles JOIN command with UHNAMES capability enabled shows extended format" do
+    test "handles JOIN command with UHNAMES capability enabled" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: ["UHNAMES"], ident: "~testuser", hostname: "test.example.com")
         channel = insert(:channel)
@@ -375,7 +375,7 @@ defmodule ElixIRCd.Commands.JoinTest do
       end)
     end
 
-    test "handles JOIN command without UHNAMES capability shows traditional format" do
+    test "handles JOIN command without UHNAMES capability" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [], ident: "~testuser", hostname: "test.example.com")
         channel = insert(:channel)
@@ -396,7 +396,7 @@ defmodule ElixIRCd.Commands.JoinTest do
       end)
     end
 
-    test "handles JOIN command creating new channel with UHNAMES enabled" do
+    test "handles JOIN command creating new channel with UHNAMES capability enabled" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: ["UHNAMES"], ident: "~creator", hostname: "creator.example.com")
         message = %Message{command: "JOIN", params: ["#newchannel"]}
@@ -441,6 +441,73 @@ defmodule ElixIRCd.Commands.JoinTest do
           {uhnames_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"},
           {normal_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"}
         ])
+      end)
+    end
+
+    test "handles JOIN command with +j mode allowing joins under throttle limit" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"])
+        channel = insert(:channel, name: "#test")
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        mode_message = %Message{command: "MODE", params: ["#test", "+j", "3:10"]}
+        Mode.handle(operator, mode_message)
+
+        user = insert(:user)
+
+        join_message = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(user, join_message)
+
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(user.pid, "#test")
+      end)
+    end
+
+    test "handles JOIN command with +j mode blocking joins when throttle limit exceeded" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"])
+        channel = insert(:channel, name: "#test")
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        mode_message = %Message{command: "MODE", params: ["#test", "+j", "2:10"]}
+        Mode.handle(operator, mode_message)
+
+        user1 = insert(:user)
+        user2 = insert(:user)
+        user3 = insert(:user)
+        now = DateTime.utc_now()
+        insert(:user_channel, user: user1, channel: channel, created_at: now)
+        insert(:user_channel, user: user2, channel: channel, created_at: now)
+
+        join_message3 = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(user3, join_message3)
+        assert {:error, :user_channel_not_found} = UserChannels.get_by_user_pid_and_channel_name(user3.pid, "#test")
+
+        assert_sent_messages([
+          {user3.pid, ":irc.test 477 #{user3.nick} #test :Channel join rate exceeded (+j)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with +j mode exempting IRC operators from throttle" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"])
+        channel = insert(:channel, name: "#test")
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        mode_message = %Message{command: "MODE", params: ["#test", "+j", "2:60"]}
+        Mode.handle(operator, mode_message)
+
+        normal_user = insert(:user)
+        irc_operator = insert(:user, modes: ["o"])
+
+        join_message1 = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(normal_user, join_message1)
+
+        join_message2 = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(irc_operator, join_message2)
+
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(normal_user.pid, "#test")
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(irc_operator.pid, "#test")
       end)
     end
   end

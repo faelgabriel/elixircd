@@ -16,12 +16,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @modes ["b", "C", "c", "d", "i", "k", "l", "m", "n", "O", "o", "p", "s", "t", "v"]
-  @modes_with_value_to_add ["b", "d", "k", "l", "o", "v"]
-  @modes_with_value_to_replace ["d", "k", "l"]
+  @modes ["b", "C", "c", "d", "i", "j", "k", "l", "m", "n", "O", "o", "p", "s", "t", "v"]
+  @modes_with_value_to_add ["b", "d", "j", "k", "l", "o", "v"]
+  @modes_with_value_to_replace ["d", "j", "k", "l"]
   @modes_with_value_to_remove ["b", "o", "v"]
   @modes_with_value_as_integer ["d", "l"]
-  @modes_without_value_to_remove ["d", "k", "l"]
+  @modes_without_value_to_remove ["d", "j", "k", "l"]
   @modes_for_user_channel ["o", "v"]
   @modes_for_channel_ban ["b"]
   @modes_as_listing ["b"]
@@ -211,24 +211,17 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
 
       mode_flag in @modes_for_user_channel ->
-        user_channel_mode_applied?(user, mode_change, channel.name)
-        |> update_mode_changes(mode_change, applied_changes, new_modes)
+        apply_user_channel_mode(user, mode_change, channel.name, applied_changes, new_modes)
 
       mode_flag in @modes_for_channel_ban ->
-        updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
+        apply_channel_ban_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
 
-        channel_ban_mode_applied?(user, updated_mode_change, channel.name_key)
-        |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
-
-      # ignore if the mode flag requires an integer value and the value is not an integer
-      mode_flag in @modes_with_value_as_integer and not valid_integer_mode_value?(mode) ->
-        {applied_changes, new_modes}
+      should_ignore_invalid_mode?(mode_flag, mode) ->
+        handle_invalid_mode(user, mode_flag, mode, applied_changes, new_modes)
 
       mode_flag in @modes_with_value_to_replace ->
-        handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
-        {[{:add, mode} | applied_changes], [mode | handled_new_modes]}
+        apply_replaceable_mode(mode, mode_flag, applied_changes, new_modes)
 
-      # ignore if the mode is already set
       Enum.member?(new_modes, mode) ->
         {applied_changes, new_modes}
 
@@ -245,23 +238,17 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
 
       mode_flag in @modes_for_user_channel ->
-        user_channel_mode_applied?(user, mode_change, channel.name)
-        |> update_mode_changes(mode_change, applied_changes, new_modes)
+        apply_user_channel_mode(user, mode_change, channel.name, applied_changes, new_modes)
 
       mode_flag in @modes_for_channel_ban ->
-        updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
-
-        channel_ban_mode_applied?(user, updated_mode_change, channel.name_key)
-        |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
+        apply_channel_ban_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
 
       mode_flag in @modes_without_value_to_remove ->
-        handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
-        {[{:remove, mode} | applied_changes], handled_new_modes}
+        apply_valueless_mode_removal(mode, mode_flag, applied_changes, new_modes)
 
       Enum.member?(new_modes, mode) ->
         {[{:remove, mode} | applied_changes], List.delete(new_modes, mode)}
 
-      # ignore if the mode is not set
       true ->
         {applied_changes, new_modes}
     end
@@ -270,6 +257,52 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @spec extract_mode_flag(mode()) :: String.t()
   defp extract_mode_flag({mode, _val}), do: mode
   defp extract_mode_flag(mode), do: mode
+
+  @spec apply_user_channel_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp apply_user_channel_mode(user, mode_change, channel_name, applied_changes, new_modes) do
+    user_channel_mode_applied?(user, mode_change, channel_name)
+    |> update_mode_changes(mode_change, applied_changes, new_modes)
+  end
+
+  @spec apply_channel_ban_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp apply_channel_ban_mode(user, mode_change, channel_name_key, applied_changes, new_modes) do
+    updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
+
+    channel_ban_mode_applied?(user, updated_mode_change, channel_name_key)
+    |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
+  end
+
+  @spec should_ignore_invalid_mode?(String.t(), mode()) :: boolean()
+  defp should_ignore_invalid_mode?(mode_flag, mode) do
+    (mode_flag in @modes_with_value_as_integer and not valid_integer_mode_value?(mode)) or
+      (mode_flag == "j" and not valid_join_throttle_format?(mode))
+  end
+
+  @spec handle_invalid_mode(User.t(), String.t(), mode(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp handle_invalid_mode(user, mode_flag, mode, applied_changes, new_modes) do
+    if mode_flag == "j" and not valid_join_throttle_format?(mode) do
+      send_invalid_join_throttle_format_error(user)
+    end
+
+    {applied_changes, new_modes}
+  end
+
+  @spec apply_replaceable_mode(mode(), String.t(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp apply_replaceable_mode(mode, mode_flag, applied_changes, new_modes) do
+    handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
+    {[{:add, mode} | applied_changes], [mode | handled_new_modes]}
+  end
+
+  @spec apply_valueless_mode_removal(mode(), String.t(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp apply_valueless_mode_removal(mode, mode_flag, applied_changes, new_modes) do
+    handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
+    {[{:remove, mode} | applied_changes], handled_new_modes}
+  end
 
   @spec apply_irc_operator_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
           {[mode_change()], [mode()]}
@@ -407,5 +440,32 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
       {_value, ""} -> true
       _ -> false
     end
+  end
+
+  @spec valid_join_throttle_format?(mode()) :: boolean()
+  defp valid_join_throttle_format?({_mode_flag, mode_value}) do
+    case Regex.match?(~r/^\d+:\d+$/, mode_value) do
+      true ->
+        [joins_str, seconds_str] = String.split(mode_value, ":")
+
+        case {Integer.parse(joins_str), Integer.parse(seconds_str)} do
+          {{joins, ""}, {seconds, ""}} when joins > 0 and seconds > 0 -> true
+          _ -> false
+        end
+
+      false ->
+        false
+    end
+  end
+
+  @spec send_invalid_join_throttle_format_error(User.t()) :: :ok
+  defp send_invalid_join_throttle_format_error(user) do
+    Message.build(%{
+      prefix: :server,
+      command: :err_unknownmode,
+      params: [user.nick, "j"],
+      trailing: "Invalid join throttle format. Expected <joins>:<seconds>"
+    })
+    |> Dispatcher.broadcast(user)
   end
 end

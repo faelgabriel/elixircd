@@ -295,7 +295,7 @@ These modes are applied to channels themselves, affecting channel behavior and a
 - **+f (Flood Protection)**: Protects the channel from flooding. ❌
 - **+H (History)**: Sends recent channel history to users when they join. ❌
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
-- **+j (Join Throttle)**: Limits the rate of joins to the channel. ❌
+- **+j (Join Throttle)**: Limits the rate of joins to the channel. ✅
 - **+k (Key)**: Requires a password to join the channel. ✅
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
 - **+L (Redirect)**: Redirects users to another channel if they cannot join this one. ❌

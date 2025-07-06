@@ -1024,5 +1024,108 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
         {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
       ])
     end
+
+    test "handles add +j mode with valid throttle format" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:add, {"j", "5:30"}}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == [{"j", "5:30"}]
+      assert applied_changes == [{:add, {"j", "5:30"}}]
+    end
+
+    test "rejects add +j mode with invalid throttle format" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:add, {"j", "invalid"}}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == []
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 472 #{user.nick} j :Invalid join throttle format. Expected <joins>:<seconds>\r\n"}
+      ])
+    end
+
+    test "rejects add +j mode with zero values in throttle format" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:add, {"j", "0:10"}}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == []
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 472 #{user.nick} j :Invalid join throttle format. Expected <joins>:<seconds>\r\n"}
+      ])
+    end
+
+    test "rejects add +j mode with negative values in throttle format" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:add, {"j", "5:-10"}}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == []
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 472 #{user.nick} j :Invalid join throttle format. Expected <joins>:<seconds>\r\n"}
+      ])
+    end
+
+    test "handles replace +j mode with new throttle value" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [{"j", "3:10"}])
+
+      validated_modes = [{:add, {"j", "5:30"}}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == [{"j", "5:30"}]
+      assert applied_changes == [{:add, {"j", "5:30"}}]
+    end
+
+    test "handles remove +j mode" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [{"j", "5:30"}])
+
+      validated_modes = [{:remove, "j"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == [{:remove, "j"}]
+    end
+
+    test "handles remove +j mode when not set" do
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+
+      validated_modes = [{:remove, "j"}]
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes(user, channel, validated_modes) end)
+
+      assert updated_channel.modes == []
+      assert applied_changes == [{:remove, "j"}]
+    end
   end
 end
