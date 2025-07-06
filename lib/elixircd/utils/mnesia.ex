@@ -16,6 +16,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Tables.UserSilence
 
   @memory_tables [
     Channel,
@@ -25,7 +26,8 @@ defmodule ElixIRCd.Utils.Mnesia do
     Metric,
     User,
     UserAccept,
-    UserChannel
+    UserChannel,
+    UserSilence
   ]
 
   @disk_tables [

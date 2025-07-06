@@ -23,6 +23,19 @@ defmodule ElixIRCd.Utils.ProtocolTest do
     end
   end
 
+  describe "service_name?/1" do
+    test "returns true for valid service names" do
+      assert Protocol.service_name?("NICKSERV") == true
+      assert Protocol.service_name?("nickserv") == true
+      assert Protocol.service_name?("CHANSERV") == true
+      assert Protocol.service_name?("chanserv") == true
+    end
+
+    test "returns false for invalid service names" do
+      assert Protocol.service_name?("INVALID") == false
+    end
+  end
+
   describe "irc_operator?/1" do
     test "returns true for irc operator" do
       user = build(:user, %{modes: ["o"]})
@@ -157,6 +170,73 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       assert "*!*@*" == Protocol.normalize_mask("!")
       assert "*!*@*" == Protocol.normalize_mask("@")
       assert "*!*@*" == Protocol.normalize_mask("*!@*")
+    end
+  end
+
+  describe "valid_mask_format?/1" do
+    test "validates correct masks" do
+      # Valid full masks
+      assert Protocol.valid_mask_format?("nick!user@host.com")
+      assert Protocol.valid_mask_format?("nick!user@*")
+      assert Protocol.valid_mask_format?("nick!*@host.com")
+      assert Protocol.valid_mask_format?("*!user@host.com")
+      assert Protocol.valid_mask_format?("nick")
+      assert Protocol.valid_mask_format?("user@host.com")
+      assert Protocol.valid_mask_format?("nick!user")
+      assert Protocol.valid_mask_format?("nick*!user@host.com")
+      assert Protocol.valid_mask_format?("nick!*user@host.com")
+      assert Protocol.valid_mask_format?("nick!user@*.com")
+      assert Protocol.valid_mask_format?("?ick!user@host.com")
+      assert Protocol.valid_mask_format?("nick!user@host.?om")
+
+      # Wildcards
+      assert Protocol.valid_mask_format?("*")
+      assert Protocol.valid_mask_format?("?")
+      assert Protocol.valid_mask_format?("*!*@*")
+      assert Protocol.valid_mask_format?("?!?@?")
+
+      # Mixed wildcards and characters
+      assert Protocol.valid_mask_format?("nick*")
+      assert Protocol.valid_mask_format?("*nick")
+      assert Protocol.valid_mask_format?("ni?k")
+
+      # Special IRC characters
+      assert Protocol.valid_mask_format?("nick[test]")
+      assert Protocol.valid_mask_format?("nick\\test")
+      assert Protocol.valid_mask_format?("nick`test")
+      assert Protocol.valid_mask_format?("nick_test")
+      assert Protocol.valid_mask_format?("nick^test")
+      assert Protocol.valid_mask_format?("nick{test}")
+      assert Protocol.valid_mask_format?("nick|test")
+
+      # Dots and hyphens
+      assert Protocol.valid_mask_format?("nick!user@host-name.example.com")
+      assert Protocol.valid_mask_format?("nick!user@192.168.1.1")
+    end
+
+    test "rejects invalid masks" do
+      # Empty mask
+      refute Protocol.valid_mask_format?("")
+
+      # Incomplete masks
+      refute Protocol.valid_mask_format?("nick!@host")
+
+      # Invalid characters
+      refute Protocol.valid_mask_format?("nick!user@host<.com")
+      refute Protocol.valid_mask_format?("nick!user@host>.com")
+      refute Protocol.valid_mask_format?("nick!user@host(.com")
+      refute Protocol.valid_mask_format?("nick!user@host).com")
+
+      # Non-string input
+      refute Protocol.valid_mask_format?(123)
+      refute Protocol.valid_mask_format?(nil)
+      refute Protocol.valid_mask_format?(:atom)
+
+      # Too long parts
+      long_part = String.duplicate("a", 65)
+      refute Protocol.valid_mask_format?("#{long_part}!user@host.com")
+      refute Protocol.valid_mask_format?("nick!#{long_part}@host.com")
+      refute Protocol.valid_mask_format?("nick!user@#{long_part}")
     end
   end
 end

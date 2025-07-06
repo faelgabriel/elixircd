@@ -255,6 +255,8 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_acceptlistend), do: "282"
   defp numeric_reply(:rpl_accepted), do: "287"
   defp numeric_reply(:rpl_acceptremoved), do: "288"
+  defp numeric_reply(:rpl_silence_list), do: "271"
+  defp numeric_reply(:rpl_endofsilence), do: "272"
   defp numeric_reply(:rpl_away), do: "301"
   defp numeric_reply(:rpl_userhost), do: "302"
   defp numeric_reply(:rpl_ison), do: "303"
@@ -322,5 +324,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_badchanmask), do: "476"
   defp numeric_reply(:err_noprivileges), do: "481"
   defp numeric_reply(:err_chanoprivsneeded), do: "482"
+  defp numeric_reply(:err_silencelistfull), do: "511"
+  defp numeric_reply(:err_invalidsilencemask), do: "512"
   defp numeric_reply(:err_usersdontmatch), do: "502"
 end

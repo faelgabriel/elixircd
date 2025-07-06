@@ -14,6 +14,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Tables.UserSilence
   alias ElixIRCd.Utils.CaseMapping
 
   @doc """
@@ -62,6 +63,14 @@ defmodule ElixIRCd.Factory do
     %UserAccept{
       user_pid: Map.get(attrs, :user_pid, new_pid()),
       accepted_user_pid: Map.get(attrs, :accepted_user_pid, new_pid()),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:user_silence, attrs) do
+    %UserSilence{
+      user_pid: Map.get(attrs, :user_pid, new_pid()),
+      mask: Map.get(attrs, :mask, "nick!user@host"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
@@ -331,6 +340,23 @@ defmodule ElixIRCd.Factory do
 
     Memento.transaction!(fn ->
       build(:user_accept, updated_attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:user_silence, attrs) do
+    user =
+      case Map.get(attrs, :user) do
+        nil -> insert(:user)
+        user -> user
+      end
+
+    updated_attrs =
+      attrs
+      |> Map.put(:user_pid, user.pid)
+
+    Memento.transaction!(fn ->
+      build(:user_silence, updated_attrs)
       |> Memento.Query.write()
     end)
   end

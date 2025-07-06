@@ -5,6 +5,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @behaviour ElixIRCd.Command
 
+  import ElixIRCd.Utils.MessageFilter, only: [should_silence_message?: 2]
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1]
 
   import ElixIRCd.Utils.Protocol,
@@ -130,6 +131,9 @@ defmodule ElixIRCd.Commands.Privmsg do
   @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_user_message(user, target_user, target_nick, message_text) do
     cond do
+      should_silence_message?(target_user, user) ->
+        :ok
+
       "R" in target_user.modes and "r" not in user.modes ->
         handle_restricted_user_message(user, target_user)
 

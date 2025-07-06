@@ -100,29 +100,44 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec normalize_mask(String.t()) :: String.t()
   def normalize_mask(mask) do
-    {nick_user, host} =
-      case String.split(mask, "@", parts: 2) do
-        [nick_user, host] -> {nick_user, host}
-        [nick_user] -> {nick_user, "*"}
-      end
-
-    {nick, user} =
-      case String.split(nick_user, "!", parts: 2) do
-        [nick, user] ->
-          {nick, user}
-
-        [nick_or_user] ->
-          if String.contains?(mask, "@") do
-            {"*", nick_or_user}
-          else
-            {nick_or_user, "*"}
-          end
-      end
-
+    {nick, user, host} = parse_mask_parts(mask)
     "#{empty_mask_part_to_wildcard(nick)}!#{empty_mask_part_to_wildcard(user)}@#{empty_mask_part_to_wildcard(host)}"
   end
 
   @spec empty_mask_part_to_wildcard(String.t()) :: String.t()
   defp empty_mask_part_to_wildcard(""), do: "*"
   defp empty_mask_part_to_wildcard(mask), do: mask
+
+  @doc """
+  Validates if a mask has a valid IRC format.
+  """
+  @spec valid_mask_format?(String.t()) :: boolean()
+  def valid_mask_format?(mask) when is_binary(mask) and mask != "" do
+    {nick, user, host} = parse_mask_parts(mask)
+    valid_mask_part?(nick) and valid_mask_part?(user) and valid_mask_part?(host)
+  end
+
+  def valid_mask_format?(_mask), do: false
+
+  @spec parse_mask_parts(String.t()) :: {String.t(), String.t(), String.t()} | :error
+  defp parse_mask_parts(mask) do
+    case String.split(mask, "@", parts: 2) do
+      [nick_user, host] ->
+        case String.split(nick_user, "!", parts: 2) do
+          [nick, user] -> {nick, user, host}
+          [nick_or_user] -> {"*", nick_or_user, host}
+        end
+
+      [nick_user] ->
+        case String.split(nick_user, "!", parts: 2) do
+          [nick, user] -> {nick, user, "*"}
+          [nick] -> {nick, "*", "*"}
+        end
+    end
+  end
+
+  @spec valid_mask_part?(String.t()) :: boolean()
+  defp valid_mask_part?(part) do
+    String.length(part) <= 64 and String.match?(part, ~r/^[a-zA-Z0-9\[\]\\`_^{|}*?.-]+$/)
+  end
 end

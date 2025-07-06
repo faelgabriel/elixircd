@@ -789,5 +789,18 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
+
+    test "silences user messages when user is in receiver's silence list" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        receiver = insert(:user)
+        insert(:user_silence, user: receiver, mask: "#{sender.nick}!*@*")
+
+        message = %Message{command: "PRIVMSG", params: [receiver.nick], trailing: "Hello"}
+        assert :ok = Privmsg.handle(sender, message)
+
+        assert_sent_messages([])
+      end)
+    end
   end
 end
