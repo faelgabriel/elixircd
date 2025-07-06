@@ -63,7 +63,39 @@ defmodule ElixIRCd.Commands.SilenceTest do
       end)
     end
 
-    test "adds silence masks in various valid formats" do
+    test "handles literal + parameter by showing list" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        UserSilences.create(%{user_pid: user.pid, mask: "nick!user@host.com"})
+
+        message = %Message{command: "SILENCE", params: ["+"], trailing: nil}
+
+        Silence.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 271 #{user.nick} nick!user@host.com\r\n"},
+          {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles literal - parameter by showing list" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        UserSilences.create(%{user_pid: user.pid, mask: "nick!user@host.com"})
+
+        message = %Message{command: "SILENCE", params: ["-"], trailing: nil}
+
+        Silence.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 271 #{user.nick} nick!user@host.com\r\n"},
+          {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+        ])
+      end)
+    end
+
+    test "adds silence masks and echoes list back" do
       Memento.transaction!(fn ->
         user = insert(:user)
 
@@ -71,13 +103,37 @@ defmodule ElixIRCd.Commands.SilenceTest do
         message1 = %Message{command: "SILENCE", params: ["+nick!user@host.com"], trailing: nil}
         Silence.handle(user, message1)
 
+        assert_sent_messages([
+          {user.pid, ":irc.test 271 #{user.nick} nick!user@host.com\r\n"},
+          {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+        ])
+
         # Test without prefix
         message2 = %Message{command: "SILENCE", params: ["test!user@example.com"], trailing: nil}
         Silence.handle(user, message2)
 
+        assert_sent_messages(
+          [
+            {user.pid, ":irc.test 271 #{user.nick} nick!user@host.com\r\n"},
+            {user.pid, ":irc.test 271 #{user.nick} test!user@example.com\r\n"},
+            {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+          ],
+          validate_order?: false
+        )
+
         # Test in trailing
         message3 = %Message{command: "SILENCE", params: [], trailing: "spam!*@*"}
         Silence.handle(user, message3)
+
+        assert_sent_messages(
+          [
+            {user.pid, ":irc.test 271 #{user.nick} nick!user@host.com\r\n"},
+            {user.pid, ":irc.test 271 #{user.nick} test!user@example.com\r\n"},
+            {user.pid, ":irc.test 271 #{user.nick} spam!*@*\r\n"},
+            {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+          ],
+          validate_order?: false
+        )
 
         silence_list = get_user_silence_masks(user.pid)
         assert "nick!user@host.com" in silence_list
@@ -86,17 +142,24 @@ defmodule ElixIRCd.Commands.SilenceTest do
       end)
     end
 
-    test "removes silence mask with - prefix" do
+    test "removes silence mask and echoes list back" do
       Memento.transaction!(fn ->
         user = insert(:user)
         UserSilences.create(%{user_pid: user.pid, mask: "nick!user@host.com"})
+        UserSilences.create(%{user_pid: user.pid, mask: "spam!*@*"})
 
         message = %Message{command: "SILENCE", params: ["-nick!user@host.com"], trailing: nil}
 
         Silence.handle(user, message)
 
+        assert_sent_messages([
+          {user.pid, ":irc.test 271 #{user.nick} spam!*@*\r\n"},
+          {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+        ])
+
         silence_list = get_user_silence_masks(user.pid)
         assert "nick!user@host.com" not in silence_list
+        assert "spam!*@*" in silence_list
       end)
     end
 
@@ -136,16 +199,16 @@ defmodule ElixIRCd.Commands.SilenceTest do
       Memento.transaction!(fn ->
         user = insert(:user)
 
-        message = %Message{command: "SILENCE", params: ["+"], trailing: nil}
+        message = %Message{command: "SILENCE", params: ["+invalid<mask>"], trailing: nil}
         Silence.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 512 #{user.nick} :Invalid silence mask\r\n"}
+          {user.pid, ":irc.test 476 #{user.nick} invalid<mask> :Invalid silence mask\r\n"}
         ])
       end)
     end
 
-    test "ignores duplicate mask additions" do
+    test "echoes list when adding duplicate mask" do
       Memento.transaction!(fn ->
         user = insert(:user)
         mask = "nick!user@host.com"
@@ -159,25 +222,33 @@ defmodule ElixIRCd.Commands.SilenceTest do
         assert length(silence_list) == 1
         assert mask in silence_list
 
-        # No error message should be sent
-        assert_sent_messages([])
+        # Should echo the list back
+        assert_sent_messages([
+          {user.pid, ":irc.test 271 #{user.nick} nick!user@host.com\r\n"},
+          {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+        ])
       end)
     end
 
-    test "ignores removal of non-existent mask" do
+    test "echoes list when removing non-existent mask" do
       Memento.transaction!(fn ->
         user = insert(:user)
+        UserSilences.create(%{user_pid: user.pid, mask: "existing!user@host.com"})
         non_existent_mask = "nick!user@host.com"
 
         message = %Message{command: "SILENCE", params: ["-#{non_existent_mask}"], trailing: nil}
         Silence.handle(user, message)
 
-        # Should still be empty
+        # Should still have the existing mask
         silence_list = get_user_silence_masks(user.pid)
-        assert Enum.empty?(silence_list)
+        assert "existing!user@host.com" in silence_list
+        assert non_existent_mask not in silence_list
 
-        # No error message should be sent
-        assert_sent_messages([])
+        # Should echo the list back
+        assert_sent_messages([
+          {user.pid, ":irc.test 271 #{user.nick} existing!user@host.com\r\n"},
+          {user.pid, ":irc.test 272 #{user.nick} :End of silence list\r\n"}
+        ])
       end)
     end
   end

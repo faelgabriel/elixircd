@@ -325,6 +325,5 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_noprivileges), do: "481"
   defp numeric_reply(:err_chanoprivsneeded), do: "482"
   defp numeric_reply(:err_silencelistfull), do: "511"
-  defp numeric_reply(:err_invalidsilencemask), do: "512"
   defp numeric_reply(:err_usersdontmatch), do: "502"
 end

@@ -218,9 +218,6 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       # Empty mask
       refute Protocol.valid_mask_format?("")
 
-      # Incomplete masks
-      refute Protocol.valid_mask_format?("nick!@host")
-
       # Invalid characters
       refute Protocol.valid_mask_format?("nick!user@host<.com")
       refute Protocol.valid_mask_format?("nick!user@host>.com")

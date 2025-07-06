@@ -26,12 +26,12 @@ defmodule ElixIRCd.Commands.Silence do
   end
 
   @impl true
-  def handle(user, %{command: "SILENCE", params: [mask]}) when is_binary(mask) and mask != "" do
+  def handle(user, %{command: "SILENCE", params: [mask | _]}) when mask != "" do
     handle_silence_mask(mask, user)
   end
 
   @impl true
-  def handle(user, %{command: "SILENCE", params: [], trailing: mask}) when is_binary(mask) and mask != "" do
+  def handle(user, %{command: "SILENCE", params: [], trailing: mask}) when mask != "" do
     handle_silence_mask(mask, user)
   end
 
@@ -71,11 +71,17 @@ defmodule ElixIRCd.Commands.Silence do
 
   @spec handle_silence_mask(String.t(), User.t()) :: :ok
   defp handle_silence_mask("+" <> mask, user) do
-    add_silence_mask(mask, user)
+    case mask do
+      "" -> show_silence_list(user)
+      _ -> add_silence_mask(mask, user)
+    end
   end
 
   defp handle_silence_mask("-" <> mask, user) do
-    remove_silence_mask(mask, user)
+    case mask do
+      "" -> show_silence_list(user)
+      _ -> remove_silence_mask(mask, user)
+    end
   end
 
   defp handle_silence_mask(mask, user) do
@@ -98,17 +104,17 @@ defmodule ElixIRCd.Commands.Silence do
           |> Dispatcher.broadcast(user)
 
         Enum.any?(silence_entries, fn entry -> entry.mask == mask end) ->
-          :ok
+          show_silence_list(user)
 
         true ->
           UserSilences.create(%{user_pid: user.pid, mask: mask})
-          :ok
+          show_silence_list(user)
       end
     else
       Message.build(%{
         prefix: :server,
-        command: :err_invalidsilencemask,
-        params: [user.nick],
+        command: :err_badchanmask,
+        params: [user.nick, mask],
         trailing: "Invalid silence mask"
       })
       |> Dispatcher.broadcast(user)
@@ -120,10 +126,10 @@ defmodule ElixIRCd.Commands.Silence do
     case UserSilences.get_by_user_pid_and_mask(user.pid, mask) do
       {:ok, user_silence} ->
         UserSilences.delete(user_silence)
-        :ok
+        show_silence_list(user)
 
       {:error, :user_silence_not_found} ->
-        :ok
+        show_silence_list(user)
     end
   end
 end
