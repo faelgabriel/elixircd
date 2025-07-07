@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Kill do
   @moduledoc """
   This module defines the KILL command.
+
+  KILL forcibly disconnects a user from the server. Only IRC operators can use this command.
   """
 
   @behaviour ElixIRCd.Command

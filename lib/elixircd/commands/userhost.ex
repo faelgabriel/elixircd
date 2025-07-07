@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Userhost do
   @moduledoc """
   This module defines the USERHOST command.
+
+  USERHOST returns hostmask information for specified users.
   """
 
   @behaviour ElixIRCd.Command

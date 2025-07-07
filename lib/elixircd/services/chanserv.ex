@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Chanserv do
   @moduledoc """
-  Module for handling incoming ChanServ commands.
+  This module handles ChanServ service commands.
+
+  ChanServ allows users to register and manage channels.
   """
 
   @behaviour ElixIRCd.Service

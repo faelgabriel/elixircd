@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Mode.UserModes do
   @moduledoc """
-  This module includes the user modes handler.
+  This module handles user mode operations.
+
+  User modes control various aspects of user behavior and visibility.
   """
 
   import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]

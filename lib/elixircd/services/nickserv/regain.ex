@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Regain do
   @moduledoc """
-  Module for the NickServ REGAIN command.
+  This module defines the NickServ REGAIN command.
+
+  REGAIN allows users to disconnect sessions using their nickname and immediately take it.
   """
 
   @behaviour ElixIRCd.Service

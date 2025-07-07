@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Join do
   @moduledoc """
   This module defines the JOIN command.
+
+  JOIN allows users to join one or more channels.
   """
 
   @behaviour ElixIRCd.Command

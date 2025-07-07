@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Logout do
   @moduledoc """
-  Module for the NickServ LOGOUT command.
+  This module defines the NickServ LOGOUT command.
+
+  LOGOUT allows users to log out from their authenticated session.
   """
 
   @behaviour ElixIRCd.Service

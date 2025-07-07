@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Rehash do
   @moduledoc """
   This module defines the REHASH command.
+
+  REHASH reloads the server configuration. Only IRC operators can use this command.
   """
 
   @behaviour ElixIRCd.Command

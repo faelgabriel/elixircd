@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Admin do
   @moduledoc """
   This module defines the ADMIN command.
+
+  ADMIN returns administrative information about the server.
   """
 
   @behaviour ElixIRCd.Command

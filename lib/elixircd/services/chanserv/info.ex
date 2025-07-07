@@ -1,7 +1,8 @@
 defmodule ElixIRCd.Services.Chanserv.Info do
   @moduledoc """
-  Module for the ChanServ INFO command.
-  This command provides information about registered channels.
+  This module defines the ChanServ INFO command.
+
+  INFO provides information about registered channels.
   """
 
   @behaviour ElixIRCd.Service

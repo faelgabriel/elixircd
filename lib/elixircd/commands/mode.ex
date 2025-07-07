@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Mode do
   @moduledoc """
-  This module defines the Mode command.
+  This module defines the MODE command.
+
+  MODE allows users to view and change user modes and channel modes.
   """
 
   @behaviour ElixIRCd.Command

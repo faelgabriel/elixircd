@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Die do
   @moduledoc """
   This module defines the DIE command.
+
+  DIE shuts down the IRC server. Only IRC operators can use this command.
   """
 
   @behaviour ElixIRCd.Command

@@ -1,7 +1,8 @@
 defmodule ElixIRCd.Services.Chanserv.Drop do
   @moduledoc """
-  Module for the ChanServ DROP command.
-  This command allows channel founders to unregister their channels.
+  This module defines the ChanServ DROP command.
+
+  DROP allows channel founders to unregister their channels.
   """
 
   @behaviour ElixIRCd.Service

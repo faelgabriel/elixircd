@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Ison do
   @moduledoc """
   This module defines the ISON command.
+
+  ISON checks if specified nicknames are currently online.
   """
 
   @behaviour ElixIRCd.Command

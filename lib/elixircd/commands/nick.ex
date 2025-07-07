@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Nick do
   @moduledoc """
   This module defines the NICK command.
+
+  NICK changes or sets the user's nickname.
   """
 
   @behaviour ElixIRCd.Command

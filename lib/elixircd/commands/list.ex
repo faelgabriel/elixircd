@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.List do
   @moduledoc """
   This module defines the LIST command.
+
+  LIST returns a list of channels and their topics, with optional filtering.
   """
 
   @behaviour ElixIRCd.Command

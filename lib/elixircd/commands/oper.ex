@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Oper do
   @moduledoc """
   This module defines the OPER command.
+
+  OPER allows users to gain IRC operator privileges by providing credentials.
   """
 
   @behaviour ElixIRCd.Command

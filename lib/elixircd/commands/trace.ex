@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Trace do
   @moduledoc """
   This module defines the TRACE command.
+
+  TRACE returns connection information for a specific user or all users.
   """
 
   @behaviour ElixIRCd.Command

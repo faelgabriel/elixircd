@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Topic do
   @moduledoc """
   This module defines the TOPIC command.
+
+  TOPIC displays or changes the topic of a channel.
   """
 
   @behaviour ElixIRCd.Command

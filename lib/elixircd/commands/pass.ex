@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Pass do
   @moduledoc """
   This module defines the PASS command.
+
+  PASS sets the connection password during registration.
   """
 
   @behaviour ElixIRCd.Command

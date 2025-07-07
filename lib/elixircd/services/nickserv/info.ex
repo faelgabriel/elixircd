@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Info do
   @moduledoc """
-  Module for the NickServ INFO command.
+  This module defines the NickServ INFO command.
+
+  INFO displays information about registered nicknames.
   """
 
   @behaviour ElixIRCd.Service

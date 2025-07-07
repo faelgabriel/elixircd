@@ -1,7 +1,8 @@
 defmodule ElixIRCd.Services.Chanserv.Transfer do
   @moduledoc """
-  Module for the ChanServ TRANSFER command.
-  This command allows channel founders to transfer ownership to another user.
+  This module defines the ChanServ TRANSFER command.
+
+  TRANSFER allows channel founders to transfer ownership to another user.
   """
 
   @behaviour ElixIRCd.Service

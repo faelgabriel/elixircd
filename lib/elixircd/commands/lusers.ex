@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Lusers do
   @moduledoc """
   This module defines the LUSERS command.
+
+  LUSERS returns statistics about the number of users and channels on the server.
   """
 
   @behaviour ElixIRCd.Command
