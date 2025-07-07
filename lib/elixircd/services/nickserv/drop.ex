@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Drop do
   @moduledoc """
-  Module for the NickServ DROP command.
+  This module defines the NickServ DROP command.
+
+  DROP allows users to unregister their nicknames.
   """
 
   @behaviour ElixIRCd.Service

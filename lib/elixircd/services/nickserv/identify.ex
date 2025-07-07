@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Identify do
   @moduledoc """
-  Module for the NickServ IDENTIFY command.
+  This module defines the NickServ IDENTIFY command.
+
+  IDENTIFY allows users to authenticate with their registered nickname.
   """
 
   @behaviour ElixIRCd.Service

@@ -2,9 +2,7 @@ defmodule ElixIRCd.Commands.Operwall do
   @moduledoc """
   This module defines the OPERWALL command.
 
-  OPERWALL is a server-to-operators wall message. It allows IRC operators to broadcast
-  a message to all other operators across the network. It is not visible to normal users,
-  only to IRC operators (+o users) who have the right user mode and permissions.
+  OPERWALL broadcasts a message to all IRC operators across the network.
   """
 
   @behaviour ElixIRCd.Command

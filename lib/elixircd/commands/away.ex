@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Away do
   @moduledoc """
   This module defines the AWAY command.
+
+  AWAY sets or removes an away message for the user.
   """
 
   @behaviour ElixIRCd.Command

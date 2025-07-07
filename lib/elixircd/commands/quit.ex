@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Quit do
   @moduledoc """
   This module defines the QUIT command.
+
+  QUIT disconnects the user from the server with an optional quit message.
   """
 
   @behaviour ElixIRCd.Command

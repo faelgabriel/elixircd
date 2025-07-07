@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Names do
   @moduledoc """
   This module defines the NAMES command.
+
+  NAMES lists the nicknames of users in specified channels or all visible channels.
   """
 
   @behaviour ElixIRCd.Command

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Help do
   @moduledoc """
-  Module for the NickServ help command.
+  This module defines the NickServ HELP command.
+
+  HELP provides assistance and documentation for NickServ commands.
   """
 
   @behaviour ElixIRCd.Service

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Whois do
   @moduledoc """
   This module defines the WHOIS command.
+
+  WHOIS returns detailed information about a specific user.
   """
 
   @behaviour ElixIRCd.Command

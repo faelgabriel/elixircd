@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @moduledoc """
-  This module includes the channel modes handler.
+  This module handles channel mode operations.
+
+  Channel modes control various aspects of channel behavior and user permissions.
   """
 
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, normalize_mask: 1, irc_operator?: 1]

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Kick do
   @moduledoc """
   This module defines the KICK command.
+
+  KICK allows channel operators to remove users from a channel.
   """
 
   @behaviour ElixIRCd.Command

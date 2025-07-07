@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Chanserv.Set do
   @moduledoc """
-  Handles the ChanServ SET command, which allows founders to modify channel settings.
+  This module defines the ChanServ SET command.
+
+  SET allows channel founders to modify channel settings and options.
   """
 
   @behaviour ElixIRCd.Service

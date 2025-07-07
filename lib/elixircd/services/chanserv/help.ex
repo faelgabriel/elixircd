@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Chanserv.Help do
   @moduledoc """
-  Module for the ChanServ help command.
+  This module defines the ChanServ HELP command.
+
+  HELP provides assistance and documentation for ChanServ commands.
   """
 
   @behaviour ElixIRCd.Service

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Notice do
   @moduledoc """
   This module defines the NOTICE command.
+
+  NOTICE sends a notice message to a user or channel without expecting a reply.
   """
 
   @behaviour ElixIRCd.Command

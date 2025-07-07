@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Cap do
   @moduledoc """
-  This module defines the CAP command for IRCv3 capability negotiation.
+  This module defines the CAP command.
+
+  CAP handles IRCv3 capability negotiation between client and server.
   """
 
   @behaviour ElixIRCd.Command

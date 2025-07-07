@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Users do
   @moduledoc """
   This module defines the USERS command.
+
+  USERS returns information about the number of users connected to the server.
   """
 
   @behaviour ElixIRCd.Command

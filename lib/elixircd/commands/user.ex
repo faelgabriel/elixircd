@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.User do
   @moduledoc """
   This module defines the USER command.
+
+  USER sets the username and real name during client registration.
   """
 
   @behaviour ElixIRCd.Command

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Part do
   @moduledoc """
   This module defines the PART command.
+
+  PART allows users to leave one or more channels.
   """
 
   @behaviour ElixIRCd.Command

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv do
   @moduledoc """
-  Module for handling incoming NickServ commands.
+  This module handles NickServ service commands.
+
+  NickServ allows users to register and manage their nicknames.
   """
 
   @behaviour ElixIRCd.Service

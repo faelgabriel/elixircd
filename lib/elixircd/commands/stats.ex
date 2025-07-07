@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Stats do
   @moduledoc """
   This module defines the STATS command.
+
+  STATS returns various server statistics and information.
   """
 
   @behaviour ElixIRCd.Command

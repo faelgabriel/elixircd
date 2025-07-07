@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Wallops do
   @moduledoc """
   This module defines the WALLOPS command.
+
+  WALLOPS broadcasts a message to all users with the +w user mode.
   """
 
   @behaviour ElixIRCd.Command

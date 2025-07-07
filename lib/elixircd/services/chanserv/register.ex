@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Chanserv.Register do
   @moduledoc """
-  Module for the ChanServ register command.
+  This module defines the ChanServ REGISTER command.
+
+  REGISTER allows users to register channels with ChanServ.
   """
 
   @behaviour ElixIRCd.Service

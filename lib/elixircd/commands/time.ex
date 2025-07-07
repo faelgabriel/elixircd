@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Time do
   @moduledoc """
   This module defines the TIME command.
+
+  TIME returns the current date and time of the server.
   """
 
   @behaviour ElixIRCd.Command

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Info do
   @moduledoc """
   This module defines the INFO command.
+
+  INFO returns information about the server including version, build details, and credits.
   """
 
   @behaviour ElixIRCd.Command

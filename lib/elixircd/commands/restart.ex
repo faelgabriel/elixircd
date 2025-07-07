@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Restart do
   @moduledoc """
   This module defines the RESTART command.
+
+  RESTART restarts the IRC server. Only IRC operators can use this command.
   """
 
   @behaviour ElixIRCd.Command

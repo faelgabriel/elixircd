@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Ping do
   @moduledoc """
   This module defines the PING command.
+
+  PING tests the connection between client and server, expecting a PONG response.
   """
 
   @behaviour ElixIRCd.Command

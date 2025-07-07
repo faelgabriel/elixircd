@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Whowas do
   @moduledoc """
   This module defines the WHOWAS command.
+
+  WHOWAS returns information about users who have disconnected from the server.
   """
 
   @behaviour ElixIRCd.Command

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Motd do
   @moduledoc """
   This module defines the MOTD command.
+
+  MOTD displays the Message of the Day to the user.
   """
 
   @behaviour ElixIRCd.Command

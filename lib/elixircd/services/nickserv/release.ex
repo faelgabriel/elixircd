@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Release do
   @moduledoc """
-  Module for the NickServ RELEASE command.
+  This module defines the NickServ RELEASE command.
+
+  RELEASE allows users to release a held nickname reservation.
   """
 
   @behaviour ElixIRCd.Service

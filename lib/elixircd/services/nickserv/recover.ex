@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Recover do
   @moduledoc """
-  Module for the NickServ RECOVER command.
+  This module defines the NickServ RECOVER command.
+
+  RECOVER allows users to disconnect sessions using their nickname and reserve it.
   """
 
   @behaviour ElixIRCd.Service

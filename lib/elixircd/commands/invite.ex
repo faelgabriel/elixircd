@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Invite do
   @moduledoc """
   This module defines the INVITE command.
+
+  INVITE allows channel operators to invite users to join a channel.
   """
 
   @behaviour ElixIRCd.Command

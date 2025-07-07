@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Who do
   @moduledoc """
   This module defines the WHO command.
+
+  WHO returns information about users matching specified criteria.
   """
 
   @behaviour ElixIRCd.Command

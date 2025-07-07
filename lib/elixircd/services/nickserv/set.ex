@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Set do
   @moduledoc """
-  Module for the NickServ SET command.
+  This module defines the NickServ SET command.
+
+  SET allows users to configure options for their registered nicknames.
   """
 
   @behaviour ElixIRCd.Service

@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Register do
   @moduledoc """
-  Module for the NickServ register command.
+  This module defines the NickServ REGISTER command.
+
+  REGISTER allows users to register their nicknames with NickServ.
   """
 
   @behaviour ElixIRCd.Service

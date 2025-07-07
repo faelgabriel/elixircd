@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Ghost do
   @moduledoc """
-  Module for the NickServ GHOST command.
+  This module defines the NickServ GHOST command.
+
+  GHOST allows users to disconnect unauthorized sessions using their nickname.
   """
 
   @behaviour ElixIRCd.Service

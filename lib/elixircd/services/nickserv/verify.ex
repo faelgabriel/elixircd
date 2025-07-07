@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Services.Nickserv.Verify do
   @moduledoc """
-  Module for the NickServ verify command.
+  This module defines the NickServ VERIFY command.
+
+  VERIFY allows users to complete the verification process for their registered nickname.
   """
 
   @behaviour ElixIRCd.Service

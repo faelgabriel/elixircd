@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Privmsg do
   @moduledoc """
   This module defines the PRIVMSG command.
+
+  PRIVMSG sends a private message to a user, channel, or service.
   """
 
   @behaviour ElixIRCd.Command

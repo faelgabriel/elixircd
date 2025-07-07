@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Version do
   @moduledoc """
   This module defines the VERSION command.
+
+  VERSION returns the version information of the IRC server.
   """
 
   @behaviour ElixIRCd.Command
