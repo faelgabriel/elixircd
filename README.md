@@ -239,11 +239,12 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 #### User Modes
 
-These modes are applied to users themselves, affecting their behavior and access to the server.
+These modes apply to users globally, affecting their visibility, privileges, and access across the server.
 
+- **+a (Admin)**: Grants IRC administrator privileges. ❌
 - **+B (Bot)**: Marks the user as a bot. ✅
 - **+c (No CTCP replies)**: Prevents the user from sending CTCP replies. ❌
-- **+d (Deaf)**: Blocks channel messages from being received by the user. ❌
+- **+D (Deaf)**: Blocks channel messages from being received by the user. ❌
 - **+G (Profanity Filter)**: Filters incoming messages containing offensive words. ❌
 - **+g (Caller ID)**: Blocks private messages from users not on your accept list. ✅
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ✅
@@ -262,7 +263,7 @@ These modes are applied to users themselves, affecting their behavior and access
 
 #### Channel Modes
 
-These modes are applied to channels themselves, affecting channel behavior and access control.
+These modes apply to channels and define behavior, restrictions, and access rules.
 
 - **+A (Admin Only)**: Only IRC operators with admin access may join. ❌
 - **+C (No CTCP)**: Blocks CTCP messages to the channel. ✅
@@ -292,7 +293,7 @@ These modes are applied to channels themselves, affecting channel behavior and a
 
 #### Channel List Modes
 
-These modes maintain lists of entries for access control and restrictions.
+These modes use lists to manage exceptions and access control in channels.
 
 - **+b (Ban)**: Prevents a user or host from joining the channel. ✅
 - **+e (Ban Exception)**: Exempts users from channel bans. ❌
@@ -300,13 +301,13 @@ These modes maintain lists of entries for access control and restrictions.
 
 #### Channel User Modes
 
-These modes are applied to users within channels, granting them specific privileges or status.
+These modes are assigned to users within a specific channel and determine their privileges or status.
 
-- **+a (Admin)**: Grants admin-level privileges. ❌
-- **+h (Half-operator)**: Grants half-operator status to a user. ❌
-- **+o (Operator)**: Grants operator status to a user. ✅
-- **+q (Owner)**: Grants channel owner status to a user. ❌
-- **+v (Voice)**: Grants voice status to a user. ✅
+- **+q (Owner)**: Grants full control over the channel. ❌
+- **+a (Admin)**: Grants high-level channel privileges. ❌
+- **+o (Operator)**: Grants standard moderator privileges. ✅
+- **+h (Half-operator)**: Grants limited moderation privileges. ❌
+- **+v (Voice)**: Allows speaking in moderated channels. ✅
 
 ### Services
 
