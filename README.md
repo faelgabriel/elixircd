@@ -158,27 +158,9 @@ You can set the Message of the Day by creating a `motd.txt` file mounting it int
      faelgabriel/elixircd
    ```
 
-#### Channel Configurations
+#### Full Configuration Example
 
-Channel configurations are done through the `channel` key in the `elixircd.exs` configuration file.
-
-```elixir
-# ... other configurations
-:channel, [
-  # ... channel configurations
-]
-```
-
-#### User Configurations
-
-User configurations are done through the `user` key in the `elixircd.exs` configuration file.
-
-```elixir
-# ... other configurations
-:user, [
-  # ... user configurations
-]
-```
+Check the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) for a full configuration example.
 
 ### Start from the Source Code
 
@@ -245,13 +227,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **OPER**: Allow operators to gain elevated privileges on the server. ✅
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✅
 - **OPERWALL**: Send messages to operators only. ✅
-- **GLOBOPS**: Send global operator messages to all operators on the network. ❌
-- **WATCH**: Track when specific nicknames enter or leave the network. ❌
-- **SAJOIN**: Force a user to join a channel. ❌
-- **SAPART**: Force a user to part a channel. ❌
-- **SVSNICK**: Force a nickname change on a user. ❌
-- **SVSMODE**: Change user or channel modes as services. ❌
-- **SWHOIS**: Set additional WHOIS information for a user. ❌
+- **GLOBOPS**: Send global operator messages to all operators on the network. ✅
 - **KILL**: Allow operators to disconnect a user from the network. ✅
 - **REHASH**: Enable operators to reload the server's configuration. ✅
 - **RESTART**: Allow operators to restart the server. ✅
