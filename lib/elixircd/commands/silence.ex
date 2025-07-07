@@ -1,6 +1,8 @@
 defmodule ElixIRCd.Commands.Silence do
   @moduledoc """
-  The SILENCE command allows users to maintain a list of masks to block messages from.
+  This module defines the SILENCE command.
+
+  SILENCE allows users to maintain a list of masks to block messages from.
   """
 
   @behaviour ElixIRCd.Command

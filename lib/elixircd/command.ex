@@ -16,6 +16,7 @@ defmodule ElixIRCd.Command do
     "AWAY" => Commands.Away,
     "CAP" => Commands.Cap,
     "DIE" => Commands.Die,
+    "GLOBOPS" => Commands.Globops,
     "INFO" => Commands.Info,
     "INVITE" => Commands.Invite,
     "ISON" => Commands.Ison,
