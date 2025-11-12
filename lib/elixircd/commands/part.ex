@@ -9,8 +9,6 @@ defmodule ElixIRCd.Commands.Part do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
@@ -58,13 +56,8 @@ defmodule ElixIRCd.Commands.Part do
         Channels.delete(channel)
       end
 
-      Message.build(%{
-        prefix: user_mask(user),
-        command: "PART",
-        params: [channel.name],
-        trailing: part_message
-      })
-      |> Dispatcher.broadcast(all_user_channels)
+      Message.build(%{command: "PART", params: [channel.name], trailing: part_message})
+      |> Dispatcher.broadcast(user, all_user_channels)
     else
       {:error, :user_channel_not_found} ->
         Message.build(%{

@@ -104,12 +104,8 @@ defmodule ElixIRCd.Commands.Join do
   defp send_join_channel(user, channel, user_channel) do
     user_channels = UserChannels.get_by_channel_name(channel.name)
 
-    Message.build(%{
-      prefix: user_mask(user),
-      command: "JOIN",
-      params: [channel.name]
-    })
-    |> Dispatcher.broadcast(user_channels)
+    Message.build(%{command: "JOIN", params: [channel.name]})
+    |> Dispatcher.broadcast(user, user_channels)
 
     if channel_operator?(user_channel) do
       Message.build(%{

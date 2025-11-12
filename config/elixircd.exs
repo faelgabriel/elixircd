@@ -93,7 +93,9 @@ config :elixircd,
     # Whether to support extended NAMES with hostmasks (uhnames capability)
     extended_names: true,
     # Whether to support extended user modes in WHO replies (extended-uhlist capability)
-    extended_uhlist: true
+    extended_uhlist: true,
+    # Whether to support IRCv3 message tags (message-tags capability)
+    message_tags: true
   ],
   # Network Listeners Configuration
   listeners: [

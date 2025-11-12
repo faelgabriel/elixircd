@@ -5,7 +5,7 @@ defmodule ElixIRCd.Server.Connection do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
@@ -234,8 +234,8 @@ defmodule ElixIRCd.Server.Connection do
       realname: user.realname
     })
 
-    Message.build(%{prefix: user_mask(user), command: "QUIT", params: [], trailing: quit_message})
-    |> Dispatcher.broadcast(all_shared_unique_user_channels)
+    Message.build(%{command: "QUIT", params: [], trailing: quit_message})
+    |> Dispatcher.broadcast(user, all_shared_unique_user_channels)
   end
 
   defp handle_quit(user, _quit_message) do

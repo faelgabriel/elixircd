@@ -9,7 +9,7 @@ defmodule ElixIRCd.Commands.Notice do
 
   import ElixIRCd.Utils.MessageFilter, only: [should_silence_message?: 2]
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -66,13 +66,8 @@ defmodule ElixIRCd.Commands.Notice do
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
 
-      Message.build(%{
-        prefix: user_mask(user),
-        command: "NOTICE",
-        params: [channel.name],
-        trailing: message_text
-      })
-      |> Dispatcher.broadcast(channel_users_without_user)
+      Message.build(%{command: "NOTICE", params: [channel.name], trailing: message_text})
+      |> Dispatcher.broadcast(user, channel_users_without_user)
     else
       {:error, :delay_message_blocked, delay} ->
         Message.build(%{
@@ -161,13 +156,8 @@ defmodule ElixIRCd.Commands.Notice do
 
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_normal_user_message(user, receiver_user, target_nick, message_text) do
-    Message.build(%{
-      prefix: user_mask(user),
-      command: "NOTICE",
-      params: [target_nick],
-      trailing: message_text
-    })
-    |> Dispatcher.broadcast(receiver_user)
+    Message.build(%{command: "NOTICE", params: [target_nick], trailing: message_text})
+    |> Dispatcher.broadcast(user, receiver_user)
   end
 
   @spec handle_user_not_found(User.t(), String.t()) :: :ok

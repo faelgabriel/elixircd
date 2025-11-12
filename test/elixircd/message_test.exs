@@ -389,6 +389,7 @@ defmodule ElixIRCd.MessageTest do
 
     test "handles malformed IRC messages" do
       message = %Message{
+        tags: %{},
         prefix: nil,
         command: "",
         params: [],
@@ -397,7 +398,7 @@ defmodule ElixIRCd.MessageTest do
 
       expected =
         {:error,
-         "Invalid IRC message format on unparsing command: %ElixIRCd.Message{prefix: nil, command: \"\", params: [], trailing: nil}"}
+         "Invalid IRC message format on unparsing command: %ElixIRCd.Message{tags: %{}, prefix: nil, command: \"\", params: [], trailing: nil}"}
 
       assert Message.unparse(message) == expected
     end
@@ -419,6 +420,7 @@ defmodule ElixIRCd.MessageTest do
 
     test "raises an ArgumentError on a malformed IRC message" do
       message = %Message{
+        tags: %{},
         prefix: nil,
         command: "",
         params: [],
@@ -426,10 +428,182 @@ defmodule ElixIRCd.MessageTest do
       }
 
       assert_raise ArgumentError,
-                   "Invalid IRC message format on unparsing command: %ElixIRCd.Message{prefix: nil, command: \"\", params: [], trailing: nil}",
+                   "Invalid IRC message format on unparsing command: %ElixIRCd.Message{tags: %{}, prefix: nil, command: \"\", params: [], trailing: nil}",
                    fn ->
                      Message.unparse!(message)
                    end
+    end
+  end
+
+  describe "parse/1 - IRCv3 message tags" do
+    test "parses a message with a single tag without value" do
+      raw_message = "@bot :irc.example.com PRIVMSG #channel :hello"
+
+      expected =
+        {:ok,
+         %Message{
+           tags: %{"bot" => nil},
+           prefix: "irc.example.com",
+           command: "PRIVMSG",
+           params: ["#channel"],
+           trailing: "hello"
+         }}
+
+      assert Message.parse(raw_message) == expected
+    end
+
+    test "parses a message with a single tag with value" do
+      raw_message = "@account=user123 :irc.example.com PRIVMSG #channel :hello"
+
+      expected =
+        {:ok,
+         %Message{
+           tags: %{"account" => "user123"},
+           prefix: "irc.example.com",
+           command: "PRIVMSG",
+           params: ["#channel"],
+           trailing: "hello"
+         }}
+
+      assert Message.parse(raw_message) == expected
+    end
+
+    test "parses a message with multiple tags" do
+      raw_message = "@bot;account=user123;msgid=abc :irc.example.com PRIVMSG #channel :hello"
+
+      expected =
+        {:ok,
+         %Message{
+           tags: %{"bot" => nil, "account" => "user123", "msgid" => "abc"},
+           prefix: "irc.example.com",
+           command: "PRIVMSG",
+           params: ["#channel"],
+           trailing: "hello"
+         }}
+
+      assert Message.parse(raw_message) == expected
+    end
+
+    test "parses a message with tags without prefix" do
+      raw_message = "@bot PRIVMSG #channel :hello"
+
+      expected =
+        {:ok,
+         %Message{
+           tags: %{"bot" => nil},
+           prefix: nil,
+           command: "PRIVMSG",
+           params: ["#channel"],
+           trailing: "hello"
+         }}
+
+      assert Message.parse(raw_message) == expected
+    end
+
+    test "parses a message with escaped tag values" do
+      raw_message = "@msg=hello\\sworld\\:\\ntest\\r\\nvalue\\\\end :irc.example.com PRIVMSG #channel :hello"
+
+      expected =
+        {:ok,
+         %Message{
+           tags: %{"msg" => "hello world;\ntest\r\nvalue\\end"},
+           prefix: "irc.example.com",
+           command: "PRIVMSG",
+           params: ["#channel"],
+           trailing: "hello"
+         }}
+
+      assert Message.parse(raw_message) == expected
+    end
+  end
+
+  describe "unparse/1 - IRCv3 message tags" do
+    test "unparses a message with a single tag without value" do
+      message = %Message{
+        tags: %{"bot" => nil},
+        prefix: "irc.example.com",
+        command: "PRIVMSG",
+        params: ["#channel"],
+        trailing: "hello"
+      }
+
+      expected = {:ok, "@bot :irc.example.com PRIVMSG #channel :hello\r\n"}
+
+      assert Message.unparse(message) == expected
+    end
+
+    test "unparses a message with a single tag with value" do
+      message = %Message{
+        tags: %{"account" => "user123"},
+        prefix: "irc.example.com",
+        command: "PRIVMSG",
+        params: ["#channel"],
+        trailing: "hello"
+      }
+
+      expected = {:ok, "@account=user123 :irc.example.com PRIVMSG #channel :hello\r\n"}
+
+      assert Message.unparse(message) == expected
+    end
+
+    test "unparses a message with multiple tags" do
+      message = %Message{
+        tags: %{"bot" => nil, "account" => "user123"},
+        prefix: "irc.example.com",
+        command: "PRIVMSG",
+        params: ["#channel"],
+        trailing: "hello"
+      }
+
+      {:ok, result} = Message.unparse(message)
+
+      # Tags can be in any order, so we just check that both are present
+      assert String.contains?(result, "@")
+      assert String.contains?(result, "bot")
+      assert String.contains?(result, "account=user123")
+      assert String.ends_with?(result, ":irc.example.com PRIVMSG #channel :hello\r\n")
+    end
+
+    test "unparses a message with tags without prefix" do
+      message = %Message{
+        tags: %{"bot" => nil},
+        prefix: nil,
+        command: "PRIVMSG",
+        params: ["#channel"],
+        trailing: "hello"
+      }
+
+      expected = {:ok, "@bot PRIVMSG #channel :hello\r\n"}
+
+      assert Message.unparse(message) == expected
+    end
+
+    test "unparses a message with escaped tag values" do
+      message = %Message{
+        tags: %{"msg" => "hello world;\ntest\r\nvalue\\end"},
+        prefix: "irc.example.com",
+        command: "PRIVMSG",
+        params: ["#channel"],
+        trailing: "hello"
+      }
+
+      expected = {:ok, "@msg=hello\\sworld\\:\\ntest\\r\\nvalue\\\\end :irc.example.com PRIVMSG #channel :hello\r\n"}
+
+      assert Message.unparse(message) == expected
+    end
+
+    test "unparses a message without tags (empty map)" do
+      message = %Message{
+        tags: %{},
+        prefix: "irc.example.com",
+        command: "PRIVMSG",
+        params: ["#channel"],
+        trailing: "hello"
+      }
+
+      expected = {:ok, ":irc.example.com PRIVMSG #channel :hello\r\n"}
+
+      assert Message.unparse(message) == expected
     end
   end
 end

@@ -22,6 +22,10 @@ defmodule ElixIRCd.Commands.Cap do
     "EXTENDED-UHLIST" => %{
       name: "EXTENDED-UHLIST",
       description: "Extended user modes in WHO replies"
+    },
+    "MESSAGE-TAGS" => %{
+      name: "MESSAGE-TAGS",
+      description: "Support for IRCv3 message tags including bot tag"
     }
   }
 
@@ -110,6 +114,7 @@ defmodule ElixIRCd.Commands.Cap do
   defp get_capabilities_list do
     extended_names_supported = Application.get_env(:elixircd, :capabilities)[:extended_names] || false
     extended_uhlist_supported = Application.get_env(:elixircd, :capabilities)[:extended_uhlist] || false
+    message_tags_supported = Application.get_env(:elixircd, :capabilities)[:message_tags] || false
     base_caps = []
 
     caps =
@@ -122,6 +127,13 @@ defmodule ElixIRCd.Commands.Cap do
     caps =
       if extended_uhlist_supported do
         ["EXTENDED-UHLIST" | caps]
+      else
+        caps
+      end
+
+    caps =
+      if message_tags_supported do
+        ["MESSAGE-TAGS" | caps]
       else
         caps
       end

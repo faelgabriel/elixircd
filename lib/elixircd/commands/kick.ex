@@ -7,8 +7,6 @@ defmodule ElixIRCd.Commands.Kick do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
@@ -101,13 +99,8 @@ defmodule ElixIRCd.Commands.Kick do
 
   @spec send_user_kick_success(Channel.t(), User.t(), User.t(), String.t(), [UserChannel.t()]) :: :ok
   defp send_user_kick_success(channel, user, target_user, reason, user_channels) do
-    Message.build(%{
-      prefix: user_mask(user),
-      command: "KICK",
-      params: [channel.name, target_user.nick],
-      trailing: reason
-    })
-    |> Dispatcher.broadcast(user_channels)
+    Message.build(%{command: "KICK", params: [channel.name, target_user.nick], trailing: reason})
+    |> Dispatcher.broadcast(user, user_channels)
   end
 
   @spec send_user_kick_error(kick_errors(), User.t(), String.t(), String.t()) :: :ok
