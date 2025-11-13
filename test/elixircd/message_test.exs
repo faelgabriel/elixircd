@@ -19,19 +19,6 @@ defmodule ElixIRCd.MessageTest do
       assert Message.build(args) == expected
     end
 
-    test "creates a message with :server atom prefix" do
-      args = %{prefix: :server, command: "NOTICE", params: ["user"], trailing: "Server restarting"}
-
-      expected = %Message{
-        prefix: "irc.test",
-        command: args.command,
-        params: args.params,
-        trailing: args.trailing
-      }
-
-      assert Message.build(args) == expected
-    end
-
     test "creates a message with numeric reply atom command" do
       args = %{prefix: "irc.test", command: :rpl_welcome, params: ["user"], trailing: "Welcome!"}
 

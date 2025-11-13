@@ -86,12 +86,6 @@ defmodule ElixIRCd.Message do
           :params => [String.t()],
           optional(:trailing) => String.t() | nil
         }) :: __MODULE__.t()
-  def build(%{prefix: :server} = args) do
-    args
-    |> Map.put(:prefix, Application.get_env(:elixircd, :server)[:hostname])
-    |> build()
-  end
-
   def build(%{command: command} = args) when is_atom(command) do
     args
     |> Map.put(:command, numeric_reply(command))
