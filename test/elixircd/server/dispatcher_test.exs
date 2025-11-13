@@ -84,28 +84,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
-    test "broadcasts with User context, does not override existing prefix", %{
-      user: user,
-      target_user: target_user
-    } do
-      message_with_prefix =
-        %Message{prefix: "custom!user@host", command: "PRIVMSG", params: ["#test"], trailing: "hello"}
-
-      expected_message = ":custom!user@host PRIVMSG #test :hello\r\n"
-
-      Connection
-      |> expect(:handle_send, fn pid, received_message ->
-        assert pid === target_user.pid
-        assert received_message == expected_message
-        :ok
-      end)
-
-      assert :ok == Dispatcher.broadcast(message_with_prefix, user, target_user)
-
-      Connection
-      |> reject(:handle_send, 2)
-    end
-
     test "broadcasts with :server context, adding server prefix", %{
       message: message,
       target_user: target_user
@@ -120,27 +98,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
       end)
 
       assert :ok == Dispatcher.broadcast(message, :server, target_user)
-
-      Connection
-      |> reject(:handle_send, 2)
-    end
-
-    test "broadcasts with :server context, does not override existing prefix", %{
-      target_user: target_user
-    } do
-      message_with_prefix =
-        %Message{prefix: "custom.server", command: "NOTICE", params: ["#test"], trailing: "notice"}
-
-      expected_message = ":custom.server NOTICE #test :notice\r\n"
-
-      Connection
-      |> expect(:handle_send, fn pid, received_message ->
-        assert pid === target_user.pid
-        assert received_message == expected_message
-        :ok
-      end)
-
-      assert :ok == Dispatcher.broadcast(message_with_prefix, :server, target_user)
 
       Connection
       |> reject(:handle_send, 2)
@@ -315,7 +272,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
   describe "broadcast/3 - various target types" do
     setup do
       user = insert(:user)
-      user_channel = insert(:user_channel)
       pid = self()
       message = %Message{command: "PING", params: ["target"]}
       raw_message = ":irc.test PING target\r\n"
@@ -323,7 +279,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
       {:ok,
        %{
          user: user,
-         user_channel: user_channel,
          pid: pid,
          message: message,
          raw_message: raw_message
@@ -332,14 +287,12 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "broadcasts a single message to a single target", %{
       user: user,
-      user_channel: user_channel,
       pid: pid,
       message: message,
       raw_message: raw_message
     } do
       test_cases = [
         {message, user, user.pid},
-        {message, user_channel, user_channel.user_pid},
         {message, pid, pid}
       ]
 
@@ -354,18 +307,16 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "broadcasts a single message to multiple targets", %{
       user: user,
-      user_channel: user_channel,
       pid: pid,
       message: message,
       raw_message: raw_message
     } do
       setup_expectations([
         {user.pid, raw_message},
-        {user_channel.user_pid, raw_message},
         {pid, raw_message}
       ])
 
-      assert :ok == Dispatcher.broadcast(message, :server, [user, user_channel, pid])
+      assert :ok == Dispatcher.broadcast(message, :server, [user, pid])
 
       Connection
       |> reject(:handle_send, 2)
@@ -373,14 +324,12 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "broadcasts multiple messages to a single target", %{
       user: user,
-      user_channel: user_channel,
       pid: pid,
       message: message,
       raw_message: raw_message
     } do
       test_cases = [
         {user, user.pid},
-        {user_channel, user_channel.user_pid},
         {pid, pid}
       ]
 
@@ -401,7 +350,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "broadcasts multiple messages to multiple targets", %{
       user: user,
-      user_channel: user_channel,
       pid: pid,
       message: message,
       raw_message: raw_message
@@ -409,12 +357,11 @@ defmodule ElixIRCd.Server.DispatcherTest do
       for _ <- 1..2 do
         setup_expectations([
           {user.pid, raw_message},
-          {user_channel.user_pid, raw_message},
           {pid, raw_message}
         ])
       end
 
-      assert :ok == Dispatcher.broadcast([message, message], :server, [user, user_channel, pid])
+      assert :ok == Dispatcher.broadcast([message, message], :server, [user, pid])
 
       Connection
       |> reject(:handle_send, 2)

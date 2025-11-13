@@ -67,7 +67,6 @@ defmodule ElixIRCd.Commands.Join do
       user_channel =
         UserChannels.create(%{
           user_pid: user.pid,
-          user_transport: user.transport,
           channel_name_key: channel.name_key,
           modes: determine_user_channel_modes(channel_state)
         })
@@ -98,13 +97,15 @@ defmodule ElixIRCd.Commands.Join do
   @spec send_join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
   defp send_join_channel(user, channel, user_channel) do
     user_channels = UserChannels.get_by_channel_name(channel.name)
+    user_pids = Enum.map(user_channels, & &1.user_pid)
+    users = Users.get_by_pids(user_pids)
 
     %Message{command: "JOIN", params: [channel.name]}
-    |> Dispatcher.broadcast(user, user_channels)
+    |> Dispatcher.broadcast(user, users)
 
     if channel_operator?(user_channel) do
       %Message{command: "MODE", params: [channel.name, "+o", user.nick]}
-      |> Dispatcher.broadcast(:server, user_channels)
+      |> Dispatcher.broadcast(:server, users)
     end
 
     {topic_reply, topic_trailing} =

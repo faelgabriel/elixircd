@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Topic do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -118,8 +119,11 @@ defmodule ElixIRCd.Commands.Topic do
         %{text: topic_text} -> topic_text
       end
 
+    user_pids = Enum.map(to_user_channels, & &1.user_pid)
+    users = Users.get_by_pids(user_pids)
+
     %Message{command: "TOPIC", params: [channel.name], trailing: topic_text}
-    |> Dispatcher.broadcast(user, to_user_channels)
+    |> Dispatcher.broadcast(user, users)
   end
 
   @spec send_channel_topic_error(topic_errors(), User.t(), String.t()) :: :ok

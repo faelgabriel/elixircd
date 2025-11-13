@@ -3,11 +3,10 @@ defmodule ElixIRCd.Tables.UserChannel do
   Module for the UserChannel table.
   """
 
-  @enforce_keys [:user_pid, :user_transport, :channel_name_key, :modes, :created_at]
+  @enforce_keys [:user_pid, :channel_name_key, :modes, :created_at]
   use Memento.Table,
     attributes: [
       :user_pid,
-      :user_transport,
       :channel_name_key,
       :modes,
       :created_at
@@ -17,7 +16,6 @@ defmodule ElixIRCd.Tables.UserChannel do
 
   @type t :: %__MODULE__{
           user_pid: pid(),
-          user_transport: :tcp | :tls | :ws | :wss,
           channel_name_key: String.t(),
           modes: [String.t()],
           created_at: DateTime.t()
@@ -25,7 +23,6 @@ defmodule ElixIRCd.Tables.UserChannel do
 
   @type t_attrs :: %{
           optional(:user_pid) => pid(),
-          optional(:user_transport) => :tcp | :tls | :ws | :wss,
           optional(:channel_name_key) => String.t(),
           optional(:modes) => [String.t()],
           optional(:created_at) => DateTime.t()

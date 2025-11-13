@@ -90,16 +90,19 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
   defp handle_immediate_nick_change(user, registered_nick) do
     updated_user = Users.update(user, %{nick: registered_nick.nickname})
 
-    all_channel_users =
+    all_channel_user_pids =
       UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name_key)
       |> UserChannels.get_by_channel_names()
       |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
       |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
+      |> Enum.map(& &1.user_pid)
+
+    all_users = Users.get_by_pids(all_channel_user_pids)
 
     %Message{command: "NICK", params: [registered_nick.nickname]}
-    |> Dispatcher.broadcast(user, [updated_user | all_channel_users])
+    |> Dispatcher.broadcast(user, [updated_user | all_users])
 
     :ok
   end

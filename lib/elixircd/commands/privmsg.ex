@@ -61,8 +61,11 @@ defmodule ElixIRCd.Commands.Privmsg do
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
 
+      user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
+      users = Users.get_by_pids(user_pids)
+
       %Message{command: "PRIVMSG", params: [channel.name], trailing: message_text}
-      |> Dispatcher.broadcast(user, channel_users_without_user)
+      |> Dispatcher.broadcast(user, users)
     else
       {:error, :channel_not_found} ->
         %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}

@@ -13,6 +13,7 @@ defmodule ElixIRCd.Commands.Part do
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
@@ -51,8 +52,11 @@ defmodule ElixIRCd.Commands.Part do
         Channels.delete(channel)
       end
 
+      user_pids = Enum.map(all_user_channels, & &1.user_pid)
+      users = Users.get_by_pids(user_pids)
+
       %Message{command: "PART", params: [channel.name], trailing: part_message}
-      |> Dispatcher.broadcast(user, all_user_channels)
+      |> Dispatcher.broadcast(user, users)
     else
       {:error, :user_channel_not_found} ->
         %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}

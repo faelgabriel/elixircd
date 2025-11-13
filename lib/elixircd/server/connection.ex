@@ -200,6 +200,10 @@ defmodule ElixIRCd.Server.Connection do
       all_user_channels_without_user
       |> Enum.uniq_by(& &1.user_pid)
 
+    # Extract PIDs and get Users
+    all_shared_unique_user_pids = Enum.map(all_shared_unique_user_channels, & &1.user_pid)
+    all_shared_unique_users = Users.get_by_pids(all_shared_unique_user_pids)
+
     # Find channels with no other users remaining after removing the quitting user
     channels_with_no_other_users =
       all_channel_name_keys
@@ -232,7 +236,7 @@ defmodule ElixIRCd.Server.Connection do
     })
 
     %Message{command: "QUIT", params: [], trailing: quit_message}
-    |> Dispatcher.broadcast(user, all_shared_unique_user_channels)
+    |> Dispatcher.broadcast(user, all_shared_unique_users)
   end
 
   defp handle_quit(user, _quit_message) do

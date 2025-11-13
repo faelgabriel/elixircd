@@ -94,8 +94,11 @@ defmodule ElixIRCd.Commands.Kick do
 
   @spec send_user_kick_success(Channel.t(), User.t(), User.t(), String.t(), [UserChannel.t()]) :: :ok
   defp send_user_kick_success(channel, user, target_user, reason, user_channels) do
+    user_pids = Enum.map(user_channels, & &1.user_pid)
+    users = Users.get_by_pids(user_pids)
+
     %Message{command: "KICK", params: [channel.name, target_user.nick], trailing: reason}
-    |> Dispatcher.broadcast(user, user_channels)
+    |> Dispatcher.broadcast(user, users)
   end
 
   @spec send_user_kick_error(kick_errors(), User.t(), String.t(), String.t()) :: :ok

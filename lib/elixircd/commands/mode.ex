@@ -75,9 +75,11 @@ defmodule ElixIRCd.Commands.Mode do
 
         if length(applied_changes) > 0 do
           channel_users = UserChannels.get_by_channel_name(updated_channel.name)
+          user_pids = Enum.map(channel_users, & &1.user_pid)
+          users = Users.get_by_pids(user_pids)
 
           %Message{command: "MODE", params: [updated_channel.name, ChannelModes.display_mode_changes(applied_changes)]}
-          |> Dispatcher.broadcast(user, channel_users)
+          |> Dispatcher.broadcast(user, users)
         end
 
         send_channel_mode_listing(listing_modes, user, updated_channel)
