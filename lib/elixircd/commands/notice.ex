@@ -51,6 +51,7 @@ defmodule ElixIRCd.Commands.Notice do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_delay_message(channel, user_channel),
+         :ok <- check_notice_blocked(channel, user_channel),
          :ok <- check_formatting(channel, message_text) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
@@ -84,6 +85,10 @@ defmodule ElixIRCd.Commands.Notice do
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel (+c - no colors allowed)"
         }
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :notice_blocked} ->
+        %Message{command: "404", params: [user.nick, channel_name], trailing: "Cannot send NOTICE to channel (+T)"}
         |> Dispatcher.broadcast(:server, user)
     end
   end
@@ -152,6 +157,20 @@ defmodule ElixIRCd.Commands.Notice do
     else
       :ok
     end
+  end
+
+  @spec check_notice_blocked(Channel.t(), UserChannel.t()) :: :ok | {:error, :notice_blocked}
+  defp check_notice_blocked(channel, user_channel) do
+    if "T" in channel.modes and not user_can_send_notice?(user_channel) do
+      {:error, :notice_blocked}
+    else
+      :ok
+    end
+  end
+
+  @spec user_can_send_notice?(UserChannel.t()) :: boolean()
+  defp user_can_send_notice?(user_channel) do
+    channel_operator?(user_channel) or channel_voice?(user_channel)
   end
 
   @spec check_delay_message(Channel.t(), UserChannel.t()) :: :ok | {:error, :delay_message_blocked, integer()}

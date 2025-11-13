@@ -356,5 +356,73 @@ defmodule ElixIRCd.Commands.NoticeTest do
         assert_sent_messages([])
       end)
     end
+
+    test "blocks NOTICE messages for regular users when +T mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["T"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send NOTICE to channel (+T)\r\n"}
+        ])
+      end)
+    end
+
+    test "allows NOTICE messages for channel operators when +T mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["T"])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows NOTICE messages for users with voice when +T mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["T"])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "allows NOTICE messages when +T mode is not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
   end
 end
