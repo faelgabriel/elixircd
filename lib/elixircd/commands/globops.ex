@@ -17,16 +17,16 @@ defmodule ElixIRCd.Commands.Globops do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "GLOBOPS"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   def handle(user, %{command: "GLOBOPS", trailing: nil}) do
-    Message.build(%{
+    %Message{
       command: :err_needmoreparams,
       params: [user.nick, "GLOBOPS"],
       trailing: "Not enough parameters"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -41,21 +41,21 @@ defmodule ElixIRCd.Commands.Globops do
   defp globops_message(user, message) do
     target_operators = Users.get_by_mode("o")
 
-    Message.build(%{
+    %Message{
       command: "GLOBOPS",
       params: [],
       trailing: message
-    })
+    }
     |> Dispatcher.broadcast(user, target_operators)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
   defp noprivileges_message(user) do
-    Message.build(%{
+    %Message{
       command: "481",
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 end

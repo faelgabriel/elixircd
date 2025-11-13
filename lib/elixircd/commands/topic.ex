@@ -22,17 +22,13 @@ defmodule ElixIRCd.Commands.Topic do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "TOPIC"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "TOPIC", params: []}) do
-    Message.build(%{
-      command: :err_needmoreparams,
-      params: [user_reply(user), "TOPIC"],
-      trailing: "Not enough parameters"
-    })
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "TOPIC"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -44,11 +40,7 @@ defmodule ElixIRCd.Commands.Topic do
         send_channel_topic(channel, user)
 
       {:error, :channel_not_found} ->
-        Message.build(%{
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        })
+        %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
         |> Dispatcher.broadcast(:server, user)
     end
   end
@@ -103,25 +95,17 @@ defmodule ElixIRCd.Commands.Topic do
 
   @spec send_channel_topic(Channel.t(), User.t()) :: :ok
   defp send_channel_topic(%{topic: topic} = channel, user) when topic == nil do
-    Message.build(%{
-      command: :rpl_notopic,
-      params: [user.nick, channel.name],
-      trailing: "No topic is set"
-    })
+    %Message{command: :rpl_notopic, params: [user.nick, channel.name], trailing: "No topic is set"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic(%{topic: %{text: topic_text}} = channel, user) do
     [
-      Message.build(%{
-        command: :rpl_topic,
-        params: [user.nick, channel.name],
-        trailing: topic_text
-      }),
-      Message.build(%{
+      %Message{command: :rpl_topic, params: [user.nick, channel.name], trailing: topic_text},
+      %Message{
         command: :rpl_topicwhotime,
         params: [user.nick, channel.name, channel.topic.setter, DateTime.to_unix(channel.topic.set_at)]
-      })
+      }
     ]
     |> Dispatcher.broadcast(:server, user)
   end
@@ -134,50 +118,38 @@ defmodule ElixIRCd.Commands.Topic do
         %{text: topic_text} -> topic_text
       end
 
-    Message.build(%{
-      command: "TOPIC",
-      params: [channel.name],
-      trailing: topic_text
-    })
+    %Message{command: "TOPIC", params: [channel.name], trailing: topic_text}
     |> Dispatcher.broadcast(user, to_user_channels)
   end
 
   @spec send_channel_topic_error(topic_errors(), User.t(), String.t()) :: :ok
   defp send_channel_topic_error(:channel_not_found, user, channel_name) do
-    Message.build(%{
-      command: :err_nosuchchannel,
-      params: [user.nick, channel_name],
-      trailing: "No such channel"
-    })
+    %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic_error(:user_channel_not_found, user, channel_name) do
-    Message.build(%{
-      command: :err_notonchannel,
-      params: [user.nick, channel_name],
-      trailing: "You're not on that channel"
-    })
+    %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic_error(:user_is_not_operator, user, channel_name) do
-    Message.build(%{
+    %Message{
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic_error(:topic_too_long, user, _channel_name) do
     max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
 
-    Message.build(%{
+    %Message{
       command: :err_inputtoolong,
       params: [user.nick],
       trailing: "Topic too long (maximum length: #{max_topic_length} characters)"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 end

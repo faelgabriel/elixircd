@@ -24,27 +24,27 @@ defmodule ElixIRCd.Commands.Notice do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "NOTICE"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "NOTICE", params: []}) do
-    Message.build(%{
+    %Message{
       command: :err_needmoreparams,
       params: [user.nick, "NOTICE"],
       trailing: "Not enough parameters"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "NOTICE", trailing: nil}) do
-    Message.build(%{
+    %Message{
       command: :err_needmoreparams,
       params: [user.nick, "NOTICE"],
       trailing: "Not enough parameters"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -64,39 +64,39 @@ defmodule ElixIRCd.Commands.Notice do
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
 
-      Message.build(%{command: "NOTICE", params: [channel.name], trailing: message_text})
+      %Message{command: "NOTICE", params: [channel.name], trailing: message_text}
       |> Dispatcher.broadcast(user, channel_users_without_user)
     else
       {:error, :delay_message_blocked, delay} ->
-        Message.build(%{
+        %Message{
           command: "937",
           params: [user.nick, channel_name],
           trailing: "You must wait #{delay} seconds after joining before speaking in this channel."
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :user_channel_not_found} ->
-        Message.build(%{
+        %Message{
           command: :err_cannotsendtochan,
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :channel_not_found} ->
-        Message.build(%{
+        %Message{
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
           trailing: "No such channel"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :formatting_blocked} ->
-        Message.build(%{
+        %Message{
           command: "404",
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel (+c - no colors allowed)"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
     end
   end
@@ -128,37 +128,37 @@ defmodule ElixIRCd.Commands.Notice do
 
   @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
   defp handle_restricted_user_message(sender, recipient) do
-    Message.build(%{
+    %Message{
       command: :err_cannotsendtouser,
       params: [sender.nick, recipient.nick],
       trailing: "You must be identified to message this user"
-    })
+    }
     |> Dispatcher.broadcast(:server, sender)
   end
 
   @spec handle_blocked_user_message(User.t(), User.t()) :: :ok
   defp handle_blocked_user_message(sender, recipient) do
-    Message.build(%{
+    %Message{
       command: :rpl_umodegmsg,
       params: [sender.nick, recipient.nick],
       trailing: "Your message has been blocked. #{recipient.nick} is only accepting messages from authorized users."
-    })
+    }
     |> Dispatcher.broadcast(:server, sender)
   end
 
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_normal_user_message(user, receiver_user, target_nick, message_text) do
-    Message.build(%{command: "NOTICE", params: [target_nick], trailing: message_text})
+    %Message{command: "NOTICE", params: [target_nick], trailing: message_text}
     |> Dispatcher.broadcast(user, receiver_user)
   end
 
   @spec handle_user_not_found(User.t(), String.t()) :: :ok
   defp handle_user_not_found(user, target_nick) do
-    Message.build(%{
+    %Message{
       command: :err_nosuchnick,
       params: [user.nick, target_nick],
       trailing: "No such nick"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 

@@ -17,21 +17,13 @@ defmodule ElixIRCd.Commands.Pass do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: true} = user, %{command: "PASS"}) do
-    Message.build(%{
-      command: :err_alreadyregistered,
-      params: [user_reply(user)],
-      trailing: "You may not reregister"
-    })
+    %Message{command: :err_alreadyregistered, params: [user_reply(user)], trailing: "You may not reregister"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "PASS", params: []}) do
-    Message.build(%{
-      command: :err_needmoreparams,
-      params: [user_reply(user), "PASS"],
-      trailing: "Not enough parameters"
-    })
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "PASS"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 

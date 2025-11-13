@@ -14,7 +14,7 @@ defmodule ElixIRCd.Commands.Motd do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "MOTD"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -30,26 +30,22 @@ defmodule ElixIRCd.Commands.Motd do
   def send_motd(user) do
     server_hostname = Application.get_env(:elixircd, :server)[:hostname]
 
-    Message.build(%{
-      command: :rpl_motdstart,
-      params: [user.nick],
-      trailing: "#{server_hostname} Message of the Day"
-    })
+    %Message{command: :rpl_motdstart, params: [user.nick], trailing: "#{server_hostname} Message of the Day"}
     |> Dispatcher.broadcast(:server, user)
 
     config_motd_content()
     |> case do
       nil ->
-        Message.build(%{command: :err_nomotd, params: [user.nick], trailing: "MOTD is missing"})
+        %Message{command: :err_nomotd, params: [user.nick], trailing: "MOTD is missing"}
 
       content ->
         content
         |> String.split(~r/\R/, trim: true)
-        |> Enum.map(&Message.build(%{command: :rpl_motd, params: [user.nick], trailing: &1}))
+        |> Enum.map(&%Message{command: :rpl_motd, params: [user.nick], trailing: &1})
     end
     |> Dispatcher.broadcast(:server, user)
 
-    Message.build(%{command: :rpl_endofmotd, params: [user.nick], trailing: "End of /MOTD command"})
+    %Message{command: :rpl_endofmotd, params: [user.nick], trailing: "End of /MOTD command"}
     |> Dispatcher.broadcast(:server, user)
   end
 

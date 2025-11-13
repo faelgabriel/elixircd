@@ -26,7 +26,7 @@ defmodule ElixIRCd.Commands.Mode do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "MODE"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -53,10 +53,7 @@ defmodule ElixIRCd.Commands.Mode do
   defp handle_channel_mode(user, channel_name, nil, nil) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
-      Message.build(%{
-        command: "MODE",
-        params: [channel.name, ChannelModes.display_modes(channel.modes)]
-      })
+      %Message{command: "MODE", params: [channel.name, ChannelModes.display_modes(channel.modes)]}
       |> Dispatcher.broadcast(user, user)
     else
       {:error, error} -> send_channel_mode_error(error, user, channel_name)
@@ -79,10 +76,7 @@ defmodule ElixIRCd.Commands.Mode do
         if length(applied_changes) > 0 do
           channel_users = UserChannels.get_by_channel_name(updated_channel.name)
 
-          Message.build(%{
-            command: "MODE",
-            params: [updated_channel.name, ChannelModes.display_mode_changes(applied_changes)]
-          })
+          %Message{command: "MODE", params: [updated_channel.name, ChannelModes.display_mode_changes(applied_changes)]}
           |> Dispatcher.broadcast(user, channel_users)
         end
 
@@ -130,72 +124,54 @@ defmodule ElixIRCd.Commands.Mode do
 
     Enum.take(channel_bans, max_entries)
     |> Enum.each(fn channel_ban ->
-      Message.build(%{
+      %Message{
         command: :rpl_banlist,
-        params: [
-          user.nick,
-          channel.name,
-          channel_ban.mask,
-          channel_ban.setter,
-          created_timestamp
-        ]
-      })
+        params: [user.nick, channel.name, channel_ban.mask, channel_ban.setter, created_timestamp]
+      }
       |> Dispatcher.broadcast(:server, user)
     end)
 
     if total_entries > max_entries do
-      Message.build(%{
+      %Message{
         command: "NOTICE",
         params: [user.nick],
         trailing: "Ban list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
-      })
+      }
       |> Dispatcher.broadcast(:server, user)
     end
 
-    Message.build(%{
-      command: :rpl_endofbanlist,
-      params: [user.nick, channel.name],
-      trailing: "End of channel ban list"
-    })
+    %Message{command: :rpl_endofbanlist, params: [user.nick, channel.name], trailing: "End of channel ban list"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_channel_mode_error(channel_mode_errors(), User.t(), String.t()) :: :ok
   defp send_channel_mode_error(:channel_not_found, user, channel_name) do
-    Message.build(%{
-      command: :err_nosuchchannel,
-      params: [user.nick, channel_name],
-      trailing: "No such channel"
-    })
+    %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_mode_error(:user_channel_not_found, user, channel_name) do
-    Message.build(%{
-      command: :err_notonchannel,
-      params: [user.nick, channel_name],
-      trailing: "You're not on that channel"
-    })
+    %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_mode_error(:user_is_not_operator, user, channel_name) do
-    Message.build(%{
+    %Message{
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_mode_error(:too_many_modes, user, channel_name) do
     max_modes_limit = Application.get_env(:elixircd, :channel)[:max_modes_per_command] || 20
 
-    Message.build(%{
+    %Message{
       command: :err_unknownmode,
       params: [user.nick, channel_name],
       trailing: "Too many channel modes in one command (maximum is #{max_modes_limit})"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -238,60 +214,38 @@ defmodule ElixIRCd.Commands.Mode do
   defp send_invalid_modes(invalid_modes, user) do
     invalid_modes
     |> Enum.each(fn mode ->
-      Message.build(%{
-        command: :err_unknownmode,
-        params: [user.nick, mode],
-        trailing: "is unknown mode char to me"
-      })
+      %Message{command: :err_unknownmode, params: [user.nick, mode], trailing: "is unknown mode char to me"}
       |> Dispatcher.broadcast(:server, user)
     end)
   end
 
   @spec send_user_not_found_error(User.t(), String.t()) :: :ok
   defp send_user_not_found_error(user, receiver_nick) do
-    Message.build(%{
-      command: :err_nosuchnick,
-      params: [user.nick, receiver_nick],
-      trailing: "No such nick"
-    })
+    %Message{command: :err_nosuchnick, params: [user.nick, receiver_nick], trailing: "No such nick"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_umodeis_response(User.t(), String.t()) :: :ok
   defp send_umodeis_response(user, modes) do
-    Message.build(%{
-      command: :rpl_umodeis,
-      params: [user.nick, modes]
-    })
+    %Message{command: :rpl_umodeis, params: [user.nick, modes]}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_usersdontmatch_error(User.t()) :: :ok
   defp send_usersdontmatch_error(user) do
-    Message.build(%{
-      command: :err_usersdontmatch,
-      params: [user.nick],
-      trailing: "Cannot change mode for other users"
-    })
+    %Message{command: :err_usersdontmatch, params: [user.nick], trailing: "Cannot change mode for other users"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_needmoreparams_error(User.t()) :: :ok
   defp send_needmoreparams_error(user) do
-    Message.build(%{
-      command: :err_needmoreparams,
-      params: [user.nick, "MODE"],
-      trailing: "Not enough parameters"
-    })
+    %Message{command: :err_needmoreparams, params: [user.nick, "MODE"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_user_mode_change(User.t(), String.t(), String.t(), User.t() | list(User.t())) :: :ok
   defp send_user_mode_change(user, target_nick, mode_changes, targets) do
-    Message.build(%{
-      command: "MODE",
-      params: [target_nick, mode_changes]
-    })
+    %Message{command: "MODE", params: [target_nick, mode_changes]}
     |> Dispatcher.broadcast(user, targets)
   end
 
@@ -301,11 +255,11 @@ defmodule ElixIRCd.Commands.Mode do
   defp send_noprivileges_error(user, unauthorized_modes) do
     unauthorized_modes
     |> Enum.each(fn {_, mode} ->
-      Message.build(%{
+      %Message{
         command: :err_noprivileges,
         params: [user.nick],
         trailing: "Permission Denied- You don't have privileges to change mode #{mode}"
-      })
+      }
       |> Dispatcher.broadcast(:server, user)
     end)
   end

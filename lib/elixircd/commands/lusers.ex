@@ -17,7 +17,7 @@ defmodule ElixIRCd.Commands.Lusers do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "LUSERS"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -38,41 +38,29 @@ defmodule ElixIRCd.Commands.Lusers do
     highest_connections = Metrics.get(:highest_connections)
 
     [
-      Message.build(%{
+      %Message{
         command: :rpl_luserclient,
         params: [user.nick],
         trailing: "There are #{visible} users and #{invisible} invisible on 1 server"
-      }),
-      Message.build(%{
-        command: :rpl_luserop,
-        params: [user.nick, to_string(operators)],
-        trailing: "operator(s) online"
-      }),
-      Message.build(%{
-        command: :rpl_luserunknown,
-        params: [user.nick, to_string(unknown)],
-        trailing: "unknown connection(s)"
-      }),
-      Message.build(%{
+      },
+      %Message{command: :rpl_luserop, params: [user.nick, to_string(operators)], trailing: "operator(s) online"},
+      %Message{command: :rpl_luserunknown, params: [user.nick, to_string(unknown)], trailing: "unknown connection(s)"},
+      %Message{
         command: :rpl_luserchannels,
         params: [user.nick, to_string(total_channels)],
         trailing: "channels formed"
-      }),
-      Message.build(%{
-        command: :rpl_luserme,
-        params: [user.nick],
-        trailing: "I have #{total_users} clients and 0 servers"
-      }),
-      Message.build(%{
+      },
+      %Message{command: :rpl_luserme, params: [user.nick], trailing: "I have #{total_users} clients and 0 servers"},
+      %Message{
         command: :rpl_localusers,
         params: [user.nick, to_string(total_users), to_string(highest_connections)],
         trailing: "Current local users #{total_users}, max #{highest_connections}"
-      }),
-      Message.build(%{
+      },
+      %Message{
         command: :rpl_globalusers,
         params: [user.nick, to_string(total_users), to_string(highest_connections)],
         trailing: "Current global users #{total_users}, max #{highest_connections}"
-      })
+      }
     ]
     |> Dispatcher.broadcast(:server, user)
   end

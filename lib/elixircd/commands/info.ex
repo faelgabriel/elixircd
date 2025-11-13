@@ -37,7 +37,7 @@ defmodule ElixIRCd.Commands.Info do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "INFO"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -45,24 +45,24 @@ defmodule ElixIRCd.Commands.Info do
   def handle(user, %{command: "INFO"}) do
     @info
     |> String.split("\n")
-    |> Enum.map(&Message.build(%{command: :rpl_info, params: [user.nick], trailing: &1}))
+    |> Enum.map(&%Message{command: :rpl_info, params: [user.nick], trailing: &1})
     |> Dispatcher.broadcast(:server, user)
 
     app_start_time = :persistent_term.get(:app_start_time) |> Calendar.strftime("%a %b %d %Y at %H:%M:%S %Z")
     server_start_time = :persistent_term.get(:server_start_time) |> Calendar.strftime("%a %b %d %H:%M:%S %Y")
 
     [
-      Message.build(%{
+      %Message{
         command: :rpl_info,
         params: [user.nick],
         trailing: "Birth Date: #{app_start_time}, compile # 1"
-      }),
-      Message.build(%{
+      },
+      %Message{
         command: :rpl_info,
         params: [user.nick],
         trailing: "On-line since #{server_start_time}"
-      }),
-      Message.build(%{command: :rpl_endofinfo, params: [user.nick], trailing: "End of /INFO list"})
+      },
+      %Message{command: :rpl_endofinfo, params: [user.nick], trailing: "End of /INFO list"}
     ]
     |> Dispatcher.broadcast(:server, user)
   end

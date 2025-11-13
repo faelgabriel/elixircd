@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.Names do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "NAMES"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -111,16 +111,16 @@ defmodule ElixIRCd.Commands.Names do
       nicks_string = Enum.join(visible_nicks, " ")
 
       [
-        Message.build(%{
+        %Message{
           command: :rpl_namreply,
           params: [user.nick, get_channel_status(channel), channel.name],
           trailing: nicks_string
-        }),
-        Message.build(%{
+        },
+        %Message{
           command: :rpl_endofnames,
           params: [user.nick, channel.name],
           trailing: "End of /NAMES list"
-        })
+        }
       ]
       |> Dispatcher.broadcast(:server, user)
     end
@@ -128,11 +128,11 @@ defmodule ElixIRCd.Commands.Names do
 
   @spec send_no_such_channel_error(User.t(), String.t()) :: :ok
   defp send_no_such_channel_error(user, channel_name) do
-    Message.build(%{
+    %Message{
       command: :err_nosuchchannel,
       params: [user.nick, channel_name],
       trailing: "No such channel"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -214,18 +214,18 @@ defmodule ElixIRCd.Commands.Names do
       free_user_list =
         Enum.map_join(free_users, " ", &format_user_display(&1, use_extended_names))
 
-      Message.build(%{
+      %Message{
         command: :rpl_namreply,
         params: [user.nick, "*", "*"],
         trailing: free_user_list
-      })
+      }
       |> Dispatcher.broadcast(:server, user)
 
-      Message.build(%{
+      %Message{
         command: :rpl_endofnames,
         params: [user.nick, "*"],
         trailing: "End of /NAMES list"
-      })
+      }
       |> Dispatcher.broadcast(:server, user)
     end
 

@@ -71,30 +71,10 @@ defmodule ElixIRCd.Message do
   @type t :: %__MODULE__{
           tags: %{optional(String.t()) => String.t() | nil},
           prefix: String.t() | nil,
-          command: String.t(),
+          command: String.t() | atom(),
           params: [String.t()],
           trailing: String.t() | nil
         }
-
-  @doc """
-  Builds a Message struct.
-  """
-  @spec build(%{
-          optional(:tags) => %{optional(String.t()) => String.t() | nil},
-          optional(:prefix) => :server | String.t() | nil,
-          :command => atom() | String.t(),
-          :params => [String.t()],
-          optional(:trailing) => String.t() | nil
-        }) :: __MODULE__.t()
-  def build(args) do
-    %__MODULE__{
-      tags: args[:tags] || %{},
-      prefix: args[:prefix],
-      command: args[:command],
-      params: args[:params],
-      trailing: args[:trailing]
-    }
-  end
 
   @doc """
   Parses a raw IRC message string into an Message struct.

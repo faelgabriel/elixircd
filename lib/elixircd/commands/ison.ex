@@ -17,17 +17,17 @@ defmodule ElixIRCd.Commands.Ison do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "ISON"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "ISON", params: []}) do
-    Message.build(%{
+    %Message{
       command: :err_needmoreparams,
       params: [user_reply(user), "ISON"],
       trailing: "Not enough parameters"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -39,7 +39,7 @@ defmodule ElixIRCd.Commands.Ison do
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
 
-    Message.build(%{command: :rpl_ison, params: [user.nick], trailing: users_nick_online})
+    %Message{command: :rpl_ison, params: [user.nick], trailing: users_nick_online}
     |> Dispatcher.broadcast(:server, user)
   end
 

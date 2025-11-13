@@ -16,17 +16,13 @@ defmodule ElixIRCd.Commands.Whowas do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "WHOWAS"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "WHOWAS", params: []}) do
-    Message.build(%{
-      command: :err_needmoreparams,
-      params: [user.nick, "WHOWAS"],
-      trailing: "Not enough parameters"
-    })
+    %Message{command: :err_needmoreparams, params: [user.nick, "WHOWAS"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -36,11 +32,7 @@ defmodule ElixIRCd.Commands.Whowas do
 
     handle_whowas(user, target_nick, max_replies)
 
-    Message.build(%{
-      command: :rpl_endofwhowas,
-      params: [user.nick, target_nick],
-      trailing: "End of WHOWAS list"
-    })
+    %Message{command: :rpl_endofwhowas, params: [user.nick, target_nick], trailing: "End of WHOWAS list"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -66,11 +58,7 @@ defmodule ElixIRCd.Commands.Whowas do
 
   @spec whowasuser_message(User.t(), [HistoricalUser.t()], String.t()) :: :ok
   defp whowasuser_message(user, [], target_nick) do
-    Message.build(%{
-      command: :err_wasnosuchnick,
-      params: [user.nick, target_nick],
-      trailing: "There was no such nickname"
-    })
+    %Message{command: :err_wasnosuchnick, params: [user.nick, target_nick], trailing: "There was no such nickname"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -81,7 +69,7 @@ defmodule ElixIRCd.Commands.Whowas do
       created_at_time = historical_user.created_at |> Calendar.strftime("%A %B %d %Y -- %H:%M:%S %Z")
 
       [
-        Message.build(%{
+        %Message{
           command: :rpl_whowasuser,
           params: [
             user.nick,
@@ -90,11 +78,11 @@ defmodule ElixIRCd.Commands.Whowas do
             historical_user.hostname,
             historical_user.realname
           ]
-        }),
-        Message.build(%{
+        },
+        %Message{
           command: :rpl_whoisserver,
           params: [user.nick, historical_user.nick, server_hostname, created_at_time]
-        })
+        }
       ]
       |> Dispatcher.broadcast(:server, user)
     end)

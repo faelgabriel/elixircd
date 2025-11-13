@@ -98,7 +98,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
       |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.build(%{command: "NICK", params: [registered_nick.nickname]})
+    %Message{command: "NICK", params: [registered_nick.nickname]}
     |> Dispatcher.broadcast(user, [updated_user | all_channel_users])
 
     :ok

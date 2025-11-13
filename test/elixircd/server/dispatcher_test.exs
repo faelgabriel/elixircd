@@ -14,7 +14,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     setup do
       user = insert(:user, nick: "testnick", ident: "testident", hostname: "test.host")
       target_user = insert(:user)
-      message = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "hello"})
+      message = %Message{command: "PRIVMSG", params: ["#test"], trailing: "hello"}
 
       {:ok,
        %{
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       target_user: target_user
     } do
       message_with_prefix =
-        Message.build(%{prefix: "custom!user@host", command: "PRIVMSG", params: ["#test"], trailing: "hello"})
+        %Message{prefix: "custom!user@host", command: "PRIVMSG", params: ["#test"], trailing: "hello"}
 
       expected_message = ":custom!user@host PRIVMSG #test :hello\r\n"
 
@@ -129,7 +129,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       target_user: target_user
     } do
       message_with_prefix =
-        Message.build(%{prefix: "custom.server", command: "NOTICE", params: ["#test"], trailing: "notice"})
+        %Message{prefix: "custom.server", command: "NOTICE", params: ["#test"], trailing: "notice"}
 
       expected_message = ":custom.server NOTICE #test :notice\r\n"
 
@@ -151,7 +151,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       target_user: target_user
     } do
       another_user = insert(:user)
-      message = Message.build(%{command: "JOIN", params: ["#channel"]})
+      message = %Message{command: "JOIN", params: ["#channel"]}
       expected_message = ":testnick!testident@test.host JOIN #channel\r\n"
 
       Connection
@@ -171,8 +171,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
       user: user,
       target_user: target_user
     } do
-      message1 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "hello"})
-      message2 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "world"})
+      message1 = %Message{command: "PRIVMSG", params: ["#test"], trailing: "hello"}
+      message2 = %Message{command: "PRIVMSG", params: ["#test"], trailing: "world"}
 
       expected_message1 = ":testnick!testident@test.host PRIVMSG #test :hello\r\n"
       expected_message2 = ":testnick!testident@test.host PRIVMSG #test :world\r\n"
@@ -200,8 +200,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
       target_user: target_user
     } do
       another_user = insert(:user)
-      message1 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "hello"})
-      message2 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "world"})
+      message1 = %Message{command: "PRIVMSG", params: ["#test"], trailing: "hello"}
+      message2 = %Message{command: "PRIVMSG", params: ["#test"], trailing: "world"}
 
       expected_message1 = ":testnick!testident@test.host PRIVMSG #test :hello\r\n"
       expected_message2 = ":testnick!testident@test.host PRIVMSG #test :world\r\n"
@@ -222,7 +222,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     test "broadcasts with :chanserv context, adding ChanServ prefix", %{
       target_user: target_user
     } do
-      message = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "ChanServ message"})
+      message = %Message{command: "NOTICE", params: ["testnick"], trailing: "ChanServ message"}
       expected_message = ":ChanServ!service@irc.test NOTICE testnick :ChanServ message\r\n"
 
       Connection
@@ -241,8 +241,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
     test "broadcasts multiple messages with :chanserv context to single target", %{
       target_user: target_user
     } do
-      message1 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 1"})
-      message2 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 2"})
+      message1 = %Message{command: "NOTICE", params: ["testnick"], trailing: "Message 1"}
+      message2 = %Message{command: "NOTICE", params: ["testnick"], trailing: "Message 2"}
 
       expected_message1 = ":ChanServ!service@irc.test NOTICE testnick :Message 1\r\n"
       expected_message2 = ":ChanServ!service@irc.test NOTICE testnick :Message 2\r\n"
@@ -268,7 +268,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     test "broadcasts with :nickserv context, adding NickServ prefix", %{
       target_user: target_user
     } do
-      message = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "NickServ message"})
+      message = %Message{command: "NOTICE", params: ["testnick"], trailing: "NickServ message"}
       expected_message = ":NickServ!service@irc.test NOTICE testnick :NickServ message\r\n"
 
       Connection
@@ -287,8 +287,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
     test "broadcasts multiple messages with :nickserv context to single target", %{
       target_user: target_user
     } do
-      message1 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 1"})
-      message2 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 2"})
+      message1 = %Message{command: "NOTICE", params: ["testnick"], trailing: "Message 1"}
+      message2 = %Message{command: "NOTICE", params: ["testnick"], trailing: "Message 2"}
 
       expected_message1 = ":NickServ!service@irc.test NOTICE testnick :Message 1\r\n"
       expected_message2 = ":NickServ!service@irc.test NOTICE testnick :Message 2\r\n"
@@ -317,7 +317,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       user = insert(:user)
       user_channel = insert(:user_channel)
       pid = self()
-      message = Message.build(%{command: "PING", params: ["target"]})
+      message = %Message{command: "PING", params: ["target"]}
       raw_message = ":irc.test PING target\r\n"
 
       {:ok,
@@ -424,7 +424,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS"])
 
       message_with_tags =
-        Message.build(%{command: "NOTICE", params: ["test"], trailing: "hello"})
+        %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
         |> Map.put(:tags, %{"bot" => nil})
 
       expected_with_tags = "@bot :irc.test NOTICE test :hello\r\n"

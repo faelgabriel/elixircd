@@ -19,17 +19,17 @@ defmodule ElixIRCd.Commands.Part do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "PART"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "PART", params: []}) do
-    Message.build(%{
+    %Message{
       command: :err_needmoreparams,
       params: [user.nick, "PART"],
       trailing: "Not enough parameters"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -55,23 +55,23 @@ defmodule ElixIRCd.Commands.Part do
         Channels.delete(channel)
       end
 
-      Message.build(%{command: "PART", params: [channel.name], trailing: part_message})
+      %Message{command: "PART", params: [channel.name], trailing: part_message}
       |> Dispatcher.broadcast(user, all_user_channels)
     else
       {:error, :user_channel_not_found} ->
-        Message.build(%{
+        %Message{
           command: :err_notonchannel,
           params: [user.nick, channel_name],
           trailing: "You're not on that channel"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :channel_not_found} ->
-        Message.build(%{
+        %Message{
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
           trailing: "No such channel"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
     end
   end

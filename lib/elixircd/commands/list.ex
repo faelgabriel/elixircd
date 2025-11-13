@@ -33,7 +33,7 @@ defmodule ElixIRCd.Commands.List do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "LIST"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -48,11 +48,11 @@ defmodule ElixIRCd.Commands.List do
       topic = if detailed_channel.channel.topic, do: detailed_channel.channel.topic.text, else: "No topic is set"
       users_count = detailed_channel.users_count
 
-      Message.build(%{command: :rpl_list, params: [user.nick, name, users_count], trailing: topic})
+      %Message{command: :rpl_list, params: [user.nick, name, users_count], trailing: topic}
     end)
     |> Dispatcher.broadcast(:server, user)
 
-    Message.build(%{command: :rpl_listend, params: [user.nick], trailing: "End of LIST"})
+    %Message{command: :rpl_listend, params: [user.nick], trailing: "End of LIST"}
     |> Dispatcher.broadcast(:server, user)
   end
 

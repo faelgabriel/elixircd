@@ -15,7 +15,7 @@ defmodule ElixIRCd.Commands.Away do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "AWAY"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -23,11 +23,11 @@ defmodule ElixIRCd.Commands.Away do
   def handle(user, %{command: "AWAY", trailing: nil}) do
     updated_user = Users.update(user, %{away_message: nil})
 
-    Message.build(%{
+    %Message{
       command: :rpl_unaway,
       params: [updated_user.nick],
       trailing: "You are no longer marked as being away"
-    })
+    }
     |> Dispatcher.broadcast(:server, updated_user)
 
     :ok
@@ -38,20 +38,20 @@ defmodule ElixIRCd.Commands.Away do
     max_away_length = Application.get_env(:elixircd, :user)[:max_away_message_length]
 
     if String.length(reason) > max_away_length do
-      Message.build(%{
+      %Message{
         command: :err_inputtoolong,
         params: [user.nick],
         trailing: "Away message too long (maximum length: #{max_away_length} characters)"
-      })
+      }
       |> Dispatcher.broadcast(:server, user)
     else
       updated_user = Users.update(user, %{away_message: reason})
 
-      Message.build(%{
+      %Message{
         command: :rpl_nowaway,
         params: [updated_user.nick],
         trailing: "You have been marked as being away"
-      })
+      }
       |> Dispatcher.broadcast(:server, updated_user)
     end
 

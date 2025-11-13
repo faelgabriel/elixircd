@@ -14,33 +14,33 @@ defmodule ElixIRCd.Commands.Admin do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "ADMIN"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "ADMIN"}) do
     [
-      Message.build(%{
+      %Message{
         command: :rpl_adminme,
         params: [user.nick],
         trailing: "Administrative info about #{Application.get_env(:elixircd, :admin_info)[:server]}"
-      }),
-      Message.build(%{
+      },
+      %Message{
         command: :rpl_adminloc1,
         params: [user.nick],
         trailing: Application.get_env(:elixircd, :admin_info)[:location]
-      }),
-      Message.build(%{
+      },
+      %Message{
         command: :rpl_adminloc2,
         params: [user.nick],
         trailing: Application.get_env(:elixircd, :admin_info)[:organization]
-      }),
-      Message.build(%{
+      },
+      %Message{
         command: :rpl_adminemail,
         params: [user.nick],
         trailing: Application.get_env(:elixircd, :admin_info)[:email]
-      })
+      }
     ]
     |> Dispatcher.broadcast(:server, user)
   end

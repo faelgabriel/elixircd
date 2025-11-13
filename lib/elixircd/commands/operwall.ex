@@ -17,17 +17,17 @@ defmodule ElixIRCd.Commands.Operwall do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "OPERWALL"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "OPERWALL", trailing: nil}) do
-    Message.build(%{
+    %Message{
       command: :err_needmoreparams,
       params: [user.nick, "OPERWALL"],
       trailing: "Not enough parameters"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -43,21 +43,21 @@ defmodule ElixIRCd.Commands.Operwall do
   defp operwall_message(sender, message) do
     target_operators = Users.get_by_mode("o")
 
-    Message.build(%{
+    %Message{
       command: "WALLOPS",
       params: [],
       trailing: message
-    })
+    }
     |> Dispatcher.broadcast(sender, target_operators)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
   defp noprivileges_message(user) do
-    Message.build(%{
+    %Message{
       command: :err_noprivileges,
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 end

@@ -41,7 +41,7 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_max_connections_exceeded(pid :: pid()) :: :close
   defp handle_max_connections_exceeded(pid) do
-    Message.build(%{command: "ERROR", params: [], trailing: "Too many simultaneous connections from your IP address."})
+    %Message{command: "ERROR", params: [], trailing: "Too many simultaneous connections from your IP address."}
     |> Dispatcher.broadcast(nil, pid)
 
     :close
@@ -58,11 +58,11 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_throttled_connection(pid :: pid(), retry_after_ms :: non_neg_integer()) :: :close
   defp handle_throttled_connection(pid, retry_after_ms) do
-    Message.build(%{
+    %Message{
       command: "ERROR",
       params: [],
       trailing: "Too many connections from your IP address. Try again in #{div(retry_after_ms, 1000)} seconds."
-    })
+    }
     |> Dispatcher.broadcast(nil, pid)
 
     :close
@@ -111,18 +111,18 @@ defmodule ElixIRCd.Server.Connection do
     Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
 
     # Pending: When "standard-replies" is implemented and negotiated with the user, use the FAIL command.
-    # Message.build(%{
+    # %Message{
     #   command: "FAIL",
     #   params: ["*", "INVALID_UTF8"],
     #   trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
-    # })
+    # }
     # |> Dispatcher.broadcast(:server, user)
 
-    Message.build(%{
+    %Message{
       command: "NOTICE",
       params: [user_reply(user)],
       trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -140,18 +140,18 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_throttled_message(user :: User.t(), retry_after_ms :: non_neg_integer()) :: :ok
   defp handle_throttled_message(user, retry_after_ms) do
-    Message.build(%{
+    %Message{
       command: "NOTICE",
       params: [user_reply(user)],
       trailing:
         "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}
   defp handle_excess_flood(user) do
-    Message.build(%{command: "ERROR", params: [], trailing: "Excess flood"})
+    %Message{command: "ERROR", params: [], trailing: "Excess flood"}
     |> Dispatcher.broadcast(nil, user)
 
     {:quit, "Excess flood"}
@@ -231,7 +231,7 @@ defmodule ElixIRCd.Server.Connection do
       realname: user.realname
     })
 
-    Message.build(%{command: "QUIT", params: [], trailing: quit_message})
+    %Message{command: "QUIT", params: [], trailing: quit_message}
     |> Dispatcher.broadcast(user, all_shared_unique_user_channels)
   end
 

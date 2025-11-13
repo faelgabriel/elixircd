@@ -22,11 +22,7 @@ defmodule ElixIRCd.Commands.Nick do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "NICK", params: [], trailing: nil}) do
-    Message.build(%{
-      command: :err_needmoreparams,
-      params: [user_reply(user), "NICK"],
-      trailing: "Not enough parameters"
-    })
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "NICK"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -43,27 +39,27 @@ defmodule ElixIRCd.Commands.Nick do
       change_nick(user, input_nick)
     else
       {:error, :nick_reserved} ->
-        Message.build(%{
+        %Message{
           command: :err_nicknameinuse,
           params: [user_reply(user), input_nick],
           trailing: "This nickname is reserved. Please identify to NickServ first."
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :nick_in_use} ->
-        Message.build(%{
+        %Message{
           command: :err_nicknameinuse,
           params: [user_reply(user), input_nick],
           trailing: "Nickname is already in use"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, invalid_nick_error} ->
-        Message.build(%{
+        %Message{
           command: :err_erroneusnickname,
           params: [user_reply(user), input_nick],
           trailing: "Nickname is unavailable: #{invalid_nick_error}"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
     end
   end
@@ -98,7 +94,7 @@ defmodule ElixIRCd.Commands.Nick do
       |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.build(%{command: "NICK", params: [input_nick]})
+    %Message{command: "NICK", params: [input_nick]}
     |> Dispatcher.broadcast(user, [updated_user | all_channel_users])
   end
 

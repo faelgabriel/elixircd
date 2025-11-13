@@ -22,17 +22,13 @@ defmodule ElixIRCd.Commands.Who do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "WHO"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "WHO", params: []}) do
-    Message.build(%{
-      command: :err_needmoreparams,
-      params: [user_reply(user), "WHO"],
-      trailing: "Not enough parameters"
-    })
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "WHO"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -43,11 +39,7 @@ defmodule ElixIRCd.Commands.Who do
       false -> handle_who_mask(user, target, filters)
     end
 
-    Message.build(%{
-      command: :rpl_endofwho,
-      params: [user.nick, target],
-      trailing: "End of WHO list"
-    })
+    %Message{command: :rpl_endofwho, params: [user.nick, target], trailing: "End of WHO list"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -255,7 +247,7 @@ defmodule ElixIRCd.Commands.Who do
   defp build_message(user, user_target, user_channel, channel, channel_map) do
     user_channel_name = resolve_channel_name(user_channel, channel, channel_map)
 
-    Message.build(%{
+    %Message{
       command: :rpl_whoreply,
       params: [
         user_reply(user),
@@ -267,7 +259,7 @@ defmodule ElixIRCd.Commands.Who do
         user_statuses(user, user_target, user_channel)
       ],
       trailing: "0 #{user_target.realname}"
-    })
+    }
   end
 
   @spec resolve_channel_name(UserChannel.t() | nil, Channel.t() | nil, map()) :: String.t()

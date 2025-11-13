@@ -19,7 +19,7 @@ defmodule ElixIRCd.Commands.Accept do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "ACCEPT"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -118,51 +118,47 @@ defmodule ElixIRCd.Commands.Accept do
 
   @spec send_no_such_nick_error(User.t(), String.t()) :: :ok
   defp send_no_such_nick_error(user, nick) do
-    Message.build(%{
-      command: :err_nosuchnick,
-      params: [user.nick, nick],
-      trailing: "No such nick"
-    })
+    %Message{command: :err_nosuchnick, params: [user.nick, nick], trailing: "No such nick"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_already_accepted_error(User.t(), String.t()) :: :ok
   defp send_already_accepted_error(user, nick) do
-    Message.build(%{
+    %Message{
       command: :err_acceptexist,
       params: [user.nick, nick],
       trailing: "User is already on your accept list"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_accepted_confirmation(User.t(), String.t()) :: :ok
   defp send_accepted_confirmation(user, nick) do
-    Message.build(%{
+    %Message{
       command: :rpl_accepted,
       params: [user.nick, nick],
       trailing: "#{nick} has been added to your accept list"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_not_accepted_error(User.t(), String.t()) :: :ok
   defp send_not_accepted_error(user, nick) do
-    Message.build(%{
+    %Message{
       command: :err_acceptnot,
       params: [user.nick, nick],
       trailing: "User is not on your accept list"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_removed_confirmation(User.t(), String.t()) :: :ok
   defp send_removed_confirmation(user, nick) do
-    Message.build(%{
+    %Message{
       command: :rpl_acceptremoved,
       params: [user.nick, nick],
       trailing: "#{nick} has been removed from your accept list"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -190,11 +186,11 @@ defmodule ElixIRCd.Commands.Accept do
           :ok
 
         accepted_user ->
-          Message.build(%{
+          %Message{
             command: :rpl_acceptlist,
             params: [user.nick, accepted_user.nick],
             trailing: ""
-          })
+          }
           |> Dispatcher.broadcast(:server, user)
       end
     end)
@@ -202,11 +198,11 @@ defmodule ElixIRCd.Commands.Accept do
 
   @spec send_accept_list_end(User.t()) :: :ok
   defp send_accept_list_end(user) do
-    Message.build(%{
+    %Message{
       command: :rpl_acceptlistend,
       params: [user.nick],
       trailing: "End of accept list"
-    })
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 end

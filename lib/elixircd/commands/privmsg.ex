@@ -27,7 +27,7 @@ defmodule ElixIRCd.Commands.Privmsg do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "PRIVMSG"}) do
-    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -47,11 +47,7 @@ defmodule ElixIRCd.Commands.Privmsg do
   end
 
   def handle(user, %{command: "PRIVMSG"}) do
-    Message.build(%{
-      command: :err_needmoreparams,
-      params: [user.nick, "PRIVMSG"],
-      trailing: "Not enough parameters"
-    })
+    %Message{command: :err_needmoreparams, params: [user.nick, "PRIVMSG"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -65,47 +61,35 @@ defmodule ElixIRCd.Commands.Privmsg do
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
 
-      Message.build(%{command: "PRIVMSG", params: [channel.name], trailing: message_text})
+      %Message{command: "PRIVMSG", params: [channel.name], trailing: message_text}
       |> Dispatcher.broadcast(user, channel_users_without_user)
     else
       {:error, :channel_not_found} ->
-        Message.build(%{
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        })
+        %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :delay_message_blocked, delay} ->
-        Message.build(%{
+        %Message{
           command: "937",
           params: [user.nick, channel_name],
           trailing: "You must wait #{delay} seconds after joining before speaking in this channel."
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :user_can_not_send} ->
-        Message.build(%{
-          command: :err_cannotsendtochan,
-          params: [user.nick, channel_name],
-          trailing: "Cannot send to channel"
-        })
+        %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :ctcp_blocked} ->
-        Message.build(%{
-          command: "404",
-          params: [user.nick, channel_name],
-          trailing: "Cannot send CTCP to channel (+C)"
-        })
+        %Message{command: "404", params: [user.nick, channel_name], trailing: "Cannot send CTCP to channel (+C)"}
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :formatting_blocked} ->
-        Message.build(%{
+        %Message{
           command: "404",
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel (+c - no colors allowed)"
-        })
+        }
         |> Dispatcher.broadcast(:server, user)
     end
   end
@@ -144,35 +128,31 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
   defp handle_restricted_user_message(sender, recipient) do
-    Message.build(%{
+    %Message{
       command: :err_cannotsendtouser,
       params: [sender.nick, recipient.nick],
       trailing: "You must be identified to message this user"
-    })
+    }
     |> Dispatcher.broadcast(:server, sender)
   end
 
   @spec handle_blocked_user_message(User.t(), User.t()) :: :ok
   defp handle_blocked_user_message(sender, recipient) do
-    Message.build(%{
+    %Message{
       command: :rpl_umodegmsg,
       params: [sender.nick, recipient.nick],
       trailing: "Your message has been blocked. #{recipient.nick} is only accepting messages from authorized users."
-    })
+    }
     |> Dispatcher.broadcast(:server, sender)
   end
 
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_normal_user_message(user, target_user, target_nick, message_text) do
-    Message.build(%{command: "PRIVMSG", params: [target_nick], trailing: message_text})
+    %Message{command: "PRIVMSG", params: [target_nick], trailing: message_text}
     |> Dispatcher.broadcast(user, target_user)
 
     if target_user.away_message do
-      Message.build(%{
-        command: :rpl_away,
-        params: [user.nick, target_user.nick],
-        trailing: target_user.away_message
-      })
+      %Message{command: :rpl_away, params: [user.nick, target_user.nick], trailing: target_user.away_message}
       |> Dispatcher.broadcast(:server, user)
     end
 
@@ -181,11 +161,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec handle_user_not_found(User.t(), String.t()) :: :ok
   defp handle_user_not_found(user, target_nick) do
-    Message.build(%{
-      command: :err_nosuchnick,
-      params: [user.nick, target_nick],
-      trailing: "No such nick"
-    })
+    %Message{command: :err_nosuchnick, params: [user.nick, target_nick], trailing: "No such nick"}
     |> Dispatcher.broadcast(:server, user)
   end
 

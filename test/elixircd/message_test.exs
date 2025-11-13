@@ -5,21 +5,6 @@ defmodule ElixIRCd.MessageTest do
 
   alias ElixIRCd.Message
 
-  describe "new/1" do
-    test "creates a message" do
-      args = %{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}
-
-      expected = %Message{
-        prefix: args.prefix,
-        command: args.command,
-        params: args.params,
-        trailing: args.trailing
-      }
-
-      assert Message.build(args) == expected
-    end
-  end
-
   describe "parse/1" do
     test "parses a raw message with a prefix" do
       raw_message = ":irc.example.com NOTICE user :Server restarting"
