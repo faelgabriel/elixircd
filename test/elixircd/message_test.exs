@@ -18,19 +18,6 @@ defmodule ElixIRCd.MessageTest do
 
       assert Message.build(args) == expected
     end
-
-    test "creates a message with numeric reply atom command" do
-      args = %{prefix: "irc.test", command: :rpl_welcome, params: ["user"], trailing: "Welcome!"}
-
-      expected = %Message{
-        prefix: args.prefix,
-        command: "001",
-        params: args.params,
-        trailing: args.trailing
-      }
-
-      assert Message.build(args) == expected
-    end
   end
 
   describe "parse/1" do
@@ -279,6 +266,19 @@ defmodule ElixIRCd.MessageTest do
       }
 
       expected = {:ok, ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user\r\n"}
+
+      assert Message.unparse(message) == expected
+    end
+
+    test "unparses a message with an atom command by converting to numeric" do
+      message = %Message{
+        prefix: "irc.example.com",
+        command: :rpl_welcome,
+        params: ["user"],
+        trailing: "Welcome to the IRC Network"
+      }
+
+      expected = {:ok, ":irc.example.com 001 user :Welcome to the IRC Network\r\n"}
 
       assert Message.unparse(message) == expected
     end

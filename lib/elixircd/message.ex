@@ -86,12 +86,6 @@ defmodule ElixIRCd.Message do
           :params => [String.t()],
           optional(:trailing) => String.t() | nil
         }) :: __MODULE__.t()
-  def build(%{command: command} = args) when is_atom(command) do
-    args
-    |> Map.put(:command, numeric_reply(command))
-    |> build()
-  end
-
   def build(args) do
     %__MODULE__{
       tags: args[:tags] || %{},
@@ -161,6 +155,11 @@ defmodule ElixIRCd.Message do
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def unparse(%__MODULE__{command: command} = message) when is_atom(command) do
+    %{message | command: numeric_reply(command)}
+    |> unparse()
+  end
+
   def unparse(%__MODULE__{command: ""} = message),
     do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
 
