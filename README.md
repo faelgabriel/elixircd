@@ -287,7 +287,7 @@ These modes apply to channels and define behavior, restrictions, and access rule
 - **+R (Registered Only Join)**: Only registered users may join the channel. ❌
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
 - **+t (Topic)**: Restricts topic changes to users with operator privileges. ✅
-- **+T (No NOTICEs)**: Blocks NOTICE messages in the channel. ❌
+- **+T (No NOTICEs)**: Blocks NOTICE messages in the channel. ✅
 - **+u (Auditorium)**: Hides join/part/quit messages except for users with voice or higher. ❌
 - **+z (Secure Only)**: Restricts channel access to users with secure connections only. ❌
 
