@@ -23,12 +23,11 @@ defmodule ElixIRCd.Commands.Nick do
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "NICK", params: [], trailing: nil}) do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user_reply(user), "NICK"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -45,30 +44,27 @@ defmodule ElixIRCd.Commands.Nick do
     else
       {:error, :nick_reserved} ->
         Message.build(%{
-          prefix: :server,
           command: :err_nicknameinuse,
           params: [user_reply(user), input_nick],
           trailing: "This nickname is reserved. Please identify to NickServ first."
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, :nick_in_use} ->
         Message.build(%{
-          prefix: :server,
           command: :err_nicknameinuse,
           params: [user_reply(user), input_nick],
           trailing: "Nickname is already in use"
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, invalid_nick_error} ->
         Message.build(%{
-          prefix: :server,
           command: :err_erroneusnickname,
           params: [user_reply(user), input_nick],
           trailing: "Nickname is unavailable: #{invalid_nick_error}"
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 

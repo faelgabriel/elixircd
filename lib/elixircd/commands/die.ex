@@ -17,8 +17,8 @@ defmodule ElixIRCd.Commands.Die do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "DIE"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -36,8 +36,8 @@ defmodule ElixIRCd.Commands.Die do
     formatted_reason = if is_nil(reason), do: "", else: ": #{reason}"
     shutdown_message = "Server is shutting down#{formatted_reason}"
 
-    Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: shutdown_message})
-    |> Dispatcher.broadcast(all_users)
+    Message.build(%{command: "NOTICE", params: ["*"], trailing: shutdown_message})
+    |> Dispatcher.broadcast(:server, all_users)
 
     # The current process will be stopped, so the shutdown needs to be executed
     # in a non-linked process. The shutdown is delayed by 100 milliseconds, so
@@ -56,22 +56,20 @@ defmodule ElixIRCd.Commands.Die do
   @spec noprivileges_message(User.t()) :: :ok
   defp noprivileges_message(user) do
     Message.build(%{
-      prefix: :server,
       command: :err_noprivileges,
       params: [user.nick],
       trailing: "Permission Denied- You're not an IRC operator"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec closing_link_message(User.t(), String.t()) :: :ok
   defp closing_link_message(user, message) do
     Message.build(%{
-      prefix: :server,
       command: "ERROR",
       params: [],
       trailing: "Closing Link: #{user_mask(user)} (#{message})"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 end

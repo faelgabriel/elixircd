@@ -14,8 +14,8 @@ defmodule ElixIRCd.Commands.Version do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "VERSION"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -25,10 +25,9 @@ defmodule ElixIRCd.Commands.Version do
     elixircd_version = Application.spec(:elixircd, :vsn)
 
     Message.build(%{
-      prefix: :server,
       command: :rpl_version,
       params: [user.nick, "ElixIRCd-#{elixircd_version}", server_hostname]
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 end

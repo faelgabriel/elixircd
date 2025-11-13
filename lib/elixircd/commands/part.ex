@@ -19,19 +19,18 @@ defmodule ElixIRCd.Commands.Part do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "PART"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "PART", params: []}) do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "PART"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -61,21 +60,19 @@ defmodule ElixIRCd.Commands.Part do
     else
       {:error, :user_channel_not_found} ->
         Message.build(%{
-          prefix: :server,
           command: :err_notonchannel,
           params: [user.nick, channel_name],
           trailing: "You're not on that channel"
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, :channel_not_found} ->
         Message.build(%{
-          prefix: :server,
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
           trailing: "No such channel"
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 end

@@ -112,20 +112,18 @@ defmodule ElixIRCd.Server.Connection do
 
     # Pending: When "standard-replies" is implemented and negotiated with the user, use the FAIL command.
     # Message.build(%{
-    #   prefix: :server,
     #   command: "FAIL",
     #   params: ["*", "INVALID_UTF8"],
     #   trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
     # })
-    # |> Dispatcher.broadcast(user)
+    # |> Dispatcher.broadcast(:server, user)
 
     Message.build(%{
-      prefix: :server,
       command: "NOTICE",
       params: [user_reply(user)],
       trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
@@ -143,13 +141,12 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_throttled_message(user :: User.t(), retry_after_ms :: non_neg_integer()) :: :ok
   defp handle_throttled_message(user, retry_after_ms) do
     Message.build(%{
-      prefix: :server,
       command: "NOTICE",
       params: [user_reply(user)],
       trailing:
         "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}

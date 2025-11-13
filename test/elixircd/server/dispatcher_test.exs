@@ -168,12 +168,12 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
   end
 
-  describe "broadcast/2" do
+  describe "broadcast/3 - various target types" do
     setup do
       user = insert(:user)
       user_channel = insert(:user_channel)
       pid = self()
-      message = Message.build(%{prefix: :server, command: "PING", params: ["target"]})
+      message = Message.build(%{command: "PING", params: ["target"]})
       raw_message = ":irc.test PING target\r\n"
 
       {:ok,
@@ -201,7 +201,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
       for {msg, target, expected_pid} <- test_cases do
         setup_expectations([{expected_pid, raw_message}])
-        assert :ok == Dispatcher.broadcast(msg, target)
+        assert :ok == Dispatcher.broadcast(msg, :server, target)
       end
 
       Connection
@@ -221,7 +221,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
         {pid, raw_message}
       ])
 
-      assert :ok == Dispatcher.broadcast(message, [user, user_channel, pid])
+      assert :ok == Dispatcher.broadcast(message, :server, [user, user_channel, pid])
 
       Connection
       |> reject(:handle_send, 2)
@@ -248,7 +248,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
           :ok
         end)
 
-        assert :ok == Dispatcher.broadcast([message, message], target)
+        assert :ok == Dispatcher.broadcast([message, message], :server, target)
       end
 
       Connection
@@ -270,17 +270,17 @@ defmodule ElixIRCd.Server.DispatcherTest do
         ])
       end
 
-      assert :ok == Dispatcher.broadcast([message, message], [user, user_channel, pid])
+      assert :ok == Dispatcher.broadcast([message, message], :server, [user, user_channel, pid])
 
       Connection
       |> reject(:handle_send, 2)
     end
 
-    test "filters message tags based on recipient capabilities", %{user: _user} do
+    test "filters message tags based on recipient capabilities with :server context", %{user: _user} do
       user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS"])
 
       message_with_tags =
-        Message.build(%{prefix: :server, command: "NOTICE", params: ["test"], trailing: "hello"})
+        Message.build(%{command: "NOTICE", params: ["test"], trailing: "hello"})
         |> Map.put(:tags, %{"bot" => nil})
 
       expected_with_tags = "@bot :irc.test NOTICE test :hello\r\n"
@@ -292,7 +292,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
         :ok
       end)
 
-      assert :ok == Dispatcher.broadcast(message_with_tags, user_with_caps)
+      assert :ok == Dispatcher.broadcast(message_with_tags, :server, user_with_caps)
 
       user_without_caps = insert(:user, capabilities: [])
 
@@ -305,7 +305,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
         :ok
       end)
 
-      assert :ok == Dispatcher.broadcast(message_with_tags, user_without_caps)
+      assert :ok == Dispatcher.broadcast(message_with_tags, :server, user_without_caps)
 
       Connection
       |> reject(:handle_send, 2)

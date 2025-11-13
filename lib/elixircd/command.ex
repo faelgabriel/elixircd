@@ -73,11 +73,10 @@ defmodule ElixIRCd.Command do
   @spec unknown_command_message(User.t(), String.t()) :: :ok
   defp unknown_command_message(user, command) do
     Message.build(%{
-      prefix: :server,
       command: :err_unknowncommand,
       params: [user_reply(user), command],
       trailing: "Unknown command"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 end

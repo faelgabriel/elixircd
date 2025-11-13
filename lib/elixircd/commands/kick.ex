@@ -27,19 +27,18 @@ defmodule ElixIRCd.Commands.Kick do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "KICK"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "KICK", params: params}) when length(params) < 2 do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "KICK"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   def handle(user, %{command: "KICK", params: [channel_name, target_nick | _rest], trailing: reason}) do
@@ -106,63 +105,57 @@ defmodule ElixIRCd.Commands.Kick do
   @spec send_user_kick_error(kick_errors(), User.t(), String.t(), String.t()) :: :ok
   defp send_user_kick_error(:channel_not_found, user, channel_name, _target_nick) do
     Message.build(%{
-      prefix: :server,
       command: :err_nosuchchannel,
       params: [user.nick, channel_name],
       trailing: "No such channel"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:user_channel_not_found, user, channel_name, _target_nick) do
     Message.build(%{
-      prefix: :server,
       command: :err_usernotinchannel,
       params: [user.nick, channel_name],
       trailing: "You're not on that channel"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:user_is_not_operator, user, channel_name, _target_nick) do
     Message.build(%{
-      prefix: :server,
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not channel operator"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:kick_message_too_long, user, channel_name, _target_nick) do
     max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
 
     Message.build(%{
-      prefix: :server,
       command: :err_inputtoolong,
       params: [user.nick, channel_name],
       trailing: "Kick reason too long (maximum length is #{max_kick_message_length} characters)"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:target_user_not_found, user, _channel_name, target_nick) do
     Message.build(%{
-      prefix: :server,
       command: :err_nosuchnick,
       params: [user.nick, target_nick],
       trailing: "No such nick/channel"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:target_user_channel_not_found, user, channel_name, _target_nick) do
     Message.build(%{
-      prefix: :server,
       command: :err_usernotinchannel,
       params: [user.nick, channel_name],
       trailing: "They aren't on that channel"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 end

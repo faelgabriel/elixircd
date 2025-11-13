@@ -36,19 +36,18 @@ defmodule ElixIRCd.Commands.Join do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "JOIN"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "JOIN", params: []}) do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "JOIN"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -109,11 +108,10 @@ defmodule ElixIRCd.Commands.Join do
 
     if channel_operator?(user_channel) do
       Message.build(%{
-        prefix: :server,
         command: "MODE",
         params: [channel.name, "+o", user.nick]
       })
-      |> Dispatcher.broadcast(user_channels)
+      |> Dispatcher.broadcast(:server, user_channels)
     end
 
     {topic_reply, topic_trailing} =
@@ -124,46 +122,41 @@ defmodule ElixIRCd.Commands.Join do
 
     [
       Message.build(%{
-        prefix: :server,
         command: topic_reply,
         params: [user.nick, channel.name],
         trailing: topic_trailing
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_namreply,
         params: ["=", user.nick, channel.name],
         trailing: get_user_channels_nicks(user, user_channels)
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_endofnames,
         params: [user.nick, channel.name],
         trailing: "End of NAMES list."
       })
     ]
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_join_channel_error(mode_error() | String.t(), User.t(), String.t()) :: :ok
   defp send_join_channel_error(:channel_key_invalid, user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: :err_badchannelkey,
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+k) - bad key"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_join_channel_error(:channel_limit_reached, user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: :err_channelisfull,
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+l) - channel is full"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_join_channel_error(:channel_limit_per_prefix_reached, user, channel_name) do
@@ -172,62 +165,56 @@ defmodule ElixIRCd.Commands.Join do
     max_channels = Map.get(channel_join_limits, prefix)
 
     Message.build(%{
-      prefix: :server,
       command: :err_toomanychannels,
       params: [user.nick, channel_name],
       trailing: "You have reached the maximum number of #{prefix}-channels (#{max_channels})"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_join_channel_error(:user_banned, user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: :err_bannedfromchan,
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+b) - you are banned"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_join_channel_error(:user_not_invited, user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: :err_inviteonlychan,
       params: [user.nick, channel_name],
       trailing: "Cannot join channel (+i) - you are not invited"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_join_channel_error(:user_not_operator, user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: "520",
       params: [user.nick, channel_name],
       trailing: "Only IRC operators may join this channel (+O)"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_join_channel_error(:join_throttled, user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: "477",
       params: [user.nick, channel_name],
       trailing: "Channel join rate exceeded (+j)"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_join_channel_error(error, user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: :err_badchanmask,
       params: [user.nick, channel_name],
       trailing: "Cannot join channel - #{error}"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec validate_channel_name(String.t()) :: :ok | {:error, String.t()}

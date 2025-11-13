@@ -97,11 +97,10 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     end
 
     Message.build(%{
-      prefix: :server,
       command: "MODE",
       params: [updated_user.nick, "+r"]
     })
-    |> Dispatcher.broadcast(updated_user)
+    |> Dispatcher.broadcast(:server, updated_user)
   end
 
   @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok

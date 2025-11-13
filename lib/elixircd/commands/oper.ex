@@ -15,19 +15,18 @@ defmodule ElixIRCd.Commands.Oper do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "OPER"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "OPER", params: params}) when length(params) <= 1 do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "OPER"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -36,20 +35,18 @@ defmodule ElixIRCd.Commands.Oper do
       updated_user = Users.update(user, %{modes: ["o" | user.modes]})
 
       Message.build(%{
-        prefix: :server,
         command: :rpl_youreoper,
         params: [updated_user.nick],
         trailing: "You are now an IRC operator"
       })
-      |> Dispatcher.broadcast(updated_user)
+      |> Dispatcher.broadcast(:server, updated_user)
     else
       Message.build(%{
-        prefix: :server,
         command: :err_passwdmismatch,
         params: [user.nick],
         trailing: "Password incorrect"
       })
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(:server, user)
     end
   end
 

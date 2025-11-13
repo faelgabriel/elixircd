@@ -22,19 +22,18 @@ defmodule ElixIRCd.Commands.Who do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "WHO"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "WHO", params: []}) do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user_reply(user), "WHO"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -45,12 +44,11 @@ defmodule ElixIRCd.Commands.Who do
     end
 
     Message.build(%{
-      prefix: :server,
       command: :rpl_endofwho,
       params: [user.nick, target],
       trailing: "End of WHO list"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_who_channel(User.t(), String.t(), [String.t()]) :: :ok
@@ -85,7 +83,7 @@ defmodule ElixIRCd.Commands.Who do
         user_channel = Enum.find(user_channels_list, fn uc -> uc.user_pid == user_target.pid end)
         build_message(user, user_target, user_channel, channel, channel_map)
       end)
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(:server, user)
     end
   end
 
@@ -133,7 +131,7 @@ defmodule ElixIRCd.Commands.Who do
 
       build_message(user, user_target, user_channel_for_mask_target, nil, channel_map)
     end)
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec get_visible_channel_for_mask(User.t(), [User.t()], map(), [pid()]) :: UserChannel.t() | nil
@@ -258,7 +256,6 @@ defmodule ElixIRCd.Commands.Who do
     user_channel_name = resolve_channel_name(user_channel, channel, channel_map)
 
     Message.build(%{
-      prefix: :server,
       command: :rpl_whoreply,
       params: [
         user_reply(user),

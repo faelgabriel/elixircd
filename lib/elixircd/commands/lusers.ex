@@ -17,8 +17,8 @@ defmodule ElixIRCd.Commands.Lusers do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "LUSERS"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -39,48 +39,41 @@ defmodule ElixIRCd.Commands.Lusers do
 
     [
       Message.build(%{
-        prefix: :server,
         command: :rpl_luserclient,
         params: [user.nick],
         trailing: "There are #{visible} users and #{invisible} invisible on 1 server"
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_luserop,
         params: [user.nick, to_string(operators)],
         trailing: "operator(s) online"
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_luserunknown,
         params: [user.nick, to_string(unknown)],
         trailing: "unknown connection(s)"
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_luserchannels,
         params: [user.nick, to_string(total_channels)],
         trailing: "channels formed"
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_luserme,
         params: [user.nick],
         trailing: "I have #{total_users} clients and 0 servers"
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_localusers,
         params: [user.nick, to_string(total_users), to_string(highest_connections)],
         trailing: "Current local users #{total_users}, max #{highest_connections}"
       }),
       Message.build(%{
-        prefix: :server,
         command: :rpl_globalusers,
         params: [user.nick, to_string(total_users), to_string(highest_connections)],
         trailing: "Current global users #{total_users}, max #{highest_connections}"
       })
     ]
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 end

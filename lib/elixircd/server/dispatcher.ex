@@ -24,34 +24,45 @@ defmodule ElixIRCd.Server.Dispatcher do
   This is the preferred way to broadcast messages as it automatically handles
   prefix and tag management based on the message context.
   """
-  @spec broadcast(Message.t(), context(), target() | [target()]) :: :ok
+  @spec broadcast(Message.t() | [Message.t()], context(), target() | [target()]) :: :ok
+  def broadcast(messages, %User{} = user, targets) when is_list(messages) do
+    messages
+    |> Enum.map(fn message ->
+      message
+      |> maybe_add_user_prefix(user)
+      |> MessageTags.maybe_add_bot_tag(user)
+    end)
+    |> do_broadcast(targets)
+  end
+
   def broadcast(message, %User{} = user, targets) when not is_list(message) do
     message
     |> maybe_add_user_prefix(user)
     |> MessageTags.maybe_add_bot_tag(user)
-    |> broadcast(targets)
+    |> do_broadcast(targets)
+  end
+
+  def broadcast(messages, :server, targets) when is_list(messages) do
+    messages
+    |> Enum.map(&maybe_add_server_prefix/1)
+    |> do_broadcast(targets)
   end
 
   def broadcast(message, :server, targets) when not is_list(message) do
     message
     |> maybe_add_server_prefix()
-    |> broadcast(targets)
+    |> do_broadcast(targets)
   end
 
-  @doc """
-  Broadcasts messages to the given targets.
-  Targets can be a single target or a list of pids, users or user_channels.
-
-  Note: When possible, prefer using broadcast/3 with context (:server or User)
-  to automatically handle prefix and tag management.
-  """
-  @spec broadcast(Message.t() | [Message.t()], target() | [target()]) :: :ok
-  def broadcast(messages, targets) when is_list(messages) and is_list(targets) do
-    messages |> Enum.each(&broadcast(&1, targets))
+  # Internal broadcast function that sends messages without adding context.
+  # This should not be called directly - use broadcast/3 instead.
+  @spec do_broadcast(Message.t() | [Message.t()], target() | [target()]) :: :ok
+  defp do_broadcast(messages, targets) when is_list(messages) and is_list(targets) do
+    messages |> Enum.each(&do_broadcast(&1, targets))
     :ok
   end
 
-  def broadcast(message, targets) when not is_list(message) and is_list(targets) do
+  defp do_broadcast(message, targets) when not is_list(message) and is_list(targets) do
     # Convert UserChannels to Users in one batch query, keeping order
     user_channel_pids = for %UserChannel{user_pid: pid} <- targets, do: pid
 
@@ -73,16 +84,16 @@ defmodule ElixIRCd.Server.Dispatcher do
 
     # Broadcast to each target, replacing UserChannels with Users
     Enum.each(targets, fn
-      %UserChannel{user_pid: pid} -> broadcast(message, Map.get(users_map, pid, pid))
-      target -> broadcast(message, target)
+      %UserChannel{user_pid: pid} -> do_broadcast(message, Map.get(users_map, pid, pid))
+      target -> do_broadcast(message, target)
     end)
   end
 
-  def broadcast(messages, target) when is_list(messages) and not is_list(target) do
-    messages |> Enum.each(&broadcast(&1, target))
+  defp do_broadcast(messages, target) when is_list(messages) and not is_list(target) do
+    messages |> Enum.each(&do_broadcast(&1, target))
   end
 
-  def broadcast(message, target) when not is_list(message) and not is_list(target) do
+  defp do_broadcast(message, target) when not is_list(message) and not is_list(target) do
     filtered_message = filter_message_for_target(message, target)
     raw_message = Message.unparse!(filtered_message)
     send_packet(target, raw_message)

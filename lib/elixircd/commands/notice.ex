@@ -24,30 +24,28 @@ defmodule ElixIRCd.Commands.Notice do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "NOTICE"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "NOTICE", params: []}) do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "NOTICE"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "NOTICE", trailing: nil}) do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "NOTICE"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -71,39 +69,35 @@ defmodule ElixIRCd.Commands.Notice do
     else
       {:error, :delay_message_blocked, delay} ->
         Message.build(%{
-          prefix: :server,
           command: "937",
           params: [user.nick, channel_name],
           trailing: "You must wait #{delay} seconds after joining before speaking in this channel."
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, :user_channel_not_found} ->
         Message.build(%{
-          prefix: :server,
           command: :err_cannotsendtochan,
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel"
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, :channel_not_found} ->
         Message.build(%{
-          prefix: :server,
           command: :err_nosuchchannel,
           params: [user.nick, channel_name],
           trailing: "No such channel"
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, :formatting_blocked} ->
         Message.build(%{
-          prefix: :server,
           command: "404",
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel (+c - no colors allowed)"
         })
-        |> Dispatcher.broadcast(user)
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 
@@ -135,23 +129,21 @@ defmodule ElixIRCd.Commands.Notice do
   @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
   defp handle_restricted_user_message(sender, recipient) do
     Message.build(%{
-      prefix: :server,
       command: :err_cannotsendtouser,
       params: [sender.nick, recipient.nick],
       trailing: "You must be identified to message this user"
     })
-    |> Dispatcher.broadcast(sender)
+    |> Dispatcher.broadcast(:server, sender)
   end
 
   @spec handle_blocked_user_message(User.t(), User.t()) :: :ok
   defp handle_blocked_user_message(sender, recipient) do
     Message.build(%{
-      prefix: :server,
       command: :rpl_umodegmsg,
       params: [sender.nick, recipient.nick],
       trailing: "Your message has been blocked. #{recipient.nick} is only accepting messages from authorized users."
     })
-    |> Dispatcher.broadcast(sender)
+    |> Dispatcher.broadcast(:server, sender)
   end
 
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
@@ -163,12 +155,11 @@ defmodule ElixIRCd.Commands.Notice do
   @spec handle_user_not_found(User.t(), String.t()) :: :ok
   defp handle_user_not_found(user, target_nick) do
     Message.build(%{
-      prefix: :server,
       command: :err_nosuchnick,
       params: [user.nick, target_nick],
       trailing: "No such nick"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec check_formatting(Channel.t(), String.t()) :: :ok | {:error, :formatting_blocked}

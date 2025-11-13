@@ -21,8 +21,8 @@ defmodule ElixIRCd.Commands.Names do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "NAMES"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   def handle(user, %{command: "NAMES", params: []}) do
@@ -112,31 +112,28 @@ defmodule ElixIRCd.Commands.Names do
 
       [
         Message.build(%{
-          prefix: :server,
           command: :rpl_namreply,
           params: [user.nick, get_channel_status(channel), channel.name],
           trailing: nicks_string
         }),
         Message.build(%{
-          prefix: :server,
           command: :rpl_endofnames,
           params: [user.nick, channel.name],
           trailing: "End of /NAMES list"
         })
       ]
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(:server, user)
     end
   end
 
   @spec send_no_such_channel_error(User.t(), String.t()) :: :ok
   defp send_no_such_channel_error(user, channel_name) do
     Message.build(%{
-      prefix: :server,
       command: :err_nosuchchannel,
       params: [user.nick, channel_name],
       trailing: "No such channel"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec get_channel_status(Channel.t()) :: String.t()
@@ -218,20 +215,18 @@ defmodule ElixIRCd.Commands.Names do
         Enum.map_join(free_users, " ", &format_user_display(&1, use_extended_names))
 
       Message.build(%{
-        prefix: :server,
         command: :rpl_namreply,
         params: [user.nick, "*", "*"],
         trailing: free_user_list
       })
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(:server, user)
 
       Message.build(%{
-        prefix: :server,
         command: :rpl_endofnames,
         params: [user.nick, "*"],
         trailing: "End of /NAMES list"
       })
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(:server, user)
     end
 
     :ok

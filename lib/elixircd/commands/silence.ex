@@ -18,8 +18,8 @@ defmodule ElixIRCd.Commands.Silence do
 
   @impl true
   def handle(%{registered: false} = user, %{command: "SILENCE"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    Message.build(%{command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -40,12 +40,11 @@ defmodule ElixIRCd.Commands.Silence do
   @impl true
   def handle(user, %{command: "SILENCE"}) do
     Message.build(%{
-      prefix: :server,
       command: :err_needmoreparams,
       params: [user.nick, "SILENCE"],
       trailing: "Not enough parameters"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec show_silence_list(User.t()) :: :ok
@@ -54,21 +53,19 @@ defmodule ElixIRCd.Commands.Silence do
 
     Enum.each(silence_entries, fn entry ->
       Message.build(%{
-        prefix: :server,
         command: :rpl_silence_list,
         params: [user.nick, entry.mask],
         trailing: nil
       })
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(:server, user)
     end)
 
     Message.build(%{
-      prefix: :server,
       command: :rpl_endofsilence,
       params: [user.nick],
       trailing: "End of silence list"
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_silence_mask(String.t(), User.t()) :: :ok
@@ -98,12 +95,11 @@ defmodule ElixIRCd.Commands.Silence do
       cond do
         length(silence_entries) >= @max_silence_entries ->
           Message.build(%{
-            prefix: :server,
             command: :err_silencelistfull,
             params: [user.nick],
             trailing: "Silence list is full"
           })
-          |> Dispatcher.broadcast(user)
+          |> Dispatcher.broadcast(:server, user)
 
         Enum.any?(silence_entries, fn entry -> entry.mask == mask end) ->
           show_silence_list(user)
@@ -114,12 +110,11 @@ defmodule ElixIRCd.Commands.Silence do
       end
     else
       Message.build(%{
-        prefix: :server,
         command: :err_badchanmask,
         params: [user.nick, mask],
         trailing: "Invalid silence mask"
       })
-      |> Dispatcher.broadcast(user)
+      |> Dispatcher.broadcast(:server, user)
     end
   end
 
