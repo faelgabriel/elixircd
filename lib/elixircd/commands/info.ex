@@ -52,16 +52,8 @@ defmodule ElixIRCd.Commands.Info do
     server_start_time = :persistent_term.get(:server_start_time) |> Calendar.strftime("%a %b %d %H:%M:%S %Y")
 
     [
-      %Message{
-        command: :rpl_info,
-        params: [user.nick],
-        trailing: "Birth Date: #{app_start_time}, compile # 1"
-      },
-      %Message{
-        command: :rpl_info,
-        params: [user.nick],
-        trailing: "On-line since #{server_start_time}"
-      },
+      %Message{command: :rpl_info, params: [user.nick], trailing: "Birth Date: #{app_start_time}, compile # 1"},
+      %Message{command: :rpl_info, params: [user.nick], trailing: "On-line since #{server_start_time}"},
       %Message{command: :rpl_endofinfo, params: [user.nick], trailing: "End of /INFO list"}
     ]
     |> Dispatcher.broadcast(:server, user)

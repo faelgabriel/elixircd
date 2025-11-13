@@ -25,11 +25,7 @@ defmodule ElixIRCd.Commands.Part do
 
   @impl true
   def handle(user, %{command: "PART", params: []}) do
-    %Message{
-      command: :err_needmoreparams,
-      params: [user.nick, "PART"],
-      trailing: "Not enough parameters"
-    }
+    %Message{command: :err_needmoreparams, params: [user.nick, "PART"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -59,19 +55,11 @@ defmodule ElixIRCd.Commands.Part do
       |> Dispatcher.broadcast(user, all_user_channels)
     else
       {:error, :user_channel_not_found} ->
-        %Message{
-          command: :err_notonchannel,
-          params: [user.nick, channel_name],
-          trailing: "You're not on that channel"
-        }
+        %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :channel_not_found} ->
-        %Message{
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        }
+        %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
         |> Dispatcher.broadcast(:server, user)
     end
   end

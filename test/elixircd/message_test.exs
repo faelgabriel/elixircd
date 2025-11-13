@@ -10,13 +10,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = ":irc.example.com NOTICE user :Server restarting"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: "irc.example.com",
-           command: "NOTICE",
-           params: ["user"],
-           trailing: "Server restarting"
-         }}
+        {:ok, %Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -25,13 +19,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = "NOTICE user :Server restarting"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: nil,
-           command: "NOTICE",
-           params: ["user"],
-           trailing: "Server restarting"
-         }}
+        {:ok, %Message{prefix: nil, command: "NOTICE", params: ["user"], trailing: "Server restarting"}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -55,13 +43,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = ":irc.example.com PING"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: "irc.example.com",
-           command: "PING",
-           params: [],
-           trailing: nil
-         }}
+        {:ok, %Message{prefix: "irc.example.com", command: "PING", params: [], trailing: nil}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -70,13 +52,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = ":irc.example.com JOIN #channel"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: "irc.example.com",
-           command: "JOIN",
-           params: ["#channel"],
-           trailing: nil
-         }}
+        {:ok, %Message{prefix: "irc.example.com", command: "JOIN", params: ["#channel"], trailing: nil}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -85,13 +61,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = ":irc.example.com PING"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: "irc.example.com",
-           command: "PING",
-           params: [],
-           trailing: nil
-         }}
+        {:ok, %Message{prefix: "irc.example.com", command: "PING", params: [], trailing: nil}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -100,13 +70,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = "PING"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: nil,
-           command: "PING",
-           params: [],
-           trailing: nil
-         }}
+        {:ok, %Message{prefix: nil, command: "PING", params: [], trailing: nil}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -115,13 +79,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = "JOIN #channel"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: nil,
-           command: "JOIN",
-           params: ["#channel"],
-           trailing: nil
-         }}
+        {:ok, %Message{prefix: nil, command: "JOIN", params: ["#channel"], trailing: nil}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -145,13 +103,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = ":Nick!user@host MODE #channel +o User"
 
       expected =
-        {:ok,
-         %Message{
-           prefix: "Nick!user@host",
-           command: "MODE",
-           params: ["#channel", "+o", "User"],
-           trailing: nil
-         }}
+        {:ok, %Message{prefix: "Nick!user@host", command: "MODE", params: ["#channel", "+o", "User"], trailing: nil}}
 
       assert Message.parse(raw_message) == expected
     end
@@ -186,12 +138,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = ":irc.example.com NOTICE user :Server restarting"
 
       expected =
-        %Message{
-          prefix: "irc.example.com",
-          command: "NOTICE",
-          params: ["user"],
-          trailing: "Server restarting"
-        }
+        %Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}
 
       assert Message.parse!(raw_message) == expected
     end
@@ -217,12 +164,7 @@ defmodule ElixIRCd.MessageTest do
 
   describe "unparse/1" do
     test "unparses a message with a prefix" do
-      message = %Message{
-        prefix: "irc.example.com",
-        command: "NOTICE",
-        params: ["user"],
-        trailing: "Server restarting"
-      }
+      message = %Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}
 
       expected = {:ok, ":irc.example.com NOTICE user :Server restarting\r\n"}
 
@@ -230,12 +172,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "unparses a message without a prefix" do
-      message = %Message{
-        prefix: nil,
-        command: "NOTICE",
-        params: ["user"],
-        trailing: "Server restarting"
-      }
+      message = %Message{prefix: nil, command: "NOTICE", params: ["user"], trailing: "Server restarting"}
 
       expected = {:ok, "NOTICE user :Server restarting\r\n"}
 
@@ -269,12 +206,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "unparses a message with no params" do
-      message = %Message{
-        prefix: "irc.example.com",
-        command: "PING",
-        params: [],
-        trailing: nil
-      }
+      message = %Message{prefix: "irc.example.com", command: "PING", params: [], trailing: nil}
 
       expected = {:ok, ":irc.example.com PING\r\n"}
 
@@ -282,12 +214,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "unparses a message with no trailing" do
-      message = %Message{
-        prefix: "irc.example.com",
-        command: "JOIN",
-        params: ["#channel"],
-        trailing: nil
-      }
+      message = %Message{prefix: "irc.example.com", command: "JOIN", params: ["#channel"], trailing: nil}
 
       expected = {:ok, ":irc.example.com JOIN #channel\r\n"}
 
@@ -295,12 +222,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "unparses a message with no params or trailing" do
-      message = %Message{
-        prefix: "irc.example.com",
-        command: "PING",
-        params: [],
-        trailing: nil
-      }
+      message = %Message{prefix: "irc.example.com", command: "PING", params: [], trailing: nil}
 
       expected = {:ok, ":irc.example.com PING\r\n"}
 
@@ -308,12 +230,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "unparses a message with no prefix, params, or trailing" do
-      message = %Message{
-        prefix: nil,
-        command: "PING",
-        params: [],
-        trailing: nil
-      }
+      message = %Message{prefix: nil, command: "PING", params: [], trailing: nil}
 
       expected = {:ok, "PING\r\n"}
 
@@ -321,12 +238,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "unparses a message with no prefix or trailing" do
-      message = %Message{
-        prefix: nil,
-        command: "JOIN",
-        params: ["#channel"],
-        trailing: nil
-      }
+      message = %Message{prefix: nil, command: "JOIN", params: ["#channel"], trailing: nil}
 
       expected = {:ok, "JOIN #channel\r\n"}
 
@@ -347,12 +259,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "unparses a message with multiple parameters" do
-      message = %Message{
-        prefix: "Nick!user@host",
-        command: "MODE",
-        params: ["#channel", "+o", "User"],
-        trailing: nil
-      }
+      message = %Message{prefix: "Nick!user@host", command: "MODE", params: ["#channel", "+o", "User"], trailing: nil}
 
       expected = {:ok, ":Nick!user@host MODE #channel +o User\r\n"}
 
@@ -360,13 +267,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "handles malformed IRC messages" do
-      message = %Message{
-        tags: %{},
-        prefix: nil,
-        command: "",
-        params: [],
-        trailing: nil
-      }
+      message = %Message{tags: %{}, prefix: nil, command: "", params: [], trailing: nil}
 
       expected =
         {:error,
@@ -378,12 +279,7 @@ defmodule ElixIRCd.MessageTest do
 
   describe "unparse!/1" do
     test "unparses a message" do
-      message = %Message{
-        prefix: "irc.example.com",
-        command: "NOTICE",
-        params: ["user"],
-        trailing: "Server restarting"
-      }
+      message = %Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}
 
       expected = ":irc.example.com NOTICE user :Server restarting\r\n"
 
@@ -391,13 +287,7 @@ defmodule ElixIRCd.MessageTest do
     end
 
     test "raises an ArgumentError on a malformed IRC message" do
-      message = %Message{
-        tags: %{},
-        prefix: nil,
-        command: "",
-        params: [],
-        trailing: nil
-      }
+      message = %Message{tags: %{}, prefix: nil, command: "", params: [], trailing: nil}
 
       assert_raise ArgumentError,
                    "Invalid IRC message format on unparsing command: %ElixIRCd.Message{tags: %{}, prefix: nil, command: \"\", params: [], trailing: nil}",
@@ -460,14 +350,7 @@ defmodule ElixIRCd.MessageTest do
       raw_message = "@bot PRIVMSG #channel :hello"
 
       expected =
-        {:ok,
-         %Message{
-           tags: %{"bot" => nil},
-           prefix: nil,
-           command: "PRIVMSG",
-           params: ["#channel"],
-           trailing: "hello"
-         }}
+        {:ok, %Message{tags: %{"bot" => nil}, prefix: nil, command: "PRIVMSG", params: ["#channel"], trailing: "hello"}}
 
       assert Message.parse(raw_message) == expected
     end

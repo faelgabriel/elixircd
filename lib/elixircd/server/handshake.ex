@@ -125,11 +125,7 @@ defmodule ElixIRCd.Server.Handshake do
       _error ->
         Logger.debug("Could not resolve hostname for #{formatted_ip_address}")
 
-        %Message{
-          command: "NOTICE",
-          params: ["*"],
-          trailing: "*** Couldn't look up your hostname"
-        }
+        %Message{command: "NOTICE", params: ["*"], trailing: "*** Couldn't look up your hostname"}
         |> Dispatcher.broadcast(:server, user)
 
         formatted_ip_address
@@ -156,11 +152,7 @@ defmodule ElixIRCd.Server.Handshake do
         params: [user.nick],
         trailing: "Your host is #{server_name}, running version #{app_version}."
       },
-      %Message{
-        command: :rpl_created,
-        params: [user.nick],
-        trailing: "This server was created #{server_start_date}"
-      },
+      %Message{command: :rpl_created, params: [user.nick], trailing: "This server was created #{server_start_date}"},
       %Message{
         command: :rpl_myinfo,
         params: [user.nick],

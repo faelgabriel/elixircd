@@ -23,11 +23,7 @@ defmodule ElixIRCd.Commands.Ison do
 
   @impl true
   def handle(user, %{command: "ISON", params: []}) do
-    %Message{
-      command: :err_needmoreparams,
-      params: [user_reply(user), "ISON"],
-      trailing: "Not enough parameters"
-    }
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "ISON"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 

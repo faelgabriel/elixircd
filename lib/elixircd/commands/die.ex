@@ -55,21 +55,13 @@ defmodule ElixIRCd.Commands.Die do
 
   @spec noprivileges_message(User.t()) :: :ok
   defp noprivileges_message(user) do
-    %Message{
-      command: :err_noprivileges,
-      params: [user.nick],
-      trailing: "Permission Denied- You're not an IRC operator"
-    }
+    %Message{command: :err_noprivileges, params: [user.nick], trailing: "Permission Denied- You're not an IRC operator"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @spec closing_link_message(User.t(), String.t()) :: :ok
   defp closing_link_message(user, message) do
-    %Message{
-      command: "ERROR",
-      params: [],
-      trailing: "Closing Link: #{user_mask(user)} (#{message})"
-    }
+    %Message{command: "ERROR", params: [], trailing: "Closing Link: #{user_mask(user)} (#{message})"}
     |> Dispatcher.broadcast(:server, user)
   end
 end

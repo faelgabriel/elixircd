@@ -30,11 +30,7 @@ defmodule ElixIRCd.Commands.Stats do
     |> Enum.map(&%Message{command: :rpl_stats, params: [user.nick], trailing: &1})
     |> Dispatcher.broadcast(:server, user)
 
-    %Message{
-      command: :rpl_endofstats,
-      params: [user.nick, "*"],
-      trailing: "End of /STATS report"
-    }
+    %Message{command: :rpl_endofstats, params: [user.nick, "*"], trailing: "End of /STATS report"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -42,11 +38,7 @@ defmodule ElixIRCd.Commands.Stats do
   def handle(user, %{command: "STATS", params: [flag | _rest]}) do
     handle_flag(user, flag)
 
-    %Message{
-      command: :rpl_endofstats,
-      params: [user.nick, flag],
-      trailing: "End of /STATS report"
-    }
+    %Message{command: :rpl_endofstats, params: [user.nick, flag], trailing: "End of /STATS report"}
     |> Dispatcher.broadcast(:server, user)
   end
 

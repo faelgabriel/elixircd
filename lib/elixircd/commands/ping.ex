@@ -27,11 +27,7 @@ defmodule ElixIRCd.Commands.Ping do
 
   @impl true
   def handle(user, %{command: "PING"}) do
-    %Message{
-      command: :err_needmoreparams,
-      params: [user_reply(user), "PING"],
-      trailing: "Not enough parameters"
-    }
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "PING"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 end

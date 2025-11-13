@@ -79,10 +79,7 @@ defmodule ElixIRCd.Commands.Whowas do
             historical_user.realname
           ]
         },
-        %Message{
-          command: :rpl_whoisserver,
-          params: [user.nick, historical_user.nick, server_hostname, created_at_time]
-        }
+        %Message{command: :rpl_whoisserver, params: [user.nick, historical_user.nick, server_hostname, created_at_time]}
       ]
       |> Dispatcher.broadcast(:server, user)
     end)

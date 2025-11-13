@@ -365,11 +365,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         false
 
       {:error, :user_not_found} ->
-        %Message{
-          command: :err_nosuchnick,
-          params: [user.nick, channel_name, target_nick],
-          trailing: "No such nick"
-        }
+        %Message{command: :err_nosuchnick, params: [user.nick, channel_name, target_nick], trailing: "No such nick"}
         |> Dispatcher.broadcast(:server, user)
 
         false

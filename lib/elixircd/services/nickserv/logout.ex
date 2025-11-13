@@ -38,10 +38,7 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
 
     updated_user = Users.update(user, %{identified_as: nil, modes: new_modes})
 
-    %Message{
-      command: "MODE",
-      params: [updated_user.nick, "-r"]
-    }
+    %Message{command: "MODE", params: [updated_user.nick, "-r"]}
     |> Dispatcher.broadcast(:server, updated_user)
 
     notify(updated_user, "You are now logged out from \x02#{identified_nickname}\x02.")

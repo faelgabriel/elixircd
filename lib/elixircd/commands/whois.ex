@@ -112,13 +112,7 @@ defmodule ElixIRCd.Commands.Whois do
   defp maybe_add_whoisbot(messages, user, target_user) do
     if "B" in target_user.modes do
       messages ++
-        [
-          %Message{
-            command: :rpl_whoisbot,
-            params: [user.nick, target_user.nick],
-            trailing: "Is a bot on this server"
-          }
-        ]
+        [%Message{command: :rpl_whoisbot, params: [user.nick, target_user.nick], trailing: "Is a bot on this server"}]
     else
       messages
     end
@@ -154,13 +148,7 @@ defmodule ElixIRCd.Commands.Whois do
   defp maybe_add_away(messages, user, target_user) do
     if target_user.away_message != nil do
       messages ++
-        [
-          %Message{
-            command: :rpl_away,
-            params: [user.nick, target_user.nick],
-            trailing: target_user.away_message
-          }
-        ]
+        [%Message{command: :rpl_away, params: [user.nick, target_user.nick], trailing: target_user.away_message}]
     else
       messages
     end
@@ -170,13 +158,7 @@ defmodule ElixIRCd.Commands.Whois do
   defp maybe_add_whoisoperator(messages, user, target_user) do
     if "o" in target_user.modes do
       messages ++
-        [
-          %Message{
-            command: :rpl_whoisoperator,
-            params: [user.nick, target_user.nick],
-            trailing: "is an IRC operator"
-          }
-        ]
+        [%Message{command: :rpl_whoisoperator, params: [user.nick, target_user.nick], trailing: "is an IRC operator"}]
     else
       messages
     end

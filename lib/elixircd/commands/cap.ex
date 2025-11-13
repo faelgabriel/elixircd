@@ -56,11 +56,7 @@ defmodule ElixIRCd.Commands.Cap do
   defp handle_cap_ls(user) do
     capabilities_list = get_capabilities_list()
 
-    %Message{
-      command: "CAP",
-      params: [user_reply(user), "LS"],
-      trailing: capabilities_list
-    }
+    %Message{command: "CAP", params: [user_reply(user), "LS"], trailing: capabilities_list}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -68,11 +64,7 @@ defmodule ElixIRCd.Commands.Cap do
   defp handle_cap_list(user) do
     enabled_caps = Enum.join(user.capabilities, " ")
 
-    %Message{
-      command: "CAP",
-      params: [user_reply(user), "LIST"],
-      trailing: enabled_caps
-    }
+    %Message{command: "CAP", params: [user_reply(user), "LIST"], trailing: enabled_caps}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -82,20 +74,12 @@ defmodule ElixIRCd.Commands.Cap do
     {acked, nacked} = validate_capabilities(capabilities)
 
     if length(nacked) > 0 do
-      %Message{
-        command: "CAP",
-        params: [user_reply(user), "NAK"],
-        trailing: capabilities_string
-      }
+      %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
       |> Dispatcher.broadcast(:server, user)
     else
       updated_user = apply_capability_changes(user, acked)
 
-      %Message{
-        command: "CAP",
-        params: [user_reply(user), "ACK"],
-        trailing: capabilities_string
-      }
+      %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
       |> Dispatcher.broadcast(:server, updated_user)
     end
   end

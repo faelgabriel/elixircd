@@ -33,11 +33,7 @@ defmodule ElixIRCd.Commands.Kick do
 
   @impl true
   def handle(user, %{command: "KICK", params: params}) when length(params) < 2 do
-    %Message{
-      command: :err_needmoreparams,
-      params: [user.nick, "KICK"],
-      trailing: "Not enough parameters"
-    }
+    %Message{command: :err_needmoreparams, params: [user.nick, "KICK"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -104,29 +100,17 @@ defmodule ElixIRCd.Commands.Kick do
 
   @spec send_user_kick_error(kick_errors(), User.t(), String.t(), String.t()) :: :ok
   defp send_user_kick_error(:channel_not_found, user, channel_name, _target_nick) do
-    %Message{
-      command: :err_nosuchchannel,
-      params: [user.nick, channel_name],
-      trailing: "No such channel"
-    }
+    %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:user_channel_not_found, user, channel_name, _target_nick) do
-    %Message{
-      command: :err_usernotinchannel,
-      params: [user.nick, channel_name],
-      trailing: "You're not on that channel"
-    }
+    %Message{command: :err_usernotinchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:user_is_not_operator, user, channel_name, _target_nick) do
-    %Message{
-      command: :err_chanoprivsneeded,
-      params: [user.nick, channel_name],
-      trailing: "You're not channel operator"
-    }
+    %Message{command: :err_chanoprivsneeded, params: [user.nick, channel_name], trailing: "You're not channel operator"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -142,20 +126,12 @@ defmodule ElixIRCd.Commands.Kick do
   end
 
   defp send_user_kick_error(:target_user_not_found, user, _channel_name, target_nick) do
-    %Message{
-      command: :err_nosuchnick,
-      params: [user.nick, target_nick],
-      trailing: "No such nick/channel"
-    }
+    %Message{command: :err_nosuchnick, params: [user.nick, target_nick], trailing: "No such nick/channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_kick_error(:target_user_channel_not_found, user, channel_name, _target_nick) do
-    %Message{
-      command: :err_usernotinchannel,
-      params: [user.nick, channel_name],
-      trailing: "They aren't on that channel"
-    }
+    %Message{command: :err_usernotinchannel, params: [user.nick, channel_name], trailing: "They aren't on that channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 end

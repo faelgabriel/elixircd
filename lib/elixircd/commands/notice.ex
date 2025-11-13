@@ -30,21 +30,13 @@ defmodule ElixIRCd.Commands.Notice do
 
   @impl true
   def handle(user, %{command: "NOTICE", params: []}) do
-    %Message{
-      command: :err_needmoreparams,
-      params: [user.nick, "NOTICE"],
-      trailing: "Not enough parameters"
-    }
+    %Message{command: :err_needmoreparams, params: [user.nick, "NOTICE"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "NOTICE", trailing: nil}) do
-    %Message{
-      command: :err_needmoreparams,
-      params: [user.nick, "NOTICE"],
-      trailing: "Not enough parameters"
-    }
+    %Message{command: :err_needmoreparams, params: [user.nick, "NOTICE"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -76,19 +68,11 @@ defmodule ElixIRCd.Commands.Notice do
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :user_channel_not_found} ->
-        %Message{
-          command: :err_cannotsendtochan,
-          params: [user.nick, channel_name],
-          trailing: "Cannot send to channel"
-        }
+        %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :channel_not_found} ->
-        %Message{
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        }
+        %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :formatting_blocked} ->
@@ -154,11 +138,7 @@ defmodule ElixIRCd.Commands.Notice do
 
   @spec handle_user_not_found(User.t(), String.t()) :: :ok
   defp handle_user_not_found(user, target_nick) do
-    %Message{
-      command: :err_nosuchnick,
-      params: [user.nick, target_nick],
-      trailing: "No such nick"
-    }
+    %Message{command: :err_nosuchnick, params: [user.nick, target_nick], trailing: "No such nick"}
     |> Dispatcher.broadcast(:server, user)
   end
 

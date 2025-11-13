@@ -31,11 +31,7 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec process_rehashing(User.t()) :: :ok
   defp process_rehashing(user) do
-    %Message{
-      command: :rpl_rehashing,
-      params: [user.nick, "elixircd.exs"],
-      trailing: "Rehashing"
-    }
+    %Message{command: :rpl_rehashing, params: [user.nick, "elixircd.exs"], trailing: "Rehashing"}
     |> Dispatcher.broadcast(:server, user)
 
     load_configurations()
@@ -46,11 +42,7 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec noprivileges_message(User.t()) :: :ok
   defp noprivileges_message(user) do
-    %Message{
-      command: :err_noprivileges,
-      params: [user.nick],
-      trailing: "Permission Denied- You're not an IRC operator"
-    }
+    %Message{command: :err_noprivileges, params: [user.nick], trailing: "Permission Denied- You're not an IRC operator"}
     |> Dispatcher.broadcast(:server, user)
   end
 end
