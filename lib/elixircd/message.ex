@@ -3,6 +3,7 @@ defmodule ElixIRCd.Message do
   Represents a structured IRC message format for both incoming and outgoing messages.
 
   An IRC message consists of the following parts:
+  - `tags`: IRCv3 message tags as a map (optional)
   - `prefix`: The server or user source (optional)
   - `command`: The IRC command or numeric reply code
   - `params`: A list of parameters for the command (optional)
@@ -10,6 +11,17 @@ defmodule ElixIRCd.Message do
   """
 
   @doc """
+  The `tags` contain IRCv3 message tags as a map. Tags are key-value pairs that provide metadata about messages.
+  If present, tags appear at the beginning of the message, prefixed with `@` and separated by semicolons.
+  Tags without values are represented with `nil` as their value.
+
+  ## Examples
+  - %{"bot" => nil} for a message from a bot (tag without value)
+  - %{"account" => "user123"} for a message with account tag
+  - %{"msgid" => "abc123", "bot" => nil} for a message with multiple tags
+
+  --------------------------------------------
+
   The `prefix` denotes the origin of the message. It's typically the server name or a user's nick!user@host.
   If present, it starts with a colon `:` and ends before the first space.
   For incoming messages, the prefix is always nil.
@@ -54,44 +66,15 @@ defmodule ElixIRCd.Message do
   - "Welcome to the IRC server!" as the content of a welcome message.
   """
   @enforce_keys [:command, :params]
-  defstruct prefix: nil, command: nil, params: [], trailing: nil
+  defstruct tags: %{}, prefix: nil, command: nil, params: [], trailing: nil
 
   @type t :: %__MODULE__{
+          tags: %{optional(String.t()) => String.t() | nil},
           prefix: String.t() | nil,
-          command: String.t(),
+          command: String.t() | atom(),
           params: [String.t()],
           trailing: String.t() | nil
         }
-
-  @doc """
-  Builds a Message struct.
-  """
-  @spec build(%{
-          optional(:prefix) => :server | String.t() | nil,
-          :command => atom() | String.t(),
-          :params => [String.t()],
-          optional(:trailing) => String.t() | nil
-        }) :: __MODULE__.t()
-  def build(%{prefix: :server} = args) do
-    args
-    |> Map.put(:prefix, Application.get_env(:elixircd, :server)[:hostname])
-    |> build()
-  end
-
-  def build(%{command: command} = args) when is_atom(command) do
-    args
-    |> Map.put(:command, numeric_reply(command))
-    |> build()
-  end
-
-  def build(args) do
-    %__MODULE__{
-      prefix: args[:prefix],
-      command: args[:command],
-      params: args[:params],
-      trailing: args[:trailing]
-    }
-  end
 
   @doc """
   Parses a raw IRC message string into an Message struct.
@@ -108,15 +91,17 @@ defmodule ElixIRCd.Message do
   """
   @spec parse(String.t()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def parse(raw_message) do
-    {prefix, rest_raw_message} =
+    {tags, rest_after_tags} =
       raw_message
       |> String.trim_trailing()
-      |> extract_prefix()
+      |> extract_tags()
+
+    {prefix, rest_raw_message} = extract_prefix(rest_after_tags)
 
     parse_command_and_params(rest_raw_message)
     |> case do
       {command, params, trailing} ->
-        {:ok, %__MODULE__{prefix: prefix, command: command, params: params, trailing: trailing}}
+        {:ok, %__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}}
 
       {:error, error} ->
         {:error, error}
@@ -150,17 +135,24 @@ defmodule ElixIRCd.Message do
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def unparse(%__MODULE__{command: command} = message) when is_atom(command) do
+    %{message | command: numeric_reply(command)}
+    |> unparse()
+  end
+
   def unparse(%__MODULE__{command: ""} = message),
     do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
 
-  def unparse(%__MODULE__{prefix: nil, command: command, params: params, trailing: trailing}) do
+  def unparse(%__MODULE__{tags: tags, prefix: nil, command: command, params: params, trailing: trailing}) do
     base = [command | params]
-    {:ok, unparse_message(base, trailing) <> "\r\n"}
+    message_str = unparse_message(base, trailing)
+    {:ok, prepend_tags(tags, message_str) <> "\r\n"}
   end
 
-  def unparse(%__MODULE__{prefix: prefix, command: command, params: params, trailing: trailing}) do
+  def unparse(%__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}) do
     base = [":" <> prefix, command | params]
-    {:ok, unparse_message(base, trailing) <> "\r\n"}
+    message_str = unparse_message(base, trailing)
+    {:ok, prepend_tags(tags, message_str) <> "\r\n"}
   end
 
   @doc """
@@ -173,6 +165,87 @@ defmodule ElixIRCd.Message do
       {:ok, unparsed} -> unparsed
       {:error, error} -> raise ArgumentError, error
     end
+  end
+
+  # Extracts IRCv3 message tags from the beginning of the message if present.
+  # Tags are in the format: @tag1=value1;tag2=value2;tag3
+  # Returns {tags_map, message_without_tags}
+  @spec extract_tags(String.t()) :: {%{optional(String.t()) => String.t() | nil}, String.t()}
+  defp extract_tags("@" <> message) do
+    [tags_string | rest] = String.split(message, " ", parts: 2)
+    tags = parse_tags(tags_string)
+    {tags, Enum.join(rest, " ")}
+  end
+
+  defp extract_tags(message), do: {%{}, message}
+
+  # Parses a tags string into a map.
+  # Format: tag1=value1;tag2=value2;tag3
+  @spec parse_tags(String.t()) :: %{optional(String.t()) => String.t() | nil}
+  defp parse_tags(tags_string) do
+    tags_string
+    |> String.split(";")
+    |> Enum.map(&parse_single_tag/1)
+    |> Enum.into(%{})
+  end
+
+  # Parses a single tag into {key, value} tuple.
+  # Tags without values become {key, nil}
+  @spec parse_single_tag(String.t()) :: {String.t(), String.t() | nil}
+  defp parse_single_tag(tag) do
+    case String.split(tag, "=", parts: 2) do
+      [key, value] -> {key, unescape_tag_value(value)}
+      [key] -> {key, nil}
+    end
+  end
+
+  # Unescapes IRCv3 tag values according to the spec.
+  # \: -> ; \s -> space \\ -> \ \r -> CR \n -> LF
+  @spec unescape_tag_value(String.t()) :: String.t()
+  defp unescape_tag_value(value) do
+    value
+    |> String.replace("\\:", ";")
+    |> String.replace("\\s", " ")
+    |> String.replace("\\r", "\r")
+    |> String.replace("\\n", "\n")
+    |> String.replace("\\\\", "\\")
+  end
+
+  # Prepends tags to a message string if tags are present.
+  # Returns the message with tags prepended, or the original message if no tags.
+  @spec prepend_tags(%{optional(String.t()) => String.t() | nil}, String.t()) :: String.t()
+  defp prepend_tags(tags, message) when map_size(tags) == 0, do: message
+
+  defp prepend_tags(tags, message) do
+    tags_string = format_tags(tags)
+    "@#{tags_string} #{message}"
+  end
+
+  # Formats tags map into IRCv3 tags string.
+  # Format: tag1=value1;tag2=value2;tag3
+  @spec format_tags(%{optional(String.t()) => String.t() | nil}) :: String.t()
+  defp format_tags(tags) do
+    Enum.map_join(tags, ";", &format_single_tag/1)
+  end
+
+  # Formats a single tag into "key=value" or "key" format.
+  @spec format_single_tag({String.t(), String.t() | nil}) :: String.t()
+  defp format_single_tag({key, nil}), do: key
+
+  defp format_single_tag({key, value}) do
+    "#{key}=#{escape_tag_value(value)}"
+  end
+
+  # Escapes IRCv3 tag values according to the spec.
+  # ; -> \: space -> \s \ -> \\ CR -> \r LF -> \n
+  @spec escape_tag_value(String.t()) :: String.t()
+  defp escape_tag_value(value) do
+    value
+    |> String.replace("\\", "\\\\")
+    |> String.replace(";", "\\:")
+    |> String.replace(" ", "\\s")
+    |> String.replace("\r", "\\r")
+    |> String.replace("\n", "\\n")
   end
 
   # Extracts the prefix from the message if present.

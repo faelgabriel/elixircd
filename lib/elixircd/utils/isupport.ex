@@ -22,13 +22,8 @@ defmodule ElixIRCd.Utils.Isupport do
     all_features
     |> Enum.chunk_every(@max_features_per_batch)
     |> Enum.each(fn feature_batch ->
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_isupport,
-        params: [user.nick | feature_batch],
-        trailing: "are supported by this server"
-      })
-      |> Dispatcher.broadcast(user)
+      %Message{command: :rpl_isupport, params: [user.nick | feature_batch], trailing: "are supported by this server"}
+      |> Dispatcher.broadcast(:server, user)
     end)
   end
 

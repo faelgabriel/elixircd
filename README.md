@@ -369,7 +369,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 #### Enhanced Commands and Extensions
 
 - **Capability Negotiation**: Capability negotiation mechanism between clients and servers. ✅
-- **Bot Mode**: Identification of bots in channels. ❌
+- **Bot Mode**: Identification of bots in channels. ✅
 - **Changing User Properties**: Dynamic updating of user properties. ❌
 - **Listing Users**: Enhanced user information in channel queries. ❌
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
@@ -408,7 +408,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ❌
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ❌
 - **Message IDs** (msgid): Unique identifiers for messages. ❌
-- **Message Tags** (message-tags): Additional metadata in messages. ❌
+- **Message Tags** (message-tags): Additional metadata in messages. ✅
 - **Monitor** (monitor): Efficient tracking of user online/offline status. ❌
 - **Multi-Prefix** (multi-prefix): Display multiple status prefixes for users in channel responses. ❌
 - **Server Time** (server-time): Timestamp information for messages. ❌

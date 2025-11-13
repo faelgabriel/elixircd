@@ -18,13 +18,8 @@ defmodule ElixIRCd.Commands.User do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: true} = user, %{command: "USER"}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_alreadyregistered,
-      params: [user_reply(user)],
-      trailing: "You may not reregister"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_alreadyregistered, params: [user_reply(user)], trailing: "You may not reregister"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   def handle(user, %{command: "USER", params: [username, _, _ | _], trailing: realname}) when is_binary(realname) do
@@ -39,12 +34,7 @@ defmodule ElixIRCd.Commands.User do
 
   @impl true
   def handle(user, %{command: "USER"}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user_reply(user), "USER"],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "USER"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 end

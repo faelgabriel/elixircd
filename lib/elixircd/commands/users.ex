@@ -16,8 +16,8 @@ defmodule ElixIRCd.Commands.Users do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "USERS"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -26,19 +26,17 @@ defmodule ElixIRCd.Commands.Users do
     highest_connections = Metrics.get(:highest_connections)
 
     [
-      Message.build(%{
-        prefix: :server,
+      %Message{
         command: :rpl_localusers,
         params: [user.nick, to_string(total_users), to_string(highest_connections)],
         trailing: "Current local users #{total_users}, max #{highest_connections}"
-      }),
-      Message.build(%{
-        prefix: :server,
+      },
+      %Message{
         command: :rpl_globalusers,
         params: [user.nick, to_string(total_users), to_string(highest_connections)],
         trailing: "Current global users #{total_users}, max #{highest_connections}"
-      })
+      }
     ]
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 end

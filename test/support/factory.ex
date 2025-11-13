@@ -99,7 +99,6 @@ defmodule ElixIRCd.Factory do
   def build(:user_channel, attrs) do
     %UserChannel{
       user_pid: Map.get(attrs, :user_pid, new_pid()),
-      user_transport: Map.get(attrs, :user_transport, :tcp),
       channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
@@ -242,7 +241,6 @@ defmodule ElixIRCd.Factory do
     updated_attrs =
       attrs
       |> Map.put(:user_pid, user.pid)
-      |> Map.put(:user_transport, user.transport)
       |> Map.put(:channel_name_key, channel.name_key)
 
     Memento.transaction!(fn ->

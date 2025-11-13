@@ -29,19 +29,14 @@ defmodule ElixIRCd.Commands.Invite do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "INVITE"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "INVITE", params: params}) when length(params) <= 1 do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user.nick, "INVITE"],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user.nick, "INVITE"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -95,78 +90,44 @@ defmodule ElixIRCd.Commands.Invite do
   @spec send_user_invite_success(User.t(), User.t(), Channel.t()) :: :ok
   defp send_user_invite_success(user, target_user, channel) do
     if target_user.away_message do
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_away,
-        params: [user.nick, target_user.nick],
-        trailing: target_user.away_message
-      })
-      |> Dispatcher.broadcast(user)
+      %Message{command: :rpl_away, params: [user.nick, target_user.nick], trailing: target_user.away_message}
+      |> Dispatcher.broadcast(:server, user)
     end
 
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_inviting,
-      params: [user.nick, target_user.nick, channel.name]
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_inviting, params: [user.nick, target_user.nick, channel.name]}
+    |> Dispatcher.broadcast(:server, user)
 
-    Message.build(%{
-      prefix: user_mask(user),
-      command: "INVITE",
-      params: [target_user.nick, channel.name]
-    })
-    |> Dispatcher.broadcast(target_user)
+    %Message{command: "INVITE", params: [target_user.nick, channel.name]}
+    |> Dispatcher.broadcast(user, target_user)
   end
 
   @spec send_user_invite_error(invite_errors(), User.t(), String.t(), String.t()) :: :ok
   defp send_user_invite_error(:target_user_not_found, user, target_nick, _channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_nosuchnick,
-      params: [user.nick, target_nick],
-      trailing: "No such nick/channel"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_nosuchnick, params: [user.nick, target_nick], trailing: "No such nick/channel"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_invite_error(:channel_not_found, user, _target_nick, channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_nosuchchannel,
-      params: [user.nick, channel_name],
-      trailing: "No such channel"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_invite_error(:user_channel_not_found, user, _target_nick, channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_notonchannel,
-      params: [user.nick, channel_name],
-      trailing: "You're not on that channel"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_invite_error(:user_is_not_operator, user, _target_nick, channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_chanoprivsneeded,
-      params: [user.nick, channel_name],
-      trailing: "You're not channel operator"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_chanoprivsneeded, params: [user.nick, channel_name], trailing: "You're not channel operator"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_user_invite_error(:user_already_on_channel, user, target_nick, channel_name) do
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: :err_useronchannel,
       params: [user.nick, target_nick, channel_name],
       trailing: "is already on channel"
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 end

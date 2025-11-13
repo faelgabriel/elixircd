@@ -12,14 +12,12 @@ defmodule ElixIRCd.Tables.UserChannelTest do
 
       attrs = %{
         user_pid: pid,
-        user_transport: :tcp,
         channel_name_key: "test"
       }
 
       user_channel = UserChannel.new(attrs)
 
       assert user_channel.user_pid == pid
-      assert user_channel.user_transport == :tcp
       assert user_channel.channel_name_key == "test"
       assert user_channel.modes == []
       assert DateTime.diff(utc_now, user_channel.created_at) < 1000
@@ -31,7 +29,6 @@ defmodule ElixIRCd.Tables.UserChannelTest do
 
       attrs = %{
         user_pid: pid,
-        user_transport: :tcp,
         channel_name_key: "test",
         modes: [],
         created_at: utc_now
@@ -40,7 +37,6 @@ defmodule ElixIRCd.Tables.UserChannelTest do
       user_channel = UserChannel.new(attrs)
 
       assert user_channel.user_pid == pid
-      assert user_channel.user_transport == :tcp
       assert user_channel.channel_name_key == "test"
       assert user_channel.modes == []
       assert user_channel.created_at == utc_now
@@ -54,14 +50,12 @@ defmodule ElixIRCd.Tables.UserChannelTest do
       user_channel =
         UserChannel.new(%{
           user_pid: pid,
-          user_transport: :tcp,
           channel_name_key: "test"
         })
 
       updated_user_channel = UserChannel.update(user_channel, %{modes: [{:a, "test"}]})
 
       assert updated_user_channel.user_pid == pid
-      assert updated_user_channel.user_transport == :tcp
       assert updated_user_channel.channel_name_key == "test"
       assert updated_user_channel.modes == [{:a, "test"}]
       assert updated_user_channel.created_at == user_channel.created_at

@@ -5,39 +5,84 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   require Logger
 
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Tables.User
-  alias ElixIRCd.Tables.UserChannel
 
-  @type target :: pid() | User.t() | UserChannel.t()
+  @type target :: pid() | User.t()
+  @type context :: :server | :chanserv | :nickserv | User.t() | nil
 
   @doc """
-  Broadcasts messages to the given targets.
-  Targets can be a single target or a list of pids, users or user_channels.
+  Broadcasts messages with context to the given targets.
   """
-  @spec broadcast(Message.t() | [Message.t()], target() | [target()]) :: :ok
-  def broadcast(messages, targets) when is_list(messages) and is_list(targets) do
-    messages |> Enum.each(&broadcast(&1, targets))
-    :ok
+  @spec broadcast(Message.t() | [Message.t()], context(), target() | [target()]) :: :ok
+  def broadcast(messages, context, targets) do
+    messages = List.wrap(messages)
+    targets = List.wrap(targets)
+
+    if messages == [] or targets == [] do
+      :ok
+    else
+      Enum.each(messages, fn message ->
+        message = add_context(message, context)
+        broadcast_to_targets(message, targets)
+      end)
+    end
   end
 
-  def broadcast(message, targets) when not is_list(message) and is_list(targets) do
-    raw_message = Message.unparse!(message)
-    targets |> Enum.each(&send_packet(&1, raw_message))
+  @spec broadcast_to_targets(Message.t(), [target()]) :: :ok
+  defp broadcast_to_targets(message, targets) do
+    Enum.each(targets, fn
+      %User{pid: pid} = user ->
+        message
+        |> filter_tags(user)
+        |> send_message(pid)
+
+      pid when is_pid(pid) ->
+        send_message(message, pid)
+    end)
   end
 
-  def broadcast(messages, target) when is_list(messages) and not is_list(target) do
-    messages |> Enum.each(&broadcast(&1, target))
+  @spec send_message(Message.t(), pid()) :: :ok
+  defp send_message(message, pid) do
+    message
+    |> Message.unparse!()
+    |> then(&Connection.handle_send(pid, &1))
   end
 
-  def broadcast(message, target) when not is_list(message) and not is_list(target) do
-    raw_message = Message.unparse!(message)
-    send_packet(target, raw_message)
+  @spec add_context(Message.t(), context()) :: Message.t()
+  defp add_context(message, %User{modes: modes} = user) do
+    message = add_prefix(message, user)
+
+    if "B" in modes do
+      %{message | tags: Map.put(message.tags, "bot", nil)}
+    else
+      message
+    end
   end
 
-  @spec send_packet(target(), String.t()) :: :ok
-  defp send_packet(pid, raw_message) when is_pid(pid), do: Connection.handle_send(pid, raw_message)
-  defp send_packet(%User{pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message)
-  defp send_packet(%UserChannel{user_pid: pid}, raw_message), do: Connection.handle_send(pid, raw_message)
+  defp add_context(message, context) do
+    add_prefix(message, context)
+  end
+
+  @spec add_prefix(Message.t(), context() | String.t()) :: Message.t()
+  defp add_prefix(%Message{} = message, %User{} = user), do: %{message | prefix: user_mask(user)}
+  defp add_prefix(%Message{} = message, :server), do: %{message | prefix: hostname()}
+  defp add_prefix(%Message{} = message, :chanserv), do: %{message | prefix: "ChanServ!service@#{hostname()}"}
+  defp add_prefix(%Message{} = message, :nickserv), do: %{message | prefix: "NickServ!service@#{hostname()}"}
+  defp add_prefix(%Message{} = message, nil), do: message
+
+  @spec hostname() :: String.t()
+  defp hostname, do: Application.get_env(:elixircd, :server)[:hostname]
+
+  @spec filter_tags(Message.t(), User.t()) :: Message.t()
+  defp filter_tags(message, %User{capabilities: caps}) do
+    if "MESSAGE-TAGS" in caps do
+      message
+    else
+      %{message | tags: %{}}
+    end
+  end
 end

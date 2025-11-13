@@ -96,12 +96,8 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
       notify(updated_user, "Your current nickname will now be recognized with your account.")
     end
 
-    Message.build(%{
-      prefix: :server,
-      command: "MODE",
-      params: [updated_user.nick, "+r"]
-    })
-    |> Dispatcher.broadcast(updated_user)
+    %Message{command: "MODE", params: [updated_user.nick, "+r"]}
+    |> Dispatcher.broadcast(:server, updated_user)
   end
 
   @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok

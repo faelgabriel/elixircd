@@ -30,8 +30,8 @@ defmodule ElixIRCd.Server.Handshake do
         handle_handshake(user)
 
       {:error, :bad_password} ->
-        Message.build(%{prefix: :server, command: :err_passwdmismatch, params: ["*"], trailing: "Bad Password"})
-        |> Dispatcher.broadcast(user)
+        %Message{command: :err_passwdmismatch, params: ["*"], trailing: "Bad Password"}
+        |> Dispatcher.broadcast(:server, user)
 
         {:quit, "Bad Password"}
     end
@@ -87,20 +87,20 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec request_ident(user :: User.t()) :: String.t() | nil
   defp request_ident(user) do
-    Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"}
+    |> Dispatcher.broadcast(:server, user)
 
     query_identd(user.ip_address, user.port_connected)
     |> case do
       {:ok, user_id} ->
-        Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Got Ident response"})
-        |> Dispatcher.broadcast(user)
+        %Message{command: "NOTICE", params: ["*"], trailing: "*** Got Ident response"}
+        |> Dispatcher.broadcast(:server, user)
 
         user_id
 
       {:error, _reason} ->
-        Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** No Ident response"})
-        |> Dispatcher.broadcast(user)
+        %Message{command: "NOTICE", params: ["*"], trailing: "*** No Ident response"}
+        |> Dispatcher.broadcast(:server, user)
 
         nil
     end
@@ -108,8 +108,8 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec resolve_hostname(user :: User.t()) :: String.t()
   defp resolve_hostname(user) do
-    Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Looking up your hostname..."})
-    |> Dispatcher.broadcast(user)
+    %Message{command: "NOTICE", params: ["*"], trailing: "*** Looking up your hostname..."}
+    |> Dispatcher.broadcast(:server, user)
 
     formatted_ip_address = format_ip_address(user.ip_address)
 
@@ -117,21 +117,16 @@ defmodule ElixIRCd.Server.Handshake do
       {:ok, hostname} ->
         Logger.debug("Resolved hostname for #{formatted_ip_address}: #{hostname}")
 
-        Message.build(%{prefix: :server, command: "NOTICE", params: ["*"], trailing: "*** Found your hostname"})
-        |> Dispatcher.broadcast(user)
+        %Message{command: "NOTICE", params: ["*"], trailing: "*** Found your hostname"}
+        |> Dispatcher.broadcast(:server, user)
 
         hostname
 
       _error ->
         Logger.debug("Could not resolve hostname for #{formatted_ip_address}")
 
-        Message.build(%{
-          prefix: :server,
-          command: "NOTICE",
-          params: ["*"],
-          trailing: "*** Couldn't look up your hostname"
-        })
-        |> Dispatcher.broadcast(user)
+        %Message{command: "NOTICE", params: ["*"], trailing: "*** Couldn't look up your hostname"}
+        |> Dispatcher.broadcast(:server, user)
 
         formatted_ip_address
     end
@@ -147,40 +142,32 @@ defmodule ElixIRCd.Server.Handshake do
     channelmodes = Mode.ChannelModes.modes() |> Enum.join("")
 
     [
-      Message.build(%{
-        prefix: :server,
+      %Message{
         command: :rpl_welcome,
         params: [user.nick],
         trailing: "Welcome to the #{server_name} Internet Relay Chat Network #{user.nick}"
-      }),
-      Message.build(%{
-        prefix: :server,
+      },
+      %Message{
         command: :rpl_yourhost,
         params: [user.nick],
         trailing: "Your host is #{server_name}, running version #{app_version}."
-      }),
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_created,
-        params: [user.nick],
-        trailing: "This server was created #{server_start_date}"
-      }),
-      Message.build(%{
-        prefix: :server,
+      },
+      %Message{command: :rpl_created, params: [user.nick], trailing: "This server was created #{server_start_date}"},
+      %Message{
         command: :rpl_myinfo,
         params: [user.nick],
         trailing: "#{server_hostname} #{app_version} #{usermodes} #{channelmodes}"
-      })
+      }
     ]
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_user_modes(User.t()) :: :ok
   defp send_user_modes(%User{nick: nick, modes: modes} = user) when modes != [] do
     mode_display = Mode.UserModes.display_modes(user, modes)
 
-    Message.build(%{prefix: nick, command: "MODE", params: [nick], trailing: mode_display})
-    |> Dispatcher.broadcast(user)
+    %Message{command: "MODE", params: [nick], trailing: mode_display}
+    |> Dispatcher.broadcast(user, user)
   end
 
   defp send_user_modes(_user), do: :ok

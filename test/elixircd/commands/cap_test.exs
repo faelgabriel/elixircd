@@ -19,7 +19,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP * LS :EXTENDED-UHLIST UHNAMES\r\n"}
+          {user.pid, ":irc.test CAP * LS :MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
@@ -32,7 +32,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP * LS :EXTENDED-UHLIST UHNAMES\r\n"}
+          {user.pid, ":irc.test CAP * LS :MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
@@ -48,7 +48,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} LS :EXTENDED-UHLIST\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} LS :MESSAGE-TAGS EXTENDED-UHLIST\r\n"}
         ])
       end)
 
@@ -64,6 +64,32 @@ defmodule ElixIRCd.Commands.CapTest do
         original_config
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP #{user.nick} LS :MESSAGE-TAGS\r\n"}
+        ])
+      end)
+
+      Application.put_env(:elixircd, :capabilities, original_config)
+    end
+
+    test "handles CAP LS when all capabilities are disabled" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        original_config
+        |> Keyword.put(:extended_names, false)
+        |> Keyword.put(:extended_uhlist, false)
+        |> Keyword.put(:message_tags, false)
       )
 
       Memento.transaction!(fn ->
@@ -222,6 +248,23 @@ defmodule ElixIRCd.Commands.CapTest do
         # Verify the capability was added to the user
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
         assert "EXTENDED-UHLIST" in updated_user.capabilities
+      end)
+    end
+
+    test "handles CAP REQ command with MESSAGE-TAGS capability" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [])
+        message = %Message{command: "CAP", params: ["REQ", "MESSAGE-TAGS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP #{user.nick} ACK :MESSAGE-TAGS\r\n"}
+        ])
+
+        # Verify the capability was added to the user
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert "MESSAGE-TAGS" in updated_user.capabilities
       end)
     end
   end

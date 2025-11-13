@@ -317,13 +317,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         {[mode_change | applied_changes], [mode | new_modes]}
       end
     else
-      Message.build(%{
-        prefix: :server,
+      %Message{
         command: :err_noprivileges,
         params: [user.nick],
         trailing: "Permission Denied- You're not an IRC operator"
-      })
-      |> Dispatcher.broadcast(user)
+      }
+      |> Dispatcher.broadcast(:server, user)
 
       {applied_changes, new_modes}
     end
@@ -338,13 +337,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         {applied_changes, new_modes}
       end
     else
-      Message.build(%{
-        prefix: :server,
+      %Message{
         command: :err_noprivileges,
         params: [user.nick],
         trailing: "Permission Denied- You're not an IRC operator"
-      })
-      |> Dispatcher.broadcast(user)
+      }
+      |> Dispatcher.broadcast(:server, user)
 
       {applied_changes, new_modes}
     end
@@ -357,24 +355,18 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
       user_channel_mode_changed?(mode_change, target_user_channel)
     else
       {:error, :user_channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :err_usernotinchannel,
           params: [user.nick, channel_name, target_nick],
           trailing: "They aren't on that channel"
-        })
-        |> Dispatcher.broadcast(user)
+        }
+        |> Dispatcher.broadcast(:server, user)
 
         false
 
       {:error, :user_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_nosuchnick,
-          params: [user.nick, channel_name, target_nick],
-          trailing: "No such nick"
-        })
-        |> Dispatcher.broadcast(user)
+        %Message{command: :err_nosuchnick, params: [user.nick, channel_name, target_nick], trailing: "No such nick"}
+        |> Dispatcher.broadcast(:server, user)
 
         false
     end
@@ -462,12 +454,11 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   @spec send_invalid_join_throttle_format_error(User.t()) :: :ok
   defp send_invalid_join_throttle_format_error(user) do
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: :err_unknownmode,
       params: [user.nick, "j"],
       trailing: "Invalid join throttle format. Expected <joins>:<seconds>"
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 end

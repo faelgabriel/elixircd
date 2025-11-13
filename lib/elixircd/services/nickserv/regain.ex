@@ -8,7 +8,6 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
   @behaviour ElixIRCd.Service
 
   import ElixIRCd.Utils.Nickserv, only: [notify: 2]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -89,19 +88,21 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
   @spec handle_immediate_nick_change(User.t(), RegisteredNick.t()) :: :ok
   defp handle_immediate_nick_change(user, registered_nick) do
-    old_user_mask = user_mask(user)
     updated_user = Users.update(user, %{nick: registered_nick.nickname})
 
-    all_channel_users =
+    all_channel_user_pids =
       UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name_key)
       |> UserChannels.get_by_channel_names()
       |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
       |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
+      |> Enum.map(& &1.user_pid)
 
-    Message.build(%{prefix: old_user_mask, command: "NICK", params: [registered_nick.nickname]})
-    |> Dispatcher.broadcast([updated_user | all_channel_users])
+    all_users = Users.get_by_pids(all_channel_user_pids)
+
+    %Message{command: "NICK", params: [registered_nick.nickname]}
+    |> Dispatcher.broadcast(user, [updated_user | all_users])
 
     :ok
   end

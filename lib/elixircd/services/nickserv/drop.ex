@@ -66,12 +66,8 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
           new_modes = List.delete(target_user.modes, "r")
           updated_target_user = Users.update(target_user, %{identified_as: nil, modes: new_modes})
 
-          Message.build(%{
-            prefix: :server,
-            command: "MODE",
-            params: [updated_target_user.nick, "-r"]
-          })
-          |> Dispatcher.broadcast(updated_target_user)
+          %Message{command: "MODE", params: [updated_target_user.nick, "-r"]}
+          |> Dispatcher.broadcast(:server, updated_target_user)
         end
 
       {:error, :user_not_found} ->
@@ -82,12 +78,8 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
       new_modes = List.delete(user.modes, "r")
       updated_user = Users.update(user, %{identified_as: nil, modes: new_modes})
 
-      Message.build(%{
-        prefix: :server,
-        command: "MODE",
-        params: [updated_user.nick, "-r"]
-      })
-      |> Dispatcher.broadcast(updated_user)
+      %Message{command: "MODE", params: [updated_user.nick, "-r"]}
+      |> Dispatcher.broadcast(:server, updated_user)
     end
 
     RegisteredNicks.delete(cleared_nickname)

@@ -22,6 +22,10 @@ defmodule ElixIRCd.Commands.Cap do
     "EXTENDED-UHLIST" => %{
       name: "EXTENDED-UHLIST",
       description: "Extended user modes in WHO replies"
+    },
+    "MESSAGE-TAGS" => %{
+      name: "MESSAGE-TAGS",
+      description: "Support for IRCv3 message tags including bot tag"
     }
   }
 
@@ -40,39 +44,28 @@ defmodule ElixIRCd.Commands.Cap do
   defp handle_cap_command(user, ["END"], _trailing), do: handle_cap_end(user)
 
   defp handle_cap_command(user, params, _trailing) do
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: "CAP",
       params: [user_reply(user), "NAK"],
       trailing: "Unsupported CAP command: #{Enum.join(params, " ")}"
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_cap_ls(User.t()) :: :ok
   defp handle_cap_ls(user) do
     capabilities_list = get_capabilities_list()
 
-    Message.build(%{
-      prefix: :server,
-      command: "CAP",
-      params: [user_reply(user), "LS"],
-      trailing: capabilities_list
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: "CAP", params: [user_reply(user), "LS"], trailing: capabilities_list}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_cap_list(User.t()) :: :ok
   defp handle_cap_list(user) do
     enabled_caps = Enum.join(user.capabilities, " ")
 
-    Message.build(%{
-      prefix: :server,
-      command: "CAP",
-      params: [user_reply(user), "LIST"],
-      trailing: enabled_caps
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: "CAP", params: [user_reply(user), "LIST"], trailing: enabled_caps}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_cap_req(User.t(), String.t()) :: :ok
@@ -81,23 +74,13 @@ defmodule ElixIRCd.Commands.Cap do
     {acked, nacked} = validate_capabilities(capabilities)
 
     if length(nacked) > 0 do
-      Message.build(%{
-        prefix: :server,
-        command: "CAP",
-        params: [user_reply(user), "NAK"],
-        trailing: capabilities_string
-      })
-      |> Dispatcher.broadcast(user)
+      %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
+      |> Dispatcher.broadcast(:server, user)
     else
       updated_user = apply_capability_changes(user, acked)
 
-      Message.build(%{
-        prefix: :server,
-        command: "CAP",
-        params: [user_reply(user), "ACK"],
-        trailing: capabilities_string
-      })
-      |> Dispatcher.broadcast(updated_user)
+      %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
+      |> Dispatcher.broadcast(:server, updated_user)
     end
   end
 
@@ -110,6 +93,7 @@ defmodule ElixIRCd.Commands.Cap do
   defp get_capabilities_list do
     extended_names_supported = Application.get_env(:elixircd, :capabilities)[:extended_names] || false
     extended_uhlist_supported = Application.get_env(:elixircd, :capabilities)[:extended_uhlist] || false
+    message_tags_supported = Application.get_env(:elixircd, :capabilities)[:message_tags] || false
     base_caps = []
 
     caps =
@@ -122,6 +106,13 @@ defmodule ElixIRCd.Commands.Cap do
     caps =
       if extended_uhlist_supported do
         ["EXTENDED-UHLIST" | caps]
+      else
+        caps
+      end
+
+    caps =
+      if message_tags_supported do
+        ["MESSAGE-TAGS" | caps]
       else
         caps
       end

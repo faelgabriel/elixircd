@@ -17,8 +17,8 @@ defmodule ElixIRCd.Commands.Rehash do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "REHASH"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -31,28 +31,18 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec process_rehashing(User.t()) :: :ok
   defp process_rehashing(user) do
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_rehashing,
-      params: [user.nick, "elixircd.exs"],
-      trailing: "Rehashing"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_rehashing, params: [user.nick, "elixircd.exs"], trailing: "Rehashing"}
+    |> Dispatcher.broadcast(:server, user)
 
     load_configurations()
 
-    Message.build(%{prefix: :server, command: "NOTICE", params: [user.nick], trailing: "Rehashing completed"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: "NOTICE", params: [user.nick], trailing: "Rehashing completed"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
   defp noprivileges_message(user) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_noprivileges,
-      params: [user.nick],
-      trailing: "Permission Denied- You're not an IRC operator"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_noprivileges, params: [user.nick], trailing: "Permission Denied- You're not an IRC operator"}
+    |> Dispatcher.broadcast(:server, user)
   end
 end

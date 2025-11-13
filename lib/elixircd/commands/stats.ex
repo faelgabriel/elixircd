@@ -16,8 +16,8 @@ defmodule ElixIRCd.Commands.Stats do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "STATS"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -27,29 +27,19 @@ defmodule ElixIRCd.Commands.Stats do
       "Available flags:",
       "u - uptime - Send the server uptime and connection count"
     ]
-    |> Enum.map(&Message.build(%{prefix: :server, command: :rpl_stats, params: [user.nick], trailing: &1}))
-    |> Dispatcher.broadcast(user)
+    |> Enum.map(&%Message{command: :rpl_stats, params: [user.nick], trailing: &1})
+    |> Dispatcher.broadcast(:server, user)
 
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_endofstats,
-      params: [user.nick, "*"],
-      trailing: "End of /STATS report"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_endofstats, params: [user.nick, "*"], trailing: "End of /STATS report"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "STATS", params: [flag | _rest]}) do
     handle_flag(user, flag)
 
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_endofstats,
-      params: [user.nick, flag],
-      trailing: "End of /STATS report"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_endofstats, params: [user.nick, flag], trailing: "End of /STATS report"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_flag(User.t(), String.t()) :: :ok
@@ -57,21 +47,20 @@ defmodule ElixIRCd.Commands.Stats do
     server_start_time = :persistent_term.get(:server_start_time)
     uptime = format_uptime(server_start_time)
 
-    Message.build(%{prefix: :server, command: :rpl_statsuptime, params: [user.nick], trailing: "Server Up #{uptime}"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_statsuptime, params: [user.nick], trailing: "Server Up #{uptime}"}
+    |> Dispatcher.broadcast(:server, user)
 
     current_connections = Users.count_all()
     highest_connections = Metrics.get(:highest_connections)
     total_connections = Metrics.get(:total_connections)
 
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: :rpl_statsconn,
       params: [user.nick],
       trailing:
         "Highest connection count: #{highest_connections} (#{current_connections} clients) (#{total_connections} connections received)"
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp handle_flag(_user, _flag), do: :ok

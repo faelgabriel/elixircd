@@ -11,14 +11,14 @@ defmodule ElixIRCd.Utils.ChanservTest do
 
   describe "notify/2" do
     test "sends a single notice message to a user" do
-      hostname = Application.get_env(:elixircd, :server)[:hostname]
       user = build(:user, nick: "test_user")
       message = "This is a test message"
 
       Dispatcher
-      |> expect(:broadcast, fn msg, target_user ->
+      |> expect(:broadcast, fn msg, context, target_user ->
+        assert context == :chanserv
         assert target_user == user
-        assert msg.prefix == "ChanServ!service@#{hostname}"
+        assert msg.prefix == nil
         assert msg.command == "NOTICE"
         assert msg.params == ["test_user"]
         assert msg.trailing == message
@@ -29,14 +29,14 @@ defmodule ElixIRCd.Utils.ChanservTest do
     end
 
     test "sends multiple notice messages to a user" do
-      hostname = Application.get_env(:elixircd, :server)[:hostname]
       user = build(:user, nick: "test_user")
       messages = ["Message 1", "Message 2", "Message 3"]
 
       Dispatcher
-      |> expect(:broadcast, 3, fn msg, target_user ->
+      |> expect(:broadcast, 3, fn msg, context, target_user ->
+        assert context == :chanserv
         assert target_user == user
-        assert msg.prefix == "ChanServ!service@#{hostname}"
+        assert msg.prefix == nil
         assert msg.command == "NOTICE"
         assert msg.params == ["test_user"]
         assert msg.trailing in messages

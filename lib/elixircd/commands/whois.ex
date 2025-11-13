@@ -21,19 +21,14 @@ defmodule ElixIRCd.Commands.Whois do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: @command}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: @command, params: []}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user_reply(user), @command],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user_reply(user), @command], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -42,13 +37,8 @@ defmodule ElixIRCd.Commands.Whois do
 
     whois_message(user, target_nick, target_user, target_user_channels_display)
 
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_endofwhois,
-      params: [user.nick, target_nick],
-      trailing: "End of /WHOIS list."
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_endofwhois, params: [user.nick, target_nick], trailing: "End of /WHOIS list."}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @doc """
@@ -56,13 +46,8 @@ defmodule ElixIRCd.Commands.Whois do
   """
   @spec whois_message(User.t(), String.t(), User.t() | nil, [String.t()]) :: :ok
   def whois_message(user, target_nick, nil = _target_user, _target_user_channels_display) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_nosuchnick,
-      params: [user.nick, target_nick],
-      trailing: "No such nick"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_nosuchnick, params: [user.nick, target_nick], trailing: "No such nick"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   def whois_message(user, _target_nick, target_user, target_user_channels_display) when target_user != nil do
@@ -76,19 +61,18 @@ defmodule ElixIRCd.Commands.Whois do
     |> maybe_add_away(user, target_user)
     |> maybe_add_whoisoperator(user, target_user)
     |> add_whoisidle(user, target_user)
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec add_whoisuser([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp add_whoisuser(messages, user, target_user) do
     messages ++
       [
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :rpl_whoisuser,
           params: [user.nick, target_user.nick, target_user.ident, target_user.hostname, "*"],
           trailing: target_user.realname
-        })
+        }
       ]
   end
 
@@ -97,12 +81,11 @@ defmodule ElixIRCd.Commands.Whois do
     if "r" in target_user.modes do
       messages ++
         [
-          Message.build(%{
-            prefix: :server,
+          %Message{
             command: :rpl_whoisregnick,
             params: [user.nick, target_user.nick],
             trailing: "has identified for this nick"
-          })
+          }
         ]
     else
       messages
@@ -114,12 +97,11 @@ defmodule ElixIRCd.Commands.Whois do
     if target_user.identified_as do
       messages ++
         [
-          Message.build(%{
-            prefix: :server,
+          %Message{
             command: :rpl_whoisaccount,
             params: [user.nick, target_user.nick, target_user.identified_as],
             trailing: "is logged in as #{target_user.identified_as}"
-          })
+          }
         ]
     else
       messages
@@ -130,14 +112,7 @@ defmodule ElixIRCd.Commands.Whois do
   defp maybe_add_whoisbot(messages, user, target_user) do
     if "B" in target_user.modes do
       messages ++
-        [
-          Message.build(%{
-            prefix: :server,
-            command: :rpl_whoisbot,
-            params: [user.nick, target_user.nick],
-            trailing: "Is a bot on this server"
-          })
-        ]
+        [%Message{command: :rpl_whoisbot, params: [user.nick, target_user.nick], trailing: "Is a bot on this server"}]
     else
       messages
     end
@@ -147,12 +122,11 @@ defmodule ElixIRCd.Commands.Whois do
   defp add_whoischannels(messages, user, target_user, target_user_channels_display) do
     messages ++
       [
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :rpl_whoischannels,
           params: [user.nick, target_user.nick],
           trailing: target_user_channels_display |> Enum.join(" ")
-        })
+        }
       ]
   end
 
@@ -162,12 +136,11 @@ defmodule ElixIRCd.Commands.Whois do
 
     messages ++
       [
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :rpl_whoisserver,
           params: [user.nick, target_user.nick, "ElixIRCd", version],
           trailing: "Elixir IRC daemon"
-        })
+        }
       ]
   end
 
@@ -175,14 +148,7 @@ defmodule ElixIRCd.Commands.Whois do
   defp maybe_add_away(messages, user, target_user) do
     if target_user.away_message != nil do
       messages ++
-        [
-          Message.build(%{
-            prefix: :server,
-            command: :rpl_away,
-            params: [user.nick, target_user.nick],
-            trailing: target_user.away_message
-          })
-        ]
+        [%Message{command: :rpl_away, params: [user.nick, target_user.nick], trailing: target_user.away_message}]
     else
       messages
     end
@@ -192,14 +158,7 @@ defmodule ElixIRCd.Commands.Whois do
   defp maybe_add_whoisoperator(messages, user, target_user) do
     if "o" in target_user.modes do
       messages ++
-        [
-          Message.build(%{
-            prefix: :server,
-            command: :rpl_whoisoperator,
-            params: [user.nick, target_user.nick],
-            trailing: "is an IRC operator"
-          })
-        ]
+        [%Message{command: :rpl_whoisoperator, params: [user.nick, target_user.nick], trailing: "is an IRC operator"}]
     else
       messages
     end
@@ -212,12 +171,11 @@ defmodule ElixIRCd.Commands.Whois do
 
     messages ++
       [
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :rpl_whoisidle,
           params: [user.nick, target_user.nick, idle_seconds, signon_time],
           trailing: "seconds idle, signon time"
-        })
+        }
       ]
   end
 

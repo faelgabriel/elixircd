@@ -5,7 +5,7 @@ defmodule ElixIRCd.Server.Connection do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Command
   alias ElixIRCd.Message
@@ -41,8 +41,8 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_max_connections_exceeded(pid :: pid()) :: :close
   defp handle_max_connections_exceeded(pid) do
-    Message.build(%{command: "ERROR", params: [], trailing: "Too many simultaneous connections from your IP address."})
-    |> Dispatcher.broadcast(pid)
+    %Message{command: "ERROR", params: [], trailing: "Too many simultaneous connections from your IP address."}
+    |> Dispatcher.broadcast(nil, pid)
 
     :close
   end
@@ -58,12 +58,12 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_throttled_connection(pid :: pid(), retry_after_ms :: non_neg_integer()) :: :close
   defp handle_throttled_connection(pid, retry_after_ms) do
-    Message.build(%{
+    %Message{
       command: "ERROR",
       params: [],
       trailing: "Too many connections from your IP address. Try again in #{div(retry_after_ms, 1000)} seconds."
-    })
-    |> Dispatcher.broadcast(pid)
+    }
+    |> Dispatcher.broadcast(nil, pid)
 
     :close
   end
@@ -111,21 +111,19 @@ defmodule ElixIRCd.Server.Connection do
     Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
 
     # Pending: When "standard-replies" is implemented and negotiated with the user, use the FAIL command.
-    # Message.build(%{
-    #   prefix: :server,
+    # %Message{
     #   command: "FAIL",
     #   params: ["*", "INVALID_UTF8"],
     #   trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
-    # })
-    # |> Dispatcher.broadcast(user)
+    # }
+    # |> Dispatcher.broadcast(:server, user)
 
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: "NOTICE",
       params: [user_reply(user)],
       trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
@@ -142,20 +140,19 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_throttled_message(user :: User.t(), retry_after_ms :: non_neg_integer()) :: :ok
   defp handle_throttled_message(user, retry_after_ms) do
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: "NOTICE",
       params: [user_reply(user)],
       trailing:
         "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}
   defp handle_excess_flood(user) do
-    Message.build(%{command: "ERROR", params: [], trailing: "Excess flood"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: "ERROR", params: [], trailing: "Excess flood"}
+    |> Dispatcher.broadcast(nil, user)
 
     {:quit, "Excess flood"}
   end
@@ -203,6 +200,10 @@ defmodule ElixIRCd.Server.Connection do
       all_user_channels_without_user
       |> Enum.uniq_by(& &1.user_pid)
 
+    # Extract PIDs and get Users
+    all_shared_unique_user_pids = Enum.map(all_shared_unique_user_channels, & &1.user_pid)
+    all_shared_unique_users = Users.get_by_pids(all_shared_unique_user_pids)
+
     # Find channels with no other users remaining after removing the quitting user
     channels_with_no_other_users =
       all_channel_name_keys
@@ -234,8 +235,8 @@ defmodule ElixIRCd.Server.Connection do
       realname: user.realname
     })
 
-    Message.build(%{prefix: user_mask(user), command: "QUIT", params: [], trailing: quit_message})
-    |> Dispatcher.broadcast(all_shared_unique_user_channels)
+    %Message{command: "QUIT", params: [], trailing: quit_message}
+    |> Dispatcher.broadcast(user, all_shared_unique_users)
   end
 
   defp handle_quit(user, _quit_message) do

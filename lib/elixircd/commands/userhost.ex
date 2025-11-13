@@ -19,19 +19,14 @@ defmodule ElixIRCd.Commands.Userhost do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: @command}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: @command, params: []}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user_reply(user), @command],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user_reply(user), @command], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -42,8 +37,8 @@ defmodule ElixIRCd.Commands.Userhost do
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
 
-    Message.build(%{prefix: :server, command: :rpl_userhost, params: [user.nick], trailing: userhosts_detailed})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_userhost, params: [user.nick], trailing: userhosts_detailed}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec fetch_userhost_info(String.t()) :: String.t() | nil

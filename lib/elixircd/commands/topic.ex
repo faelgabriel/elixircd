@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Topic do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -22,19 +23,14 @@ defmodule ElixIRCd.Commands.Topic do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "TOPIC"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "TOPIC", params: []}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user_reply(user), "TOPIC"],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "TOPIC"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -45,13 +41,8 @@ defmodule ElixIRCd.Commands.Topic do
         send_channel_topic(channel, user)
 
       {:error, :channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        })
-        |> Dispatcher.broadcast(user)
+        %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 
@@ -105,30 +96,19 @@ defmodule ElixIRCd.Commands.Topic do
 
   @spec send_channel_topic(Channel.t(), User.t()) :: :ok
   defp send_channel_topic(%{topic: topic} = channel, user) when topic == nil do
-    Message.build(%{
-      prefix: :server,
-      command: :rpl_notopic,
-      params: [user.nick, channel.name],
-      trailing: "No topic is set"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_notopic, params: [user.nick, channel.name], trailing: "No topic is set"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic(%{topic: %{text: topic_text}} = channel, user) do
     [
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_topic,
-        params: [user.nick, channel.name],
-        trailing: topic_text
-      }),
-      Message.build(%{
-        prefix: :server,
+      %Message{command: :rpl_topic, params: [user.nick, channel.name], trailing: topic_text},
+      %Message{
         command: :rpl_topicwhotime,
         params: [user.nick, channel.name, channel.topic.setter, DateTime.to_unix(channel.topic.set_at)]
-      })
+      }
     ]
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_channel_topic_change(Channel.t(), User.t(), [UserChannel.t()]) :: :ok
@@ -139,55 +119,41 @@ defmodule ElixIRCd.Commands.Topic do
         %{text: topic_text} -> topic_text
       end
 
-    Message.build(%{
-      prefix: user_mask(user),
-      command: "TOPIC",
-      params: [channel.name],
-      trailing: topic_text
-    })
-    |> Dispatcher.broadcast(to_user_channels)
+    user_pids = Enum.map(to_user_channels, & &1.user_pid)
+    users = Users.get_by_pids(user_pids)
+
+    %Message{command: "TOPIC", params: [channel.name], trailing: topic_text}
+    |> Dispatcher.broadcast(user, users)
   end
 
   @spec send_channel_topic_error(topic_errors(), User.t(), String.t()) :: :ok
   defp send_channel_topic_error(:channel_not_found, user, channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_nosuchchannel,
-      params: [user.nick, channel_name],
-      trailing: "No such channel"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic_error(:user_channel_not_found, user, channel_name) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_notonchannel,
-      params: [user.nick, channel_name],
-      trailing: "You're not on that channel"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic_error(:user_is_not_operator, user, channel_name) do
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp send_channel_topic_error(:topic_too_long, user, _channel_name) do
     max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
 
-    Message.build(%{
-      prefix: :server,
+    %Message{
       command: :err_inputtoolong,
       params: [user.nick],
       trailing: "Topic too long (maximum length: #{max_topic_length} characters)"
-    })
-    |> Dispatcher.broadcast(user)
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 end

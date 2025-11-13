@@ -9,31 +9,25 @@ defmodule ElixIRCd.Commands.Part do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "PART"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "PART", params: []}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user.nick, "PART"],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user.nick, "PART"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -58,31 +52,19 @@ defmodule ElixIRCd.Commands.Part do
         Channels.delete(channel)
       end
 
-      Message.build(%{
-        prefix: user_mask(user),
-        command: "PART",
-        params: [channel.name],
-        trailing: part_message
-      })
-      |> Dispatcher.broadcast(all_user_channels)
+      user_pids = Enum.map(all_user_channels, & &1.user_pid)
+      users = Users.get_by_pids(user_pids)
+
+      %Message{command: "PART", params: [channel.name], trailing: part_message}
+      |> Dispatcher.broadcast(user, users)
     else
       {:error, :user_channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_notonchannel,
-          params: [user.nick, channel_name],
-          trailing: "You're not on that channel"
-        })
-        |> Dispatcher.broadcast(user)
+        %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, :channel_not_found} ->
-        Message.build(%{
-          prefix: :server,
-          command: :err_nosuchchannel,
-          params: [user.nick, channel_name],
-          trailing: "No such channel"
-        })
-        |> Dispatcher.broadcast(user)
+        %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 end

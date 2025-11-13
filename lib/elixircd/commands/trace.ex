@@ -18,8 +18,8 @@ defmodule ElixIRCd.Commands.Trace do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "TRACE"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -43,8 +43,7 @@ defmodule ElixIRCd.Commands.Trace do
     signon_seconds = DateTime.diff(DateTime.utc_now(), target_user.registered_at, :second) |> to_string()
 
     [
-      Message.build(%{
-        prefix: :server,
+      %Message{
         command: :rpl_traceuser,
         params: [
           user.nick,
@@ -55,25 +54,15 @@ defmodule ElixIRCd.Commands.Trace do
           idle_seconds,
           signon_seconds
         ]
-      }),
-      Message.build(%{
-        prefix: :server,
-        command: :rpl_traceend,
-        params: [user.nick],
-        trailing: "End of TRACE"
-      })
+      },
+      %Message{command: :rpl_traceend, params: [user.nick], trailing: "End of TRACE"}
     ]
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_target_not_found(User.t(), String.t()) :: :ok
   defp send_target_not_found(user, target_nick) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_nosuchnick,
-      params: [user.nick, target_nick],
-      trailing: "No such nick"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_nosuchnick, params: [user.nick, target_nick], trailing: "No such nick"}
+    |> Dispatcher.broadcast(:server, user)
   end
 end

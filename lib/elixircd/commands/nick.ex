@@ -9,7 +9,7 @@ defmodule ElixIRCd.Commands.Nick do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -22,13 +22,8 @@ defmodule ElixIRCd.Commands.Nick do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "NICK", params: [], trailing: nil}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user_reply(user), "NICK"],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "NICK"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -44,31 +39,28 @@ defmodule ElixIRCd.Commands.Nick do
       change_nick(user, input_nick)
     else
       {:error, :nick_reserved} ->
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :err_nicknameinuse,
           params: [user_reply(user), input_nick],
           trailing: "This nickname is reserved. Please identify to NickServ first."
-        })
-        |> Dispatcher.broadcast(user)
+        }
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, :nick_in_use} ->
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :err_nicknameinuse,
           params: [user_reply(user), input_nick],
           trailing: "Nickname is already in use"
-        })
-        |> Dispatcher.broadcast(user)
+        }
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, invalid_nick_error} ->
-        Message.build(%{
-          prefix: :server,
+        %Message{
           command: :err_erroneusnickname,
           params: [user_reply(user), input_nick],
           trailing: "Nickname is unavailable: #{invalid_nick_error}"
-        })
-        |> Dispatcher.broadcast(user)
+        }
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 
@@ -92,19 +84,21 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   defp change_nick(user, input_nick) do
-    old_user_mask = user_mask(user)
     updated_user = Users.update(user, %{nick: input_nick})
 
-    all_channel_users =
+    all_channel_user_pids =
       UserChannels.get_by_user_pid(user.pid)
       |> Enum.map(& &1.channel_name_key)
       |> UserChannels.get_by_channel_names()
       |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
       |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
+      |> Enum.map(& &1.user_pid)
 
-    Message.build(%{prefix: old_user_mask, command: "NICK", params: [input_nick]})
-    |> Dispatcher.broadcast([updated_user | all_channel_users])
+    all_users = Users.get_by_pids(all_channel_user_pids)
+
+    %Message{command: "NICK", params: [input_nick]}
+    |> Dispatcher.broadcast(user, [updated_user | all_users])
   end
 
   @spec check_nick_in_use(String.t()) :: :ok | {:error, :nick_in_use}

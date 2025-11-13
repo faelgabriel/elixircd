@@ -17,19 +17,14 @@ defmodule ElixIRCd.Commands.Ison do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false} = user, %{command: "ISON"}) do
-    Message.build(%{prefix: :server, command: :err_notregistered, params: ["*"], trailing: "You have not registered"})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
   def handle(user, %{command: "ISON", params: []}) do
-    Message.build(%{
-      prefix: :server,
-      command: :err_needmoreparams,
-      params: [user_reply(user), "ISON"],
-      trailing: "Not enough parameters"
-    })
-    |> Dispatcher.broadcast(user)
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "ISON"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @impl true
@@ -40,8 +35,8 @@ defmodule ElixIRCd.Commands.Ison do
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
 
-    Message.build(%{prefix: :server, command: :rpl_ison, params: [user.nick], trailing: users_nick_online})
-    |> Dispatcher.broadcast(user)
+    %Message{command: :rpl_ison, params: [user.nick], trailing: users_nick_online}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec fetch_user_nick(String.t()) :: String.t() | nil
