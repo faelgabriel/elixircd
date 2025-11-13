@@ -241,22 +241,15 @@ Modes can be applied to channels or users to modify their behaviors. These can b
 
 These modes apply to users globally, affecting their visibility, privileges, and access across the server.
 
-- **+a (Admin)**: Grants IRC administrator privileges. ❌
 - **+B (Bot)**: Marks the user as a bot. ✅
-- **+c (No CTCP replies)**: Prevents the user from sending CTCP replies. ❌
-- **+D (Deaf)**: Blocks channel messages from being received by the user. ❌
-- **+G (Profanity Filter)**: Filters incoming messages containing offensive words. ❌
 - **+g (Caller ID)**: Blocks private messages from users not on your accept list. ✅
 - **+H (Hide Operator)**: Hides operator status from non-operators in WHOIS. ✅
-- **+h (HelpOp)**: Marks the user as a help operator. ❌
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
-- **+p (Hide channels)**: Hides channels the user is in from WHOIS. ❌
+- **+p (Hide channels)**: Hides channels the user is in from WHOIS except for shared channels. ✅
 - **+r (Registered)**: Indicates the user is registered and identified with services. ✅
 - **+R (Registered Only)**: Only allows messages from registered users. ✅
 - **+s (Snomask)**: Allows reception of server notices. ❌
-- **+S (Strip Colors)**: Strips colors from messages sent to the user. ❌
-- **+u (Soft Caller ID)**: Similar to +g, but not blocking WHOIS. ❌
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
 - **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ❌
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
@@ -265,24 +258,18 @@ These modes apply to users globally, affecting their visibility, privileges, and
 
 These modes apply to channels and define behavior, restrictions, and access rules.
 
-- **+A (Admin Only)**: Only IRC operators with admin access may join. ❌
 - **+C (No CTCP)**: Blocks CTCP messages to the channel. ✅
 - **+c (No Colors)**: Blocks messages with colors. ✅
 - **+d (Delay Message)**: Requires users to wait before sending messages after joining. ✅
-- **+f (Flood Protection)**: Protects the channel from flooding. ❌
-- **+H (History)**: Sends recent channel history to users when they join. ❌
 - **+i (Invite Only)**: Restricts channel access to invited users only. ✅
 - **+j (Join Throttle)**: Limits the rate of joins to the channel. ✅
 - **+k (Key)**: Requires a password to join the channel. ✅
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
-- **+L (Redirect)**: Redirects users to another channel if they cannot join this one. ❌
 - **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
 - **+M (Registered Only Speak)**: Only registered users may speak. ❌
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
-- **+N (No Nick Changes)**: Prevents users from changing their nicknames while in the channel. ❌
 - **+O (Oper Only)**: Restricts channel access to IRC operators only. ✅
 - **+p (Private)**: Hides the channel from the LIST command. ✅
-- **+Q (No Kicks)**: Prevents users from being kicked from the channel. ❌
 - **+r (Registered Channel)**: Indicates the channel is registered with services. ❌
 - **+R (Registered Only Join)**: Only registered users may join the channel. ❌
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
@@ -303,10 +290,7 @@ These modes use lists to manage exceptions and access control in channels.
 
 These modes are assigned to users within a specific channel and determine their privileges or status.
 
-- **+q (Owner)**: Grants full control over the channel. ❌
-- **+a (Admin)**: Grants high-level channel privileges. ❌
 - **+o (Operator)**: Grants standard moderator privileges. ✅
-- **+h (Half-operator)**: Grants limited moderation privileges. ❌
 - **+v (Voice)**: Allows speaking in moderated channels. ✅
 
 ### Services
