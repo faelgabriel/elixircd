@@ -166,6 +166,150 @@ defmodule ElixIRCd.Server.DispatcherTest do
       Connection
       |> reject(:handle_send, 2)
     end
+
+    test "broadcasts multiple messages with User context to single target", %{
+      user: user,
+      target_user: target_user
+    } do
+      message1 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "hello"})
+      message2 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "world"})
+
+      expected_message1 = ":testnick!testident@test.host PRIVMSG #test :hello\r\n"
+      expected_message2 = ":testnick!testident@test.host PRIVMSG #test :world\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message1
+        :ok
+      end)
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message2
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast([message1, message2], user, target_user)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "broadcasts multiple messages with User context to multiple targets", %{
+      user: user,
+      target_user: target_user
+    } do
+      another_user = insert(:user)
+      message1 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "hello"})
+      message2 = Message.build(%{command: "PRIVMSG", params: ["#test"], trailing: "world"})
+
+      expected_message1 = ":testnick!testident@test.host PRIVMSG #test :hello\r\n"
+      expected_message2 = ":testnick!testident@test.host PRIVMSG #test :world\r\n"
+
+      Connection
+      |> expect(:handle_send, 4, fn pid, received_message ->
+        assert pid in [target_user.pid, another_user.pid]
+        assert received_message in [expected_message1, expected_message2]
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast([message1, message2], user, [target_user, another_user])
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "broadcasts with :chanserv context, adding ChanServ prefix", %{
+      target_user: target_user
+    } do
+      message = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "ChanServ message"})
+      expected_message = ":ChanServ!service@irc.test NOTICE testnick :ChanServ message\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, :chanserv, target_user)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "broadcasts multiple messages with :chanserv context to single target", %{
+      target_user: target_user
+    } do
+      message1 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 1"})
+      message2 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 2"})
+
+      expected_message1 = ":ChanServ!service@irc.test NOTICE testnick :Message 1\r\n"
+      expected_message2 = ":ChanServ!service@irc.test NOTICE testnick :Message 2\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message1
+        :ok
+      end)
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message2
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast([message1, message2], :chanserv, target_user)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "broadcasts with :nickserv context, adding NickServ prefix", %{
+      target_user: target_user
+    } do
+      message = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "NickServ message"})
+      expected_message = ":NickServ!service@irc.test NOTICE testnick :NickServ message\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, :nickserv, target_user)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "broadcasts multiple messages with :nickserv context to single target", %{
+      target_user: target_user
+    } do
+      message1 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 1"})
+      message2 = Message.build(%{command: "NOTICE", params: ["testnick"], trailing: "Message 2"})
+
+      expected_message1 = ":NickServ!service@irc.test NOTICE testnick :Message 1\r\n"
+      expected_message2 = ":NickServ!service@irc.test NOTICE testnick :Message 2\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message1
+        :ok
+      end)
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message2
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast([message1, message2], :nickserv, target_user)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
   end
 
   describe "broadcast/3 - various target types" do

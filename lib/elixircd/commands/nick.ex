@@ -9,7 +9,7 @@ defmodule ElixIRCd.Commands.Nick do
 
   require Logger
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -88,7 +88,6 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   defp change_nick(user, input_nick) do
-    old_user_mask = user_mask(user)
     updated_user = Users.update(user, %{nick: input_nick})
 
     all_channel_users =
@@ -99,8 +98,8 @@ defmodule ElixIRCd.Commands.Nick do
       |> Enum.group_by(& &1.user_pid)
       |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
 
-    Message.build(%{prefix: old_user_mask, command: "NICK", params: [input_nick]})
-    |> Dispatcher.broadcast([updated_user | all_channel_users])
+    Message.build(%{command: "NICK", params: [input_nick]})
+    |> Dispatcher.broadcast(user, [updated_user | all_channel_users])
   end
 
   @spec check_nick_in_use(String.t()) :: :ok | {:error, :nick_in_use}

@@ -35,11 +35,10 @@ defmodule ElixIRCd.Utils.Nickserv do
   @spec send_notice(User.t(), String.t()) :: :ok
   defp send_notice(user, message) do
     Message.build(%{
-      prefix: "NickServ!service@#{Application.get_env(:elixircd, :server)[:hostname]}",
       command: "NOTICE",
       params: [user_reply(user)],
       trailing: message
     })
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(:nickserv, user)
   end
 end

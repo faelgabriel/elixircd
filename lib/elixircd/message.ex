@@ -252,9 +252,7 @@ defmodule ElixIRCd.Message do
   # Format: tag1=value1;tag2=value2;tag3
   @spec format_tags(%{optional(String.t()) => String.t() | nil}) :: String.t()
   defp format_tags(tags) do
-    tags
-    |> Enum.map(&format_single_tag/1)
-    |> Enum.join(";")
+    Enum.map_join(tags, ";", &format_single_tag/1)
   end
 
   # Formats a single tag into "key=value" or "key" format.

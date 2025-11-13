@@ -42,7 +42,7 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_max_connections_exceeded(pid :: pid()) :: :close
   defp handle_max_connections_exceeded(pid) do
     Message.build(%{command: "ERROR", params: [], trailing: "Too many simultaneous connections from your IP address."})
-    |> Dispatcher.broadcast(pid)
+    |> Dispatcher.broadcast(nil, pid)
 
     :close
   end
@@ -63,7 +63,7 @@ defmodule ElixIRCd.Server.Connection do
       params: [],
       trailing: "Too many connections from your IP address. Try again in #{div(retry_after_ms, 1000)} seconds."
     })
-    |> Dispatcher.broadcast(pid)
+    |> Dispatcher.broadcast(nil, pid)
 
     :close
   end
@@ -152,7 +152,7 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}
   defp handle_excess_flood(user) do
     Message.build(%{command: "ERROR", params: [], trailing: "Excess flood"})
-    |> Dispatcher.broadcast(user)
+    |> Dispatcher.broadcast(nil, user)
 
     {:quit, "Excess flood"}
   end
