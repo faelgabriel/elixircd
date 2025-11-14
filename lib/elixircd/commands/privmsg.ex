@@ -220,9 +220,8 @@ defmodule ElixIRCd.Commands.Privmsg do
   # When user is in channel
   defp check_user_channel_modes(channel, _user, user_channel) do
     if "m" in channel.modes do
-      with :ok <- check_channel_moderated(channel, user_channel),
-           :ok <- check_delay_message(channel, user_channel) do
-        :ok
+      with :ok <- check_channel_moderated(channel, user_channel) do
+        check_delay_message(channel, user_channel)
       end
     else
       check_delay_message(channel, user_channel)
