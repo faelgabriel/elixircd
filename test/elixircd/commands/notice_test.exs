@@ -3,12 +3,14 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
   use ElixIRCd.DataCase, async: false
   use ElixIRCd.MessageCase
+  use Mimic
 
   import ElixIRCd.Factory
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Commands.Notice
   alias ElixIRCd.Message
+  alias ElixIRCd.Service
 
   describe "handle/2" do
     test "handles NOTICE command with user not registered" do
@@ -125,6 +127,66 @@ defmodule ElixIRCd.Commands.NoticeTest do
         assert_sent_messages([
           {another_user.pid, ":#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
         ])
+      end)
+    end
+
+    test "handles NOTICE command directed to a service with trailing message" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "NOTICE", params: ["NICKSERV"], trailing: "REGISTER password email@example.com"}
+
+        Service
+        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "NICKSERV"
+          assert command_list == ["REGISTER", "password", "email@example.com"]
+          :ok
+        end)
+
+        assert :ok = Notice.handle(user, message)
+
+        verify!()
+      end)
+    end
+
+    test "handles NOTICE command directed to a service with params instead of trailing" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "NOTICE", params: ["NICKSERV", "IDENTIFY", "password"]}
+
+        Service
+        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "NICKSERV"
+          assert command_list == ["IDENTIFY", "password"]
+          :ok
+        end)
+
+        assert :ok = Notice.handle(user, message)
+
+        verify!()
+      end)
+    end
+
+    test "handles NOTICE command with case-insensitive service name" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "NOTICE", params: ["nickserv"], trailing: "REGISTER password email@example.com"}
+
+        Service
+        |> expect(:service_implemented?, fn "nickserv" -> true end)
+        |> expect(:dispatch, fn dispatched_user, service, command_list ->
+          assert dispatched_user == user
+          assert service == "nickserv"
+          assert command_list == ["REGISTER", "password", "email@example.com"]
+          :ok
+        end)
+
+        assert :ok = Notice.handle(user, message)
+
+        verify!()
       end)
     end
 
@@ -373,6 +435,22 @@ defmodule ElixIRCd.Commands.NoticeTest do
       end)
     end
 
+    test "blocks NOTICE messages for users not in channel when +T mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["T"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send NOTICE to channel (+T)\r\n"}
+        ])
+      end)
+    end
+
     test "blocks NOTICE messages for regular users when +T mode is set" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -572,6 +650,124 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
         assert_sent_messages([
           {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks CTCP messages for users not in channel when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks CTCP messages for regular users when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks VERSION CTCP messages for regular users when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01VERSION\x01"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
+        ])
+      end)
+    end
+
+    test "allows CTCP messages for channel operators when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :\x01ACTION waves\x01\r\n"}
+        ])
+      end)
+    end
+
+    test "allows CTCP messages for voice users when +C mode is set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION dances\x01"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :\x01ACTION dances\x01\r\n"}
+        ])
+      end)
+    end
+
+    test "allows CTCP messages when +C mode is not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :\x01ACTION waves\x01\r\n"}
+        ])
+      end)
+    end
+
+    test "handles malformed CTCP messages correctly" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["C"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01This is not a CTCP"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :\x01This is not a CTCP\r\n"}
         ])
       end)
     end
