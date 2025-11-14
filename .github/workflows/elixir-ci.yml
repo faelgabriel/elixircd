@@ -45,17 +45,12 @@ jobs:
 
       - name: Restore Dialyzer PLT cache
         id: plt-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
-          key: |
-            plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/*.ex') }}
+          key: plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
           restore-keys: |
-            plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}-${{ hashFiles('**/*.ex') }}
-            plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}-
             plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-
-            plt-${{ runner.os }}-${{ env.OTP_VERSION }}-
-          path: |
-            .dialyzer
+          path: .dialyzer
 
       - name: Install dependencies
         run: mix deps.get
@@ -79,13 +74,19 @@ jobs:
         run: mix doctor
 
       - name: Create Dialyzer PLTs
-        if: steps.plt-cache.outputs.cache-hit != 'true' || github.run_attempt != '1'
         run: |
           mkdir -p .dialyzer
           mix dialyzer --plt
 
       - name: Run dialyzer
         run: mix dialyzer --format github
+
+      - name: Save Dialyzer PLT cache
+        uses: actions/cache/save@v4
+        if: steps.plt-cache.outputs.cache-hit != 'true'
+        with:
+          key: plt-${{ runner.os }}-${{ env.OTP_VERSION }}-${{ env.ELIXIR_VERSION }}-${{ hashFiles('**/mix.lock') }}
+          path: .dialyzer
 
   tests_and_coverage:
     name: Tests & Coverage
