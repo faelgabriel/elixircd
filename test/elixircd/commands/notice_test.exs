@@ -54,16 +54,32 @@ defmodule ElixIRCd.Commands.NoticeTest do
       end)
     end
 
-    test "handles NOTICE command for channel with existing channel and user is not in the channel" do
+    test "handles NOTICE command for channel with +n mode and user is not in the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel)
+        channel = insert(:channel, modes: ["n"])
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
           {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command for channel without +n mode and user is not in the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
         ])
       end)
     end
@@ -413,6 +429,141 @@ defmodule ElixIRCd.Commands.NoticeTest do
         user = insert(:user)
         another_user = insert(:user)
         channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command with +M mode blocking unregistered users" do
+      Memento.transaction!(fn ->
+        unregistered_user = insert(:user, modes: [])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: unregistered_user, channel: channel, modes: [])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(unregistered_user, message)
+
+        assert_sent_messages([
+          {unregistered_user.pid,
+           ":irc.test 477 #{unregistered_user.nick} #{channel.name} :You must be identified to speak in this channel (+M)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command with +M mode allowing registered users" do
+      Memento.transaction!(fn ->
+        registered_user = insert(:user, modes: ["r"])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: registered_user, channel: channel, modes: [])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(registered_user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(registered_user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command with +M mode allowing operators even if not registered" do
+      Memento.transaction!(fn ->
+        unregistered_op = insert(:user, modes: [])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: unregistered_op, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(unregistered_op, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(unregistered_op)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command with +M mode allowing voiced users even if not registered" do
+      Memento.transaction!(fn ->
+        unregistered_voiced = insert(:user, modes: [])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: unregistered_voiced, channel: channel, modes: ["v"])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(unregistered_voiced, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(unregistered_voiced)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command for channel with +m mode and user is not voice or higher" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["m"])
+        insert(:user_channel, user: user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command for channel with +m mode and user is voice" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["m"])
+        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command for channel with +m mode and user is operator" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["m"])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NOTICE command for channel with +n mode and user is in the channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["n"])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 

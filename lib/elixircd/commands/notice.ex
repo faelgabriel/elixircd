@@ -7,7 +7,9 @@ defmodule ElixIRCd.Commands.Notice do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.MessageFilter, only: [should_silence_message?: 2]
+  import ElixIRCd.Utils.MessageFilter,
+    only: [check_registered_only_speak: 3, should_silence_message?: 2]
+
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1]
   import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, channel_operator?: 1, channel_voice?: 1]
 
@@ -48,8 +50,16 @@ defmodule ElixIRCd.Commands.Notice do
   end
 
   defp handle_channel_message(user, channel_name, message_text) do
+    user_channel =
+      UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
+      |> case do
+        {:ok, user_channel} -> user_channel
+        {:error, :user_channel_not_found} -> nil
+      end
+
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
+         :ok <- check_user_channel_modes(channel, user, user_channel),
+         :ok <- check_registered_only_speak(channel, user, user_channel),
          :ok <- check_delay_message(channel, user_channel),
          :ok <- check_notice_blocked(channel, user_channel),
          :ok <- check_formatting(channel, message_text) do
@@ -65,13 +75,13 @@ defmodule ElixIRCd.Commands.Notice do
     else
       {:error, :delay_message_blocked, delay} ->
         %Message{
-          command: "937",
+          command: :err_delaymessageblocked,
           params: [user.nick, channel_name],
           trailing: "You must wait #{delay} seconds after joining before speaking in this channel."
         }
         |> Dispatcher.broadcast(:server, user)
 
-      {:error, :user_channel_not_found} ->
+      {:error, :user_can_not_send} ->
         %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
         |> Dispatcher.broadcast(:server, user)
 
@@ -81,14 +91,26 @@ defmodule ElixIRCd.Commands.Notice do
 
       {:error, :formatting_blocked} ->
         %Message{
-          command: "404",
+          command: :err_cannotsendtochan,
           params: [user.nick, channel_name],
           trailing: "Cannot send to channel (+c - no colors allowed)"
         }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :notice_blocked} ->
-        %Message{command: "404", params: [user.nick, channel_name], trailing: "Cannot send NOTICE to channel (+T)"}
+        %Message{
+          command: :err_cannotsendtochan,
+          params: [user.nick, channel_name],
+          trailing: "Cannot send NOTICE to channel (+T)"
+        }
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :registered_only_speak} ->
+        %Message{
+          command: :err_needreggednick,
+          params: [user.nick, channel_name],
+          trailing: "You must be identified to speak in this channel (+M)"
+        }
         |> Dispatcher.broadcast(:server, user)
     end
   end
@@ -121,7 +143,7 @@ defmodule ElixIRCd.Commands.Notice do
   @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
   defp handle_restricted_user_message(sender, recipient) do
     %Message{
-      command: :err_cannotsendtouser,
+      command: :err_needreggednick,
       params: [sender.nick, recipient.nick],
       trailing: "You must be identified to message this user"
     }
@@ -150,6 +172,38 @@ defmodule ElixIRCd.Commands.Notice do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  @spec check_user_channel_modes(Channel.t(), User.t(), UserChannel.t() | nil) ::
+          :ok | {:error, :user_can_not_send} | {:error, :delay_message_blocked, integer()}
+  # When user is not in channel
+  defp check_user_channel_modes(channel, _user, nil) do
+    if "m" in channel.modes or "n" in channel.modes do
+      {:error, :user_can_not_send}
+    else
+      :ok
+    end
+  end
+
+  # When user is in channel
+  defp check_user_channel_modes(channel, _user, user_channel) do
+    if "m" in channel.modes do
+      with :ok <- check_channel_moderated(channel, user_channel),
+           :ok <- check_delay_message(channel, user_channel) do
+        :ok
+      end
+    else
+      check_delay_message(channel, user_channel)
+    end
+  end
+
+  @spec check_channel_moderated(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_can_not_send}
+  defp check_channel_moderated(channel, user_channel) do
+    if "m" in channel.modes and not (channel_operator?(user_channel) or channel_voice?(user_channel)) do
+      {:error, :user_can_not_send}
+    else
+      :ok
+    end
+  end
+
   @spec check_formatting(Channel.t(), String.t()) :: :ok | {:error, :formatting_blocked}
   defp check_formatting(channel, message_text) do
     if "c" in channel.modes and contains_formatting?(message_text) do
@@ -159,7 +213,7 @@ defmodule ElixIRCd.Commands.Notice do
     end
   end
 
-  @spec check_notice_blocked(Channel.t(), UserChannel.t()) :: :ok | {:error, :notice_blocked}
+  @spec check_notice_blocked(Channel.t(), UserChannel.t() | nil) :: :ok | {:error, :notice_blocked}
   defp check_notice_blocked(channel, user_channel) do
     if "T" in channel.modes and not user_can_send_notice?(user_channel) do
       {:error, :notice_blocked}
@@ -168,12 +222,16 @@ defmodule ElixIRCd.Commands.Notice do
     end
   end
 
-  @spec user_can_send_notice?(UserChannel.t()) :: boolean()
+  @spec user_can_send_notice?(UserChannel.t() | nil) :: boolean()
+  defp user_can_send_notice?(nil), do: false
+
   defp user_can_send_notice?(user_channel) do
     channel_operator?(user_channel) or channel_voice?(user_channel)
   end
 
-  @spec check_delay_message(Channel.t(), UserChannel.t()) :: :ok | {:error, :delay_message_blocked, integer()}
+  @spec check_delay_message(Channel.t(), UserChannel.t() | nil) :: :ok | {:error, :delay_message_blocked, integer()}
+  defp check_delay_message(_channel, nil), do: :ok
+
   defp check_delay_message(%{modes: modes}, user_channel) do
     with delay when is_integer(delay) <- extract_delay_mode_value(modes),
          false <- channel_operator?(user_channel) or channel_voice?(user_channel),

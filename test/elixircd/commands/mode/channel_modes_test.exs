@@ -356,27 +356,27 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
     end
 
     test "handles add modes with invalid modes" do
-      mode_string = "+lntsimxyz"
+      mode_string = "+lntsimxya"
       values = ["10"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
       assert validated_modes == [{:add, {"l", "10"}}, {:add, "n"}, {:add, "t"}, {:add, "s"}, {:add, "i"}, {:add, "m"}]
-      assert invalid_modes == ["x", "y", "z"]
+      assert invalid_modes == ["x", "y", "a"]
     end
 
     test "handles remove modes with invalid modes" do
-      mode_string = "-lntsixyz"
+      mode_string = "-lntsixya"
       values = []
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
       assert validated_modes == [{:remove, "l"}, {:remove, "n"}, {:remove, "t"}, {:remove, "s"}, {:remove, "i"}]
-      assert invalid_modes == ["x", "y", "z"]
+      assert invalid_modes == ["x", "y", "a"]
     end
 
     test "handles add and remove modes with invalid modes" do
-      mode_string = "+l-n+t-w+m-p-k+z"
+      mode_string = "+l-n+t-w+m-p-k+a"
       values = ["20"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
@@ -390,7 +390,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
                {:remove, "k"}
              ]
 
-      assert invalid_modes == ["w", "z"]
+      assert invalid_modes == ["w", "a"]
     end
   end
 

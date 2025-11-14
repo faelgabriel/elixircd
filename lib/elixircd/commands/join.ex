@@ -9,6 +9,8 @@ defmodule ElixIRCd.Commands.Join do
 
   require Logger
 
+  import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
+
   import ElixIRCd.Utils.Protocol,
     only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, match_user_mask?: 2, irc_operator?: 1]
 
@@ -32,6 +34,8 @@ defmodule ElixIRCd.Commands.Join do
           | :user_not_invited
           | :user_not_operator
           | :join_throttled
+          | :user_not_registered
+          | :connection_not_secure
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -96,7 +100,10 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec send_join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
   defp send_join_channel(user, channel, user_channel) do
-    user_channels = UserChannels.get_by_channel_name(channel.name)
+    user_channels =
+      UserChannels.get_by_channel_name(channel.name)
+      |> filter_auditorium_users(user_channel, channel.modes)
+
     user_pids = Enum.map(user_channels, & &1.user_pid)
     users = Users.get_by_pids(user_pids)
 
@@ -178,7 +185,7 @@ defmodule ElixIRCd.Commands.Join do
 
   defp send_join_channel_error(:user_not_operator, user, channel_name) do
     %Message{
-      command: "520",
+      command: :err_ircoperonlychan,
       params: [user.nick, channel_name],
       trailing: "Only IRC operators may join this channel (+O)"
     }
@@ -186,7 +193,29 @@ defmodule ElixIRCd.Commands.Join do
   end
 
   defp send_join_channel_error(:join_throttled, user, channel_name) do
-    %Message{command: "477", params: [user.nick, channel_name], trailing: "Channel join rate exceeded (+j)"}
+    %Message{
+      command: :err_needreggednick,
+      params: [user.nick, channel_name],
+      trailing: "Channel join rate exceeded (+j)"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_join_channel_error(:user_not_registered, user, channel_name) do
+    %Message{
+      command: :err_needreggednick,
+      params: [user.nick, channel_name],
+      trailing: "You must be identified to join this channel (+R)"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_join_channel_error(:connection_not_secure, user, channel_name) do
+    %Message{
+      command: :err_secureonlychan,
+      params: [user.nick, channel_name],
+      trailing: "Cannot join channel - SSL/TLS required (+z)"
+    }
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -234,6 +263,8 @@ defmodule ElixIRCd.Commands.Join do
   defp check_modes(:existing, channel, user, join_value) do
     with :ok <- check_user_banned(channel, user),
          :ok <- check_user_invited(channel, user),
+         :ok <- check_registered_only_join(channel, user),
+         :ok <- check_secure_only(channel, user),
          :ok <- check_channel_key(channel, user, join_value),
          :ok <- check_channel_limit(channel, user),
          :ok <- check_join_throttle(channel, user) do
@@ -398,6 +429,24 @@ defmodule ElixIRCd.Commands.Join do
 
     if recent_joins >= max_joins do
       {:error, :join_throttled}
+    else
+      :ok
+    end
+  end
+
+  @spec check_registered_only_join(Channel.t(), User.t()) :: :ok | {:error, :user_not_registered}
+  defp check_registered_only_join(channel, user) do
+    if "R" in channel.modes and "r" not in user.modes do
+      {:error, :user_not_registered}
+    else
+      :ok
+    end
+  end
+
+  @spec check_secure_only(Channel.t(), User.t()) :: :ok | {:error, :connection_not_secure}
+  defp check_secure_only(channel, user) do
+    if "z" in channel.modes and "Z" not in user.modes do
+      {:error, :connection_not_secure}
     else
       :ok
     end

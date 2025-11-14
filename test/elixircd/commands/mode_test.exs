@@ -340,12 +340,12 @@ defmodule ElixIRCd.Commands.ModeTest do
         channel = insert(:channel, modes: [])
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
-        message = %Message{command: "MODE", params: [channel.name, "+wz"]}
+        message = %Message{command: "MODE", params: [channel.name, "+wa"]}
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
           {user.pid, ":irc.test 472 #{user.nick} w :is unknown mode char to me\r\n"},
-          {user.pid, ":irc.test 472 #{user.nick} z :is unknown mode char to me\r\n"}
+          {user.pid, ":irc.test 472 #{user.nick} a :is unknown mode char to me\r\n"}
         ])
       end)
     end
