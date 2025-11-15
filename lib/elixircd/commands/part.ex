@@ -9,6 +9,8 @@ defmodule ElixIRCd.Commands.Part do
 
   require Logger
 
+  import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
@@ -42,17 +44,19 @@ defmodule ElixIRCd.Commands.Part do
   defp handle_channel(user, channel_name, part_message) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
-      all_user_channels = UserChannels.get_by_channel_name(channel.name)
+      user_channels =
+        UserChannels.get_by_channel_name(channel.name)
+        |> filter_auditorium_users(user_channel, channel.modes)
 
       UserChannels.delete(user_channel)
 
       # Delete the channel if there are no other users
-      if all_user_channels == [user_channel] do
+      if user_channels == [user_channel] do
         ChannelInvites.delete_by_channel_name(channel_name)
         Channels.delete(channel)
       end
 
-      user_pids = Enum.map(all_user_channels, & &1.user_pid)
+      user_pids = Enum.map(user_channels, & &1.user_pid)
       users = Users.get_by_pids(user_pids)
 
       %Message{command: "PART", params: [channel.name], trailing: part_message}

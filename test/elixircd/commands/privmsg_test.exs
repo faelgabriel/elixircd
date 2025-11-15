@@ -56,6 +56,23 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
       end)
     end
 
+    test "handles PRIVMSG command for channel using params format instead of trailing" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        another_user = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name, "Hello", "World"]}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello World\r\n"}
+        ])
+      end)
+    end
+
     test "handles PRIVMSG command for channel with moderated mode and user is not voice or higher" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -800,6 +817,75 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(sender, message)
 
         assert_sent_messages([])
+      end)
+    end
+
+    test "handles PRIVMSG command with +M mode blocking unregistered users" do
+      Memento.transaction!(fn ->
+        unregistered_user = insert(:user, modes: [])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: unregistered_user, channel: channel, modes: [])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(unregistered_user, message)
+
+        assert_sent_messages([
+          {unregistered_user.pid,
+           ":irc.test 477 #{unregistered_user.nick} #{channel.name} :You must be identified to speak in this channel (+M)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command with +M mode allowing registered users" do
+      Memento.transaction!(fn ->
+        registered_user = insert(:user, modes: ["r"])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: registered_user, channel: channel, modes: [])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(registered_user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(registered_user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command with +M mode allowing operators even if not registered" do
+      Memento.transaction!(fn ->
+        unregistered_op = insert(:user, modes: [])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: unregistered_op, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(unregistered_op, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(unregistered_op)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "handles PRIVMSG command with +M mode allowing voiced users even if not registered" do
+      Memento.transaction!(fn ->
+        unregistered_voiced = insert(:user, modes: [])
+        another_user = insert(:user)
+        channel = insert(:channel, modes: ["M"])
+        insert(:user_channel, user: unregistered_voiced, channel: channel, modes: ["v"])
+        insert(:user_channel, user: another_user, channel: channel, modes: [])
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "Hello"}
+        assert :ok = Privmsg.handle(unregistered_voiced, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(unregistered_voiced)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
       end)
     end
   end

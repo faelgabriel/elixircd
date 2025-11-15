@@ -510,5 +510,103 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(irc_operator.pid, "#test")
       end)
     end
+
+    test "handles JOIN command with +R mode blocking unregistered users" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o", "r"])
+        channel = insert(:channel, name: "#test", modes: ["R"])
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        unregistered_user = insert(:user, modes: [])
+        join_message = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(unregistered_user, join_message)
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(unregistered_user.pid, "#test")
+
+        assert_sent_messages([
+          {unregistered_user.pid,
+           ":irc.test 477 #{unregistered_user.nick} #test :You must be identified to join this channel (+R)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with +R mode allowing registered users" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o", "r"])
+        channel = insert(:channel, name: "#test", modes: ["R"])
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        registered_user = insert(:user, modes: ["r"])
+        join_message = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(registered_user, join_message)
+
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(registered_user.pid, "#test")
+      end)
+    end
+
+    test "handles JOIN command with +z mode blocking non-secure connections" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o", "Z"])
+        channel = insert(:channel, name: "#test", modes: ["z"])
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        insecure_user = insert(:user, modes: [])
+        join_message = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(insecure_user, join_message)
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(insecure_user.pid, "#test")
+
+        assert_sent_messages([
+          {insecure_user.pid,
+           ":irc.test 489 #{insecure_user.nick} #test :Cannot join channel - SSL/TLS required (+z)\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with +z mode allowing secure connections" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o", "Z"])
+        channel = insert(:channel, name: "#test", modes: ["z"])
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        secure_user_tls = insert(:user, modes: ["Z"])
+        join_message1 = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(secure_user_tls, join_message1)
+
+        secure_user_wss = insert(:user, modes: ["Z"])
+        join_message2 = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(secure_user_wss, join_message2)
+
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(secure_user_tls.pid, "#test")
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(secure_user_wss.pid, "#test")
+      end)
+    end
+
+    test "handles JOIN command with +u mode showing join only to voiced/ops" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"])
+        channel = insert(:channel, name: "#test", modes: ["u"])
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+
+        voiced_user = insert(:user)
+        insert(:user_channel, user: voiced_user, channel: channel, modes: ["v"])
+
+        normal_user = insert(:user)
+        insert(:user_channel, user: normal_user, channel: channel, modes: [])
+
+        new_normal_user = insert(:user)
+        join_message = %Message{command: "JOIN", params: ["#test"]}
+        Join.handle(new_normal_user, join_message)
+
+        # Operator and voiced user should see the join
+        assert_sent_message_contains(operator.pid, ~r/#{new_normal_user.nick}.*JOIN #test/)
+        assert_sent_message_contains(voiced_user.pid, ~r/#{new_normal_user.nick}.*JOIN #test/)
+
+        # Normal user should NOT see the join (auditorium mode)
+        assert_sent_messages_count_containing(normal_user.pid, ~r/#{new_normal_user.nick}.*JOIN #test/, 0)
+      end)
+    end
   end
 end

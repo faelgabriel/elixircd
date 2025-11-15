@@ -7,6 +7,8 @@ defmodule ElixIRCd.Commands.Kick do
 
   @behaviour ElixIRCd.Command
 
+  import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
@@ -44,7 +46,10 @@ defmodule ElixIRCd.Commands.Kick do
          :ok <- check_message_length(reason),
          {:ok, target_user} <- get_target_user(target_nick),
          {:ok, target_user_channel} <- get_target_user_channel(target_user, channel) do
-      user_channels = UserChannels.get_by_channel_name(channel.name)
+      user_channels =
+        UserChannels.get_by_channel_name(channel.name)
+        |> filter_auditorium_users(target_user_channel, channel.modes)
+
       UserChannels.delete(target_user_channel)
 
       send_user_kick_success(channel, user, target_user, reason, user_channels)

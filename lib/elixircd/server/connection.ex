@@ -5,6 +5,7 @@ defmodule ElixIRCd.Server.Connection do
 
   require Logger
 
+  import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Command
@@ -185,23 +186,32 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
   defp handle_quit(%{registered: true} = user, quit_message) do
+    # Get all user_channels for the quitting user
+    quitting_user_channels = UserChannels.get_by_user_pid(user.pid)
+
     # List of all channel names the quitting user is a member of
-    all_channel_name_keys =
-      UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name_key)
+    all_channel_name_keys = Enum.map(quitting_user_channels, & &1.channel_name_key)
 
     # List of all user_channel records for channels the quitting user is a member of, excluding himself
     all_user_channels_without_user =
       UserChannels.get_by_channel_names(all_channel_name_keys)
       |> Enum.reject(fn user_channel -> user_channel.user_pid == user.pid end)
 
-    # List of unique user_channel.user_pid records that share channels with the quitting user
-    all_shared_unique_user_channels =
-      all_user_channels_without_user
+    # Apply auditorium mode filtering per channel
+    filtered_user_channels =
+      Enum.flat_map(quitting_user_channels, fn quitting_uc ->
+        # Get channel to check its modes
+        {:ok, channel} = Channels.get_by_name(quitting_uc.channel_name_key)
+
+        # Get all user_channels for this specific channel
+        all_user_channels_without_user
+        |> Enum.filter(fn uc -> uc.channel_name_key == quitting_uc.channel_name_key end)
+        |> filter_auditorium_users(quitting_uc, channel.modes)
+      end)
       |> Enum.uniq_by(& &1.user_pid)
 
     # Extract PIDs and get Users
-    all_shared_unique_user_pids = Enum.map(all_shared_unique_user_channels, & &1.user_pid)
+    all_shared_unique_user_pids = Enum.map(filtered_user_channels, & &1.user_pid)
     all_shared_unique_users = Users.get_by_pids(all_shared_unique_user_pids)
 
     # Find channels with no other users remaining after removing the quitting user
