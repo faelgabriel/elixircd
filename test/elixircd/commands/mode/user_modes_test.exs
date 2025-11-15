@@ -114,30 +114,30 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
     end
 
     test "handles add modes with invalid modes" do
-      mode_string = "+iwxyz"
+      mode_string = "+iwabcd"
 
       {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
 
       assert validated_modes == [{:add, "i"}, {:add, "w"}]
-      assert invalid_modes == ["x", "y", "z"]
+      assert invalid_modes == ["a", "b", "c", "d"]
     end
 
     test "handles remove modes with invalid modes" do
-      mode_string = "-iwxyz"
+      mode_string = "-iwabcd"
 
       {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
 
       assert validated_modes == [{:remove, "i"}, {:remove, "w"}]
-      assert invalid_modes == ["x", "y", "z"]
+      assert invalid_modes == ["a", "b", "c", "d"]
     end
 
     test "handles add and remove modes with invalid modes" do
-      mode_string = "+i+w-i-wxyz+wxy"
+      mode_string = "+i+w-i-wabc+wab"
 
       {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
 
       assert validated_modes == [add: "i", add: "w", remove: "i", remove: "w", add: "w"]
-      assert invalid_modes == ["x", "y", "z", "x", "y"]
+      assert invalid_modes == ["a", "b", "c", "a", "b"]
     end
   end
 
@@ -278,6 +278,50 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
 
       assert updated_user.modes == []
       assert applied_modes == []
+      assert unauthorized_modes == []
+    end
+
+    test "allows removing mode +x when cloak_allow_disable is true (default)" do
+      user = insert(:user, modes: ["x"])
+      validated_modes = [{:remove, "x"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == [{:remove, "x"}]
+      assert unauthorized_modes == []
+    end
+
+    test "prevents removing mode +x when cloak_allow_disable is false" do
+      original_config = Application.get_env(:elixircd, :cloaking, [])
+      Application.put_env(:elixircd, :cloaking, cloak_allow_disable: false)
+      on_exit(fn -> Application.put_env(:elixircd, :cloaking, original_config) end)
+
+      user = insert(:user, modes: ["x"])
+      validated_modes = [{:remove, "x"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == ["x"]
+      assert applied_modes == []
+      assert unauthorized_modes == [{:remove, "x"}]
+    end
+
+    test "allows removing other modes when cloak_allow_disable is false" do
+      original_config = Application.get_env(:elixircd, :cloaking, [])
+      Application.put_env(:elixircd, :cloaking, cloak_allow_disable: false)
+      on_exit(fn -> Application.put_env(:elixircd, :cloaking, original_config) end)
+
+      user = insert(:user, modes: ["i", "w", "x"])
+      validated_modes = [{:remove, "i"}, {:remove, "w"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == ["x"]
+      assert applied_modes == [{:remove, "i"}, {:remove, "w"}]
       assert unauthorized_modes == []
     end
   end

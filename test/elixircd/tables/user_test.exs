@@ -78,6 +78,23 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.registered_at == utc_now
       assert user.created_at == utc_now
     end
+
+    test "creates a new user without ip_address does not generate cloaked_hostname" do
+      pid = spawn(fn -> :ok end)
+
+      attrs = %{
+        pid: pid,
+        transport: :tcp,
+        port_connected: 6667,
+        ip_address: nil
+      }
+
+      user = User.new(attrs)
+
+      assert user.pid == pid
+      assert user.ip_address == nil
+      assert user.cloaked_hostname == nil
+    end
   end
 
   describe "update/2" do

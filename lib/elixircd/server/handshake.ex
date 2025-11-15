@@ -43,10 +43,13 @@ defmodule ElixIRCd.Server.Handshake do
   defp handle_handshake(user) do
     {userid, hostname} = handle_async_data(user)
 
+    new_modes = apply_handshake_modes(user.modes)
+
     updated_user =
       Users.update(user, %{
         ident: userid || user.ident,
         hostname: hostname,
+        modes: new_modes,
         registered: true,
         registered_at: DateTime.utc_now()
       })
@@ -56,6 +59,16 @@ defmodule ElixIRCd.Server.Handshake do
     Isupport.send_isupport_messages(updated_user)
     Motd.send_motd(updated_user)
     send_user_modes(updated_user)
+  end
+
+  @spec apply_handshake_modes([String.t()]) :: [String.t()]
+  defp apply_handshake_modes(existing_modes) do
+    cloak_on_connect = Application.get_env(:elixircd, :cloaking)[:cloak_on_connect]
+
+    case cloak_on_connect do
+      true -> Enum.uniq(existing_modes ++ ["x"])
+      false -> existing_modes
+    end
   end
 
   @spec check_server_password(User.t()) :: :ok | {:error, :bad_password}

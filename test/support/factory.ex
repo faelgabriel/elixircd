@@ -46,6 +46,7 @@ defmodule ElixIRCd.Factory do
       nick: nick,
       modes: Map.get(attrs, :modes, []),
       hostname: Map.get(attrs, :hostname, "hostname"),
+      cloaked_hostname: Map.get(attrs, :cloaked_hostname, nil),
       ident: Map.get(attrs, :ident, "~username"),
       realname: Map.get(attrs, :realname, "realname"),
       registered: Map.get(attrs, :registered, true),

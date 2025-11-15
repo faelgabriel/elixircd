@@ -103,6 +103,47 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       assert false == Protocol.match_user_mask?(user, "*!~difuser@*")
       assert false == Protocol.match_user_mask?(user, "*!*@difhost")
     end
+
+    test "matches user mask with cloaked hostname when user has +x mode" do
+      user =
+        build(:user,
+          nick: "nick",
+          ident: "~user",
+          hostname: "real.host.com",
+          modes: ["x"],
+          cloaked_hostname: "elixir-ABC123.example.com"
+        )
+
+      # Should match against cloaked hostname
+      assert true == Protocol.match_user_mask?(user, "nick!~user@elixir-ABC123.example.com")
+      assert true == Protocol.match_user_mask?(user, "*!*@elixir-*.example.com")
+      assert true == Protocol.match_user_mask?(user, "*!*@*.example.com")
+
+      # Should NOT match against real hostname (user has +x)
+      assert false == Protocol.match_user_mask?(user, "nick!~user@real.host.com")
+      assert false == Protocol.match_user_mask?(user, "*!*@real.host.com")
+      assert false == Protocol.match_user_mask?(user, "*!*@*.host.com")
+    end
+
+    test "matches user mask with real hostname when user does not have +x mode" do
+      user =
+        build(:user,
+          nick: "nick",
+          ident: "~user",
+          hostname: "real.host.com",
+          modes: [],
+          cloaked_hostname: "elixir-ABC123.example.com"
+        )
+
+      # Should match against real hostname (no +x mode)
+      assert true == Protocol.match_user_mask?(user, "nick!~user@real.host.com")
+      assert true == Protocol.match_user_mask?(user, "*!*@real.host.com")
+      assert true == Protocol.match_user_mask?(user, "*!*@*.host.com")
+
+      # Should NOT match against cloaked hostname (not using it)
+      assert false == Protocol.match_user_mask?(user, "nick!~user@elixir-ABC123.example.com")
+      assert false == Protocol.match_user_mask?(user, "*!*@elixir-*.example.com")
+    end
   end
 
   describe "user_reply/1" do
@@ -234,6 +275,30 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       refute Protocol.valid_mask_format?("#{long_part}!user@host.com")
       refute Protocol.valid_mask_format?("nick!#{long_part}@host.com")
       refute Protocol.valid_mask_format?("nick!user@#{long_part}")
+    end
+  end
+
+  describe "display_hostname/2" do
+    test "returns cloaked hostname for user with +x mode" do
+      user = build(:user, modes: ["x"], cloaked_hostname: "elixir-ABC123.example.com", hostname: "real.example.com")
+      result = Protocol.display_hostname(user, nil)
+      assert result == "elixir-ABC123.example.com"
+    end
+
+    test "returns real hostname when operator is viewing" do
+      operator = build(:user, modes: ["o"])
+
+      target_user =
+        build(:user, modes: ["x"], cloaked_hostname: "elixir-ABC123.example.com", hostname: "real.example.com")
+
+      result = Protocol.display_hostname(target_user, operator)
+      assert result == "real.example.com"
+    end
+
+    test "returns real hostname when user does not have +x mode" do
+      user = build(:user, modes: [], hostname: "real.example.com")
+      result = Protocol.display_hostname(user, nil)
+      assert result == "real.example.com"
     end
   end
 end

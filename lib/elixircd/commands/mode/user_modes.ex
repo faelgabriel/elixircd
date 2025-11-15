@@ -10,7 +10,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
-  @modes ["B", "g", "H", "i", "o", "r", "R", "w", "Z"]
+  @modes ["B", "g", "H", "i", "o", "r", "R", "w", "x", "Z"]
   @modes_handled_by_server_to_add ["o", "r", "Z"]
   @modes_handled_by_server_to_remove ["r", "Z"]
   @modes_restricted_to_operators ["H"]
@@ -107,10 +107,11 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   @spec apply_mode_changes(User.t(), [mode_change()]) :: {User.t(), [mode_change()], [mode_change()]}
   def apply_mode_changes(user, mode_changes) do
     with {valid_modes, unauthorized_modes} <- validate_operator_permissions(user, mode_changes),
-         final_modes <- maybe_add_h_removal(user, valid_modes),
+         {allowed_modes, disallowed_modes} <- validate_removable_modes(valid_modes),
+         final_modes <- maybe_add_h_removal(user, allowed_modes),
          {applied_changes, new_modes} <- process_mode_changes(user, final_modes),
          updated_user <- Users.update(user, %{modes: new_modes}) do
-      {updated_user, applied_changes, unauthorized_modes}
+      {updated_user, applied_changes, unauthorized_modes ++ disallowed_modes}
     end
   end
 
@@ -121,6 +122,18 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
       {_, _mode} -> true
     end)
   end
+
+  @spec validate_removable_modes([mode_change()]) :: {[mode_change()], [mode_change()]}
+  defp validate_removable_modes(mode_changes) do
+    case Application.get_env(:elixircd, :cloaking)[:cloak_allow_disable] do
+      false -> Enum.split_with(mode_changes, &valid_when_cloak_disabled?/1)
+      _ -> {mode_changes, []}
+    end
+  end
+
+  @spec valid_when_cloak_disabled?(mode_change()) :: boolean()
+  defp valid_when_cloak_disabled?({:remove, "x"}), do: false
+  defp valid_when_cloak_disabled?(_), do: true
 
   @spec maybe_add_h_removal(User.t(), [mode_change()]) :: [mode_change()]
   defp maybe_add_h_removal(user, valid_modes) do

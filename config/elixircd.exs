@@ -89,6 +89,29 @@ config :elixircd,
     # Whether to enforce UTF-8 only traffic support
     utf8_only: true
   ],
+  # Hostname Cloaking Configuration
+  cloaking: [
+    # Enable or disable hostname cloaking feature
+    enabled: true,
+    # Secret keys for hostname cloaking (MUST be unique per network and kept secret)
+    # Generate secure keys with: :crypto.strong_rand_bytes(32) |> Base.encode64()
+    # Use at least 3 keys and keep them at least 30 characters each
+    # Multiple keys allow key rotation without breaking existing bans
+    cloak_keys: [
+      "SecretKey1Random30PlusCharactersGoesHere!!",
+      "SecretKey2Random30PlusCharactersGoesHere!!",
+      "SecretKey3Random30PlusCharactersGoesHere!!"
+    ],
+    # Prefix for cloaked hostnames (e.g., "elixir-ABC123.provider.com")
+    cloak_prefix: "elixir",
+    # Automatically enable cloaking (+x mode) when users connect
+    cloak_on_connect: false,
+    # Allow users to disable cloaking (remove +x mode)
+    cloak_allow_disable: true,
+    # Number of domain segments to keep visible in cloaked hostnames
+    # E.g., 2 means "user.isp.com" becomes "elixir-HASH.isp.com"
+    cloak_domain_parts: 2
+  ],
   capabilities: [
     # Whether to support extended NAMES with hostmasks (uhnames capability)
     extended_names: true,

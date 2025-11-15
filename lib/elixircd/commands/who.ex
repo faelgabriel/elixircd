@@ -7,7 +7,8 @@ defmodule ElixIRCd.Commands.Who do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_reply: 1, normalize_mask: 1, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol,
+    only: [channel_name?: 1, user_reply: 1, normalize_mask: 1, irc_operator?: 1, display_hostname: 2]
 
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
@@ -245,15 +246,13 @@ defmodule ElixIRCd.Commands.Who do
 
   @spec build_message(User.t(), User.t(), UserChannel.t() | nil, Channel.t() | nil, map()) :: Message.t()
   defp build_message(user, user_target, user_channel, channel, channel_map) do
-    user_channel_name = resolve_channel_name(user_channel, channel, channel_map)
-
     %Message{
       command: :rpl_whoreply,
       params: [
         user_reply(user),
-        user_channel_name,
+        resolve_channel_name(user_channel, channel, channel_map),
         user_target.ident,
-        user_target.hostname,
+        display_hostname(user_target, user),
         Application.get_env(:elixircd, :server)[:hostname],
         user_target.nick,
         user_statuses(user, user_target, user_channel)
