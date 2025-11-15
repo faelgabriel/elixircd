@@ -67,12 +67,24 @@ defmodule ElixIRCd.Utils.Protocol do
   Gets the user mask from a user.
   """
   @spec user_mask(User.t()) :: String.t()
-  def user_mask(%{registered: true} = user)
-      when user.nick != nil and user.ident != nil and user.hostname != nil do
-    "#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname}"
+  def user_mask(%{registered: true} = user) when user.nick != nil and user.ident != nil and user.hostname != nil do
+    hostname = display_hostname(user)
+    "#{user.nick}!#{String.slice(user.ident, 0..9)}@#{hostname}"
   end
 
   def user_mask(%{registered: false}), do: "*"
+
+  @doc """
+  Gets the hostname to display for a user based on +x mode and viewer permissions.
+  """
+  @spec display_hostname(User.t(), User.t() | nil) :: String.t()
+  def display_hostname(user, viewer \\ nil) do
+    if "x" in user.modes and user.cloaked_hostname != nil and not (viewer != nil and irc_operator?(viewer)) do
+      user.cloaked_hostname
+    else
+      user.hostname
+    end
+  end
 
   @doc """
   Parses a comma-separated list of targets into a list of channels or users.

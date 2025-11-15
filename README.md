@@ -251,7 +251,7 @@ These modes apply to users globally, affecting their visibility, privileges, and
 - **+R (Registered Only)**: Only allows messages from registered users. ✅
 - **+s (Snomask)**: Allows reception of server notices. ❌
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
-- **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ❌
+- **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ✅
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅
 
 #### Channel Modes
@@ -410,7 +410,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **SSL/TLS Support**: Secure communication using SSL or TLS. ✅
 - **IPv6 Compatibility**: Support for both IPv4 and IPv6 connections. ✅
 - **Rate Limiting**: Prevent floods of connections and messages with burst support. ✅
-- **Connection Cloaking**: Mask users' IP addresses to enhance privacy. ❌
+- **Connection Cloaking**: Mask users' IP addresses to enhance privacy. ✅
 
 ## Development
 

@@ -339,6 +339,28 @@ defmodule ElixIRCd.Commands.WhoisTest do
         ])
       end)
     end
+
+    test "shows real hostname to operator when target has +x mode" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"])
+        target_user = insert(:user, nick: "target_nick", modes: ["x"], ip_address: {192, 168, 1, 100})
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(operator, message)
+
+        assert_sent_messages([
+          {operator.pid, ~r/:irc\.test 311 #{operator.nick} #{target_user.nick} #{target_user.ident} .+ \* :realname/},
+          {operator.pid,
+           ~r/:irc\.test 338 #{operator.nick} #{target_user.nick} (hostname|192\.168\.1\.100) :is actually using host/},
+          {operator.pid, ~r/:irc\.test 319 #{operator.nick} #{target_user.nick} :#{channel.name}/},
+          {operator.pid, ~r/:irc\.test 312 #{operator.nick} #{target_user.nick} ElixIRCd .+ :Elixir IRC daemon/},
+          {operator.pid, ~r/:irc\.test 317 #{operator.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time/},
+          {operator.pid, ":irc.test 318 #{operator.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
+      end)
+    end
   end
 
   @spec assert_user_whois_message(User.t(), User.t(), Channel.t()) :: :ok

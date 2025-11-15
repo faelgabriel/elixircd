@@ -4,6 +4,7 @@ defmodule ElixIRCd.Tables.User do
   """
 
   alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.HostnameCloaking
 
   @enforce_keys [:pid, :transport, :ip_address, :port_connected, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
@@ -15,6 +16,7 @@ defmodule ElixIRCd.Tables.User do
       :nick_key,
       :nick,
       :hostname,
+      :cloaked_hostname,
       :ident,
       :realname,
       :registered,
@@ -38,6 +40,7 @@ defmodule ElixIRCd.Tables.User do
           nick_key: String.t() | nil,
           nick: String.t() | nil,
           hostname: String.t() | nil,
+          cloaked_hostname: String.t() | nil,
           ident: String.t() | nil,
           realname: String.t() | nil,
           registered: boolean(),
@@ -58,6 +61,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:port_connected) => :inet.port_number(),
           optional(:nick) => String.t() | nil,
           optional(:hostname) => String.t() | nil,
+          optional(:cloaked_hostname) => String.t() | nil,
           optional(:ident) => String.t() | nil,
           optional(:realname) => String.t() | nil,
           optional(:registered) => boolean(),
@@ -84,6 +88,7 @@ defmodule ElixIRCd.Tables.User do
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> handle_nick_key()
+      |> maybe_generate_cloaked_hostname()
 
     struct!(__MODULE__, new_attrs)
   end
@@ -96,6 +101,7 @@ defmodule ElixIRCd.Tables.User do
     new_attrs =
       attrs
       |> handle_nick_key()
+      |> maybe_generate_cloaked_hostname()
 
     struct!(user, new_attrs)
   end
@@ -107,4 +113,31 @@ defmodule ElixIRCd.Tables.User do
   end
 
   defp handle_nick_key(attrs), do: attrs
+
+  @spec maybe_generate_cloaked_hostname(t_attrs()) :: t_attrs()
+  defp maybe_generate_cloaked_hostname(attrs) do
+    if cloaking_enabled?() and should_generate_cloak?(attrs) do
+      generate_cloaked_hostname(attrs)
+    else
+      attrs
+    end
+  end
+
+  @spec cloaking_enabled?() :: boolean()
+  defp cloaking_enabled? do
+    Application.get_env(:elixircd, :cloaking)[:enabled] == true
+  end
+
+  @spec should_generate_cloak?(t_attrs()) :: boolean()
+  defp should_generate_cloak?(attrs) do
+    Map.has_key?(attrs, :hostname) and Map.get(attrs, :ip_address) != nil
+  end
+
+  @spec generate_cloaked_hostname(t_attrs()) :: t_attrs()
+  defp generate_cloaked_hostname(attrs) do
+    ip_address = Map.get(attrs, :ip_address)
+    hostname = Map.get(attrs, :hostname)
+    cloaked = HostnameCloaking.cloak(ip_address, hostname)
+    Map.put(attrs, :cloaked_hostname, cloaked)
+  end
 end

@@ -7,7 +7,7 @@ defmodule ElixIRCd.Commands.Whois do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1, display_hostname: 2, irc_operator?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -66,14 +66,25 @@ defmodule ElixIRCd.Commands.Whois do
 
   @spec add_whoisuser([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp add_whoisuser(messages, user, target_user) do
-    messages ++
-      [
-        %Message{
-          command: :rpl_whoisuser,
-          params: [user.nick, target_user.nick, target_user.ident, target_user.hostname, "*"],
-          trailing: target_user.realname
-        }
-      ]
+    whoisuser = %Message{
+      command: :rpl_whoisuser,
+      params: [user.nick, target_user.nick, target_user.ident, display_hostname(target_user, user), "*"],
+      trailing: target_user.realname
+    }
+
+    messages = messages ++ [whoisuser]
+
+    if irc_operator?(user) and "x" in target_user.modes do
+      whoisactually = %Message{
+        command: :rpl_whoisactually,
+        params: [user.nick, target_user.nick, target_user.hostname],
+        trailing: "is actually using host"
+      }
+
+      messages ++ [whoisactually]
+    else
+      messages
+    end
   end
 
   @spec maybe_add_whoisregnick([Message.t()], User.t(), User.t()) :: [Message.t()]
@@ -264,7 +275,6 @@ defmodule ElixIRCd.Commands.Whois do
     is_secret = "s" in channel.modes
     user_in_channel = MapSet.member?(user_channels_set, channel_name_key)
 
-    # Don't show secret channels to users not in them
     if is_secret and not user_in_channel, do: nil, else: channel.name
   end
 end
