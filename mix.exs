@@ -6,25 +6,30 @@ defmodule ElixIRCd.MixProject do
     [
       app: :elixircd,
       version: app_version() || "0.0.0-dev",
-      elixir: "~> 1.18",
+      elixir: "~> 1.19",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
       dialyzer: dialyzer(),
       elixirc_paths: elixirc_paths(Mix.env()),
       compilers: [:yecc] ++ Mix.compilers(),
-      preferred_cli_env: [
-        coveralls: :test,
-        "coveralls.detail": :test,
-        "coveralls.html": :test,
-        "coveralls.json": :test,
-        "coveralls.github": :test
-      ],
       test_coverage: [tool: ExCoveralls],
       releases: [
         elixircd: [
           steps: [:assemble, &assemble_config/1]
         ]
+      ]
+    ]
+  end
+
+  def cli do
+    [
+      preferred_envs: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.html": :test,
+        "coveralls.json": :test,
+        "coveralls.github": :test
       ]
     ]
   end
@@ -70,7 +75,7 @@ defmodule ElixIRCd.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
       {:doctor, "~> 0.21", only: :dev},
       {:excoveralls, "~> 0.18", only: :test},
-      {:mimic, "~> 1.10", only: [:dev, :test]},
+      {:mimic, "~> 2.1.1", only: [:dev, :test]},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
     ]

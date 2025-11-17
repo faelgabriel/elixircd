@@ -193,7 +193,7 @@ defmodule ElixIRCd.Utils.Certificate do
     otp_tbs_certificate(
       version: :v3,
       serialNumber: serial,
-      signature: signature_algorithm(algorithm: @sha256_withrsa_encryption, parameters: :NULL),
+      signature: signature_algorithm(algorithm: @sha256_withrsa_encryption),
       issuer: rdn(common_name),
       validity:
         validity(
@@ -203,7 +203,7 @@ defmodule ElixIRCd.Utils.Certificate do
       subject: rdn(common_name),
       subjectPublicKeyInfo:
         otp_subject_public_key_info(
-          algorithm: public_key_algorithm(algorithm: @rsa_encryption, parameters: :NULL),
+          algorithm: public_key_algorithm(algorithm: @rsa_encryption),
           subjectPublicKey: public_key
         ),
       extensions: extensions(public_key, hostnames)

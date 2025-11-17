@@ -56,7 +56,7 @@ defmodule ElixIRCd.Commands.UserTest do
 
     test "handles USER command with valid parameters for user not registered" do
       Handshake
-      |> expect(:handle, fn _user -> :ok end)
+      |> expect(:handle, 2, fn _user -> :ok end)
 
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
