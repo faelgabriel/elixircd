@@ -44,6 +44,7 @@ defmodule ElixIRCd.Command do
     "TIME" => Commands.Time,
     "TOPIC" => Commands.Topic,
     "TRACE" => Commands.Trace,
+    "TAGMSG" => Commands.Tagmsg,
     "USER" => Commands.User,
     "USERS" => Commands.Users,
     "USERHOST" => Commands.Userhost,

@@ -98,10 +98,28 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
     %Message{command: "MODE", params: [updated_user.nick, "+r"]}
     |> Dispatcher.broadcast(:server, updated_user)
+
+    notify_account_change(updated_user, registered_nick.nickname)
   end
 
   @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok
   defp handle_failed_identification(user, registered_nick) do
     notify(user, "Password incorrect for \x02#{registered_nick.nickname}\x02.")
+  end
+
+  @spec notify_account_change(User.t(), String.t()) :: :ok
+  defp notify_account_change(user, account) do
+    account_notify_supported = Application.get_env(:elixircd, :capabilities)[:account_notify] || false
+
+    if account_notify_supported do
+      watchers = Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
+
+      if watchers != [] do
+        %Message{command: "ACCOUNT", params: [account]}
+        |> Dispatcher.broadcast(user, watchers)
+      end
+    end
+
+    :ok
   end
 end

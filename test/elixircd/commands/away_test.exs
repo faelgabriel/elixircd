@@ -75,5 +75,65 @@ defmodule ElixIRCd.Commands.AwayTest do
         assert updated_user.away_message == nil
       end)
     end
+
+    test "notifies users with AWAY-NOTIFY when user goes away" do
+      original_capabilities = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_capabilities || [])
+        |> Keyword.put(:away_notify, true)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        watcher = insert(:user, capabilities: ["AWAY-NOTIFY"])
+        # Users must share a channel to receive AWAY-NOTIFY
+        channel = insert(:channel, name: "#test")
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: watcher, channel: channel)
+
+        message = %Message{command: "AWAY", params: [], trailing: "I'm away"}
+
+        assert :ok = Away.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 306 #{user.nick} :You have been marked as being away\r\n"},
+          {watcher.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} AWAY :I'm away\r\n"}
+        ])
+      end)
+    end
+
+    test "notifies users with AWAY-NOTIFY when user returns" do
+      original_capabilities = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_capabilities || [])
+        |> Keyword.put(:away_notify, true)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, away_message: "I'm away")
+        watcher = insert(:user, capabilities: ["AWAY-NOTIFY"])
+        # Users must share a channel to receive AWAY-NOTIFY
+        channel = insert(:channel, name: "#test")
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: watcher, channel: channel)
+
+        message = %Message{command: "AWAY", params: []}
+
+        assert :ok = Away.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 305 #{user.nick} :You are no longer marked as being away\r\n"},
+          {watcher.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} AWAY\r\n"}
+        ])
+      end)
+    end
   end
 end

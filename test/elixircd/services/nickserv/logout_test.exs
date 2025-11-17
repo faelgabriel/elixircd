@@ -73,5 +73,42 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
         ])
       end)
     end
+
+    test "notifies users with ACCOUNT-NOTIFY on LOGOUT" do
+      original_capabilities = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_capabilities || [])
+        |> Keyword.put(:account_notify, true)
+      )
+
+      Memento.transaction!(fn ->
+        registered_nick = insert(:registered_nick)
+
+        logging_out_user =
+          insert(:user, identified_as: registered_nick.nickname, modes: ["r"], capabilities: ["ACCOUNT-NOTIFY"])
+
+        watcher = insert(:user, capabilities: ["ACCOUNT-NOTIFY"])
+        # Users must share a channel to receive ACCOUNT-NOTIFY (and user receives it too)
+        channel = insert(:channel, name: "#test")
+        insert(:user_channel, user: logging_out_user, channel: channel)
+        insert(:user_channel, user: watcher, channel: channel)
+
+        assert :ok = Logout.handle(logging_out_user, ["LOGOUT"])
+
+        assert_sent_messages([
+          {logging_out_user.pid, ":irc.test MODE #{logging_out_user.nick} -r\r\n"},
+          {logging_out_user.pid,
+           ":NickServ!service@irc.test NOTICE #{logging_out_user.nick} :You are now logged out from \x02#{registered_nick.nickname}\x02.\r\n"},
+          {logging_out_user.pid,
+           ":#{logging_out_user.nick}!#{String.slice(logging_out_user.ident, 0..9)}@#{logging_out_user.hostname} ACCOUNT *\r\n"},
+          {watcher.pid,
+           ":#{logging_out_user.nick}!#{String.slice(logging_out_user.ident, 0..9)}@#{logging_out_user.hostname} ACCOUNT *\r\n"}
+        ])
+      end)
+    end
   end
 end

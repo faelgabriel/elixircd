@@ -128,13 +128,13 @@ defmodule ElixIRCd.Commands.Privmsg do
   @spec handle_user_message(User.t(), String.t(), String.t()) :: :ok
   defp handle_user_message(user, target_nick, message_text) do
     case Users.get_by_nick(target_nick) do
-      {:ok, target_user} -> handle_user_message(user, target_user, target_nick, message_text)
+      {:ok, target_user} -> send_user_message(user, target_user, target_nick, message_text)
       {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
     end
   end
 
-  @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_user_message(user, target_user, target_nick, message_text) do
+  @spec send_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
+  defp send_user_message(user, target_user, target_nick, message_text) do
     cond do
       should_silence_message?(target_user, user) ->
         :ok

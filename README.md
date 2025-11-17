@@ -363,13 +363,13 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 - **CAP**: Negotiate client capabilities with the server. ✅
 - **AUTHENTICATE**: Authenticate a user using SASL mechanisms. ❌
-- **ACCOUNT**: Notify clients when a user's account status changes. ❌
+- **ACCOUNT**: Notify clients when a user's account status changes. ✅
 - **CHGHOST**: Forcefully change a user's ident and hostname. ❌
 - **INVITE**: Extended to optionally include account information. ❌
 - **JOIN**: Extended to include account name and real name in join messages. ❌
 - **MONITOR**: Track when specific nicknames go online or offline. ❌
 - **NAMES**: Extended to include account names when supported. ❌
-- **TAGMSG**: Send messages with tags but without text content. ❌
+- **TAGMSG**: Send messages with tags but without text content. ✅
 - **WEBIRC**: Allow gateways to pass real client IP and hostname to the server. ❌
 - **WHO**: Extended to include additional information. ❌
 - **BATCH**: Group related messages for batch delivery. ❌
@@ -378,24 +378,24 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 #### Capabilities
 
 - **Account Authentication and Registration** (sasl): Secure SASL authentication mechanism. ❌
-- **Account Tag** (account-tag): Attach account name to messages via IRCv3 message tags. ❌
-- **Account Tracking** (account-notify): Account notifications and tagging. ❌
-- **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ❌
+- **Account Tag** (account-tag): Attach account name to messages via IRCv3 message tags. ✅
+- **Account Tracking** (account-notify): Account notifications and tagging. ✅
+- **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ✅
 - **Batches** (batch): Sending messages in batches. ❌
 - **Capability Notifications** (cap-notify): Notify clients when server capabilities change dynamically. ❌
 - **Change Host** (chghost): Real-time notifications when a user's hostname changes. ❌
-- **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ❌
+- **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ❌
 - **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ❌
 - **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
 - **Extended User Mode** (extended-uhlist): Adds additional user modes in WHO and related replies. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ❌
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ❌
-- **Message IDs** (msgid): Unique identifiers for messages. ❌
+- **Message IDs** (msgid): Unique identifiers for messages. ✅
 - **Message Tags** (message-tags): Additional metadata in messages. ✅
 - **Monitor** (monitor): Efficient tracking of user online/offline status. ❌
 - **Multi-Prefix** (multi-prefix): Display multiple status prefixes for users in channel responses. ❌
-- **Server Time** (server-time): Timestamp information for messages. ❌
+- **Server Time** (server-time): Timestamp information for messages. ✅
 - **Set Name** (setname): Allow clients to change their real name during the session. ❌
 - **Standard Replies** (standard-replies): Standardized format for server and client replies. ❌
 - **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ❌

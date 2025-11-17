@@ -5,6 +5,7 @@ defmodule ElixIRCd.Repositories.Users do
 
   import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2]
 
+  alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
@@ -142,6 +143,33 @@ defmodule ElixIRCd.Repositories.Users do
   def count_by_ip_address(ip_address) do
     :mnesia.index_read(User, ip_address, :ip_address)
     |> Enum.count()
+  end
+
+  @doc """
+  Get all users that share at least one channel with the given user and have a specific capability.
+  """
+  @spec get_in_shared_channels_with_capability(User.t(), String.t(), include_self :: boolean()) :: [User.t()]
+  def get_in_shared_channels_with_capability(user, capability, include_self \\ false) do
+    user_channel_name_keys =
+      UserChannels.get_by_user_pid(user.pid)
+      |> Enum.map(& &1.channel_name_key)
+
+    shared_user_pids =
+      UserChannels.get_by_channel_names(user_channel_name_keys)
+      |> Enum.map(& &1.user_pid)
+      |> Enum.uniq()
+
+    get_by_pids(shared_user_pids)
+    |> Enum.filter(fn other_user ->
+      has_capability = capability in (other_user.capabilities || [])
+      is_self = other_user.pid == user.pid
+
+      if include_self do
+        has_capability
+      else
+        has_capability and not is_self
+      end
+    end)
   end
 
   @doc """
