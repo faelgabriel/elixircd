@@ -118,7 +118,19 @@ config :elixircd,
     # Whether to support extended user modes in WHO replies (extended-uhlist capability)
     extended_uhlist: true,
     # Whether to support IRCv3 message tags (message-tags capability)
-    message_tags: true
+    message_tags: true,
+    # Whether to attach account= tags with authenticated nickname (account-tag capability)
+    account_tag: true,
+    # Whether to send ACCOUNT notifications on identify/logout (account-notify capability)
+    account_notify: true,
+    # Whether to send AWAY notifications to interested clients (away-notify capability)
+    away_notify: true,
+    # Whether to allow client-only tags from clients (client-tags capability)
+    client_tags: true,
+    # Whether to support SERVER-TIME capability adding time= tags
+    server_time: true,
+    # Whether to support MSGID capability adding msgid= tags
+    msgid: true
   ],
   # Network Listeners Configuration
   listeners: [

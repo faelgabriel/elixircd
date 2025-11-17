@@ -15,6 +15,22 @@ defmodule ElixIRCd.Commands.Cap do
   alias ElixIRCd.Tables.User
 
   @supported_capabilities %{
+    "ACCOUNT-TAG" => %{
+      name: "ACCOUNT-TAG",
+      description: "Attach authenticated account name via message tags"
+    },
+    "ACCOUNT-NOTIFY" => %{
+      name: "ACCOUNT-NOTIFY",
+      description: "Notify when users identify or logout"
+    },
+    "AWAY-NOTIFY" => %{
+      name: "AWAY-NOTIFY",
+      description: "Notify when users set or remove away status"
+    },
+    "CLIENT-TAGS" => %{
+      name: "CLIENT-TAGS",
+      description: "Allow vendor-specific client-only tags from clients"
+    },
     "UHNAMES" => %{
       name: "UHNAMES",
       description: "Extended NAMES reply with full user@host format"
@@ -26,6 +42,14 @@ defmodule ElixIRCd.Commands.Cap do
     "MESSAGE-TAGS" => %{
       name: "MESSAGE-TAGS",
       description: "Support for IRCv3 message tags including bot tag"
+    },
+    "SERVER-TIME" => %{
+      name: "SERVER-TIME",
+      description: "Attach server-generated time= message tags"
+    },
+    "MSGID" => %{
+      name: "MSGID",
+      description: "Attach unique msgid= message tags"
     }
   }
 
@@ -91,33 +115,25 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec get_capabilities_list() :: String.t()
   defp get_capabilities_list do
-    extended_names_supported = Application.get_env(:elixircd, :capabilities)[:extended_names] || false
-    extended_uhlist_supported = Application.get_env(:elixircd, :capabilities)[:extended_uhlist] || false
-    message_tags_supported = Application.get_env(:elixircd, :capabilities)[:message_tags] || false
-    base_caps = []
+    capabilities_config = Application.get_env(:elixircd, :capabilities, [])
 
-    caps =
-      if extended_names_supported do
-        ["UHNAMES" | base_caps]
-      else
-        base_caps
+    capabilities =
+      for {config_key, name} <- [
+            {:account_tag, "ACCOUNT-TAG"},
+            {:account_notify, "ACCOUNT-NOTIFY"},
+            {:away_notify, "AWAY-NOTIFY"},
+            {:client_tags, "CLIENT-TAGS"},
+            {:msgid, "MSGID"},
+            {:server_time, "SERVER-TIME"},
+            {:message_tags, "MESSAGE-TAGS"},
+            {:extended_uhlist, "EXTENDED-UHLIST"},
+            {:extended_names, "UHNAMES"}
+          ],
+          Keyword.get(capabilities_config, config_key, false) do
+        name
       end
 
-    caps =
-      if extended_uhlist_supported do
-        ["EXTENDED-UHLIST" | caps]
-      else
-        caps
-      end
-
-    caps =
-      if message_tags_supported do
-        ["MESSAGE-TAGS" | caps]
-      else
-        caps
-      end
-
-    Enum.join(caps, " ")
+    Enum.join(capabilities, " ")
   end
 
   @spec parse_capabilities_request(String.t()) :: [%{action: :enable | :disable, name: String.t()}]

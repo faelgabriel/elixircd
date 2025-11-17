@@ -401,6 +401,162 @@ defmodule ElixIRCd.Server.DispatcherTest do
       Connection
       |> reject(:handle_send, 2)
     end
+
+    test "adds server time and msgid tags when capabilities are enabled" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        original_config
+        |> Keyword.put(:server_time, true)
+        |> Keyword.put(:msgid, true)
+      )
+
+      user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS", "SERVER-TIME", "MSGID"])
+      message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === user_with_caps.pid
+        assert String.starts_with?(received_message, "@")
+        assert String.contains?(received_message, "time=")
+        assert String.contains?(received_message, "msgid=")
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, :server, user_with_caps)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "adds account tag when sender is identified and recipient has ACCOUNT-TAG" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:account_tag, true)
+      )
+
+      sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
+      recipient_with_cap = insert(:user, capabilities: ["MESSAGE-TAGS", "ACCOUNT-TAG"])
+      recipient_without_cap = insert(:user, capabilities: ["MESSAGE-TAGS"])
+
+      message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === recipient_with_cap.pid
+        assert String.starts_with?(received_message, "@")
+        assert String.contains?(received_message, "account=account_name")
+        :ok
+      end)
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === recipient_without_cap.pid
+        refute String.contains?(received_message, "account=")
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, sender, [recipient_with_cap, recipient_without_cap])
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "does not add msgid tag when MSGID capability is not negotiated" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:msgid, true)
+      )
+
+      user_without_msgid = insert(:user, capabilities: ["MESSAGE-TAGS"])
+      message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === user_without_msgid.pid
+        # Continua sem msgid= pois o usuário não negociou MSGID.
+        refute String.contains?(received_message, "msgid=")
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, :server, user_without_msgid)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "strips msgid tag when MSGID capability is disabled in config" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:msgid, false)
+      )
+
+      user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS", "MSGID"])
+
+      message = %Message{
+        command: "NOTICE",
+        params: ["test"],
+        trailing: "hello",
+        tags: %{"msgid" => "custom"}
+      }
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === user_with_caps.pid
+        refute String.contains?(received_message, "msgid=")
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, :server, user_with_caps)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "does not add account tag when account-tag config is disabled" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:account_tag, false)
+      )
+
+      sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
+      recipient = insert(:user, capabilities: ["MESSAGE-TAGS", "ACCOUNT-TAG"])
+
+      message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === recipient.pid
+        refute String.contains?(received_message, "account=")
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, sender, recipient)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
   end
 
   @spec setup_expectations(list({pid(), String.t()})) :: :ok

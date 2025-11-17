@@ -42,5 +42,23 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
     |> Dispatcher.broadcast(:server, updated_user)
 
     notify(updated_user, "You are now logged out from \x02#{identified_nickname}\x02.")
+
+    notify_account_change(updated_user)
+  end
+
+  @spec notify_account_change(User.t()) :: :ok
+  defp notify_account_change(user) do
+    account_notify_supported = Application.get_env(:elixircd, :capabilities)[:account_notify] || false
+
+    if account_notify_supported do
+      watchers = Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
+
+      if watchers != [] do
+        %Message{command: "ACCOUNT", params: ["*"]}
+        |> Dispatcher.broadcast(user, watchers)
+      end
+    end
+
+    :ok
   end
 end

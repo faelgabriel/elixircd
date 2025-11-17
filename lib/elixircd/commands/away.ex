@@ -26,6 +26,8 @@ defmodule ElixIRCd.Commands.Away do
     %Message{command: :rpl_unaway, params: [updated_user.nick], trailing: "You are no longer marked as being away"}
     |> Dispatcher.broadcast(:server, updated_user)
 
+    notify_away_change(updated_user)
+
     :ok
   end
 
@@ -45,6 +47,24 @@ defmodule ElixIRCd.Commands.Away do
 
       %Message{command: :rpl_nowaway, params: [updated_user.nick], trailing: "You have been marked as being away"}
       |> Dispatcher.broadcast(:server, updated_user)
+
+      notify_away_change(updated_user)
+    end
+
+    :ok
+  end
+
+  @spec notify_away_change(User.t()) :: :ok
+  defp notify_away_change(user) do
+    away_notify_supported = Application.get_env(:elixircd, :capabilities)[:away_notify] || false
+
+    if away_notify_supported do
+      watchers = Users.get_in_shared_channels_with_capability(user, "AWAY-NOTIFY", false)
+
+      if watchers != [] do
+        %Message{command: "AWAY", params: [], trailing: user.away_message}
+        |> Dispatcher.broadcast(user, watchers)
+      end
     end
 
     :ok

@@ -175,5 +175,42 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
         assert updated_user.identified_as == nil
       end)
     end
+
+    test "notifies users with ACCOUNT-NOTIFY on successful IDENTIFY" do
+      original_capabilities = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_capabilities || [])
+        |> Keyword.put(:account_notify, true)
+      )
+
+      Memento.transaction!(fn ->
+        password = "correct_password"
+        password_hash = Argon2.hash_pwd_salt(password)
+        registered_nick = insert(:registered_nick, password_hash: password_hash)
+
+        identifying_user = insert(:user, nick: registered_nick.nickname, capabilities: ["ACCOUNT-NOTIFY"])
+        watcher = insert(:user, capabilities: ["ACCOUNT-NOTIFY"])
+        # Users must share a channel to receive ACCOUNT-NOTIFY (and user receives it too)
+        channel = insert(:channel, name: "#test")
+        insert(:user_channel, user: identifying_user, channel: channel)
+        insert(:user_channel, user: watcher, channel: channel)
+
+        assert :ok = Identify.handle(identifying_user, ["IDENTIFY", password])
+
+        assert_sent_messages([
+          {identifying_user.pid,
+           ":NickServ!service@irc.test NOTICE #{identifying_user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
+          {identifying_user.pid, ":irc.test MODE #{identifying_user.nick} +r\r\n"},
+          {identifying_user.pid,
+           ":#{identifying_user.nick}!#{String.slice(identifying_user.ident, 0..9)}@#{identifying_user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"},
+          {watcher.pid,
+           ":#{identifying_user.nick}!#{String.slice(identifying_user.ident, 0..9)}@#{identifying_user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"}
+        ])
+      end)
+    end
   end
 end

@@ -12,6 +12,24 @@ defmodule ElixIRCd.Commands.CapTest do
 
   describe "handle/2 - CAP LS" do
     test "handles CAP LS command for listing supported capabilities for IRCv3.1" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:account_tag, true)
+        |> Keyword.put(:account_notify, true)
+        |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:client_tags, true)
+        |> Keyword.put(:extended_names, true)
+        |> Keyword.put(:extended_uhlist, true)
+        |> Keyword.put(:message_tags, true)
+        |> Keyword.put(:server_time, true)
+        |> Keyword.put(:msgid, true)
+      )
+
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
         message = %Message{command: "CAP", params: ["LS"]}
@@ -19,12 +37,31 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP * LS :MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+          {user.pid,
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
 
     test "handles CAP LS command for listing supported capabilities for IRCv3.2" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:account_tag, true)
+        |> Keyword.put(:account_notify, true)
+        |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:client_tags, true)
+        |> Keyword.put(:extended_names, true)
+        |> Keyword.put(:extended_uhlist, true)
+        |> Keyword.put(:message_tags, true)
+        |> Keyword.put(:server_time, true)
+        |> Keyword.put(:msgid, true)
+      )
+
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
         message = %Message{command: "CAP", params: ["LS", "302"]}
@@ -32,14 +69,26 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP * LS :MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+          {user.pid,
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
 
     test "handles CAP LS when extended names are disabled" do
       original_config = Application.get_env(:elixircd, :capabilities)
-      Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :extended_names, false))
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        original_config
+        |> Keyword.put(:account_tag, true)
+        |> Keyword.put(:account_notify, true)
+        |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:client_tags, true)
+        |> Keyword.put(:extended_names, false)
+      )
 
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -48,20 +97,24 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} LS :MESSAGE-TAGS EXTENDED-UHLIST\r\n"}
+          {user.pid,
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST\r\n"}
         ])
       end)
-
-      Application.put_env(:elixircd, :capabilities, original_config)
     end
 
     test "handles CAP LS when extended uhlist is disabled" do
       original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
 
       Application.put_env(
         :elixircd,
         :capabilities,
         original_config
+        |> Keyword.put(:account_tag, true)
+        |> Keyword.put(:account_notify, true)
+        |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
       )
@@ -73,23 +126,29 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} LS :MESSAGE-TAGS\r\n"}
+          {user.pid,
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS\r\n"}
         ])
       end)
-
-      Application.put_env(:elixircd, :capabilities, original_config)
     end
 
     test "handles CAP LS when all capabilities are disabled" do
       original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
 
       Application.put_env(
         :elixircd,
         :capabilities,
         original_config
+        |> Keyword.put(:account_tag, false)
+        |> Keyword.put(:account_notify, false)
+        |> Keyword.put(:away_notify, false)
+        |> Keyword.put(:client_tags, false)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
         |> Keyword.put(:message_tags, false)
+        |> Keyword.put(:server_time, false)
+        |> Keyword.put(:msgid, false)
       )
 
       Memento.transaction!(fn ->
@@ -102,8 +161,6 @@ defmodule ElixIRCd.Commands.CapTest do
           {user.pid, ":irc.test CAP #{user.nick} LS :\r\n"}
         ])
       end)
-
-      Application.put_env(:elixircd, :capabilities, original_config)
     end
   end
 
