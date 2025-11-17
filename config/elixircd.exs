@@ -254,6 +254,26 @@ config :elixircd,
     # Timeout for ident service responses in milliseconds (max: 5_000)
     timeout: 2_000
   ],
+  # WebIRC Gateway Configuration
+  webirc: [
+    # Enable or disable WEBIRC support
+    enabled: false,
+    # List of authorized WebIRC gateways
+    # Each gateway must have: IP address/CIDR, password, and identifier
+    gateways: [
+      # Example gateway configuration:
+      # %{
+      #   ips: ["192.168.1.100", "10.0.0.0/8"],  # Allowed IP addresses/CIDRs
+      #   password: "secure_gateway_password",    # Authentication password
+      #   name: "KiwiIRC Gateway"                 # Gateway identifier
+      # }
+    ],
+    # Whether to perform reverse DNS validation on provided hostnames
+    # When true, server will verify that hostname resolves back to IP
+    verify_hostname: false,
+    # Whether to allow IPv6 addresses
+    allow_ipv6: true
+  ],
   # Administrative Contact Information
   admin_info: [
     # Name of your IRC server for contact purposes

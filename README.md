@@ -356,7 +356,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Bot Mode**: Identification of bots in channels. ✅
 - **Changing User Properties**: Dynamic updating of user properties. ❌
 - **Listing Users**: Enhanced user information in channel queries. ❌
-- **WebIRC**: Provision of real IP address for users connecting through gateways. ❌
+- **WebIRC**: Provision of real IP address for users connecting through gateways. ✅
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ✅
 
 #### Commands
