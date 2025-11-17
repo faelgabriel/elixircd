@@ -50,6 +50,7 @@ defmodule ElixIRCd.Command do
     "USERHOST" => Commands.Userhost,
     "VERSION" => Commands.Version,
     "WALLOPS" => Commands.Wallops,
+    "WEBIRC" => Commands.Webirc,
     "WHO" => Commands.Who,
     "WHOIS" => Commands.Whois,
     "WHOWAS" => Commands.Whowas
