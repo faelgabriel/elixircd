@@ -48,8 +48,8 @@ defmodule ElixIRCd.Commands.Chghost do
 
   @spec change_host(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp change_host(operator, target_user, new_ident, new_host) do
-    with :ok <- validate_ident(operator, new_ident),
-         :ok <- validate_hostname(operator, new_host) do
+    with :ok <- validate_ident(new_ident),
+         :ok <- validate_hostname(new_host) do
       old_ident = target_user.ident
       old_host = target_user.hostname
 
@@ -64,79 +64,75 @@ defmodule ElixIRCd.Commands.Chghost do
       }
       |> Dispatcher.broadcast(:server, operator)
     else
-      {:error, _error} -> :ok
+      {:error, :ident_empty} ->
+        %Message{
+          command: :err_invalidusername,
+          params: [user_reply(operator)],
+          trailing: "Invalid ident: cannot be empty"
+        }
+        |> Dispatcher.broadcast(:server, operator)
+
+      {:error, :ident_too_long} ->
+        max_ident_length = Application.get_env(:elixircd, :user)[:max_ident_length]
+
+        %Message{
+          command: :err_invalidusername,
+          params: [user_reply(operator)],
+          trailing: "Invalid ident: too long (maximum #{max_ident_length} characters)"
+        }
+        |> Dispatcher.broadcast(:server, operator)
+
+      {:error, :ident_invalid_chars} ->
+        %Message{
+          command: :err_invalidusername,
+          params: [user_reply(operator)],
+          trailing: "Invalid ident: contains invalid characters"
+        }
+        |> Dispatcher.broadcast(:server, operator)
+
+      {:error, :hostname_empty} ->
+        %Message{command: "NOTICE", params: [user_reply(operator)], trailing: "Invalid hostname: cannot be empty"}
+        |> Dispatcher.broadcast(:server, operator)
+
+      {:error, :hostname_too_long} ->
+        %Message{
+          command: "NOTICE",
+          params: [user_reply(operator)],
+          trailing: "Invalid hostname: too long (maximum 253 characters)"
+        }
+        |> Dispatcher.broadcast(:server, operator)
+
+      {:error, :hostname_invalid_chars} ->
+        %Message{
+          command: "NOTICE",
+          params: [user_reply(operator)],
+          trailing: "Invalid hostname: contains invalid characters"
+        }
+        |> Dispatcher.broadcast(:server, operator)
     end
   end
 
-  @spec validate_ident(User.t(), String.t()) :: :ok | {:error, String.t()}
-  defp validate_ident(user, ident) do
+  @spec validate_ident(String.t()) :: :ok | {:error, :ident_empty | :ident_too_long | :ident_invalid_chars}
+  defp validate_ident(ident) do
     max_ident_length = Application.get_env(:elixircd, :user)[:max_ident_length]
 
     cond do
-      String.length(ident) == 0 ->
-        %Message{command: :err_invalidusername, params: [user_reply(user)], trailing: "Invalid ident: cannot be empty"}
-        |> Dispatcher.broadcast(:server, user)
-
-        {:error, "Invalid ident"}
-
-      String.length(ident) > max_ident_length ->
-        %Message{
-          command: :err_invalidusername,
-          params: [user_reply(user)],
-          trailing: "Invalid ident: too long (maximum #{max_ident_length} characters)"
-        }
-        |> Dispatcher.broadcast(:server, user)
-
-        {:error, "Invalid ident"}
-
-      not valid_ident_chars?(ident) ->
-        %Message{
-          command: :err_invalidusername,
-          params: [user_reply(user)],
-          trailing: "Invalid ident: contains invalid characters"
-        }
-        |> Dispatcher.broadcast(:server, user)
-
-        {:error, "Invalid ident"}
-
-      true ->
-        :ok
+      String.length(ident) == 0 -> {:error, :ident_empty}
+      String.length(ident) > max_ident_length -> {:error, :ident_too_long}
+      not valid_ident_chars?(ident) -> {:error, :ident_invalid_chars}
+      true -> :ok
     end
   end
 
-  @spec validate_hostname(User.t(), String.t()) :: :ok | {:error, String.t()}
-  defp validate_hostname(user, hostname) do
+  @spec validate_hostname(String.t()) :: :ok | {:error, :hostname_empty | :hostname_too_long | :hostname_invalid_chars}
+  defp validate_hostname(hostname) do
     max_hostname_length = 253
 
     cond do
-      String.length(hostname) == 0 ->
-        %Message{command: "NOTICE", params: [user_reply(user)], trailing: "Invalid hostname: cannot be empty"}
-        |> Dispatcher.broadcast(:server, user)
-
-        {:error, "Invalid hostname"}
-
-      String.length(hostname) > max_hostname_length ->
-        %Message{
-          command: "NOTICE",
-          params: [user_reply(user)],
-          trailing: "Invalid hostname: too long (maximum #{max_hostname_length} characters)"
-        }
-        |> Dispatcher.broadcast(:server, user)
-
-        {:error, "Invalid hostname"}
-
-      not valid_hostname_chars?(hostname) ->
-        %Message{
-          command: "NOTICE",
-          params: [user_reply(user)],
-          trailing: "Invalid hostname: contains invalid characters"
-        }
-        |> Dispatcher.broadcast(:server, user)
-
-        {:error, "Invalid hostname"}
-
-      true ->
-        :ok
+      String.length(hostname) == 0 -> {:error, :hostname_empty}
+      String.length(hostname) > max_hostname_length -> {:error, :hostname_too_long}
+      not valid_hostname_chars?(hostname) -> {:error, :hostname_invalid_chars}
+      true -> :ok
     end
   end
 

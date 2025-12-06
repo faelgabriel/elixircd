@@ -29,11 +29,9 @@ defmodule ElixIRCd.Commands.Setname do
 
   def handle(user, %{command: "SETNAME", trailing: new_realname}) do
     setname_supported = Application.get_env(:elixircd, :capabilities)[:setname] || false
-    max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
 
     with {:capability, true} <- {:capability, setname_supported},
-         {:empty, false} <- {:empty, String.length(new_realname) == 0},
-         :ok <- validate_length(new_realname, max_realname_length),
+         :ok <- validate_realname(new_realname),
          {:changed, true} <- {:changed, new_realname != user.realname} do
       change_realname(user, new_realname)
     else
@@ -41,11 +39,13 @@ defmodule ElixIRCd.Commands.Setname do
         %Message{command: :err_unknowncommand, params: [user_reply(user), "SETNAME"], trailing: "Unknown command"}
         |> Dispatcher.broadcast(:server, user)
 
-      {:empty, true} ->
+      {:error, :realname_empty} ->
         %Message{command: "FAIL", params: ["SETNAME", "INVALID_REALNAME"], trailing: "Realname cannot be empty"}
         |> Dispatcher.broadcast(:server, user)
 
-      {:error, :too_long} ->
+      {:error, :realname_too_long} ->
+        max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
+
         %Message{
           command: "FAIL",
           params: ["SETNAME", "INVALID_REALNAME"],
@@ -58,12 +58,14 @@ defmodule ElixIRCd.Commands.Setname do
     end
   end
 
-  @spec validate_length(String.t(), non_neg_integer()) :: :ok | {:error, :too_long}
-  defp validate_length(realname, max_length) do
-    if String.length(realname) <= max_length do
-      :ok
-    else
-      {:error, :too_long}
+  @spec validate_realname(String.t()) :: :ok | {:error, :realname_empty | :realname_too_long}
+  defp validate_realname(realname) do
+    max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
+
+    cond do
+      String.length(realname) == 0 -> {:error, :realname_empty}
+      String.length(realname) > max_realname_length -> {:error, :realname_too_long}
+      true -> :ok
     end
   end
 
