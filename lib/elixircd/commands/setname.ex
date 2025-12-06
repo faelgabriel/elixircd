@@ -29,32 +29,41 @@ defmodule ElixIRCd.Commands.Setname do
 
   def handle(user, %{command: "SETNAME", trailing: new_realname}) do
     setname_supported = Application.get_env(:elixircd, :capabilities)[:setname] || false
+    max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
 
-    if setname_supported do
-      max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
-
-      cond do
-        String.length(new_realname) == 0 ->
-          %Message{command: "FAIL", params: ["SETNAME", "INVALID_REALNAME"], trailing: "Realname cannot be empty"}
-          |> Dispatcher.broadcast(:server, user)
-
-        String.length(new_realname) > max_realname_length ->
-          %Message{
-            command: "FAIL",
-            params: ["SETNAME", "INVALID_REALNAME"],
-            trailing: "Realname too long (maximum #{max_realname_length} characters)"
-          }
-          |> Dispatcher.broadcast(:server, user)
-
-        new_realname == user.realname ->
-          :ok
-
-        true ->
-          change_realname(user, new_realname)
-      end
+    with {:capability, true} <- {:capability, setname_supported},
+         {:empty, false} <- {:empty, String.length(new_realname) == 0},
+         :ok <- validate_length(new_realname, max_realname_length),
+         {:changed, true} <- {:changed, new_realname != user.realname} do
+      change_realname(user, new_realname)
     else
-      %Message{command: :err_unknowncommand, params: [user_reply(user), "SETNAME"], trailing: "Unknown command"}
-      |> Dispatcher.broadcast(:server, user)
+      {:capability, false} ->
+        %Message{command: :err_unknowncommand, params: [user_reply(user), "SETNAME"], trailing: "Unknown command"}
+        |> Dispatcher.broadcast(:server, user)
+
+      {:empty, true} ->
+        %Message{command: "FAIL", params: ["SETNAME", "INVALID_REALNAME"], trailing: "Realname cannot be empty"}
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :too_long} ->
+        %Message{
+          command: "FAIL",
+          params: ["SETNAME", "INVALID_REALNAME"],
+          trailing: "Realname too long (maximum #{max_realname_length} characters)"
+        }
+        |> Dispatcher.broadcast(:server, user)
+
+      {:changed, false} ->
+        :ok
+    end
+  end
+
+  @spec validate_length(String.t(), non_neg_integer()) :: :ok | {:error, :too_long}
+  defp validate_length(realname, max_length) do
+    if String.length(realname) <= max_length do
+      :ok
+    else
+      {:error, :too_long}
     end
   end
 

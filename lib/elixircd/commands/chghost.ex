@@ -28,51 +28,43 @@ defmodule ElixIRCd.Commands.Chghost do
   end
 
   def handle(user, %{command: "CHGHOST", params: [target_nick, new_ident, new_host]}) do
-    if irc_operator?(user) do
-      case Users.get_by_nick(target_nick) do
-        {:ok, target_user} ->
-          change_host(user, target_user, new_ident, new_host)
-
-        {:error, :user_not_found} ->
-          %Message{command: :err_nosuchnick, params: [user_reply(user), target_nick], trailing: "No such nick/channel"}
-          |> Dispatcher.broadcast(:server, user)
-      end
+    with {:operator, true} <- {:operator, irc_operator?(user)},
+         {:ok, target_user} <- Users.get_by_nick(target_nick) do
+      change_host(user, target_user, new_ident, new_host)
     else
-      %Message{
-        command: :err_noprivileges,
-        params: [user_reply(user)],
-        trailing: "Permission denied - You're not an IRC operator"
-      }
-      |> Dispatcher.broadcast(:server, user)
+      {:operator, false} ->
+        %Message{
+          command: :err_noprivileges,
+          params: [user_reply(user)],
+          trailing: "Permission denied - You're not an IRC operator"
+        }
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :user_not_found} ->
+        %Message{command: :err_nosuchnick, params: [user_reply(user), target_nick], trailing: "No such nick/channel"}
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 
   @spec change_host(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp change_host(operator, target_user, new_ident, new_host) do
-    case validate_ident(operator, new_ident) do
-      :ok ->
-        case validate_hostname(operator, new_host) do
-          :ok ->
-            old_ident = target_user.ident
-            old_host = target_user.hostname
+    with :ok <- validate_ident(operator, new_ident),
+         :ok <- validate_hostname(operator, new_host) do
+      old_ident = target_user.ident
+      old_host = target_user.hostname
 
-            updated_user = Users.update(target_user, %{ident: new_ident, hostname: new_host})
+      updated_user = Users.update(target_user, %{ident: new_ident, hostname: new_host})
 
-            notify_chghost(updated_user, old_ident, old_host, new_ident, new_host)
+      notify_chghost(updated_user, old_ident, old_host, new_ident, new_host)
 
-            %Message{
-              command: "NOTICE",
-              params: [operator.nick],
-              trailing: "Changed host for #{target_user.nick} from #{old_ident}@#{old_host} to #{new_ident}@#{new_host}"
-            }
-            |> Dispatcher.broadcast(:server, operator)
-
-          {:error, _error} ->
-            :ok
-        end
-
-      {:error, _error} ->
-        :ok
+      %Message{
+        command: "NOTICE",
+        params: [operator.nick],
+        trailing: "Changed host for #{target_user.nick} from #{old_ident}@#{old_host} to #{new_ident}@#{new_host}"
+      }
+      |> Dispatcher.broadcast(:server, operator)
+    else
+      {:error, _error} -> :ok
     end
   end
 
