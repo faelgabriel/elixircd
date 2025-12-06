@@ -128,6 +128,44 @@ defmodule ElixIRCd.Commands.JoinTest do
       end)
     end
 
+    test "handles JOIN command with a user banned but in except list (+e)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+        insert(:channel_ban, channel: channel, mask: "*!*@*")
+        insert(:channel_except, channel: channel, mask: "#{user.nick}!*@*")
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with a user banned but matching except wildcard" do
+      Memento.transaction!(fn ->
+        user = insert(:user, hostname: "trusted.example.com")
+        channel = insert(:channel)
+        insert(:channel_ban, channel: channel, mask: "*!*@*")
+        insert(:channel_except, channel: channel, mask: "*!*@*.example.com")
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
     test "handles JOIN command with a user not invited to the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -138,6 +176,60 @@ defmodule ElixIRCd.Commands.JoinTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 473 #{user.nick} #{channel.name} :Cannot join channel (+i) - you are not invited\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with invite-only channel but user in invex list (+I)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["i"])
+        insert(:channel_invex, channel: channel, mask: "#{user.nick}!*@*")
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with invite-only channel but matching invex wildcard" do
+      Memento.transaction!(fn ->
+        user = insert(:user, hostname: "staff.company.com")
+        channel = insert(:channel, modes: ["i"])
+        insert(:channel_invex, channel: channel, mask: "*!*@*.company.com")
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "handles JOIN command with invite-only channel with direct invite takes precedence" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["i"])
+        insert(:channel_invite, channel: channel, user: user)
+        message = %Message{command: "JOIN", params: [channel.name]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
     end

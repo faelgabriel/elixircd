@@ -13,6 +13,8 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Commands.Mode.UserModes
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelBans
+  alias ElixIRCd.Repositories.ChannelExcepts
+  alias ElixIRCd.Repositories.ChannelInvexes
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
@@ -112,7 +114,18 @@ defmodule ElixIRCd.Commands.Mode do
   @spec send_channel_mode_listing(list(String.t()), User.t(), Channel.t()) :: :ok
   defp send_channel_mode_listing([], _user, _channel), do: :ok
 
-  defp send_channel_mode_listing(["b"], user, channel) do
+  defp send_channel_mode_listing(listing_modes, user, channel) do
+    Enum.each(listing_modes, fn mode ->
+      case mode do
+        "b" -> send_ban_list(user, channel)
+        "e" -> send_except_list(user, channel)
+        "I" -> send_invex_list(user, channel)
+      end
+    end)
+  end
+
+  @spec send_ban_list(User.t(), Channel.t()) :: :ok
+  defp send_ban_list(user, channel) do
     created_timestamp =
       channel.created_at
       |> DateTime.to_unix()
@@ -143,6 +156,76 @@ defmodule ElixIRCd.Commands.Mode do
     end
 
     %Message{command: :rpl_endofbanlist, params: [user.nick, channel.name], trailing: "End of channel ban list"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec send_except_list(User.t(), Channel.t()) :: :ok
+  defp send_except_list(user, channel) do
+    created_timestamp =
+      channel.created_at
+      |> DateTime.to_unix()
+      |> Integer.to_string()
+
+    max_list_entries = Application.get_env(:elixircd, :channel)[:max_list_entries] || %{}
+    max_entries = Map.get(max_list_entries, "e", 100)
+
+    channel_excepts = ChannelExcepts.get_by_channel_name_key(channel.name_key)
+    total_entries = length(channel_excepts)
+
+    Enum.take(channel_excepts, max_entries)
+    |> Enum.each(fn channel_except ->
+      %Message{
+        command: :rpl_exceptlist,
+        params: [user.nick, channel.name, channel_except.mask, channel_except.setter, created_timestamp]
+      }
+      |> Dispatcher.broadcast(:server, user)
+    end)
+
+    if total_entries > max_entries do
+      %Message{
+        command: "NOTICE",
+        params: [user.nick],
+        trailing: "Except list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+      }
+      |> Dispatcher.broadcast(:server, user)
+    end
+
+    %Message{command: :rpl_endofexceptlist, params: [user.nick, channel.name], trailing: "End of channel except list"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec send_invex_list(User.t(), Channel.t()) :: :ok
+  defp send_invex_list(user, channel) do
+    created_timestamp =
+      channel.created_at
+      |> DateTime.to_unix()
+      |> Integer.to_string()
+
+    max_list_entries = Application.get_env(:elixircd, :channel)[:max_list_entries] || %{}
+    max_entries = Map.get(max_list_entries, "I", 100)
+
+    channel_invexes = ChannelInvexes.get_by_channel_name_key(channel.name_key)
+    total_entries = length(channel_invexes)
+
+    Enum.take(channel_invexes, max_entries)
+    |> Enum.each(fn channel_invex ->
+      %Message{
+        command: :rpl_invexlist,
+        params: [user.nick, channel.name, channel_invex.mask, channel_invex.setter, created_timestamp]
+      }
+      |> Dispatcher.broadcast(:server, user)
+    end)
+
+    if total_entries > max_entries do
+      %Message{
+        command: "NOTICE",
+        params: [user.nick],
+        trailing: "Invex list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+      }
+      |> Dispatcher.broadcast(:server, user)
+    end
+
+    %Message{command: :rpl_endofinvexlist, params: [user.nick, channel.name], trailing: "End of channel invex list"}
     |> Dispatcher.broadcast(:server, user)
   end
 

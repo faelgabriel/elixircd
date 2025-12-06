@@ -9,24 +9,55 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelBans
+  alias ElixIRCd.Repositories.ChannelExcepts
+  alias ElixIRCd.Repositories.ChannelInvexes
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
+  alias ElixIRCd.Tables.ChannelExcept
+  alias ElixIRCd.Tables.ChannelInvex
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @modes ["b", "C", "c", "d", "i", "j", "k", "l", "m", "M", "n", "O", "o", "p", "r", "R", "s", "t", "T", "u", "v", "z"]
-  @modes_with_value_to_add ["b", "d", "j", "k", "l", "o", "v"]
+  @modes [
+    "b",
+    "C",
+    "c",
+    "d",
+    "e",
+    "I",
+    "i",
+    "j",
+    "k",
+    "l",
+    "m",
+    "M",
+    "n",
+    "O",
+    "o",
+    "p",
+    "r",
+    "R",
+    "s",
+    "t",
+    "T",
+    "u",
+    "v",
+    "z"
+  ]
+  @modes_with_value_to_add ["b", "d", "e", "I", "j", "k", "l", "o", "v"]
   @modes_with_value_to_replace ["d", "j", "k", "l"]
-  @modes_with_value_to_remove ["b", "o", "v"]
+  @modes_with_value_to_remove ["b", "e", "I", "o", "v"]
   @modes_with_value_as_integer ["d", "l"]
   @modes_without_value_to_remove ["d", "j", "k", "l"]
   @modes_for_user_channel ["o", "v"]
   @modes_for_channel_ban ["b"]
-  @modes_as_listing ["b"]
+  @modes_for_channel_except ["e"]
+  @modes_for_channel_invex ["I"]
+  @modes_as_listing ["b", "e", "I"]
   @modes_requiring_irc_operator ["O"]
 
   @type mode :: String.t() | {String.t(), String.t()}
@@ -205,54 +236,108 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   @spec apply_mode_change(User.t(), Channel.t(), mode_change(), {[mode_change()], [mode()]}) ::
           {[mode_change()], [mode()]}
-  defp apply_mode_change(user, channel, {:add, mode} = mode_change, {applied_changes, new_modes}) do
+  defp apply_mode_change(user, channel, {:add, mode} = mode_change, acc) do
     mode_flag = extract_mode_flag(mode)
+    {applied_changes, new_modes} = acc
 
-    cond do
-      mode_flag in @modes_requiring_irc_operator ->
-        apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
-
-      mode_flag in @modes_for_user_channel ->
-        apply_user_channel_mode(user, mode_change, channel.name, applied_changes, new_modes)
-
-      mode_flag in @modes_for_channel_ban ->
+    case determine_mode_handler_add(mode_flag, mode) do
+      {:list_mode, :ban} ->
         apply_channel_ban_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
 
-      should_ignore_invalid_mode?(mode_flag, mode) ->
+      {:list_mode, :except} ->
+        apply_channel_except_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
+
+      {:list_mode, :invex} ->
+        apply_channel_invex_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
+
+      {:special, :irc_operator} ->
+        apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
+
+      {:special, :user_channel} ->
+        apply_user_channel_mode(user, mode_change, channel.name, applied_changes, new_modes)
+
+      {:special, :invalid} ->
         handle_invalid_mode(user, mode_flag, mode, applied_changes, new_modes)
 
-      mode_flag in @modes_with_value_to_replace ->
+      {:special, :replaceable} ->
         apply_replaceable_mode(mode, mode_flag, applied_changes, new_modes)
 
-      Enum.member?(new_modes, mode) ->
-        {applied_changes, new_modes}
-
-      true ->
-        {[{:add, mode} | applied_changes], [mode | new_modes]}
+      :simple ->
+        apply_simple_mode_add(mode, applied_changes, new_modes)
     end
   end
 
-  defp apply_mode_change(user, channel, {:remove, mode} = mode_change, {applied_changes, new_modes}) do
+  defp apply_mode_change(user, channel, {:remove, mode} = mode_change, acc) do
     mode_flag = extract_mode_flag(mode)
+    {applied_changes, new_modes} = acc
 
-    cond do
-      mode_flag in @modes_requiring_irc_operator ->
-        apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
-
-      mode_flag in @modes_for_user_channel ->
-        apply_user_channel_mode(user, mode_change, channel.name, applied_changes, new_modes)
-
-      mode_flag in @modes_for_channel_ban ->
+    case determine_mode_handler_remove(mode_flag) do
+      {:list_mode, :ban} ->
         apply_channel_ban_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
 
-      mode_flag in @modes_without_value_to_remove ->
+      {:list_mode, :except} ->
+        apply_channel_except_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
+
+      {:list_mode, :invex} ->
+        apply_channel_invex_mode(user, mode_change, channel.name_key, applied_changes, new_modes)
+
+      {:special, :irc_operator} ->
+        apply_irc_operator_mode(user, mode_change, channel.name, applied_changes, new_modes)
+
+      {:special, :user_channel} ->
+        apply_user_channel_mode(user, mode_change, channel.name, applied_changes, new_modes)
+
+      {:special, :valueless_removal} ->
         apply_valueless_mode_removal(mode, mode_flag, applied_changes, new_modes)
 
-      Enum.member?(new_modes, mode) ->
-        {[{:remove, mode} | applied_changes], List.delete(new_modes, mode)}
+      :simple ->
+        apply_simple_mode_remove(mode, applied_changes, new_modes)
+    end
+  end
 
-      true ->
-        {applied_changes, new_modes}
+  @spec determine_mode_handler_add(String.t(), mode()) ::
+          {:list_mode, atom()} | {:special, atom()} | :simple
+  defp determine_mode_handler_add(mode_flag, mode) do
+    cond do
+      mode_flag in @modes_for_channel_ban -> {:list_mode, :ban}
+      mode_flag in @modes_for_channel_except -> {:list_mode, :except}
+      mode_flag in @modes_for_channel_invex -> {:list_mode, :invex}
+      mode_flag in @modes_requiring_irc_operator -> {:special, :irc_operator}
+      mode_flag in @modes_for_user_channel -> {:special, :user_channel}
+      should_ignore_invalid_mode?(mode_flag, mode) -> {:special, :invalid}
+      mode_flag in @modes_with_value_to_replace -> {:special, :replaceable}
+      true -> :simple
+    end
+  end
+
+  @spec determine_mode_handler_remove(String.t()) :: {:list_mode, atom()} | {:special, atom()} | :simple
+  defp determine_mode_handler_remove(mode_flag) do
+    cond do
+      mode_flag in @modes_for_channel_ban -> {:list_mode, :ban}
+      mode_flag in @modes_for_channel_except -> {:list_mode, :except}
+      mode_flag in @modes_for_channel_invex -> {:list_mode, :invex}
+      mode_flag in @modes_requiring_irc_operator -> {:special, :irc_operator}
+      mode_flag in @modes_for_user_channel -> {:special, :user_channel}
+      mode_flag in @modes_without_value_to_remove -> {:special, :valueless_removal}
+      true -> :simple
+    end
+  end
+
+  @spec apply_simple_mode_add(mode(), [mode_change()], [mode()]) :: {[mode_change()], [mode()]}
+  defp apply_simple_mode_add(mode, applied_changes, new_modes) do
+    if Enum.member?(new_modes, mode) do
+      {applied_changes, new_modes}
+    else
+      {[{:add, mode} | applied_changes], [mode | new_modes]}
+    end
+  end
+
+  @spec apply_simple_mode_remove(mode(), [mode_change()], [mode()]) :: {[mode_change()], [mode()]}
+  defp apply_simple_mode_remove(mode, applied_changes, new_modes) do
+    if Enum.member?(new_modes, mode) do
+      {[{:remove, mode} | applied_changes], List.delete(new_modes, mode)}
+    else
+      {applied_changes, new_modes}
     end
   end
 
@@ -416,6 +501,76 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     true
   end
 
+  @spec apply_channel_except_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp apply_channel_except_mode(user, mode_change, channel_name_key, applied_changes, new_modes) do
+    updated_mode_change = normalize_mode_change_for_channel_list(mode_change)
+
+    channel_except_mode_applied?(user, updated_mode_change, channel_name_key)
+    |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
+  end
+
+  @spec channel_except_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
+  defp channel_except_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name_key) do
+    channel_except =
+      ChannelExcepts.get_by_channel_name_key_and_mask(channel_name_key, mode_value)
+      |> case do
+        {:ok, channel_except} -> channel_except
+        {:error, :channel_except_not_found} -> nil
+      end
+
+    channel_except_mode_changed?(user, mode_change, channel_except, channel_name_key)
+  end
+
+  @spec channel_except_mode_changed?(User.t(), mode_change(), ChannelExcept.t() | nil, String.t()) :: boolean()
+  defp channel_except_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name_key) do
+    ChannelExcepts.create(%{channel_name_key: channel_name_key, mask: mode_value, setter: user_mask(user)})
+    true
+  end
+
+  defp channel_except_mode_changed?(_user, {:add, _mode}, _channel_except, _channel_name_key), do: false
+  defp channel_except_mode_changed?(_user, {:remove, _mode}, nil, _channel_name_key), do: false
+
+  defp channel_except_mode_changed?(_user, {:remove, _mode}, channel_except, _channel_name_key) do
+    ChannelExcepts.delete(channel_except)
+    true
+  end
+
+  @spec apply_channel_invex_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
+          {[mode_change()], [mode()]}
+  defp apply_channel_invex_mode(user, mode_change, channel_name_key, applied_changes, new_modes) do
+    updated_mode_change = normalize_mode_change_for_channel_list(mode_change)
+
+    channel_invex_mode_applied?(user, updated_mode_change, channel_name_key)
+    |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
+  end
+
+  @spec channel_invex_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
+  defp channel_invex_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name_key) do
+    channel_invex =
+      ChannelInvexes.get_by_channel_name_key_and_mask(channel_name_key, mode_value)
+      |> case do
+        {:ok, channel_invex} -> channel_invex
+        {:error, :channel_invex_not_found} -> nil
+      end
+
+    channel_invex_mode_changed?(user, mode_change, channel_invex, channel_name_key)
+  end
+
+  @spec channel_invex_mode_changed?(User.t(), mode_change(), ChannelInvex.t() | nil, String.t()) :: boolean()
+  defp channel_invex_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name_key) do
+    ChannelInvexes.create(%{channel_name_key: channel_name_key, mask: mode_value, setter: user_mask(user)})
+    true
+  end
+
+  defp channel_invex_mode_changed?(_user, {:add, _mode}, _channel_invex, _channel_name_key), do: false
+  defp channel_invex_mode_changed?(_user, {:remove, _mode}, nil, _channel_name_key), do: false
+
+  defp channel_invex_mode_changed?(_user, {:remove, _mode}, channel_invex, _channel_name_key) do
+    ChannelInvexes.delete(channel_invex)
+    true
+  end
+
   @spec update_mode_changes(boolean(), mode_change(), [mode_change()], [mode()]) :: {[mode_change()], [mode()]}
   defp update_mode_changes(true, mode_change, applied_changes, new_modes) do
     {[mode_change | applied_changes], new_modes}
@@ -425,6 +580,11 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   @spec normalize_mode_change_for_channel_ban(mode_change()) :: mode_change()
   defp normalize_mode_change_for_channel_ban({action, {mode_flag, mode_value}}) do
+    {action, {mode_flag, normalize_mask(mode_value)}}
+  end
+
+  @spec normalize_mode_change_for_channel_list(mode_change()) :: mode_change()
+  defp normalize_mode_change_for_channel_list({action, {mode_flag, mode_value}}) do
     {action, {mode_flag, normalize_mask(mode_value)}}
   end
 

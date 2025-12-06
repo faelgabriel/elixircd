@@ -16,6 +16,8 @@ defmodule ElixIRCd.Commands.Join do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelBans
+  alias ElixIRCd.Repositories.ChannelExcepts
+  alias ElixIRCd.Repositories.ChannelInvexes
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
@@ -274,21 +276,35 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec check_user_banned(Channel.t(), User.t()) :: :ok | {:error, :user_banned}
   defp check_user_banned(channel, user) do
-    ChannelBans.get_by_channel_name_key(channel.name_key)
-    |> Enum.any?(&match_user_mask?(user, &1.mask))
-    |> case do
+    is_banned =
+      ChannelBans.get_by_channel_name_key(channel.name_key)
+      |> Enum.any?(&match_user_mask?(user, &1.mask))
+
+    is_excepted =
+      ChannelExcepts.get_by_channel_name_key(channel.name_key)
+      |> Enum.any?(&match_user_mask?(user, &1.mask))
+
+    cond do
+      not is_banned -> :ok
+      is_excepted -> :ok
       true -> {:error, :user_banned}
-      false -> :ok
     end
   end
 
   @spec check_user_invited(Channel.t(), User.t()) :: :ok | {:error, :user_not_invited}
   defp check_user_invited(channel, user) do
     if "i" in channel.modes do
-      ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name)
-      |> case do
-        {:ok, _channel_invite} -> :ok
-        {:error, :channel_invite_not_found} -> {:error, :user_not_invited}
+      has_direct_invite =
+        match?({:ok, _}, ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name))
+
+      has_invex_exception =
+        ChannelInvexes.get_by_channel_name_key(channel.name_key)
+        |> Enum.any?(&match_user_mask?(user, &1.mask))
+
+      if has_direct_invite or has_invex_exception do
+        :ok
+      else
+        {:error, :user_not_invited}
       end
     else
       :ok
