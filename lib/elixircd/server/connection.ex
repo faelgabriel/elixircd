@@ -20,6 +20,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.UserSilences
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.RateLimiter
+  alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
 
   @type transport :: :tcp | :tls | :ws | :wss
@@ -155,7 +156,15 @@ defmodule ElixIRCd.Server.Connection do
     %Message{command: "ERROR", params: [], trailing: "Excess flood"}
     |> Dispatcher.broadcast(nil, user)
 
+    if user.registered, do: send_flood_snotice(user)
+
     {:quit, "Excess flood"}
+  end
+
+  @spec send_flood_snotice(User.t()) :: :ok
+  defp send_flood_snotice(user) do
+    user_info = Snotice.format_user_info(user)
+    Snotice.broadcast(:flood, "Excess flood from #{user_info}")
   end
 
   @doc """
@@ -247,10 +256,18 @@ defmodule ElixIRCd.Server.Connection do
 
     %Message{command: "QUIT", params: [], trailing: quit_message}
     |> Dispatcher.broadcast(user, all_shared_unique_users)
+
+    send_quit_snotice(user, quit_message)
   end
 
   defp handle_quit(user, _quit_message) do
     Users.delete(user)
+  end
+
+  @spec send_quit_snotice(User.t(), String.t()) :: :ok
+  defp send_quit_snotice(user, quit_message) do
+    user_info = Snotice.format_user_info(user)
+    Snotice.broadcast(:quit, "Client exiting: #{user_info} (#{quit_message})")
   end
 
   @spec update_connection_stats() :: :ok

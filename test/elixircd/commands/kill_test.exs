@@ -100,5 +100,24 @@ defmodule ElixIRCd.Commands.KillTest do
         assert_received {:disconnect, ^expected_killed_message}
       end)
     end
+
+    test "sends snotice to operators with +s mode when KILL is used" do
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"])
+        oper_with_s = insert(:user, modes: ["o", "s"])
+        target_user = insert(:user, pid: self())
+        message = %Message{command: "KILL", params: [target_user.nick], trailing: "Spam"}
+
+        assert :ok = Kill.handle(oper, message)
+
+        oper_info = "#{oper.nick}!#{oper.ident}@#{oper.hostname} [127.0.0.1]"
+        target_info = "#{target_user.nick}!#{target_user.ident}@#{target_user.hostname} [127.0.0.1]"
+        expected_snotice = ":irc.test NOTICE :*** Kill: Local kill by #{oper_info} for #{target_info} (Spam)\r\n"
+
+        assert_sent_messages([
+          {oper_with_s.pid, expected_snotice}
+        ])
+      end)
+    end
   end
 end

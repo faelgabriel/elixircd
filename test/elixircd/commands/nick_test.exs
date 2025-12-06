@@ -177,5 +177,24 @@ defmodule ElixIRCd.Commands.NickTest do
         ])
       end)
     end
+
+    test "sends snotice to operators with +s mode when nick changes" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "oldnick")
+        oper_with_s = insert(:user, modes: ["o", "s"])
+        new_nick = "newnick"
+        message = %Message{command: "NICK", params: [new_nick]}
+
+        assert :ok = Nick.handle(user, message)
+
+        user_info = "#{new_nick}!#{user.ident}@#{user.hostname} [127.0.0.1]"
+        expected_snotice = ":irc.test NOTICE :*** Nick: Nick change: oldnick -> #{new_nick} (#{user_info})\r\n"
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} NICK #{new_nick}\r\n"},
+          {oper_with_s.pid, expected_snotice}
+        ])
+      end)
+    end
   end
 end

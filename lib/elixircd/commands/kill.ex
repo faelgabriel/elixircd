@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Kill do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -36,12 +37,21 @@ defmodule ElixIRCd.Commands.Kill do
 
       closing_link_message(target_user, killed_message)
       send(target_user.pid, {:disconnect, killed_message})
+      send_kill_snotice(user, target_user, reason)
 
       :ok
     else
       {:irc_operator?, false} -> noprivileges_message(user)
       {:error, :user_not_found} -> target_not_found_message(user, target_nick)
     end
+  end
+
+  @spec send_kill_snotice(User.t(), User.t(), String.t() | nil) :: :ok
+  defp send_kill_snotice(oper, target, reason) do
+    snotice_reason = if is_nil(reason), do: "No reason given", else: reason
+    oper_info = Snotice.format_user_info(oper)
+    target_info = Snotice.format_user_info(target)
+    Snotice.broadcast(:kill, "Local kill by #{oper_info} for #{target_info} (#{snotice_reason})")
   end
 
   @spec closing_link_message(User.t(), String.t()) :: :ok

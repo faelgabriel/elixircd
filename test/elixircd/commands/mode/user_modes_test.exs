@@ -17,18 +17,18 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
 
     test "handles modes for regular user" do
       user = insert(:user, modes: [])
-      modes = ["B", "H", "i", "w", "o", "Z"]
+      modes = ["B", "H", "i", "s", "w", "o", "Z"]
 
-      # Regular user should not see "H" operator-only mode
+      # Regular user should not see "H" or "s" operator-only modes
       assert "+BiwoZ" == UserModes.display_modes(user, modes)
     end
 
     test "handles modes for operator user" do
       user = insert(:user, modes: ["o"])
-      modes = ["B", "H", "i", "w", "o", "Z"]
+      modes = ["B", "H", "i", "s", "w", "o", "Z"]
 
-      # Operator should see all modes including "H"
-      assert "+BHiwoZ" == UserModes.display_modes(user, modes)
+      # Operator should see all modes including "H" and "s"
+      assert "+BHiswoZ" == UserModes.display_modes(user, modes)
     end
   end
 
@@ -231,6 +231,30 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       assert unauthorized_modes == [{:add, "H"}]
     end
 
+    test "handles +s mode restricted to operators" do
+      user = insert(:user, modes: [])
+      validated_modes = [{:add, "s"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert updated_user.modes == []
+      assert applied_modes == []
+      assert unauthorized_modes == [{:add, "s"}]
+    end
+
+    test "allows operators to set +s mode" do
+      user = insert(:user, modes: ["o"])
+      validated_modes = [{:add, "s"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert "s" in updated_user.modes
+      assert applied_modes == [{:add, "s"}]
+      assert unauthorized_modes == []
+    end
+
     test "handles automatic H mode removal when operator mode is removed" do
       user = insert(:user, modes: ["o", "H"])
       validated_modes = [{:remove, "o"}]
@@ -254,6 +278,46 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       assert "H" not in updated_user.modes
       assert "o" not in updated_user.modes
       assert applied_modes == [{:add, "H"}, {:remove, "o"}, {:remove, "H"}]
+      assert unauthorized_modes == []
+    end
+
+    test "handles automatic s mode removal when operator mode is removed" do
+      user = insert(:user, modes: ["o", "s"])
+      validated_modes = [{:remove, "o"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert "s" not in updated_user.modes
+      assert "o" not in updated_user.modes
+      assert applied_modes == [{:remove, "o"}, {:remove, "s"}]
+      assert unauthorized_modes == []
+    end
+
+    test "handles automatic s mode removal when adding s mode and removing operator" do
+      user = insert(:user, modes: ["o"])
+      validated_modes = [{:add, "s"}, {:remove, "o"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert "s" not in updated_user.modes
+      assert "o" not in updated_user.modes
+      assert applied_modes == [{:add, "s"}, {:remove, "o"}, {:remove, "s"}]
+      assert unauthorized_modes == []
+    end
+
+    test "handles automatic removal of both H and s modes when operator mode is removed" do
+      user = insert(:user, modes: ["o", "H", "s"])
+      validated_modes = [{:remove, "o"}]
+
+      {updated_user, applied_modes, unauthorized_modes} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, validated_modes) end)
+
+      assert "H" not in updated_user.modes
+      assert "s" not in updated_user.modes
+      assert "o" not in updated_user.modes
+      assert applied_modes == [{:remove, "o"}, {:remove, "H"}, {:remove, "s"}]
       assert unauthorized_modes == []
     end
 

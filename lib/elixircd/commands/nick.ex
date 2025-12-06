@@ -17,6 +17,7 @@ defmodule ElixIRCd.Commands.Nick do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
+  alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -84,6 +85,7 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   defp change_nick(user, input_nick) do
+    old_nick = user.nick
     updated_user = Users.update(user, %{nick: input_nick})
 
     all_channel_user_pids =
@@ -99,6 +101,14 @@ defmodule ElixIRCd.Commands.Nick do
 
     %Message{command: "NICK", params: [input_nick]}
     |> Dispatcher.broadcast(user, [updated_user | all_users])
+
+    send_nick_change_snotice(old_nick, updated_user)
+  end
+
+  @spec send_nick_change_snotice(String.t(), User.t()) :: :ok
+  defp send_nick_change_snotice(old_nick, user) do
+    user_info = Snotice.format_user_info(user)
+    Snotice.broadcast(:nick, "Nick change: #{old_nick} -> #{user.nick} (#{user_info})")
   end
 
   @spec check_nick_in_use(String.t()) :: :ok | {:error, :nick_in_use}

@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.Oper do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -32,10 +33,26 @@ defmodule ElixIRCd.Commands.Oper do
 
       %Message{command: :rpl_youreoper, params: [updated_user.nick], trailing: "You are now an IRC operator"}
       |> Dispatcher.broadcast(:server, updated_user)
+
+      send_oper_success_snotice(updated_user, username)
     else
       %Message{command: :err_passwdmismatch, params: [user.nick], trailing: "Password incorrect"}
       |> Dispatcher.broadcast(:server, user)
+
+      send_oper_failure_snotice(user, username)
     end
+  end
+
+  @spec send_oper_success_snotice(User.t(), String.t()) :: :ok
+  defp send_oper_success_snotice(user, username) do
+    user_info = Snotice.format_user_info(user)
+    Snotice.broadcast(:oper, "#{user_info} opered as #{username}")
+  end
+
+  @spec send_oper_failure_snotice(User.t(), String.t()) :: :ok
+  defp send_oper_failure_snotice(user, username) do
+    user_info = Snotice.format_user_info(user)
+    Snotice.broadcast(:oper, "Failed OPER attempt by #{user_info} (username: #{username})")
   end
 
   @spec valid_irc_operator_credential?(String.t(), String.t()) :: boolean()
