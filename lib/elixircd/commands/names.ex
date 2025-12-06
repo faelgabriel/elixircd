@@ -148,13 +148,14 @@ defmodule ElixIRCd.Commands.Names do
   defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
     is_operator = "o" in user.modes
     use_extended_names = "UHNAMES" in user.capabilities
+    use_multi_prefix = "MULTI-PREFIX" in user.capabilities
 
     user_channels
     |> Enum.map(fn uc ->
       found_user = Map.get(users_by_pid, uc.user_pid)
 
       if found_user && user_visible?(found_user, is_operator) do
-        prefix = get_user_prefix(uc)
+        prefix = get_user_prefix(uc, use_multi_prefix)
         formatted_user = prefix <> format_user_display(found_user, use_extended_names)
         {formatted_user, found_user.nick}
       else
@@ -216,14 +217,26 @@ defmodule ElixIRCd.Commands.Names do
     :ok
   end
 
-  @spec get_user_prefix(UserChannel.t()) :: String.t()
-  defp get_user_prefix(user_channel) do
+  @spec get_user_prefix(UserChannel.t(), boolean()) :: String.t()
+  defp get_user_prefix(user_channel, true = _use_multi_prefix) do
+    []
+    |> maybe_add_user_prefix("o" in user_channel.modes, "@")
+    |> maybe_add_user_prefix("v" in user_channel.modes, "+")
+    |> Enum.reverse()
+    |> Enum.join("")
+  end
+
+  defp get_user_prefix(user_channel, false = _use_multi_prefix) do
     cond do
       "o" in user_channel.modes -> "@"
       "v" in user_channel.modes -> "+"
       true -> ""
     end
   end
+
+  @spec maybe_add_user_prefix([String.t()], boolean(), String.t()) :: [String.t()]
+  defp maybe_add_user_prefix(acc, true, prefix), do: [prefix | acc]
+  defp maybe_add_user_prefix(acc, false, _prefix), do: acc
 
   @spec format_user_display(User.t(), boolean()) :: String.t()
   defp format_user_display(user, true = _use_extended_names), do: user_mask(user)

@@ -307,5 +307,50 @@ defmodule ElixIRCd.Commands.NamesTest do
         assert_sent_messages([])
       end)
     end
+
+    test "handles NAMES with MULTI-PREFIX capability showing all prefixes" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["MULTI-PREFIX"])
+        channel = insert(:channel, name: "#test")
+
+        dual_prefix_user = insert(:user)
+        insert(:user_channel, user: dual_prefix_user, channel: channel, modes: ["o", "v"])
+
+        op_user = insert(:user)
+        insert(:user_channel, user: op_user, channel: channel, modes: ["o"])
+
+        voice_user = insert(:user)
+        insert(:user_channel, user: voice_user, channel: channel, modes: ["v"])
+
+        normal_user = insert(:user)
+        insert(:user_channel, user: normal_user, channel: channel)
+
+        message = %Message{command: "NAMES", params: ["#test"]}
+        assert :ok = Names.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ~r/:irc.test 353 #{user.nick} = #test :.*@\+#{dual_prefix_user.nick}.*/},
+          {user.pid, ":irc.test 366 #{user.nick} #test :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles NAMES without MULTI-PREFIX showing only highest prefix" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#test")
+
+        dual_prefix_user = insert(:user)
+        insert(:user_channel, user: dual_prefix_user, channel: channel, modes: ["o", "v"])
+
+        message = %Message{command: "NAMES", params: ["#test"]}
+        assert :ok = Names.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ~r/:irc.test 353 #{user.nick} = #test :@#{dual_prefix_user.nick}/},
+          {user.pid, ":irc.test 366 #{user.nick} #test :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
   end
 end
