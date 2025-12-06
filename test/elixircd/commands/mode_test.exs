@@ -334,6 +334,220 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
+    test "handles MODE command for channel and add modes for channel except (+e)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "MODE", params: [channel.name, "+e", "nick!user@host"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} MODE #{channel.name} +e nick!user@host\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for channel and remove modes for channel except (+e)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:channel_except, channel: channel, mask: "nick!user@host")
+
+        message = %Message{command: "MODE", params: [channel.name, "-e", "nick!user@host"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} MODE #{channel.name} -e nick!user@host\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for channel to remove modes for channel except that does not exist" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "MODE", params: [channel.name, "-e", "inexistent!@mask"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles MODE command for channel to add channel except that already exists" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:channel_except, channel: channel, mask: "nick!user@host")
+
+        message = %Message{command: "MODE", params: [channel.name, "+e", "nick!user@host"]}
+        assert :ok = Mode.handle(user, message)
+
+        # Should not send any mode change message since except already exists
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles MODE command for channel to list except (+e)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel_except = insert(:channel_except, channel: channel, mask: "nick!user@host")
+
+        message = %Message{command: "MODE", params: [channel.name, "+e"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 348 #{user.nick} #{channel.name} #{channel_except.mask} #{channel_except.setter} #{DateTime.to_unix(channel_except.created_at)}\r\n"},
+          {user.pid, ":irc.test 349 #{user.nick} #{channel.name} :End of channel except list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for channel to list except when over the max_list_entries limit" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        # Create 150 excepts (over the default limit of 100)
+        except_masks = for i <- 1..150, do: "user#{i}!*@*"
+        _channel_excepts = for mask <- except_masks, do: insert(:channel_except, channel: channel, mask: mask)
+
+        message = %Message{command: "MODE", params: [channel.name, "+e"]}
+        assert :ok = Mode.handle(user, message)
+
+        # Verify we have exactly 100 except messages (348 replies)
+        assert_sent_messages_count_containing(user.pid, ~r/348/, 100)
+
+        # Verify the truncation notice is present
+        assert_sent_message_contains(
+          user.pid,
+          ~r/Except list for #{Regex.escape(channel.name)} too long, showing first 100 of 150 entries/
+        )
+
+        # Verify the end message is present
+        assert_sent_message_contains(user.pid, ~r/349.*End of channel except list/)
+
+        # Verify we have exactly 102 messages total (100 excepts + 1 truncation notice + 1 end)
+        assert_sent_messages_amount(user.pid, 102)
+      end)
+    end
+
+    test "handles MODE command for channel and add modes for channel invex (+I)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "MODE", params: [channel.name, "+I", "nick!user@host"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} MODE #{channel.name} +I nick!user@host\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for channel and remove modes for channel invex (+I)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:channel_invex, channel: channel, mask: "nick!user@host")
+
+        message = %Message{command: "MODE", params: [channel.name, "-I", "nick!user@host"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} MODE #{channel.name} -I nick!user@host\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for channel to remove modes for channel invex that does not exist" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "MODE", params: [channel.name, "-I", "inexistent!@mask"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles MODE command for channel to add channel invex that already exists" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:channel_invex, channel: channel, mask: "nick!user@host")
+
+        message = %Message{command: "MODE", params: [channel.name, "+I", "nick!user@host"]}
+        assert :ok = Mode.handle(user, message)
+
+        # Should not send any mode change message since invex already exists
+        assert_sent_messages([])
+      end)
+    end
+
+    test "handles MODE command for channel to list invex (+I)" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel_invex = insert(:channel_invex, channel: channel, mask: "nick!user@host")
+
+        message = %Message{command: "MODE", params: [channel.name, "+I"]}
+        assert :ok = Mode.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 346 #{user.nick} #{channel.name} #{channel_invex.mask} #{channel_invex.setter} #{DateTime.to_unix(channel_invex.created_at)}\r\n"},
+          {user.pid, ":irc.test 347 #{user.nick} #{channel.name} :End of channel invex list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles MODE command for channel to list invex when over the max_list_entries limit" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        # Create 150 invexes (over the default limit of 100)
+        invex_masks = for i <- 1..150, do: "user#{i}!*@*"
+        _channel_invexes = for mask <- invex_masks, do: insert(:channel_invex, channel: channel, mask: mask)
+
+        message = %Message{command: "MODE", params: [channel.name, "+I"]}
+        assert :ok = Mode.handle(user, message)
+
+        # Verify we have exactly 100 invex messages (346 replies)
+        assert_sent_messages_count_containing(user.pid, ~r/346/, 100)
+
+        # Verify the truncation notice is present
+        assert_sent_message_contains(
+          user.pid,
+          ~r/Invex list for #{Regex.escape(channel.name)} too long, showing first 100 of 150 entries/
+        )
+
+        # Verify the end message is present
+        assert_sent_message_contains(user.pid, ~r/347.*End of channel invex list/)
+
+        # Verify we have exactly 102 messages total (100 invexes + 1 truncation notice + 1 end)
+        assert_sent_messages_amount(user.pid, 102)
+      end)
+    end
+
     test "handles MODE command for channel when invalid modes sent" do
       Memento.transaction!(fn ->
         user = insert(:user)

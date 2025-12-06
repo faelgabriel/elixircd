@@ -76,7 +76,7 @@ defmodule ElixIRCd.Utils.Isupport do
 
     # Categorize according to IRC spec:
     # Type A = List modes (always require a parameter for both set/unset)
-    type_a = ["b"] |> Enum.filter(&(&1 in supported_modes))
+    type_a = ["b", "e", "I"] |> Enum.filter(&(&1 in supported_modes))
 
     # Type B = Modes that require parameter only when setting
     type_b = ["k"] |> Enum.filter(&(&1 in supported_modes))

@@ -5,6 +5,8 @@ defmodule ElixIRCd.Factory do
 
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
+  alias ElixIRCd.Tables.ChannelExcept
+  alias ElixIRCd.Tables.ChannelInvex
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Job
@@ -113,6 +115,24 @@ defmodule ElixIRCd.Factory do
 
   def build(:channel_ban, attrs) do
     %ChannelBan{
+      channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
+      mask: Map.get(attrs, :mask, "nick!user@host"),
+      setter: Map.get(attrs, :setter, "setter"),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:channel_except, attrs) do
+    %ChannelExcept{
+      channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
+      mask: Map.get(attrs, :mask, "nick!user@host"),
+      setter: Map.get(attrs, :setter, "setter"),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:channel_invex, attrs) do
+    %ChannelInvex{
       channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       mask: Map.get(attrs, :mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
@@ -268,6 +288,40 @@ defmodule ElixIRCd.Factory do
 
     Memento.transaction!(fn ->
       build(:channel_ban, updated_attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:channel_except, attrs) do
+    channel =
+      case Map.get(attrs, :channel) do
+        nil -> insert(:channel)
+        channel -> channel
+      end
+
+    updated_attrs =
+      attrs
+      |> Map.put(:channel_name_key, channel.name_key)
+
+    Memento.transaction!(fn ->
+      build(:channel_except, updated_attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:channel_invex, attrs) do
+    channel =
+      case Map.get(attrs, :channel) do
+        nil -> insert(:channel)
+        channel -> channel
+      end
+
+    updated_attrs =
+      attrs
+      |> Map.put(:channel_name_key, channel.name_key)
+
+    Memento.transaction!(fn ->
+      build(:channel_invex, updated_attrs)
       |> Memento.Query.write()
     end)
   end

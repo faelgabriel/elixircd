@@ -283,8 +283,8 @@ These modes apply to channels and define behavior, restrictions, and access rule
 These modes use lists to manage exceptions and access control in channels.
 
 - **+b (Ban)**: Prevents a user or host from joining the channel. ✅
-- **+e (Ban Exception)**: Exempts users from channel bans. ❌
-- **+I (Invite Exception)**: Exempts users from invite-only restriction. ❌
+- **+e (Ban Exception)**: Exempts users from channel bans. ✅
+- **+I (Invite Exception)**: Exempts users from invite-only restriction. ✅
 
 #### Channel User Modes
 

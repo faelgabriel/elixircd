@@ -7,6 +7,8 @@ defmodule ElixIRCd.Utils.Mnesia do
 
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
+  alias ElixIRCd.Tables.ChannelExcept
+  alias ElixIRCd.Tables.ChannelInvex
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Job
@@ -21,6 +23,8 @@ defmodule ElixIRCd.Utils.Mnesia do
   @memory_tables [
     Channel,
     ChannelBan,
+    ChannelExcept,
+    ChannelInvex,
     ChannelInvite,
     HistoricalUser,
     Metric,
