@@ -27,9 +27,21 @@ defmodule ElixIRCd.Commands.Cap do
       name: "AWAY-NOTIFY",
       description: "Notify when users set or remove away status"
     },
+    "CHGHOST" => %{
+      name: "CHGHOST",
+      description: "Notify when a user's ident or hostname changes"
+    },
     "CLIENT-TAGS" => %{
       name: "CLIENT-TAGS",
       description: "Allow vendor-specific client-only tags from clients"
+    },
+    "MULTI-PREFIX" => %{
+      name: "MULTI-PREFIX",
+      description: "Display multiple status prefixes for users in channel responses"
+    },
+    "SETNAME" => %{
+      name: "SETNAME",
+      description: "Allow clients to change their real name during the session"
     },
     "UHNAMES" => %{
       name: "UHNAMES",
@@ -122,7 +134,10 @@ defmodule ElixIRCd.Commands.Cap do
             {:account_tag, "ACCOUNT-TAG"},
             {:account_notify, "ACCOUNT-NOTIFY"},
             {:away_notify, "AWAY-NOTIFY"},
+            {:chghost, "CHGHOST"},
             {:client_tags, "CLIENT-TAGS"},
+            {:multi_prefix, "MULTI-PREFIX"},
+            {:setname, "SETNAME"},
             {:msgid, "MSGID"},
             {:server_time, "SERVER-TIME"},
             {:message_tags, "MESSAGE-TAGS"},

@@ -125,8 +125,14 @@ config :elixircd,
     account_notify: true,
     # Whether to send AWAY notifications to interested clients (away-notify capability)
     away_notify: true,
+    # Whether to send CHGHOST notifications when ident/hostname changes (chghost capability)
+    chghost: true,
     # Whether to allow client-only tags from clients (client-tags capability)
     client_tags: true,
+    # Whether to support multiple status prefixes in channel responses (multi-prefix capability)
+    multi_prefix: true,
+    # Whether to allow clients to change their real name during the session (setname capability)
+    setname: true,
     # Whether to support SERVER-TIME capability adding time= tags
     server_time: true,
     # Whether to support MSGID capability adding msgid= tags
@@ -161,6 +167,10 @@ config :elixircd,
     inactivity_timeout_ms: 180_000,
     # Maximum length allowed for nicknames
     max_nick_length: 30,
+    # Maximum length allowed for ident usernames
+    max_ident_length: 10,
+    # Maximum length allowed for real names (GECOS)
+    max_realname_length: 50,
     # Maximum length allowed for AWAY messages
     max_away_message_length: 200
   ],

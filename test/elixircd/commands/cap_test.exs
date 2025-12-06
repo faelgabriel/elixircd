@@ -22,7 +22,10 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
+        |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:message_tags, true)
@@ -38,7 +41,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
@@ -54,7 +57,10 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
+        |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:message_tags, true)
@@ -70,7 +76,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
@@ -86,7 +92,10 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
+        |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
       )
 
@@ -98,7 +107,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST\r\n"}
         ])
       end)
     end
@@ -114,7 +123,10 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
+        |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
       )
@@ -127,7 +139,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CLIENT-TAGS MSGID SERVER-TIME MESSAGE-TAGS\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS\r\n"}
         ])
       end)
     end
@@ -143,7 +155,10 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, false)
         |> Keyword.put(:account_notify, false)
         |> Keyword.put(:away_notify, false)
+        |> Keyword.put(:chghost, false)
         |> Keyword.put(:client_tags, false)
+        |> Keyword.put(:multi_prefix, false)
+        |> Keyword.put(:setname, false)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
         |> Keyword.put(:message_tags, false)

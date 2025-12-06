@@ -395,6 +395,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_needmoreparams), do: "461"
   defp numeric_reply(:err_alreadyregistered), do: "462"
   defp numeric_reply(:err_passwdmismatch), do: "464"
+  defp numeric_reply(:err_invalidusername), do: "468"
   defp numeric_reply(:err_channelisfull), do: "471"
   defp numeric_reply(:err_unknownmode), do: "472"
   defp numeric_reply(:err_inviteonlychan), do: "473"
