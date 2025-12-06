@@ -10,10 +10,10 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
-  @modes ["B", "g", "H", "i", "o", "r", "R", "w", "x", "Z"]
+  @modes ["B", "g", "H", "i", "o", "r", "R", "s", "w", "x", "Z"]
   @modes_handled_by_server_to_add ["o", "r", "Z"]
   @modes_handled_by_server_to_remove ["r", "Z"]
-  @modes_restricted_to_operators ["H"]
+  @modes_restricted_to_operators ["H", "s"]
 
   @type mode :: String.t()
   @type mode_change :: {:add, mode()} | {:remove, mode()}
@@ -108,7 +108,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   def apply_mode_changes(user, mode_changes) do
     with {valid_modes, unauthorized_modes} <- validate_operator_permissions(user, mode_changes),
          {allowed_modes, disallowed_modes} <- validate_removable_modes(valid_modes),
-         final_modes <- maybe_add_h_removal(user, allowed_modes),
+         final_modes <- add_operator_mode_removals(user, allowed_modes),
          {applied_changes, new_modes} <- process_mode_changes(user, final_modes),
          updated_user <- Users.update(user, %{modes: new_modes}) do
       {updated_user, applied_changes, unauthorized_modes ++ disallowed_modes}
@@ -135,32 +135,23 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   defp valid_when_cloak_disabled?({:remove, "x"}), do: false
   defp valid_when_cloak_disabled?(_), do: true
 
-  @spec maybe_add_h_removal(User.t(), [mode_change()]) :: [mode_change()]
-  defp maybe_add_h_removal(user, valid_modes) do
-    case should_remove_h_mode?(user, valid_modes) do
-      true -> valid_modes ++ [{:remove, "H"}]
-      false -> valid_modes
-    end
-  end
+  @spec add_operator_mode_removals(User.t(), [mode_change()]) :: [mode_change()]
+  defp add_operator_mode_removals(user, valid_modes) do
+    if Enum.any?(valid_modes, &match?({:remove, "o"}, &1)) do
+      operator_modes_to_remove =
+        @modes_restricted_to_operators
+        |> Enum.filter(&has_or_adding_mode?(user, valid_modes, &1))
+        |> Enum.map(&{:remove, &1})
 
-  @spec should_remove_h_mode?(User.t(), [mode_change()]) :: boolean()
-  defp should_remove_h_mode?(user, mode_changes) do
-    with true <- removing_operator?(mode_changes),
-         true <- has_or_adding_h_mode?(user, mode_changes) do
-      true
+      valid_modes ++ operator_modes_to_remove
     else
-      _ -> false
+      valid_modes
     end
   end
 
-  @spec removing_operator?([mode_change()]) :: boolean()
-  defp removing_operator?(mode_changes) do
-    Enum.any?(mode_changes, &match?({:remove, "o"}, &1))
-  end
-
-  @spec has_or_adding_h_mode?(User.t(), [mode_change()]) :: boolean()
-  defp has_or_adding_h_mode?(user, mode_changes) do
-    "H" in user.modes or Enum.any?(mode_changes, &match?({:add, "H"}, &1))
+  @spec has_or_adding_mode?(User.t(), [mode_change()], String.t()) :: boolean()
+  defp has_or_adding_mode?(user, mode_changes, mode) do
+    mode in user.modes or Enum.any?(mode_changes, &match?({:add, ^mode}, &1))
   end
 
   @spec process_mode_changes(User.t(), [mode_change()]) :: {[mode_change()], [mode()]}

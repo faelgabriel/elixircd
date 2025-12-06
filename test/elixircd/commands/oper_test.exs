@@ -75,5 +75,49 @@ defmodule ElixIRCd.Commands.OperTest do
         ])
       end)
     end
+
+    test "sends snotice to operators with +s mode when OPER succeeds" do
+      operators = [
+        {"admin", "$argon2id$v=19$m=4096,t=2,p=4$0Ikum7IgbC2CkId/UJQE7A$n1YVbtPj1nP4EfdL771tPCS1PmK+Q364g14ScJzBaSg"}
+      ]
+
+      original_config = Application.get_env(:elixircd, :operators)
+      Application.put_env(:elixircd, :operators, operators)
+      on_exit(fn -> Application.put_env(:elixircd, :operators, original_config) end)
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        oper_with_s = insert(:user, modes: ["o", "s"])
+
+        message = %Message{command: "OPER", params: ["admin", "admin"]}
+        assert :ok = Oper.handle(user, message)
+
+        user_info = "#{user.nick}!#{user.ident}@#{user.hostname} [127.0.0.1]"
+        expected_snotice = ":irc.test NOTICE :*** Oper: #{user_info} opered as admin\r\n"
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 381 #{user.nick} :You are now an IRC operator\r\n"},
+          {oper_with_s.pid, expected_snotice}
+        ])
+      end)
+    end
+
+    test "sends snotice to operators with +s mode when OPER fails" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        oper_with_s = insert(:user, modes: ["o", "s"])
+
+        message = %Message{command: "OPER", params: ["admin", "wrongpass"]}
+        assert :ok = Oper.handle(user, message)
+
+        user_info = "#{user.nick}!#{user.ident}@#{user.hostname} [127.0.0.1]"
+        expected_snotice = ":irc.test NOTICE :*** Oper: Failed OPER attempt by #{user_info} (username: admin)\r\n"
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 464 #{user.nick} :Password incorrect\r\n"},
+          {oper_with_s.pid, expected_snotice}
+        ])
+      end)
+    end
   end
 end

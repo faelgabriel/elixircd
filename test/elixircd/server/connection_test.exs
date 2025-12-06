@@ -188,6 +188,30 @@ defmodule ElixIRCd.Server.ConnectionTest do
       ])
     end
 
+    test "sends snotice to operators with +s mode when flood occurs" do
+      user = insert(:user)
+      oper_with_s = insert(:user, modes: ["o", "s"])
+
+      RateLimiter
+      |> expect(:check_message, fn target_user, "PRIVMSG #test :flood" ->
+        assert target_user.pid == user.pid
+        {:error, :throttled_exceeded}
+      end)
+
+      Command
+      |> reject(:dispatch, 2)
+
+      assert {:quit, "Excess flood"} = Connection.handle_receive(user.pid, "PRIVMSG #test :flood")
+
+      user_info = "#{user.nick}!#{user.ident}@#{user.hostname} [127.0.0.1]"
+      expected_snotice = ":irc.test NOTICE :*** Flood: Excess flood from #{user_info}\r\n"
+
+      assert_sent_messages([
+        {user.pid, ~r/\AERROR :Excess flood\r\n/},
+        {oper_with_s.pid, expected_snotice}
+      ])
+    end
+
     test "handles valid UTF-8 message when utf8_only is enabled", %{user: user} do
       original_settings = Application.get_env(:elixircd, :settings)
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings, utf8_only: true))
@@ -299,6 +323,20 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert [^channel] = get_records(Channel)
       assert [^other_user] = get_records(User)
       assert [^other_user_channel] = get_records(UserChannel)
+    end
+
+    test "sends snotice to operators with +s mode when user quits" do
+      user = insert(:user)
+      oper_with_s = insert(:user, modes: ["o", "s"])
+
+      assert :ok = Connection.handle_disconnect(user.pid, user.transport, "Client quit")
+
+      user_info = "#{user.nick}!#{user.ident}@#{user.hostname} [127.0.0.1]"
+      expected_snotice = ":irc.test NOTICE :*** Quit: Client exiting: #{user_info} (Client quit)\r\n"
+
+      assert_sent_messages([
+        {oper_with_s.pid, expected_snotice}
+      ])
     end
 
     test "handles user not found error" do

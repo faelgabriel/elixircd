@@ -249,7 +249,7 @@ These modes apply to users globally, affecting their visibility, privileges, and
 - **+p (Hide channels)**: Hides channels the user is in from WHOIS except for shared channels. ✅
 - **+r (Registered)**: Indicates the user is registered and identified with services. ✅
 - **+R (Registered Only)**: Only allows messages from registered users. ✅
-- **+s (Snomask)**: Allows reception of server notices. ❌
+- **+s (Snomask)**: Allows reception of server notices. ✅
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
 - **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ✅
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅

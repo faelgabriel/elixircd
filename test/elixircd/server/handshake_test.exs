@@ -65,7 +65,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
            ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
           {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRwxZ bCcdijklmMnOoprRstTuvz\r\n"}
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRswxZ bCcdijklmMnOoprRstTuvz\r\n"}
           # LUSERS messages are mocked as we don't care about it here
           # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
            ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
           {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRwxZ bCcdijklmMnOoprRstTuvz\r\n"}
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRswxZ bCcdijklmMnOoprRstTuvz\r\n"}
           # LUSERS messages are mocked as we don't care about it here
           # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
@@ -156,7 +156,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
          ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
         {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
         {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-        {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRwxZ bCcdijklmMnOoprRstTuvz\r\n"}
+        {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRswxZ bCcdijklmMnOoprRstTuvz\r\n"}
         # LUSERS messages are mocked as we don't care about it here
         # ISUPPORT messages are mocked as we don't care about it here
         # MOTD messages are mocked as we don't care about it here
@@ -200,7 +200,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
            ":irc.test 001 #{user.nick} :Welcome to the Server Example Internet Relay Chat Network #{user.nick}\r\n"},
           {user.pid, ":irc.test 002 #{user.nick} :Your host is Server Example, running version #{app_version}.\r\n"},
           {user.pid, ":irc.test 003 #{user.nick} :This server was created #{server_start_date}\r\n"},
-          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRwxZ bCcdijklmMnOoprRstTuvz\r\n"},
+          {user.pid, ":irc.test 004 #{user.nick} :irc.test #{app_version} BgHiorRswxZ bCcdijklmMnOoprRstTuvz\r\n"},
           # LUSERS messages are mocked as we don't care about it here
           # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
@@ -284,6 +284,68 @@ defmodule ElixIRCd.Server.HandshakeTest do
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
       assert "x" in updated_user.modes
       assert "Z" in updated_user.modes
+    end
+
+    test "sends snotice to operators with +s mode when user connects" do
+      Network
+      |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
+
+      Network
+      |> expect(:query_identd, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
+
+      Lusers
+      |> expect(:send_lusers, fn _user -> :ok end)
+
+      Isupport
+      |> stub(:send_isupport_messages, fn _user -> :ok end)
+
+      Motd
+      |> expect(:send_motd, fn _user -> :ok end)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, hostname: nil)
+        oper_with_s = insert(:user, modes: ["o", "s"])
+
+        assert :ok = Handshake.handle(user)
+
+        user_info = "#{user.nick}!anyuserid@localhost [127.0.0.1]"
+        expected_snotice = ":irc.test NOTICE :*** Connect: Client connecting: #{user_info}\r\n"
+
+        assert_sent_messages([
+          {oper_with_s.pid, expected_snotice}
+        ])
+      end)
+    end
+
+    test "sends snotice with secure flag for secure connections" do
+      Network
+      |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
+
+      Network
+      |> expect(:query_identd, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
+
+      Lusers
+      |> expect(:send_lusers, fn _user -> :ok end)
+
+      Isupport
+      |> stub(:send_isupport_messages, fn _user -> :ok end)
+
+      Motd
+      |> expect(:send_motd, fn _user -> :ok end)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, hostname: nil, modes: ["Z"])
+        oper_with_s = insert(:user, modes: ["o", "s"])
+
+        assert :ok = Handshake.handle(user)
+
+        user_info = "#{user.nick}!anyuserid@localhost [127.0.0.1]"
+        expected_snotice = ":irc.test NOTICE :*** Connect: Client connecting: #{user_info} (secure)\r\n"
+
+        assert_sent_messages([
+          {oper_with_s.pid, expected_snotice}
+        ])
+      end)
     end
   end
 end

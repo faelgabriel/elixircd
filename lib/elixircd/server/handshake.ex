@@ -14,6 +14,7 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Isupport
 
@@ -59,6 +60,14 @@ defmodule ElixIRCd.Server.Handshake do
     Isupport.send_isupport_messages(updated_user)
     Motd.send_motd(updated_user)
     send_user_modes(updated_user)
+    send_connect_snotice(updated_user)
+  end
+
+  @spec send_connect_snotice(User.t()) :: :ok
+  defp send_connect_snotice(user) do
+    user_info = Snotice.format_user_info(user)
+    secure = if "Z" in user.modes, do: " (secure)", else: ""
+    Snotice.broadcast(:connect, "Client connecting: #{user_info}#{secure}")
   end
 
   @spec apply_handshake_modes([String.t()]) :: [String.t()]
