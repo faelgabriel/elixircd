@@ -13,6 +13,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.ScramCredentials
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -121,6 +122,14 @@ defmodule ElixIRCd.Services.Nickserv.Register do
         registered_by: user_mask(user),
         verify_code: verify_code
       })
+
+    # Generate SCRAM credentials for SASL authentication
+    sasl_config = Application.get_env(:elixircd, :sasl, [])
+    scram_config = sasl_config[:scram] || []
+
+    if Keyword.get(scram_config, :enabled, true) do
+      ScramCredentials.generate_and_store(user.nick, password)
+    end
 
     if is_nil(registered_nick.email) do
       notify(user, "Your nickname has been successfully registered.")

@@ -70,6 +70,11 @@ defmodule ElixIRCd.MixProject do
       {:bamboo, "~> 2.4"},
       {:bamboo_mua, "~> 0.2"},
 
+      # SASL authentication dependencies
+      {:joken, "~> 2.6"},
+      {:httpoison, "~> 2.2"},
+      {:jose, "~> 1.11"},
+
       # Development and testing tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},

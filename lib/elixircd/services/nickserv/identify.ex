@@ -45,6 +45,9 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     Logger.debug("IDENTIFY attempt for nickname #{nickname} from #{user_mask(user)}")
 
     cond do
+      user.sasl_authenticated && user.identified_as != nil ->
+        notify(user, "You authenticated via SASL. Please /msg NickServ LOGOUT first, then IDENTIFY.")
+
       user.identified_as && user.identified_as != nickname ->
         notify(user, "You are already identified as \x02#{user.identified_as}\x02. Please /msg NickServ LOGOUT first.")
 

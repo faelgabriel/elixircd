@@ -26,7 +26,8 @@ defmodule ElixIRCd do
       [
         ElixIRCd.Server.RateLimiter,
         ElixIRCd.Server.Listeners,
-        ElixIRCd.JobQueue
+        ElixIRCd.JobQueue,
+        ElixIRCd.Sasl.SessionMonitor
       ],
       strategy: :one_for_one,
       name: __MODULE__

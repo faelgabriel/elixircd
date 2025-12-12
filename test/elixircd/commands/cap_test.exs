@@ -25,6 +25,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:sasl, false)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:extended_uhlist, true)
@@ -60,6 +61,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:sasl, false)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:extended_uhlist, true)
@@ -95,6 +97,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:sasl, false)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
       )
@@ -126,6 +129,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:multi_prefix, true)
+        |> Keyword.put(:sasl, false)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
@@ -158,6 +162,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, false)
         |> Keyword.put(:client_tags, false)
         |> Keyword.put(:multi_prefix, false)
+        |> Keyword.put(:sasl, false)
         |> Keyword.put(:setname, false)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
@@ -174,6 +179,54 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test CAP #{user.nick} LS :\r\n"}
+        ])
+      end)
+    end
+  end
+
+  describe "build_sasl_capability/0" do
+    test "returns SASL when all mechanisms disabled" do
+      original_cap = Application.get_env(:elixircd, :capabilities)
+      original_sasl = Application.get_env(:elixircd, :sasl)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_cap)
+        Application.put_env(:elixircd, :sasl, original_sasl)
+      end)
+
+      Application.put_env(:elixircd, :capabilities,
+        Keyword.merge(original_cap || [],
+          sasl: true,
+          account_tag: false,
+          account_notify: false,
+          away_notify: false,
+          chghost: false,
+          client_tags: false,
+          multi_prefix: false,
+          setname: false,
+          extended_names: false,
+          extended_uhlist: false,
+          message_tags: false,
+          server_time: false,
+          msgid: false
+        )
+      )
+
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: false],
+        scram: [enabled: false],
+        external: [enabled: false],
+        oauthbearer: [enabled: false]
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP * LS :SASL\r\n"}
         ])
       end)
     end
@@ -368,5 +421,85 @@ defmodule ElixIRCd.Commands.CapTest do
         ])
       end)
     end
+  end
+
+  describe "handle/2 - SASL mechanisms announcement" do
+    test "announces SASL mechanisms in CAP LS" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      original_sasl = Application.get_env(:elixircd, :sasl)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_config)
+        Application.put_env(:elixircd, :sasl, original_sasl)
+      end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || []) |> Keyword.put(:sasl, true)
+      )
+
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true],
+        scram: [enabled: true, algorithms: ["SHA-256", "SHA-512"]],
+        external: [enabled: false],
+        oauthbearer: [enabled: false]
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        messages = get_sent_messages()
+        assert length(messages) == 1
+        {_pid, cap_line} = hd(messages)
+
+        # Should contain SASL=PLAIN,SCRAM-SHA-256,SCRAM-SHA-512
+        assert cap_line =~ "SASL=PLAIN,SCRAM-SHA-256,SCRAM-SHA-512"
+      end)
+    end
+
+    test "only announces enabled SASL mechanisms" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      original_sasl = Application.get_env(:elixircd, :sasl)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_config)
+        Application.put_env(:elixircd, :sasl, original_sasl)
+      end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || []) |> Keyword.put(:sasl, true)
+      )
+
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true],
+        scram: [enabled: false],
+        external: [enabled: true],
+        oauthbearer: [enabled: true]
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        messages = get_sent_messages()
+        {_pid, cap_line} = hd(messages)
+
+        # Should contain PLAIN, EXTERNAL, OAUTHBEARER but not SCRAM
+        assert cap_line =~ "SASL=PLAIN,EXTERNAL,OAUTHBEARER"
+        refute cap_line =~ "SCRAM"
+      end)
+    end
+  end
+
+  defp get_sent_messages do
+    Agent.get(@agent_name, &Enum.reverse(&1))
   end
 end

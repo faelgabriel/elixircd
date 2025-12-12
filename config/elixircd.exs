@@ -131,12 +131,86 @@ config :elixircd,
     client_tags: true,
     # Whether to support multiple status prefixes in channel responses (multi-prefix capability)
     multi_prefix: true,
+    # Whether to enable SASL authentication before registration (sasl capability)
+    sasl: true,
     # Whether to allow clients to change their real name during the session (setname capability)
     setname: true,
     # Whether to support SERVER-TIME capability adding time= tags
     server_time: true,
     # Whether to support MSGID capability adding msgid= tags
     msgid: true
+  ],
+  # SASL Authentication Configuration
+  sasl: [
+    # PLAIN mechanism configuration (username/password authentication)
+    plain: [
+      enabled: true,
+      # Require TLS for PLAIN authentication (recommended for security)
+      require_tls: true
+    ],
+
+    # SCRAM mechanisms configuration (challenge-response authentication)
+    scram: [
+      enabled: true,
+      # Number of PBKDF2 iterations for SCRAM
+      iterations: 4096,
+      # Supported hash algorithms
+      algorithms: ["SHA-256", "SHA-512"]
+    ],
+
+    # EXTERNAL mechanism configuration (TLS client certificate authentication)
+    external: [
+      enabled: false,
+      # Require client certificates
+      require_client_cert: true,
+      # Path to trusted CA certificates for client cert validation
+      ca_cert_file: nil,
+      # Certificate fingerprint mapping to accounts
+      # Format: %{"sha256_fingerprint_hex" => "nickname"}
+      cert_mappings: %{}
+    ],
+
+    # OAUTHBEARER mechanism configuration (OAuth 2.0 token authentication)
+    oauthbearer: [
+      enabled: false,
+      # Require TLS for OAuth (recommended for security)
+      require_tls: true,
+      # JWT validation settings
+      jwt: [
+        # Expected issuer (iss claim)
+        issuer: nil,
+        # Expected audience (aud claim)
+        audience: nil,
+        # JWT signing algorithm (e.g., "HS256", "RS256")
+        algorithm: "HS256",
+        # Secret key for HMAC algorithms or public key for RSA/ECDSA
+        secret_or_public_key: nil,
+        # Allow clock skew in seconds
+        leeway: 60
+      ],
+      # OAuth token introspection endpoint (alternative to JWT validation)
+      introspection: [
+        enabled: false,
+        endpoint: nil,
+        client_id: nil,
+        client_secret: nil,
+        # Timeout for introspection requests in milliseconds
+        timeout_ms: 5000
+      ]
+    ],
+
+    # General SASL settings
+    # Timeout for incomplete SASL sessions (in milliseconds)
+    session_timeout_ms: 60_000,
+    # Maximum failed authentication attempts per connection
+    max_attempts_per_connection: 3,
+    # Rate limit for SASL attempts
+    rate_limit: [
+      enabled: true,
+      max_attempts: 5,
+      # Time window in milliseconds
+      window_ms: 300_000
+    ]
   ],
   # Network Listeners Configuration
   listeners: [

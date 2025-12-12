@@ -27,6 +27,20 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
       end)
     end
 
+    test "blocks IDENTIFY when already authenticated via SASL" do
+      Memento.transaction!(fn ->
+        _registered_nick = insert(:registered_nick, nickname: "sasluser")
+        user = insert(:user, nick: "AnyNick", sasl_authenticated: true, identified_as: "sasluser")
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", "sasluser", "password"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You authenticated via SASL. Please /msg NickServ LOGOUT first, then IDENTIFY.\r\n"}
+        ])
+      end)
+    end
+
     test "handles IDENTIFY command when user is already identified" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)

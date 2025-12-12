@@ -36,7 +36,12 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
     identified_nickname = user.identified_as
     new_modes = List.delete(user.modes, "r")
 
-    updated_user = Users.update(user, %{identified_as: nil, modes: new_modes})
+    updated_user =
+      Users.update(user, %{
+        identified_as: nil,
+        sasl_authenticated: false,
+        modes: new_modes
+      })
 
     %Message{command: "MODE", params: [updated_user.nick, "-r"]}
     |> Dispatcher.broadcast(:server, updated_user)

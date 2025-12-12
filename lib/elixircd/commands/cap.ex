@@ -39,6 +39,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "MULTI-PREFIX",
       description: "Display multiple status prefixes for users in channel responses"
     },
+    "SASL" => %{
+      name: "SASL",
+      description: "SASL authentication before registration"
+    },
     "SETNAME" => %{
       name: "SETNAME",
       description: "Allow clients to change their real name during the session"
@@ -64,6 +68,8 @@ defmodule ElixIRCd.Commands.Cap do
       description: "Attach unique msgid= message tags"
     }
   }
+
+  @sasl_mechanism_order ["PLAIN", "SCRAM-SHA-256", "SCRAM-SHA-512", "EXTERNAL", "OAUTHBEARER"]
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -137,6 +143,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:chghost, "CHGHOST"},
             {:client_tags, "CLIENT-TAGS"},
             {:multi_prefix, "MULTI-PREFIX"},
+            {:sasl, build_sasl_capability_value()},
             {:setname, "SETNAME"},
             {:msgid, "MSGID"},
             {:server_time, "SERVER-TIME"},
@@ -149,6 +156,70 @@ defmodule ElixIRCd.Commands.Cap do
       end
 
     Enum.join(capabilities, " ")
+  end
+
+  @spec build_sasl_capability_value() :: String.t()
+  defp build_sasl_capability_value do
+    sasl_config = Application.get_env(:elixircd, :sasl, [])
+
+    mechanisms =
+      []
+      |> add_plain_mechanism(sasl_config)
+      |> add_scram_mechanisms(sasl_config)
+      |> add_external_mechanism(sasl_config)
+      |> add_oauthbearer_mechanism(sasl_config)
+
+    format_sasl_capability(mechanisms)
+  end
+
+  defp add_plain_mechanism(mechanisms, sasl_config) do
+    if Keyword.get(sasl_config[:plain] || [], :enabled, true) do
+      ["PLAIN" | mechanisms]
+    else
+      mechanisms
+    end
+  end
+
+  defp add_scram_mechanisms(mechanisms, sasl_config) do
+    if Keyword.get(sasl_config[:scram] || [], :enabled, true) do
+      scram_algos = Keyword.get(sasl_config[:scram] || [], :algorithms, ["SHA-256", "SHA-512"])
+      scram_mechs = Enum.map(scram_algos, fn algo -> "SCRAM-#{algo}" end)
+      scram_mechs ++ mechanisms
+    else
+      mechanisms
+    end
+  end
+
+  defp add_external_mechanism(mechanisms, sasl_config) do
+    if Keyword.get(sasl_config[:external] || [], :enabled, false) do
+      ["EXTERNAL" | mechanisms]
+    else
+      mechanisms
+    end
+  end
+
+  defp add_oauthbearer_mechanism(mechanisms, sasl_config) do
+    if Keyword.get(sasl_config[:oauthbearer] || [], :enabled, false) do
+      ["OAUTHBEARER" | mechanisms]
+    else
+      mechanisms
+    end
+  end
+
+  defp format_sasl_capability([]), do: "SASL"
+
+  defp format_sasl_capability(mechanisms) do
+    mechanisms_str =
+      mechanisms
+      |> Enum.uniq()
+      |> Enum.sort_by(&mechanism_order/1)
+      |> Enum.join(",")
+
+    "SASL=#{mechanisms_str}"
+  end
+
+  defp mechanism_order(mechanism) do
+    Enum.find_index(@sasl_mechanism_order, &(&1 == mechanism)) || 999
   end
 
   @spec parse_capabilities_request(String.t()) :: [%{action: :enable | :disable, name: String.t()}]

@@ -60,9 +60,13 @@ defmodule ElixIRCd.Factory do
       webirc_ip: Map.get(attrs, :webirc_ip, nil),
       webirc_secure: Map.get(attrs, :webirc_secure, nil),
       webirc_used: Map.get(attrs, :webirc_used, nil),
+      sasl_attempts: Map.get(attrs, :sasl_attempts, nil),
+      tls_peer_cert: Map.get(attrs, :tls_peer_cert, nil),
+      tls_cert_verified: Map.get(attrs, :tls_cert_verified, nil),
+      identified_as: Map.get(attrs, :identified_as, nil),
+      sasl_authenticated: Map.get(attrs, :sasl_authenticated, nil),
       last_activity: Map.get(attrs, :last_activity, :erlang.system_time(:second)),
       registered_at: registered_at,
-      identified_as: Map.get(attrs, :identified_as, nil),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end

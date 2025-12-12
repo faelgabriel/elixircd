@@ -15,6 +15,8 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredNick
+  alias ElixIRCd.Tables.SaslSession
+  alias ElixIRCd.Tables.ScramCredential
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
   alias ElixIRCd.Tables.UserChannel
@@ -28,6 +30,7 @@ defmodule ElixIRCd.Utils.Mnesia do
     ChannelInvite,
     HistoricalUser,
     Metric,
+    SaslSession,
     User,
     UserAccept,
     UserChannel,
@@ -37,7 +40,8 @@ defmodule ElixIRCd.Utils.Mnesia do
   @disk_tables [
     Job,
     RegisteredChannel,
-    RegisteredNick
+    RegisteredNick,
+    ScramCredential
   ]
 
   @doc """
