@@ -419,6 +419,32 @@ defmodule ElixIRCd.MessageTest do
       assert String.ends_with?(result, ":irc.example.com PRIVMSG #channel :hello\r\n")
     end
 
+    test "unparses a message with :rpl_loggedout command" do
+      message = %Message{
+        prefix: "irc.example.com",
+        command: :rpl_loggedout,
+        params: ["user"],
+        trailing: "You are now logged out"
+      }
+
+      expected = {:ok, ":irc.example.com 901 user :You are now logged out\r\n"}
+
+      assert Message.unparse(message) == expected
+    end
+
+    test "unparses a message with :err_nicklocked command" do
+      message = %Message{
+        prefix: "irc.example.com",
+        command: :err_nicklocked,
+        params: ["user"],
+        trailing: "Nick/channel is temporarily unavailable"
+      }
+
+      expected = {:ok, ":irc.example.com 902 user :Nick/channel is temporarily unavailable\r\n"}
+
+      assert Message.unparse(message) == expected
+    end
+
     test "unparses a message with tags without prefix" do
       message = %Message{
         tags: %{"bot" => nil},

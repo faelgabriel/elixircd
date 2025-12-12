@@ -81,6 +81,14 @@ defmodule ElixIRCd.Commands.Authenticate.ExternalTest do
                  External.process(user, "invalid")
       end)
     end
+
+    test "handles certificate decoding error" do
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tls, tls_peer_cert: "invalid-cert-data", tls_cert_verified: true)
+
+        assert {:error, "Certificate decoding error"} = External.process(user, "+")
+      end)
+    end
   end
 
   describe "Authenticate.handle/2 with EXTERNAL" do
@@ -203,7 +211,7 @@ defmodule ElixIRCd.Commands.Authenticate.ExternalTest do
     subject = {:rdnSequence, [[{:AttributeTypeAndValue, {2, 5, 4, 3}, {:utf8String, cn}}]]}
     validity = {:Validity, {:utcTime, ~c"240101000000Z"}, {:utcTime, ~c"340101000000Z"}}
 
-    {:OTPTBSCertificate, :v3, 1, {:AlgorithmIdentifier, {1, 2, 840, 113_549, 1, 1, 11}, :NULL},
-     subject, validity, subject, :asn1_NOVALUE, :asn1_NOVALUE, :asn1_NOVALUE, :asn1_NOVALUE}
+    {:OTPTBSCertificate, :v3, 1, {:AlgorithmIdentifier, {1, 2, 840, 113_549, 1, 1, 11}, :NULL}, subject, validity,
+     subject, :asn1_NOVALUE, :asn1_NOVALUE, :asn1_NOVALUE, :asn1_NOVALUE}
   end
 end

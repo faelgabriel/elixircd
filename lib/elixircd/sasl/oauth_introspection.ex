@@ -62,5 +62,3 @@ defmodule ElixIRCd.Sasl.OAuthIntrospection do
     end
   end
 end
-
-

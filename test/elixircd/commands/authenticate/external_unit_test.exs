@@ -116,6 +116,23 @@ defmodule ElixIRCd.Commands.Authenticate.ExternalUnitTest do
         assert {:error, "No identity found in certificate"} = External.process(user, "+")
       end)
     end
+
+    test "returns error when CN matches but user not registered" do
+      stub(:public_key, :pkix_decode_cert, fn _bin, :otp ->
+        {:OTPCertificate, build_tbs("UnregisteredUser"), nil, nil}
+      end)
+
+      Memento.transaction!(fn ->
+        user =
+          build_user(%{
+            transport: :tls,
+            tls_peer_cert: "dummy",
+            tls_cert_verified: true
+          })
+
+        assert {:error, "Certificate identity not registered: UnregisteredUser"} = External.process(user, "+")
+      end)
+    end
   end
 
   defp build_tbs(nil) do
@@ -124,8 +141,8 @@ defmodule ElixIRCd.Commands.Authenticate.ExternalUnitTest do
   end
 
   defp build_tbs(cn) do
-    {:OTPTBSCertificate, :v3, 1, algo(), issuer(), validity(), subject(cn), :asn1_NOVALUE, :asn1_NOVALUE,
-     :asn1_NOVALUE, :asn1_NOVALUE}
+    {:OTPTBSCertificate, :v3, 1, algo(), issuer(), validity(), subject(cn), :asn1_NOVALUE, :asn1_NOVALUE, :asn1_NOVALUE,
+     :asn1_NOVALUE}
   end
 
   defp algo, do: {:AlgorithmIdentifier, {1, 2, 840, 113_549, 1, 1, 11}, :NULL}

@@ -40,6 +40,22 @@ defmodule ElixIRCd.Tables.ScramCredentialTest do
 
       assert credential.key == "bob:sha512"
     end
+
+    test "uses provided key when specified" do
+      attrs = %{
+        key: "custom:key",
+        nickname_key: "alice",
+        algorithm: :sha256,
+        iterations: 4096,
+        salt: <<1, 2, 3>>,
+        stored_key: <<4, 5, 6>>,
+        server_key: <<7, 8, 9>>
+      }
+
+      credential = ScramCredential.new(attrs)
+
+      assert credential.key == "custom:key"
+    end
   end
 
   describe "generate_from_password/4" do
@@ -109,7 +125,12 @@ defmodule ElixIRCd.Tables.ScramCredentialTest do
 
       assert credential.stored_key != nil
     end
+
+    test "handles empty password" do
+      credential = ScramCredential.generate_from_password("user", "", :sha256, 4096)
+
+      assert credential.stored_key != nil
+      assert credential.server_key != nil
+    end
   end
 end
-
-

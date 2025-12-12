@@ -194,7 +194,9 @@ defmodule ElixIRCd.Commands.CapTest do
         Application.put_env(:elixircd, :sasl, original_sasl)
       end)
 
-      Application.put_env(:elixircd, :capabilities,
+      Application.put_env(
+        :elixircd,
+        :capabilities,
         Keyword.merge(original_cap || [],
           sasl: true,
           account_tag: false,

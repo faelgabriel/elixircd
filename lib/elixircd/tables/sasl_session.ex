@@ -55,5 +55,3 @@ defmodule ElixIRCd.Tables.SaslSession do
     struct!(session, attrs)
   end
 end
-
-

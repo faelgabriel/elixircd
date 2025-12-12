@@ -860,6 +860,150 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert user.identified_as == nil
       end)
     end
+
+    test "handles SCRAM authentication failure" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || []) |> Keyword.put(:sasl, true)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, nick: "TempNick")
+
+        # Initiate SASL with SCRAM-SHA-256
+        message1 = %Message{command: "AUTHENTICATE", params: ["SCRAM-SHA-256"]}
+        assert :ok = Authenticate.handle(user, message1)
+
+        # Get updated user
+        user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+
+        # Send invalid SCRAM data
+        invalid_scram = Base.encode64("invalid-scram-data")
+        message2 = %Message{command: "AUTHENTICATE", params: [invalid_scram]}
+
+        assert :ok = Authenticate.handle(user, message2)
+
+        # Verify error response
+        assert_sent_messages([
+          {user.pid, ":irc.test AUTHENTICATE +\r\n"},
+          {user.pid, ":irc.test 904 * :SASL authentication failed\r\n"}
+        ])
+      end)
+    end
+
+    test "rejects SASL data that exceeds maximum length" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || []) |> Keyword.put(:sasl, true)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, nick: "TempNick")
+
+        # Initiate SASL
+        message1 = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
+        assert :ok = Authenticate.handle(user, message1)
+
+        # Get updated user
+        user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+
+        # Send data that exceeds max length (401 characters, max is 400)
+        long_data = String.duplicate("a", 401)
+        long_b64 = Base.encode64(long_data)
+        message2 = %Message{command: "AUTHENTICATE", params: [long_b64]}
+
+        assert :ok = Authenticate.handle(user, message2)
+
+        # Verify error response
+        assert_sent_messages([
+          {user.pid, ":irc.test AUTHENTICATE +\r\n"},
+          {user.pid, ":irc.test 905 * :SASL message too long\r\n"}
+        ])
+      end)
+    end
+
+    test "successfully authenticates with valid OAuth token" do
+      original_cap = Application.get_env(:elixircd, :capabilities)
+      original_sasl = Application.get_env(:elixircd, :sasl)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_cap)
+        Application.put_env(:elixircd, :sasl, original_sasl)
+      end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_cap || []) |> Keyword.put(:sasl, true)
+      )
+
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true],
+        scram: [enabled: true],
+        external: [enabled: false],
+        oauthbearer: [
+          enabled: true,
+          require_tls: true,
+          jwt: [algorithm: "HS256", secret_or_public_key: "testsecret", issuer: "test", audience: "test"]
+        ]
+      )
+
+      Memento.transaction!(fn ->
+        # Create a registered nick that matches the OAuth identity
+        _registered_nick =
+          insert(:registered_nick,
+            nickname: "oauthuser",
+            password_hash: Argon2.hash_pwd_salt("somepassword")
+          )
+
+        # Start authentication
+        user = insert(:user, registered: false, nick: "TempNick")
+
+        # Mock Oauthbearer.process to return success
+        Mimic.expect(ElixIRCd.Commands.Authenticate.Oauthbearer, :process, fn _user, _data ->
+          {:ok, "oauthuser"}
+        end)
+
+        # Initiate SASL
+        message1 = %Message{command: "AUTHENTICATE", params: ["OAUTHBEARER"]}
+        assert :ok = Authenticate.handle(user, message1)
+
+        # Get updated user
+        user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+
+        # Send OAuth payload
+        oauth_payload = "n,,\x01auth=Bearer validtoken\x01\x01"
+        oauth_b64 = Base.encode64(oauth_payload)
+        message2 = %Message{command: "AUTHENTICATE", params: [oauth_b64]}
+
+        assert :ok = Authenticate.handle(user, message2)
+
+        # Verify success messages
+        assert_sent_messages([
+          {user.pid, ":irc.test AUTHENTICATE +\r\n"},
+          {user.pid, ":irc.test 900 * * oauthuser :You are now logged in as oauthuser\r\n"},
+          {user.pid, ":irc.test 903 * :SASL authentication successful\r\n"}
+        ])
+
+        # Verify user state was updated
+        final_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert final_user.identified_as == "oauthuser"
+        assert final_user.sasl_authenticated == true
+        assert "r" in final_user.modes
+
+        # Verify SASL session was cleaned up
+        session = Memento.Query.read(ElixIRCd.Tables.SaslSession, user.pid)
+        assert session == nil
+      end)
+    end
   end
 
   describe "handle/2 - AUTHENTICATE with invalid PLAIN format" do

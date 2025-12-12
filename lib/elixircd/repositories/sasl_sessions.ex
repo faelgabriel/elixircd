@@ -56,5 +56,3 @@ defmodule ElixIRCd.Repositories.SaslSessions do
     end
   end
 end
-
-

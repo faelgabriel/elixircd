@@ -148,6 +148,24 @@ defmodule ElixIRCd.Repositories.ScramCredentialsTest do
       {:ok, cred} = ScramCredentials.get("testuser", :sha256)
       assert cred.iterations == 8192
     end
+
+    test "ignores invalid algorithms" do
+      original_config = Application.get_env(:elixircd, :sasl)
+      on_exit(fn -> Application.put_env(:elixircd, :sasl, original_config) end)
+
+      Application.put_env(:elixircd, :sasl,
+        scram: [
+          iterations: 4096,
+          algorithms: ["SHA-256", "INVALID"]
+        ]
+      )
+
+      assert :ok = ScramCredentials.generate_and_store("testuser", "testpass")
+
+      # Should only create SHA-256, ignore INVALID
+      assert {:ok, _} = ScramCredentials.get("testuser", :sha256)
+      assert {:error, :not_found} = ScramCredentials.get("testuser", :sha512)
+    end
   end
 
   describe "exists?/2" do
@@ -165,5 +183,3 @@ defmodule ElixIRCd.Repositories.ScramCredentialsTest do
     end
   end
 end
-
-
