@@ -79,6 +79,29 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         ])
       end)
     end
+
+    test "rejects re-authentication using asterisk when user has no nick" do
+      Memento.transaction!(fn ->
+        user =
+          insert(:user,
+            registered: false,
+            nick: nil,
+            capabilities: ["SASL"],
+            cap_negotiating: true,
+            identified_as: "testuser",
+            sasl_authenticated: true
+          )
+
+        message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
+
+        assert :ok = Authenticate.handle(user, message)
+
+        # When user has no nick set, the error response should use "*" instead of a nick
+        assert_sent_messages([
+          {user.pid, ":irc.test 907 * :You have already authenticated using SASL\r\n"}
+        ])
+      end)
+    end
   end
 
   describe "handle/2 - AUTHENTICATE - missing parameters" do

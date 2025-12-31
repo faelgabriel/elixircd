@@ -56,9 +56,6 @@ defmodule ElixIRCd.Repositories.SaslSessions do
   """
   @spec exists?(pid()) :: boolean()
   def exists?(user_pid) do
-    case get(user_pid) do
-      {:ok, _session} -> true
-      {:error, :sasl_session_not_found} -> false
-    end
+    match?({:ok, _session}, get(user_pid))
   end
 end

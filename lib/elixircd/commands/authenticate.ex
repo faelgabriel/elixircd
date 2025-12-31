@@ -72,11 +72,9 @@ defmodule ElixIRCd.Commands.Authenticate do
         |> Dispatcher.broadcast(:server, user)
 
       user.identified_as != nil and user.sasl_authenticated == true ->
-        nick_reply = if user.nick, do: user.nick, else: "*"
-
         %Message{
           command: :err_saslalready,
-          params: [nick_reply],
+          params: [nick_or_asterisk(user)],
           trailing: "You have already authenticated using SASL"
         }
         |> Dispatcher.broadcast(:server, user)
@@ -93,10 +91,23 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   defp handle_authenticate(user, data) do
     if SaslSessions.exists?(user.pid) do
-      handle_auth_data(user, data)
+      case SaslSessions.get(user.pid) do
+        {:ok, session} -> handle_auth_data(user, data, session)
+        {:error, :sasl_session_not_found} -> handle_no_session(user)
+      end
     else
       handle_mechanism_selection(user, data)
     end
+  end
+
+  @spec handle_no_session(User.t()) :: :ok
+  defp handle_no_session(user) do
+    %Message{
+      command: :err_saslfail,
+      params: [user_reply(user)],
+      trailing: "SASL authentication is not in progress"
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_mechanism_selection(User.t(), String.t()) :: :ok
@@ -105,13 +116,12 @@ defmodule ElixIRCd.Commands.Authenticate do
     sasl_config = Application.get_env(:elixircd, :sasl, [])
     max_attempts = Keyword.get(sasl_config, :max_attempts_per_connection, 3)
     current_attempts = user.sasl_attempts || 0
-    nick_reply = if user.nick, do: user.nick, else: "*"
 
     cond do
       current_attempts >= max_attempts ->
         %Message{
           command: :err_saslfail,
-          params: [nick_reply],
+          params: [nick_or_asterisk(user)],
           trailing: "Too many SASL authentication attempts"
         }
         |> Dispatcher.broadcast(:server, user)
@@ -177,61 +187,44 @@ defmodule ElixIRCd.Commands.Authenticate do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec handle_auth_data(User.t(), String.t()) :: :ok
-  defp handle_auth_data(user, data) do
-    case SaslSessions.get(user.pid) do
-      {:ok, session} -> handle_auth_data_with_session(user, data, session)
-      {:error, :sasl_session_not_found} -> handle_no_session(user)
-    end
-  end
-
-  @spec handle_no_session(User.t()) :: :ok
-  defp handle_no_session(user) do
+  @spec handle_auth_data(User.t(), String.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
+  defp handle_auth_data(user, data, _session)
+       when byte_size(data) > @max_authenticate_length do
     %Message{
-      command: :err_saslfail,
+      command: :err_sasltoolong,
       params: [user_reply(user)],
-      trailing: "SASL authentication is not in progress"
+      trailing: "SASL message too long"
     }
     |> Dispatcher.broadcast(:server, user)
+
+    SaslSessions.delete(user.pid)
   end
 
-  @spec handle_auth_data_with_session(User.t(), String.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
-  defp handle_auth_data_with_session(user, data, session) do
-    cond do
-      String.length(data) > @max_authenticate_length ->
-        %Message{
-          command: :err_sasltoolong,
-          params: [user_reply(user)],
-          trailing: "SASL message too long"
-        }
-        |> Dispatcher.broadcast(:server, user)
+  defp handle_auth_data(user, "+", session) do
+    process_sasl_data(user, session)
+  end
 
-        SaslSessions.delete(user.pid)
+  defp handle_auth_data(user, data, session) do
+    accumulated_buffer = session.buffer <> data
 
-      data == "+" ->
-        process_sasl_data(user, session)
+    if String.ends_with?(data, "=") or String.length(data) < @max_authenticate_length do
+      updated_session = SaslSessions.update(session, %{buffer: accumulated_buffer})
+      process_sasl_data(user, updated_session)
+    else
+      SaslSessions.update(session, %{buffer: accumulated_buffer})
 
-      true ->
-        accumulated_buffer = session.buffer <> data
-
-        if String.ends_with?(data, "=") or String.length(data) < @max_authenticate_length do
-          updated_session = SaslSessions.update(session, %{buffer: accumulated_buffer})
-          process_sasl_data(user, updated_session)
-        else
-          SaslSessions.update(session, %{buffer: accumulated_buffer})
-
-          %Message{command: "AUTHENTICATE", params: ["+"]}
-          |> Dispatcher.broadcast(:server, user)
-        end
+      %Message{command: "AUTHENTICATE", params: ["+"]}
+      |> Dispatcher.broadcast(:server, user)
     end
   end
 
   @spec process_sasl_data(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
-  defp process_sasl_data(user, session) do
-    case session.mechanism do
-      "PLAIN" -> process_plain_auth(user, session)
-      _ -> handle_unsupported_mechanism(user)
-    end
+  defp process_sasl_data(user, %{mechanism: "PLAIN"} = session) do
+    process_plain_auth(user, session)
+  end
+
+  defp process_sasl_data(user, _session) do
+    handle_unsupported_mechanism(user)
   end
 
   @spec process_plain_auth(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
@@ -358,7 +351,6 @@ defmodule ElixIRCd.Commands.Authenticate do
     SaslSessions.delete(user.pid)
 
     account_name = registered_nick.nickname
-    nick_to_use = if user.nick, do: user.nick, else: "*"
 
     hostname = if user.cloaked_hostname, do: user.cloaked_hostname, else: user.hostname
     ident = String.slice(user.ident, 0..9)
@@ -367,7 +359,7 @@ defmodule ElixIRCd.Commands.Authenticate do
     %Message{
       command: :rpl_loggedin,
       params: [
-        nick_to_use,
+        nick_or_asterisk(user),
         mask,
         account_name
       ],
@@ -377,7 +369,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
     %Message{
       command: :rpl_saslsuccess,
-      params: [nick_to_use],
+      params: [nick_or_asterisk(user)],
       trailing: "SASL authentication successful"
     }
     |> Dispatcher.broadcast(:server, updated_user)
@@ -456,4 +448,8 @@ defmodule ElixIRCd.Commands.Authenticate do
   defp sasl_enabled? do
     Application.get_env(:elixircd, :capabilities)[:sasl] || false
   end
+
+  @spec nick_or_asterisk(User.t()) :: String.t()
+  defp nick_or_asterisk(%{nick: nil}), do: "*"
+  defp nick_or_asterisk(%{nick: nick}), do: nick
 end

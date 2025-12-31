@@ -101,14 +101,15 @@ defmodule ElixIRCd.Commands.Cap do
   end
 
   @spec handle_cap_ls(User.t()) :: :ok
-  defp handle_cap_ls(user) do
-    updated_user =
-      if user.cap_negotiating != true do
-        Users.update(user, %{cap_negotiating: true})
-      else
-        user
-      end
+  defp handle_cap_ls(%{cap_negotiating: true} = user) do
+    capabilities_list = get_capabilities_list()
 
+    %Message{command: "CAP", params: [user_reply(user), "LS"], trailing: capabilities_list}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp handle_cap_ls(user) do
+    updated_user = Users.update(user, %{cap_negotiating: true})
     capabilities_list = get_capabilities_list()
 
     %Message{command: "CAP", params: [user_reply(updated_user), "LS"], trailing: capabilities_list}
@@ -128,14 +129,16 @@ defmodule ElixIRCd.Commands.Cap do
     capabilities = parse_capabilities_request(capabilities_string)
     {acked, nacked} = validate_capabilities(capabilities)
 
-    if length(nacked) > 0 do
-      %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
-      |> Dispatcher.broadcast(:server, user)
-    else
-      updated_user = apply_capability_changes(user, acked)
+    case nacked do
+      [] ->
+        updated_user = apply_capability_changes(user, acked)
 
-      %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
-      |> Dispatcher.broadcast(:server, updated_user)
+        %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
+        |> Dispatcher.broadcast(:server, updated_user)
+
+      _ ->
+        %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 
