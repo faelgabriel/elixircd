@@ -125,6 +125,12 @@ config :elixircd,
     chghost: true,
     # Whether to allow client-only tags from clients (client-tags capability)
     client_tags: true,
+    # Whether to support extended JOIN with account information (extended-join capability)
+    extended_join: true,
+    # Whether to support extended INVITE with account information (invite-extended capability)
+    invite_extended: true,
+    # Whether to notify channel members when users are invited (invite-notify capability)
+    invite_notify: true,
     # Whether to support multiple status prefixes in channel responses (multi-prefix capability)
     multi_prefix: true,
     # Whether to enable SASL authentication before registration (sasl capability)

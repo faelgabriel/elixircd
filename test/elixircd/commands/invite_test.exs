@@ -170,5 +170,100 @@ defmodule ElixIRCd.Commands.InviteTest do
         ])
       end)
     end
+
+    test "handles INVITE command with INVITE-EXTENDED capability and authenticated user" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "alice")
+        target_user = insert(:user, capabilities: ["INVITE-EXTENDED"])
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
+        assert :ok = Invite.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel account=alice\r\n"}
+        ])
+      end)
+    end
+
+    test "handles INVITE command with INVITE-EXTENDED capability and unauthenticated user" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, capabilities: ["INVITE-EXTENDED"])
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+
+        message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
+        assert :ok = Invite.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel account=*\r\n"}
+        ])
+      end)
+    end
+
+    test "handles INVITE command with INVITE-NOTIFY capability for channel members" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user)
+        member_with_notify = insert(:user, capabilities: ["INVITE-NOTIFY"])
+        member_without_notify = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: member_with_notify, channel: channel)
+        insert(:user_channel, user: member_without_notify, channel: channel)
+
+        message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
+        assert :ok = Invite.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"},
+          {member_with_notify.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles INVITE command without sending notification when no members have INVITE-NOTIFY" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user)
+        member = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: member, channel: channel)
+
+        message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
+        assert :ok = Invite.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+        ])
+      end)
+    end
+
+    test "handles INVITE command with both INVITE-NOTIFY and INVITE-EXTENDED capabilities" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "alice")
+        target_user = insert(:user, capabilities: ["INVITE-EXTENDED"])
+        member = insert(:user, capabilities: ["INVITE-NOTIFY"])
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: member, channel: channel)
+
+        message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
+        assert :ok = Invite.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel account=alice\r\n"},
+          {member.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
+        ])
+      end)
+    end
   end
 end

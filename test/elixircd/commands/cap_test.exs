@@ -25,6 +25,8 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
+        |> Keyword.put(:invite_extended, true)
+        |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
@@ -42,7 +44,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
@@ -87,6 +89,8 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
+        |> Keyword.put(:invite_extended, true)
+        |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
@@ -104,7 +108,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
@@ -123,6 +127,8 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
+        |> Keyword.put(:invite_extended, true)
+        |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
@@ -136,7 +142,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST\r\n"}
         ])
       end)
     end
@@ -155,6 +161,8 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
+        |> Keyword.put(:invite_extended, true)
+        |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
@@ -169,7 +177,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS\r\n"}
         ])
       end)
     end
@@ -187,6 +195,9 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:away_notify, false)
         |> Keyword.put(:chghost, false)
         |> Keyword.put(:client_tags, false)
+        |> Keyword.put(:extended_join, false)
+        |> Keyword.put(:invite_extended, false)
+        |> Keyword.put(:invite_notify, false)
         |> Keyword.put(:multi_prefix, false)
         |> Keyword.put(:setname, false)
         |> Keyword.put(:extended_names, false)
@@ -222,6 +233,8 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
+        |> Keyword.put(:invite_extended, true)
+        |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:msgid, true)
@@ -240,7 +253,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end
@@ -264,6 +277,8 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
+        |> Keyword.put(:invite_extended, true)
+        |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:msgid, true)
@@ -289,7 +304,7 @@ defmodule ElixIRCd.Commands.CapTest do
         # SASL should not be in the list when no mechanisms are enabled
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES\r\n"}
         ])
       end)
     end

@@ -97,8 +97,36 @@ defmodule ElixIRCd.Commands.Invite do
     %Message{command: :rpl_inviting, params: [user.nick, target_user.nick, channel.name]}
     |> Dispatcher.broadcast(:server, user)
 
-    %Message{command: "INVITE", params: [target_user.nick, channel.name]}
-    |> Dispatcher.broadcast(user, target_user)
+    # Send INVITE to the target user
+    if "INVITE-EXTENDED" in target_user.capabilities do
+      account = user.identified_as || "*"
+
+      %Message{command: "INVITE", params: [target_user.nick, channel.name, "account=#{account}"]}
+      |> Dispatcher.broadcast(user, target_user)
+    else
+      %Message{command: "INVITE", params: [target_user.nick, channel.name]}
+      |> Dispatcher.broadcast(user, target_user)
+    end
+
+    # Send INVITE notification to channel members with invite-notify capability
+    send_invite_notify_to_channel_members(user, target_user, channel)
+  end
+
+  @spec send_invite_notify_to_channel_members(User.t(), User.t(), Channel.t()) :: :ok
+  defp send_invite_notify_to_channel_members(inviter, invitee, channel) do
+    user_channels = UserChannels.get_by_channel_name(channel.name)
+    user_pids = Enum.map(user_channels, & &1.user_pid)
+    users = Users.get_by_pids(user_pids)
+
+    users_with_invite_notify =
+      Enum.filter(users, fn u -> "INVITE-NOTIFY" in u.capabilities end)
+
+    unless Enum.empty?(users_with_invite_notify) do
+      %Message{command: "INVITE", params: [invitee.nick, channel.name]}
+      |> Dispatcher.broadcast(inviter, users_with_invite_notify)
+    end
+
+    :ok
   end
 
   @spec send_user_invite_error(invite_errors(), User.t(), String.t(), String.t()) :: :ok

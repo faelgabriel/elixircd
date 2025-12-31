@@ -365,7 +365,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **AUTHENTICATE**: Authenticate a user using SASL mechanisms. ✅
 - **ACCOUNT**: Notify clients when a user's account status changes. ✅
 - **CHGHOST**: Forcefully change a user's ident and hostname. ✅
-- **INVITE**: Extended to optionally include account information. ❌
+- **INVITE**: Extended to optionally include account information. ✅
 - **JOIN**: Extended to include account name and real name in join messages. ✅
 - **MONITOR**: Track when specific nicknames go online or offline. ❌
 - **NAMES**: Extended to include account names when supported. ✅
@@ -389,7 +389,8 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ✅
 - **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
 - **Extended User Mode** (extended-uhlist): Adds additional user modes in WHO and related replies. ✅
-- **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ❌
+- **Invite Extended** (invite-extended): Extended INVITE messages with account information. ✅
+- **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ✅
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ❌
 - **Message IDs** (msgid): Unique identifiers for messages. ✅
 - **Message Tags** (message-tags): Additional metadata in messages. ✅

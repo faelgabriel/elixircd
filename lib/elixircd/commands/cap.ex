@@ -47,6 +47,14 @@ defmodule ElixIRCd.Commands.Cap do
       name: "EXTENDED-JOIN",
       description: "Extended JOIN messages including account name and real name"
     },
+    "INVITE-EXTENDED" => %{
+      name: "INVITE-EXTENDED",
+      description: "Extended INVITE messages including account information"
+    },
+    "INVITE-NOTIFY" => %{
+      name: "INVITE-NOTIFY",
+      description: "Notify channel members when users are invited"
+    },
     "MULTI-PREFIX" => %{
       name: "MULTI-PREFIX",
       description: "Display multiple status prefixes for users in channel responses"
@@ -164,6 +172,8 @@ defmodule ElixIRCd.Commands.Cap do
             {:chghost, "CHGHOST"},
             {:client_tags, "CLIENT-TAGS"},
             {:extended_join, "EXTENDED-JOIN"},
+            {:invite_extended, "INVITE-EXTENDED"},
+            {:invite_notify, "INVITE-NOTIFY"},
             {:multi_prefix, "MULTI-PREFIX"},
             {:sasl, build_sasl_capability_value()},
             {:setname, "SETNAME"},
