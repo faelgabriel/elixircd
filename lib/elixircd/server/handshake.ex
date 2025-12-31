@@ -25,7 +25,7 @@ defmodule ElixIRCd.Server.Handshake do
   The `user` should be loaded in the same transaction.
   """
   @spec handle(User.t()) :: :ok
-  def handle(user) when user.nick != nil and user.ident != nil and user.realname != nil do
+  def handle(user) when user.nick != nil and user.ident != nil and user.realname != nil and user.cap_negotiating != true do
     case check_server_password(user) do
       :ok ->
         handle_handshake(user)
@@ -35,7 +35,7 @@ defmodule ElixIRCd.Server.Handshake do
         |> Dispatcher.broadcast(:server, user)
 
         {:quit, "Bad Password"}
-    end
+      end
   end
 
   def handle(_user), do: :ok

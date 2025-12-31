@@ -13,6 +13,7 @@ defmodule ElixIRCd.Command do
   @commands %{
     "ACCEPT" => Commands.Accept,
     "ADMIN" => Commands.Admin,
+    "AUTHENTICATE" => Commands.Authenticate,
     "AWAY" => Commands.Away,
     "CAP" => Commands.Cap,
     "CHGHOST" => Commands.Chghost,

@@ -454,15 +454,15 @@ mix deps.get
 
 ### Code Quality Assurance
 
-Ensuring code quality assurance is essential for the stability of the project. You can run all the necessary checks, including compilation warnings, code formatting, linting, security analysis, dependency audits, documentation checks, and static analysis, with a single command:
+Ensuring code quality assurance is essential for the stability of the project. You can run all the necessary checks, including compilation warnings, code formatting, linting, security analysis, dependency audits, documentation checks, static analysis, and test coverage, with a single command:
 
 ```bash
-mix check
+mix quality
 ```
 
 ### Running Tests
 
-To run the test suite with code coverage, use:
+To run the only test suite with code coverage, use:
 
 ```bash
 mix test --cover
