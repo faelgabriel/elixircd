@@ -362,11 +362,11 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 #### Commands
 
 - **CAP**: Negotiate client capabilities with the server. ✅
-- **AUTHENTICATE**: Authenticate a user using SASL mechanisms. ❌
+- **AUTHENTICATE**: Authenticate a user using SASL mechanisms. ✅
 - **ACCOUNT**: Notify clients when a user's account status changes. ✅
 - **CHGHOST**: Forcefully change a user's ident and hostname. ✅
 - **INVITE**: Extended to optionally include account information. ❌
-- **JOIN**: Extended to include account name and real name in join messages. ❌
+- **JOIN**: Extended to include account name and real name in join messages. ✅
 - **MONITOR**: Track when specific nicknames go online or offline. ❌
 - **NAMES**: Extended to include account names when supported. ✅
 - **TAGMSG**: Send messages with tags but without text content. ✅
@@ -377,7 +377,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 #### Capabilities
 
-- **Account Authentication and Registration** (sasl): Secure SASL authentication mechanism. ❌
+- **Account Authentication and Registration** (sasl): Secure SASL authentication mechanism. ✅
 - **Account Tag** (account-tag): Attach account name to messages via IRCv3 message tags. ✅
 - **Account Tracking** (account-notify): Account notifications and tagging. ✅
 - **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ✅
@@ -386,7 +386,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Change Host** (chghost): Real-time notifications when a user's hostname changes. ✅
 - **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ❌
-- **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ❌
+- **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ✅
 - **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
 - **Extended User Mode** (extended-uhlist): Adds additional user modes in WHO and related replies. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ❌

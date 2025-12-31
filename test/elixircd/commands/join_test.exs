@@ -701,4 +701,89 @@ defmodule ElixIRCd.Commands.JoinTest do
       end)
     end
   end
+
+  describe "handle/2 - extended-join capability" do
+    test "sends extended JOIN format when recipient has EXTENDED-JOIN capability (without account)" do
+      Memento.transaction!(fn ->
+        user = insert(:user, realname: "John Doe", capabilities: ["EXTENDED-JOIN"])
+        message = %Message{command: "JOIN", params: ["#test"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #test * :John Doe\r\n"},
+          {user.pid, ":irc.test MODE #test +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 331 #{user.nick} #test :No topic is set\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #test :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #test :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "sends extended JOIN format when recipient has EXTENDED-JOIN capability (with account)" do
+      Memento.transaction!(fn ->
+        user = insert(:user, realname: "John Doe", identified_as: "john123", capabilities: ["EXTENDED-JOIN"])
+        message = %Message{command: "JOIN", params: ["#test"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #test john123 :John Doe\r\n"},
+          {user.pid, ":irc.test MODE #test +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 331 #{user.nick} #test :No topic is set\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #test :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #test :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "sends appropriate JOIN format to each user based on their capabilities" do
+      Memento.transaction!(fn ->
+        channel = insert(:channel, name: "#test")
+        existing_user = insert(:user, realname: "Existing User", capabilities: ["EXTENDED-JOIN"])
+        insert(:user_channel, user: existing_user, channel: channel, modes: ["o"])
+
+        existing_user_without_cap = insert(:user, realname: "Regular User", capabilities: [])
+        insert(:user_channel, user: existing_user_without_cap, channel: channel, modes: [])
+
+        joining_user = insert(:user, realname: "New User", identified_as: "newuser123", capabilities: [])
+        message = %Message{command: "JOIN", params: ["#test"]}
+
+        assert :ok = Join.handle(joining_user, message)
+
+        assert_sent_message_contains(
+          existing_user.pid,
+          ":#{user_mask(joining_user)} JOIN #test newuser123 :New User\r\n"
+        )
+
+        assert_sent_message_contains(
+          existing_user_without_cap.pid,
+          ":#{user_mask(joining_user)} JOIN #test\r\n"
+        )
+
+        assert_sent_message_contains(
+          joining_user.pid,
+          ":#{user_mask(joining_user)} JOIN #test\r\n"
+        )
+      end)
+    end
+
+    test "sends extended JOIN with asterisk when user is not identified" do
+      Memento.transaction!(fn ->
+        channel = insert(:channel, name: "#test")
+        existing_user = insert(:user, capabilities: ["EXTENDED-JOIN"])
+        insert(:user_channel, user: existing_user, channel: channel, modes: ["o"])
+
+        joining_user = insert(:user, realname: "Anonymous User", identified_as: nil, capabilities: [])
+        message = %Message{command: "JOIN", params: ["#test"]}
+
+        assert :ok = Join.handle(joining_user, message)
+
+        assert_sent_message_contains(
+          existing_user.pid,
+          ":#{user_mask(joining_user)} JOIN #test * :Anonymous User\r\n"
+        )
+      end)
+    end
+  end
 end
