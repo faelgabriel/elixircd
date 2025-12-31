@@ -104,7 +104,9 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
         assert_sent_messages([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
-          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"}
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"},
+          {user.pid,
+           ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -129,7 +131,9 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
            ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Your current nickname will now be recognized with your account.\r\n"},
-          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"}
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"},
+          {user.pid,
+           ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -209,6 +213,20 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
            ":#{identifying_user.nick}!#{String.slice(identifying_user.ident, 0..9)}@#{identifying_user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"},
           {watcher.pid,
            ":#{identifying_user.nick}!#{String.slice(identifying_user.ident, 0..9)}@#{identifying_user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks IDENTIFY attempt when user authenticated via SASL" do
+      Memento.transaction!(fn ->
+        _registered_nick = insert(:registered_nick, nickname: "sasl_account")
+        user = insert(:user, identified_as: "sasl_account", sasl_authenticated: true)
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", "sasl_account", "password"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You authenticated via SASL. Please /msg NickServ LOGOUT first, then IDENTIFY.\r\n"}
         ])
       end)
     end

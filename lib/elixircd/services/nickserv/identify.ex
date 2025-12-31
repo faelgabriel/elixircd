@@ -45,6 +45,9 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     Logger.debug("IDENTIFY attempt for nickname #{nickname} from #{user_mask(user)}")
 
     cond do
+      user.sasl_authenticated && user.identified_as != nil ->
+        notify(user, "You authenticated via SASL. Please /msg NickServ LOGOUT first, then IDENTIFY.")
+
       user.identified_as && user.identified_as != nickname ->
         notify(user, "You are already identified as \x02#{user.identified_as}\x02. Please /msg NickServ LOGOUT first.")
 
@@ -109,10 +112,15 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   @spec notify_account_change(User.t(), String.t()) :: :ok
   defp notify_account_change(user, account) do
+    %Message{command: "ACCOUNT", params: [account]}
+    |> Dispatcher.broadcast(user, [user])
+
     account_notify_supported = Application.get_env(:elixircd, :capabilities)[:account_notify] || false
 
     if account_notify_supported do
-      watchers = Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
+      watchers =
+        Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
+        |> Enum.reject(&(&1.pid == user.pid))
 
       if watchers != [] do
         %Message{command: "ACCOUNT", params: [account]}

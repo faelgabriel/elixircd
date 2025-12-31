@@ -36,14 +36,15 @@ defmodule ElixIRCd.MixProject do
 
   defp aliases do
     [
-      check: [
+      quality: [
         "compile --warnings-as-errors",
         "format --check-formatted",
         "credo --strict",
         "sobelow --config",
         "deps.audit",
         "doctor",
-        "dialyzer"
+        "dialyzer",
+        "cmd --shell MIX_ENV=test mix coveralls"
       ]
     ]
   end

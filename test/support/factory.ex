@@ -55,6 +55,7 @@ defmodule ElixIRCd.Factory do
       password: Map.get(attrs, :password, nil),
       away_message: Map.get(attrs, :away_message, nil),
       capabilities: Map.get(attrs, :capabilities, []),
+      cap_negotiating: Map.get(attrs, :cap_negotiating, nil),
       webirc_gateway: Map.get(attrs, :webirc_gateway, nil),
       webirc_hostname: Map.get(attrs, :webirc_hostname, nil),
       webirc_ip: Map.get(attrs, :webirc_ip, nil),
@@ -63,6 +64,8 @@ defmodule ElixIRCd.Factory do
       last_activity: Map.get(attrs, :last_activity, :erlang.system_time(:second)),
       registered_at: registered_at,
       identified_as: Map.get(attrs, :identified_as, nil),
+      sasl_authenticated: Map.get(attrs, :sasl_authenticated, nil),
+      sasl_attempts: Map.get(attrs, :sasl_attempts, 0),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
@@ -194,10 +197,17 @@ defmodule ElixIRCd.Factory do
     nickname = Map.get(attrs, :nickname, "Nick_#{random_string(5)}")
     nickname_key = if nickname, do: CaseMapping.normalize(nickname), else: nil
 
+    # Generate proper Argon2 hash if password is provided, otherwise use a default hash
+    password_hash =
+      case Map.get(attrs, :password) do
+        nil -> Map.get(attrs, :password_hash, Argon2.hash_pwd_salt("default_password"))
+        password -> Argon2.hash_pwd_salt(password)
+      end
+
     %RegisteredNick{
       nickname_key: nickname_key,
       nickname: nickname,
-      password_hash: Map.get(attrs, :password_hash, "hash"),
+      password_hash: password_hash,
       email: Map.get(attrs, :email, "email@example.com"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
       verify_code: Map.get(attrs, :verify_code, nil),

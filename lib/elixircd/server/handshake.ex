@@ -25,7 +25,8 @@ defmodule ElixIRCd.Server.Handshake do
   The `user` should be loaded in the same transaction.
   """
   @spec handle(User.t()) :: :ok
-  def handle(user) when user.nick != nil and user.ident != nil and user.realname != nil do
+  def handle(user)
+      when user.nick != nil and user.ident != nil and user.realname != nil and user.cap_negotiating != true do
     case check_server_password(user) do
       :ok ->
         handle_handshake(user)
@@ -72,11 +73,9 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec apply_handshake_modes([String.t()]) :: [String.t()]
   defp apply_handshake_modes(existing_modes) do
-    cloak_on_connect = Application.get_env(:elixircd, :cloaking)[:cloak_on_connect]
-
-    case cloak_on_connect do
+    case Application.get_env(:elixircd, :cloaking)[:cloak_on_connect] do
       true -> Enum.uniq(existing_modes ++ ["x"])
-      false -> existing_modes
+      _ -> existing_modes
     end
   end
 
@@ -84,8 +83,8 @@ defmodule ElixIRCd.Server.Handshake do
   defp check_server_password(%User{password: password}) do
     case Application.get_env(:elixircd, :server)[:password] do
       nil -> :ok
-      server_password when server_password != password -> {:error, :bad_password}
-      _ -> :ok
+      ^password -> :ok
+      _other -> {:error, :bad_password}
     end
   end
 
@@ -103,7 +102,7 @@ defmodule ElixIRCd.Server.Handshake do
   defp check_ident(user) do
     case Application.get_env(:elixircd, :ident_service)[:enabled] do
       true -> request_ident(user)
-      false -> nil
+      _ -> nil
     end
   end
 

@@ -50,10 +50,10 @@ config :elixircd,
       throttle: [
         # Tokens added to the user's bucket per second.
         # Controls how frequently a message can be sent over time.
-        refill_rate: 1.0,
+        refill_rate: 2.0,
         # Maximum number of tokens the bucket can hold.
         # Allows short bursts of messages before throttling begins.
-        capacity: 20,
+        capacity: 40,
         # Number of tokens consumed per message sent.
         cost: 1,
         # Time window (in milliseconds) during which violations are tracked.
@@ -63,12 +63,8 @@ config :elixircd,
         disconnect_threshold: 10
       ],
       # Override the global throttle message rate limits for specific commands
-      command_throttle: %{
-        "JOIN" => [refill_rate: 0.5, capacity: 20, cost: 5, disconnect_threshold: 5],
-        "NICK" => [refill_rate: 0.5, capacity: 5, cost: 5, disconnect_threshold: 5],
-        "WHO" => [refill_rate: 0.5, capacity: 5, cost: 3, disconnect_threshold: 5],
-        "WHOIS" => [refill_rate: 0.5, capacity: 5, cost: 3, disconnect_threshold: 5]
-      },
+      # Example: %{"JOIN" => [refill_rate: 0.5, capacity: 20, cost: 5, disconnect_threshold: 5]}
+      command_throttle: %{},
       # Exceptions for any message rate limiting
       exceptions: [
         # Identified nicknames
@@ -131,12 +127,28 @@ config :elixircd,
     client_tags: true,
     # Whether to support multiple status prefixes in channel responses (multi-prefix capability)
     multi_prefix: true,
+    # Whether to enable SASL authentication before registration (sasl capability)
+    sasl: true,
     # Whether to allow clients to change their real name during the session (setname capability)
     setname: true,
     # Whether to support SERVER-TIME capability adding time= tags
     server_time: true,
     # Whether to support MSGID capability adding msgid= tags
     msgid: true
+  ],
+  # SASL Authentication Configuration
+  sasl: [
+    # PLAIN mechanism configuration (username/password authentication)
+    plain: [
+      enabled: true,
+      # Require TLS for PLAIN authentication (recommended for security)
+      require_tls: true
+    ],
+    # General SASL settings
+    # Timeout for incomplete SASL sessions (in milliseconds)
+    session_timeout_ms: 60_000,
+    # Maximum failed authentication attempts per connection
+    max_attempts_per_connection: 3
   ],
   # Network Listeners Configuration
   listeners: [

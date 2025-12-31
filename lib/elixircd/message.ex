@@ -373,6 +373,16 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_rehashing), do: "382"
   defp numeric_reply(:rpl_time), do: "391"
   defp numeric_reply(:rpl_umodegmsg), do: "716"
+  # SASL replies
+  defp numeric_reply(:rpl_loggedin), do: "900"
+  defp numeric_reply(:rpl_loggedout), do: "901"
+  # defp numeric_reply(:err_nicklocked), do: "902"  # Not yet implemented
+  defp numeric_reply(:rpl_saslsuccess), do: "903"
+  defp numeric_reply(:err_saslfail), do: "904"
+  defp numeric_reply(:err_sasltoolong), do: "905"
+  defp numeric_reply(:err_saslaborted), do: "906"
+  defp numeric_reply(:err_saslalready), do: "907"
+  defp numeric_reply(:rpl_saslmechs), do: "908"
   # Error replies
   defp numeric_reply(:err_nosuchnick), do: "401"
   defp numeric_reply(:err_nosuchchannel), do: "403"

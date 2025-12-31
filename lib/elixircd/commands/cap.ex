@@ -3,6 +3,13 @@ defmodule ElixIRCd.Commands.Cap do
   This module defines the CAP command.
 
   CAP handles IRCv3 capability negotiation between client and server.
+
+  - `CAP LS`: Initiates negotiation, blocks registration until `CAP END`
+  - `CAP REQ`: Requests specific capabilities
+  - `CAP END`: Finalizes negotiation, allows registration to complete
+
+  During CAP negotiation, the server blocks registration (001) even if NICK and USER
+  are provided. This allows SASL authentication before registration completes.
   """
 
   @behaviour ElixIRCd.Command
@@ -12,6 +19,7 @@ defmodule ElixIRCd.Commands.Cap do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Tables.User
 
   @supported_capabilities %{
@@ -37,6 +45,10 @@ defmodule ElixIRCd.Commands.Cap do
     },
     "MULTI-PREFIX" => %{
       name: "MULTI-PREFIX",
+      description: "Display multiple status prefixes for users in channel responses"
+    },
+    "SASL" => %{
+      name: "SASL",
       description: "Display multiple status prefixes for users in channel responses"
     },
     "SETNAME" => %{
@@ -89,11 +101,19 @@ defmodule ElixIRCd.Commands.Cap do
   end
 
   @spec handle_cap_ls(User.t()) :: :ok
-  defp handle_cap_ls(user) do
+  defp handle_cap_ls(%{cap_negotiating: true} = user) do
     capabilities_list = get_capabilities_list()
 
     %Message{command: "CAP", params: [user_reply(user), "LS"], trailing: capabilities_list}
     |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp handle_cap_ls(user) do
+    updated_user = Users.update(user, %{cap_negotiating: true})
+    capabilities_list = get_capabilities_list()
+
+    %Message{command: "CAP", params: [user_reply(updated_user), "LS"], trailing: capabilities_list}
+    |> Dispatcher.broadcast(:server, updated_user)
   end
 
   @spec handle_cap_list(User.t()) :: :ok
@@ -109,20 +129,23 @@ defmodule ElixIRCd.Commands.Cap do
     capabilities = parse_capabilities_request(capabilities_string)
     {acked, nacked} = validate_capabilities(capabilities)
 
-    if length(nacked) > 0 do
-      %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
-      |> Dispatcher.broadcast(:server, user)
-    else
-      updated_user = apply_capability_changes(user, acked)
+    case nacked do
+      [] ->
+        updated_user = apply_capability_changes(user, acked)
 
-      %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
-      |> Dispatcher.broadcast(:server, updated_user)
+        %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
+        |> Dispatcher.broadcast(:server, updated_user)
+
+      _ ->
+        %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
+        |> Dispatcher.broadcast(:server, user)
     end
   end
 
   @spec handle_cap_end(User.t()) :: :ok
-  defp handle_cap_end(_user) do
-    :ok
+  defp handle_cap_end(user) do
+    updated_user = Users.update(user, %{cap_negotiating: false})
+    Handshake.handle(updated_user)
   end
 
   @spec get_capabilities_list() :: String.t()
@@ -137,6 +160,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:chghost, "CHGHOST"},
             {:client_tags, "CLIENT-TAGS"},
             {:multi_prefix, "MULTI-PREFIX"},
+            {:sasl, build_sasl_capability_value()},
             {:setname, "SETNAME"},
             {:msgid, "MSGID"},
             {:server_time, "SERVER-TIME"},
@@ -144,11 +168,41 @@ defmodule ElixIRCd.Commands.Cap do
             {:extended_uhlist, "EXTENDED-UHLIST"},
             {:extended_names, "UHNAMES"}
           ],
-          Keyword.get(capabilities_config, config_key, false) do
+          Keyword.get(capabilities_config, config_key, false) and name != nil do
         name
       end
 
     Enum.join(capabilities, " ")
+  end
+
+  @spec build_sasl_capability_value() :: String.t() | nil
+  defp build_sasl_capability_value do
+    sasl_config = Application.get_env(:elixircd, :sasl, [])
+    mechanisms = get_enabled_sasl_mechanisms(sasl_config)
+
+    case mechanisms do
+      [] -> nil
+      mechs -> "SASL=#{Enum.join(mechs, ",")}"
+    end
+  end
+
+  @spec get_enabled_sasl_mechanisms(keyword()) :: [String.t()]
+  defp get_enabled_sasl_mechanisms(sasl_config) do
+    []
+    |> maybe_add_mechanism(sasl_config[:plain], "PLAIN")
+  end
+
+  @spec maybe_add_mechanism([String.t()], keyword() | nil, String.t()) :: [String.t()]
+  defp maybe_add_mechanism(mechanisms, nil, mechanism_name) do
+    mechanisms ++ [mechanism_name]
+  end
+
+  defp maybe_add_mechanism(mechanisms, config, mechanism_name) do
+    if Keyword.get(config, :enabled, true) do
+      mechanisms ++ [mechanism_name]
+    else
+      mechanisms
+    end
   end
 
   @spec parse_capabilities_request(String.t()) :: [%{action: :enable | :disable, name: String.t()}]

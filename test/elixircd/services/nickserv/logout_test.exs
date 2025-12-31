@@ -30,8 +30,12 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
         assert :ok = Logout.handle(user, ["LOGOUT"])
 
+        # Expected order: MODE -r → ACCOUNT * → RPL_LOGGEDOUT (901) → NOTICE
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
+          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
+          {user.pid,
+           ":irc.test 901 #{user.nick} #{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} :You are now logged out (was: #{registered_nick.nickname})\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :You are now logged out from \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
@@ -49,8 +53,12 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
         assert :ok = Logout.handle(user, ["LOGOUT"])
 
+        # Expected order: MODE -r → ACCOUNT * → RPL_LOGGEDOUT (901) → NOTICE
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
+          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
+          {user.pid,
+           ":irc.test 901 #{user.nick} #{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} :You are now logged out (was: #{registered_nick.nickname})\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :You are now logged out from \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
@@ -70,6 +78,36 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
         assert_sent_messages([
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Too many parameters for \x02LOGOUT\x02.\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02LOGOUT\x02\r\n"}
+        ])
+      end)
+    end
+
+    test "sends ACCOUNT * to self even when account-notify is disabled" do
+      original_capabilities = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+
+      # Disable account-notify
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_capabilities || [])
+        |> Keyword.put(:account_notify, false)
+      )
+
+      Memento.transaction!(fn ->
+        registered_nick = insert(:registered_nick)
+        user = insert(:user, identified_as: registered_nick.nickname, modes: ["r"])
+
+        assert :ok = Logout.handle(user, ["LOGOUT"])
+
+        # ACCOUNT * should still be sent to self even if account-notify is disabled
+        assert_sent_messages([
+          {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
+          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
+          {user.pid,
+           ":irc.test 901 #{user.nick} #{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} :You are now logged out (was: #{registered_nick.nickname})\r\n"},
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now logged out from \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
       end)
     end
@@ -99,14 +137,17 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
         assert :ok = Logout.handle(logging_out_user, ["LOGOUT"])
 
+        # Expected order: MODE -r → ACCOUNT * (self) → ACCOUNT * (watcher) → RPL_LOGGEDOUT (901) → NOTICE
         assert_sent_messages([
           {logging_out_user.pid, ":irc.test MODE #{logging_out_user.nick} -r\r\n"},
           {logging_out_user.pid,
-           ":NickServ!service@irc.test NOTICE #{logging_out_user.nick} :You are now logged out from \x02#{registered_nick.nickname}\x02.\r\n"},
-          {logging_out_user.pid,
            ":#{logging_out_user.nick}!#{String.slice(logging_out_user.ident, 0..9)}@#{logging_out_user.hostname} ACCOUNT *\r\n"},
           {watcher.pid,
-           ":#{logging_out_user.nick}!#{String.slice(logging_out_user.ident, 0..9)}@#{logging_out_user.hostname} ACCOUNT *\r\n"}
+           ":#{logging_out_user.nick}!#{String.slice(logging_out_user.ident, 0..9)}@#{logging_out_user.hostname} ACCOUNT *\r\n"},
+          {logging_out_user.pid,
+           ":irc.test 901 #{logging_out_user.nick} #{logging_out_user.nick}!#{String.slice(logging_out_user.ident, 0..9)}@#{logging_out_user.hostname} :You are now logged out (was: #{registered_nick.nickname})\r\n"},
+          {logging_out_user.pid,
+           ":NickServ!service@irc.test NOTICE #{logging_out_user.nick} :You are now logged out from \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
       end)
     end
