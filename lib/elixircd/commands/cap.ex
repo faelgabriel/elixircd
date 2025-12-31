@@ -43,6 +43,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "CLIENT-TAGS",
       description: "Allow vendor-specific client-only tags from clients"
     },
+    "EXTENDED-JOIN" => %{
+      name: "EXTENDED-JOIN",
+      description: "Extended JOIN messages including account name and real name"
+    },
     "MULTI-PREFIX" => %{
       name: "MULTI-PREFIX",
       description: "Display multiple status prefixes for users in channel responses"
@@ -159,6 +163,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:away_notify, "AWAY-NOTIFY"},
             {:chghost, "CHGHOST"},
             {:client_tags, "CLIENT-TAGS"},
+            {:extended_join, "EXTENDED-JOIN"},
             {:multi_prefix, "MULTI-PREFIX"},
             {:sasl, build_sasl_capability_value()},
             {:setname, "SETNAME"},
