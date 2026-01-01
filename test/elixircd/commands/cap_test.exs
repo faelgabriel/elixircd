@@ -34,6 +34,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:message_tags, true)
         |> Keyword.put(:server_time, true)
         |> Keyword.put(:msgid, true)
+        |> Keyword.put(:sts, false)
       )
 
       Memento.transaction!(fn ->
@@ -98,6 +99,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:message_tags, true)
         |> Keyword.put(:server_time, true)
         |> Keyword.put(:msgid, true)
+        |> Keyword.put(:sts, false)
       )
 
       Memento.transaction!(fn ->
@@ -132,6 +134,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
+        |> Keyword.put(:sts, false)
       )
 
       Memento.transaction!(fn ->
@@ -167,6 +170,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:extended_uhlist, false)
+        |> Keyword.put(:sts, false)
       )
 
       Memento.transaction!(fn ->
@@ -205,6 +209,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:message_tags, false)
         |> Keyword.put(:server_time, false)
         |> Keyword.put(:msgid, false)
+        |> Keyword.put(:sts, false)
       )
 
       Memento.transaction!(fn ->
@@ -243,6 +248,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:sasl, false)
+        |> Keyword.put(:sts, false)
       )
 
       Memento.transaction!(fn ->
@@ -287,6 +293,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:sasl, true)
+        |> Keyword.put(:sts, false)
       )
 
       Application.put_env(
@@ -600,6 +607,268 @@ defmodule ElixIRCd.Commands.CapTest do
         # Just verify the command executed successfully
         # The line we need to cover is the nil case in maybe_add_mechanism
         :ok
+      end)
+    end
+  end
+
+  describe "STS (Strict Transport Security) capability" do
+    test "announces sts=port on plaintext (tcp) connections" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tcp)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        # Verify the response contains STS with port announcement
+        assert_sent_message_contains(user.pid, ~r/sts=port=6697/)
+      end)
+    end
+
+    test "announces sts=duration on TLS connections" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tls)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_message_contains(user.pid, ~r/sts=duration=2592000/)
+      end)
+    end
+
+    test "announces sts=duration,preload on TLS when preload is enabled" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: true)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tls)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_message_contains(user.pid, ~r/sts=duration=2592000,preload/)
+      end)
+    end
+
+    test "announces sts=port on WebSocket connections" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :ws)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_message_contains(user.pid, ~r/sts=port=6697/)
+      end)
+    end
+
+    test "announces sts=duration on secure WebSocket connections" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :wss)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_message_contains(user.pid, ~r/sts=duration=2592000/)
+      end)
+    end
+
+    test "does not announce STS when capability is disabled" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, false))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tcp)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages_amount(user.pid, 1)
+      end)
+    end
+
+    test "rejects CAP REQ sts with NAK" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tls, capabilities: [])
+        message = %Message{command: "CAP", params: ["REQ", "sts"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        # Should return NAK as per IRCv3 spec - clients cannot request STS
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP #{user.nick} NAK :sts\r\n"}
+        ])
+
+        # Verify STS was not added to user capabilities
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert "STS" not in updated_user.capabilities
+      end)
+    end
+
+    test "rejects CAP REQ sts even when combined with valid capabilities" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tls, capabilities: [])
+        message = %Message{command: "CAP", params: ["REQ", "UHNAMES sts"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        # Should return NAK because STS is in the request
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP #{user.nick} NAK :UHNAMES sts\r\n"}
+        ])
+
+        # Verify neither capability was added
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert updated_user.capabilities == []
+      end)
+    end
+
+    test "does not announce sts when duration is nil on TLS connections" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: nil, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tls)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        # Should not include sts in the response when duration is nil
+        assert_sent_messages_count_containing(user.pid, ~r/sts=/, 0)
+      end)
+    end
+
+    test "does not announce sts when duration is zero on TLS connections" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 0, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tls)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        # Should not include sts in the response when duration is 0
+        assert_sent_messages_count_containing(user.pid, ~r/sts=/, 0)
+      end)
+    end
+
+    test "does not announce sts when port is nil on plaintext connections" do
+      original_caps = Application.get_env(:elixircd, :capabilities)
+      original_sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, original_caps)
+        Application.put_env(:elixircd, :sts, original_sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, (original_caps || []) |> Keyword.put(:sts, true))
+      Application.put_env(:elixircd, :sts, port: nil, duration: 2_592_000, preload: false)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tcp)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        # Should not include sts in the response when port is nil
+        assert_sent_messages_count_containing(user.pid, ~r/sts=/, 0)
       end)
     end
   end

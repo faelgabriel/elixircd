@@ -140,7 +140,19 @@ config :elixircd,
     # Whether to support SERVER-TIME capability adding time= tags
     server_time: true,
     # Whether to support MSGID capability adding msgid= tags
-    msgid: true
+    msgid: true,
+    # Whether to support Strict Transport Security (sts capability)
+    sts: true
+  ],
+  # Strict Transport Security (STS) Configuration
+  sts: [
+    # TLS port that clients should upgrade to (announced on plaintext connections)
+    port: 6697,
+    # Duration in seconds for clients to cache the STS policy (announced on TLS connections)
+    # Common values: 86400 (1 day), 2592000 (30 days), 31536000 (1 year)
+    duration: 2_592_000,
+    # Whether to allow preloading (clients can cache policy before first connection)
+    preload: false
   ],
   # SASL Authentication Configuration
   sasl: [

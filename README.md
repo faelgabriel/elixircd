@@ -399,7 +399,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Server Time** (server-time): Timestamp information for messages. ✅
 - **Set Name** (setname): Allow clients to change their real name during the session. ✅
 - **Standard Replies** (standard-replies): Standardized format for server and client replies. ❌
-- **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ❌
+- **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ✅
 - **UTF-8 Only** (utf8only): Configurable support for UTF-8 only traffic. ✅
 
 ### Server Features

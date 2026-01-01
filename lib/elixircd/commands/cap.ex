@@ -67,6 +67,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "SETNAME",
       description: "Allow clients to change their real name during the session"
     },
+    "STS" => %{
+      name: "STS",
+      description: "Strict Transport Security - automatic TLS upgrade and policy persistence"
+    },
     "UHNAMES" => %{
       name: "UHNAMES",
       description: "Extended NAMES reply with full user@host format"
@@ -88,6 +92,10 @@ defmodule ElixIRCd.Commands.Cap do
       description: "Attach unique msgid= message tags"
     }
   }
+
+  # Capabilities that are announced via CAP LS but cannot be requested via CAP REQ
+  # As per IRCv3 specifications, these capabilities are informational only
+  @non_requestable_capabilities ["STS"]
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -114,7 +122,7 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec handle_cap_ls(User.t()) :: :ok
   defp handle_cap_ls(%{cap_negotiating: true} = user) do
-    capabilities_list = get_capabilities_list()
+    capabilities_list = get_capabilities_list(user)
 
     %Message{command: "CAP", params: [user_reply(user), "LS"], trailing: capabilities_list}
     |> Dispatcher.broadcast(:server, user)
@@ -122,7 +130,7 @@ defmodule ElixIRCd.Commands.Cap do
 
   defp handle_cap_ls(user) do
     updated_user = Users.update(user, %{cap_negotiating: true})
-    capabilities_list = get_capabilities_list()
+    capabilities_list = get_capabilities_list(updated_user)
 
     %Message{command: "CAP", params: [user_reply(updated_user), "LS"], trailing: capabilities_list}
     |> Dispatcher.broadcast(:server, updated_user)
@@ -160,8 +168,8 @@ defmodule ElixIRCd.Commands.Cap do
     Handshake.handle(updated_user)
   end
 
-  @spec get_capabilities_list() :: String.t()
-  defp get_capabilities_list do
+  @spec get_capabilities_list(User.t()) :: String.t()
+  defp get_capabilities_list(user) do
     capabilities_config = Application.get_env(:elixircd, :capabilities, [])
 
     capabilities =
@@ -177,6 +185,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:multi_prefix, "MULTI-PREFIX"},
             {:sasl, build_sasl_capability_value()},
             {:setname, "SETNAME"},
+            {:sts, build_sts_capability_value(user)},
             {:msgid, "MSGID"},
             {:server_time, "SERVER-TIME"},
             {:message_tags, "MESSAGE-TAGS"},
@@ -220,6 +229,40 @@ defmodule ElixIRCd.Commands.Cap do
     end
   end
 
+  @spec build_sts_capability_value(User.t()) :: String.t() | nil
+  defp build_sts_capability_value(user) do
+    sts_config = Application.get_env(:elixircd, :sts, [])
+    is_secure = user.transport in [:tls, :wss]
+
+    # On TLS connections: announce duration (and optionally preload)
+    # On plaintext connections: announce port for upgrade
+    if is_secure do
+      build_sts_duration_value(sts_config)
+    else
+      build_sts_port_value(sts_config)
+    end
+  end
+
+  @spec build_sts_duration_value(keyword()) :: String.t() | nil
+  defp build_sts_duration_value(config) do
+    duration = Keyword.get(config, :duration)
+    preload = Keyword.get(config, :preload, false)
+
+    case {duration, preload} do
+      {d, true} when is_integer(d) and d > 0 -> "sts=duration=#{d},preload"
+      {d, false} when is_integer(d) and d > 0 -> "sts=duration=#{d}"
+      _ -> nil
+    end
+  end
+
+  @spec build_sts_port_value(keyword()) :: String.t() | nil
+  defp build_sts_port_value(config) do
+    case Keyword.get(config, :port) do
+      port when is_integer(port) -> "sts=port=#{port}"
+      _ -> nil
+    end
+  end
+
   @spec parse_capabilities_request(String.t()) :: [%{action: :enable | :disable, name: String.t()}]
   defp parse_capabilities_request(capabilities_string) do
     capabilities_string
@@ -241,7 +284,7 @@ defmodule ElixIRCd.Commands.Cap do
           {[%{action: :enable | :disable, name: String.t()}], [String.t()]}
   defp validate_capabilities(capabilities) do
     Enum.split_with(capabilities, fn cap ->
-      Map.has_key?(@supported_capabilities, cap.name)
+      Map.has_key?(@supported_capabilities, cap.name) and cap.name not in @non_requestable_capabilities
     end)
   end
 
