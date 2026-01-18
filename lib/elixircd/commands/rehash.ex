@@ -7,12 +7,33 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1, user_reply: 1]
   import ElixIRCd.Utils.System, only: [load_configurations: 0]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+
+  @cap_mappings [
+    {:account_tag, "ACCOUNT-TAG"},
+    {:account_notify, "ACCOUNT-NOTIFY"},
+    {:away_notify, "AWAY-NOTIFY"},
+    {:cap_notify, "CAP-NOTIFY"},
+    {:chghost, "CHGHOST"},
+    {:client_tags, "CLIENT-TAGS"},
+    {:extended_join, "EXTENDED-JOIN"},
+    {:invite_extended, "INVITE-EXTENDED"},
+    {:invite_notify, "INVITE-NOTIFY"},
+    {:multi_prefix, "MULTI-PREFIX"},
+    {:sasl, "SASL"},
+    {:setname, "SETNAME"},
+    {:extended_names, "UHNAMES"},
+    {:extended_uhlist, "EXTENDED-UHLIST"},
+    {:message_tags, "MESSAGE-TAGS"},
+    {:server_time, "SERVER-TIME"},
+    {:msgid, "MSGID"}
+  ]
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -34,7 +55,11 @@ defmodule ElixIRCd.Commands.Rehash do
     %Message{command: :rpl_rehashing, params: [user.nick, "elixircd.exs"], trailing: "Rehashing"}
     |> Dispatcher.broadcast(:server, user)
 
+    old_caps = Application.get_env(:elixircd, :capabilities, [])
     load_configurations()
+    new_caps = Application.get_env(:elixircd, :capabilities, [])
+
+    notify_config_changes(old_caps, new_caps)
 
     %Message{command: "NOTICE", params: [user.nick], trailing: "Rehashing completed"}
     |> Dispatcher.broadcast(:server, user)
@@ -44,5 +69,85 @@ defmodule ElixIRCd.Commands.Rehash do
   defp noprivileges_message(user) do
     %Message{command: :err_noprivileges, params: [user.nick], trailing: "Permission Denied- You're not an IRC operator"}
     |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec notify_config_changes(keyword(), keyword()) :: :ok
+  defp notify_config_changes(old_caps, new_caps) do
+    enabled_caps =
+      @cap_mappings
+      |> Enum.filter(fn {key, _name} ->
+        old_value = Keyword.get(old_caps, key, false)
+        new_value = Keyword.get(new_caps, key, false)
+        !old_value and new_value
+      end)
+      |> Enum.map(fn {_key, name} -> name end)
+
+    disabled_caps =
+      @cap_mappings
+      |> Enum.filter(fn {key, _name} ->
+        old_value = Keyword.get(old_caps, key, false)
+        new_value = Keyword.get(new_caps, key, false)
+        old_value and !new_value
+      end)
+      |> Enum.map(fn {_key, name} -> name end)
+
+    if enabled_caps != [] do
+      notify_new(Enum.join(enabled_caps, " "))
+    end
+
+    if disabled_caps != [] do
+      notify_del(Enum.join(disabled_caps, " "))
+    end
+
+    :ok
+  end
+
+  @spec notify_new(String.t()) :: :ok
+  defp notify_new(capabilities) when is_binary(capabilities) do
+    Users.get_all()
+    |> Enum.filter(&has_cap_notify?/1)
+    |> Enum.each(fn user ->
+      %Message{
+        command: "CAP",
+        params: [user_reply(user), "NEW"],
+        trailing: capabilities
+      }
+      |> Dispatcher.broadcast(:server, user)
+    end)
+  end
+
+  @spec notify_del(String.t()) :: :ok
+  defp notify_del(capabilities) when is_binary(capabilities) do
+    Users.get_all()
+    |> Enum.filter(&has_cap_notify?/1)
+    |> Enum.each(fn user ->
+      %Message{
+        command: "CAP",
+        params: [user_reply(user), "DEL"],
+        trailing: capabilities
+      }
+      |> Dispatcher.broadcast(:server, user)
+
+      remove_deleted_capabilities(user, capabilities)
+    end)
+  end
+
+  @spec has_cap_notify?(User.t()) :: boolean()
+  defp has_cap_notify?(user) do
+    "CAP-NOTIFY" in user.capabilities
+  end
+
+  @spec remove_deleted_capabilities(User.t(), String.t()) :: User.t()
+  defp remove_deleted_capabilities(user, capabilities_string) do
+    capabilities_to_remove =
+      capabilities_string
+      |> String.split()
+      |> Enum.map(&String.upcase/1)
+
+    new_capabilities =
+      user.capabilities
+      |> Enum.reject(&(&1 in capabilities_to_remove))
+
+    Users.update(user, %{capabilities: new_capabilities})
   end
 end

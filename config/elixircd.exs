@@ -121,6 +121,8 @@ config :elixircd,
     account_notify: true,
     # Whether to send AWAY notifications to interested clients (away-notify capability)
     away_notify: true,
+    # Whether to notify clients when server capabilities change dynamically (cap-notify capability)
+    cap_notify: true,
     # Whether to send CHGHOST notifications when ident/hostname changes (chghost capability)
     chghost: true,
     # Whether to allow client-only tags from clients (client-tags capability)

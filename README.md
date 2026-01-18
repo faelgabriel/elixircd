@@ -382,7 +382,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Account Tracking** (account-notify): Account notifications and tagging. ✅
 - **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ✅
 - **Batches** (batch): Sending messages in batches. ❌
-- **Capability Notifications** (cap-notify): Notify clients when server capabilities change dynamically. ❌
+- **Capability Notifications** (cap-notify): Notify clients when server capabilities change dynamically. ✅
 - **Change Host** (chghost): Real-time notifications when a user's hostname changes. ✅
 - **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ❌

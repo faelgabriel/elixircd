@@ -22,6 +22,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
@@ -87,6 +88,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
@@ -126,6 +128,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
@@ -161,6 +164,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
@@ -197,6 +201,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, false)
         |> Keyword.put(:account_notify, false)
         |> Keyword.put(:away_notify, false)
+        |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, false)
         |> Keyword.put(:client_tags, false)
         |> Keyword.put(:extended_join, false)
@@ -235,6 +240,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
@@ -280,6 +286,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:account_tag, true)
         |> Keyword.put(:account_notify, true)
         |> Keyword.put(:away_notify, true)
+        |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:client_tags, true)
         |> Keyword.put(:extended_join, true)
@@ -869,6 +876,84 @@ defmodule ElixIRCd.Commands.CapTest do
 
         # Should not include sts in the response when port is nil
         assert_sent_messages_count_containing(user.pid, ~r/sts=/, 0)
+      end)
+    end
+  end
+
+  describe "CAP-NOTIFY capability" do
+    test "announces cap-notify when enabled in config" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:cap_notify, true)
+        |> Keyword.put(:sts, false)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_message_contains(user.pid, ~r/CAP-NOTIFY/)
+      end)
+    end
+
+    test "does not announce cap-notify when disabled in config" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:cap_notify, false)
+        |> Keyword.put(:sts, false)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        message = %Message{command: "CAP", params: ["LS"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages_count_containing(user.pid, ~r/CAP-NOTIFY/, 0)
+      end)
+    end
+
+    test "allows requesting CAP-NOTIFY capability" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [])
+        message = %Message{command: "CAP", params: ["REQ", "CAP-NOTIFY"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP #{user.nick} ACK :CAP-NOTIFY\r\n"}
+        ])
+
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert "CAP-NOTIFY" in updated_user.capabilities
+      end)
+    end
+
+    test "allows disabling CAP-NOTIFY capability" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["CAP-NOTIFY"])
+        message = %Message{command: "CAP", params: ["REQ", "-CAP-NOTIFY"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP #{user.nick} ACK :-CAP-NOTIFY\r\n"}
+        ])
+
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert "CAP-NOTIFY" not in updated_user.capabilities
       end)
     end
   end

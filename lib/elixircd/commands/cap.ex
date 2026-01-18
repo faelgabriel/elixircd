@@ -35,6 +35,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "AWAY-NOTIFY",
       description: "Notify when users set or remove away status"
     },
+    "CAP-NOTIFY" => %{
+      name: "CAP-NOTIFY",
+      description: "Notify clients when server capabilities change dynamically"
+    },
     "CHGHOST" => %{
       name: "CHGHOST",
       description: "Notify when a user's ident or hostname changes"
@@ -177,6 +181,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:account_tag, "ACCOUNT-TAG"},
             {:account_notify, "ACCOUNT-NOTIFY"},
             {:away_notify, "AWAY-NOTIFY"},
+            {:cap_notify, "CAP-NOTIFY"},
             {:chghost, "CHGHOST"},
             {:client_tags, "CLIENT-TAGS"},
             {:extended_join, "EXTENDED-JOIN"},
