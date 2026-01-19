@@ -16,7 +16,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP"])
 
-        assert_sent_messages_amount(user.pid, 18)
+        assert_sent_messages_amount(user.pid, 19)
       end)
     end
 
@@ -97,6 +97,16 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
         assert :ok = Help.handle(user, ["HELP", "RELEASE"])
 
         assert_sent_messages_amount(user.pid, 13)
+      end)
+    end
+
+    test "handles HELP command for RECOVER" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "RECOVER"])
+
+        assert_sent_messages_amount(user.pid, 23)
       end)
     end
 

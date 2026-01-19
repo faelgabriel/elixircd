@@ -243,6 +243,8 @@ config :elixircd,
       unverified_expire_days: 1,
       # Duration (in seconds) a nickname remains reserved after REGAIN command
       regain_reservation_duration: 60,
+      # Duration (in seconds) a nickname remains reserved after RECOVER command
+      recover_reservation_duration: 60,
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
         # Default for: SET HIDE EMAIL {ON|OFF}

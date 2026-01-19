@@ -14,6 +14,7 @@ defmodule ElixIRCd.Services.NickservTest do
     {"VERIFY", Nickserv.Verify},
     {"IDENTIFY", Nickserv.Identify},
     {"GHOST", Nickserv.Ghost},
+    {"RECOVER", Nickserv.Recover},
     {"REGAIN", Nickserv.Regain},
     {"RELEASE", Nickserv.Release},
     {"DROP", Nickserv.Drop},

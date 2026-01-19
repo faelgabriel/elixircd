@@ -29,6 +29,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "IDENTIFY"), do: send_identify_help(user)
   defp send_help_for_command(user, "LOGOUT"), do: send_logout_help(user)
   defp send_help_for_command(user, "GHOST"), do: send_ghost_help(user)
+  defp send_help_for_command(user, "RECOVER"), do: send_recover_help(user)
   defp send_help_for_command(user, "REGAIN"), do: send_regain_help(user)
   defp send_help_for_command(user, "RELEASE"), do: send_release_help(user)
   defp send_help_for_command(user, "DROP"), do: send_drop_help(user)
@@ -206,7 +207,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       format_help("RELEASE", ["<nickname> <password>"], "Releases a held nickname."),
       "",
       "This command releases a nickname that was reserved by the",
-      "REGAIN command, making it available for anyone to use.",
+      "REGAIN or RECOVER commands, making it available for anyone to use.",
       "",
       "You must be identified to the nickname or provide its",
       "correct password to release it.",
@@ -215,6 +216,42 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "",
       "Example:",
       "    \x02/msg NickServ RELEASE MyNick MyPassword\x02"
+    ])
+  end
+
+  @spec send_recover_help(User.t()) :: :ok
+  defp send_recover_help(user) do
+    recover_reservation_duration =
+      Application.get_env(:elixircd, :services)[:nickserv][:recover_reservation_duration] || 60
+
+    notify(user, [
+      "Help for \x02RECOVER\x02:",
+      format_help(
+        "RECOVER",
+        ["<nickname> <password>"],
+        "Forcefully disconnects another user and reserves your nickname."
+      ),
+      "",
+      "This command disconnects a user who is using your registered",
+      "nickname and reserves it for you. Unlike REGAIN, it does not",
+      "automatically change your nickname - you must identify and",
+      "change it manually.",
+      "",
+      "The nickname will be held exclusively for you for",
+      "#{recover_reservation_duration} seconds, giving you time to identify and claim it.",
+      "",
+      "If you are already identified to the nickname, you don't need",
+      "to specify a password. Otherwise, you must provide the correct",
+      "password for the nickname you're trying to recover.",
+      "",
+      "After recovery, you must:",
+      "  1. Identify with: \x02/msg NickServ IDENTIFY <nickname> <password>\x02",
+      "  2. Change your nick: \x02/NICK <nickname>\x02",
+      "",
+      "Syntax: \x02RECOVER <nickname> <password>\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ RECOVER MyNick MyPassword\x02"
     ])
   end
 
@@ -344,6 +381,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02LOGOUT\x02       - Log out from your current account",
       "\x02VERIFY\x02       - Verify a registered nickname",
       "\x02GHOST\x02        - Kill a ghost session using your nickname",
+      "\x02RECOVER\x02      - Recover your nickname and reserve it",
       "\x02REGAIN\x02       - Regain your nickname from another user",
       "\x02RELEASE\x02      - Release a held nickname",
       "\x02DROP\x02         - Unregister a nickname",

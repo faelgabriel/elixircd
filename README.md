@@ -307,9 +307,9 @@ NickServ allows users to register and manage nicknames, providing authentication
 - **IDENTIFY**: Authenticate with a registered nickname. ✅
 - **LOGOUT**: Log out from a registered nickname. ✅
 - **GHOST**: Disconnect a user using your registered nickname. ✅
+- **RECOVER**: Forcefully disconnect another user using nickname and reclaim it. ✅
 - **REGAIN**: Regain your registered nickname from another user. ✅
 - **RELEASE**: Release a nickname that is being held for you. ✅
-- **RECOVER**: Forcefully disconnect another user using nickname and reclaim it. ❌
 - **DROP**: Delete a registered nickname permanently. ✅
 - **INFO**: Display information about a registered nickname. ✅
 - **SET**: Configure settings for your registered nickname. ✅
