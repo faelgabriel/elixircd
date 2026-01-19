@@ -37,6 +37,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "SET"), do: send_set_help(user)
   defp send_help_for_command(user, "SET HIDEMAIL"), do: send_set_hidemail_help(user)
   defp send_help_for_command(user, "ACCESS"), do: send_access_help(user)
+  defp send_help_for_command(user, "ALIST"), do: send_alist_help(user)
   defp send_help_for_command(user, "FAQ"), do: send_faq_help(user)
   defp send_help_for_command(user, command), do: send_unknown_command_help(user, command)
 
@@ -389,6 +390,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02INFO\x02         - Display information about a nickname",
       "\x02SET\x02          - Set nickname options and information",
       "\x02ACCESS\x02       - Manage your access list",
+      "\x02ALIST\x02        - List accounts you are recognized for",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
@@ -491,6 +493,33 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "    \x02/msg NickServ ACCESS ADD *@trusted.vpn\x02",
       "    \x02/msg NickServ ACCESS LIST\x02",
       "    \x02/msg NickServ ACCESS DEL *@trusted.vpn\x02"
+    ])
+  end
+
+  @spec send_alist_help(User.t()) :: :ok
+  defp send_alist_help(user) do
+    notify(user, [
+      "Help for \x02ALIST\x02:",
+      format_help("ALIST", [], "Lists accounts you are recognized for."),
+      "",
+      "ALIST shows all registered accounts that NickServ considers",
+      "associated with your current connection. This includes:",
+      "",
+      "  • Your currently authenticated account (if any)",
+      "  • Accounts whose ACCESS list matches your user@host",
+      "  • Accounts linked via SASL authentication",
+      "",
+      "This command helps you understand which accounts NickServ",
+      "recognizes you for, based on your current identity markers.",
+      "",
+      "\x1FIMPORTANT:\x1F This does NOT mean you control all listed accounts.",
+      "It only shows accounts that trust something you're using right now",
+      "(your host, authenticated session, etc.).",
+      "",
+      "Syntax: \x02ALIST\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ ALIST\x02"
     ])
   end
 end
