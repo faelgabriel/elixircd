@@ -38,6 +38,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "SET HIDEMAIL"), do: send_set_hidemail_help(user)
   defp send_help_for_command(user, "ACCESS"), do: send_access_help(user)
   defp send_help_for_command(user, "ALIST"), do: send_alist_help(user)
+  defp send_help_for_command(user, "STATUS"), do: send_status_help(user)
   defp send_help_for_command(user, "FAQ"), do: send_faq_help(user)
   defp send_help_for_command(user, command), do: send_unknown_command_help(user, command)
 
@@ -391,6 +392,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02SET\x02          - Set nickname options and information",
       "\x02ACCESS\x02       - Manage your access list",
       "\x02ALIST\x02        - List accounts you are recognized for",
+      "\x02STATUS\x02       - Check authentication status of nicknames",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
@@ -520,6 +522,31 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "",
       "Example:",
       "    \x02/msg NickServ ALIST\x02"
+    ])
+  end
+
+  @spec send_status_help(User.t()) :: :ok
+  defp send_status_help(user) do
+    notify(user, [
+      "Help for \x02STATUS\x02:",
+      format_help("STATUS", ["<nickname> [nickname2 ...]"], "Checks authentication status."),
+      "",
+      "This command checks the authentication status of one or more nicknames.",
+      "It returns a status code indicating the level of authentication:",
+      "",
+      "  \x020\x02 - Nickname is not registered",
+      "  \x021\x02 - Nickname is registered but not authenticated",
+      "  \x022\x02 - Authenticated but not trusted (no ACCESS match)",
+      "  \x023\x02 - Authenticated and trusted (via ACCESS or SASL)",
+      "",
+      "This command is useful for checking if someone is properly",
+      "identified before granting them privileges or permissions.",
+      "",
+      "Syntax: \x02STATUS <nickname> [nickname2 ...]\x02",
+      "",
+      "Examples:",
+      "    \x02/msg NickServ STATUS Alice\x02",
+      "    \x02/msg NickServ STATUS Alice Bob Charlie\x02"
     ])
   end
 end

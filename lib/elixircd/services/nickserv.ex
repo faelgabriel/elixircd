@@ -26,7 +26,8 @@ defmodule ElixIRCd.Services.Nickserv do
     "INFO" => Nickserv.Info,
     "SET" => Nickserv.Set,
     "ACCESS" => Nickserv.Access,
-    "ALIST" => Nickserv.Alist
+    "ALIST" => Nickserv.Alist,
+    "STATUS" => Nickserv.Status
   }
 
   @impl true

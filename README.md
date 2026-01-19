@@ -315,7 +315,7 @@ NickServ allows users to register and manage nicknames, providing authentication
 - **SET**: Configure settings for your registered nickname. ✅
 - **ACCESS**: Manage the access list for your nickname. ✅
 - **ALIST**: Display channels or nicknames associated with your account. ✅
-- **STATUS**: Check the identification status of one or more nicknames. ❌
+- **STATUS**: Check the identification status of one or more nicknames. ✅
 - **GROUP**: Group a nickname with your current registered nickname. ❌
 - **UNGROUP**: Remove a nickname from your group. ❌
 - **LISTCHANS**: List channels where you have access. ❌
