@@ -36,6 +36,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "INFO"), do: send_info_help(user)
   defp send_help_for_command(user, "SET"), do: send_set_help(user)
   defp send_help_for_command(user, "SET HIDEMAIL"), do: send_set_hidemail_help(user)
+  defp send_help_for_command(user, "ACCESS"), do: send_access_help(user)
   defp send_help_for_command(user, "FAQ"), do: send_faq_help(user)
   defp send_help_for_command(user, command), do: send_unknown_command_help(user, command)
 
@@ -387,6 +388,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02DROP\x02         - Unregister a nickname",
       "\x02INFO\x02         - Display information about a nickname",
       "\x02SET\x02          - Set nickname options and information",
+      "\x02ACCESS\x02       - Manage your access list",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
@@ -443,6 +445,52 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "",
       "Example:",
       "    \x02/msg NickServ SET HIDEMAIL ON\x02"
+    ])
+  end
+
+  @spec send_access_help(User.t()) :: :ok
+  defp send_access_help(user) do
+    max_access_entries = Application.get_env(:elixircd, :services)[:nickserv][:max_access_entries] || 10
+
+    notify(user, [
+      "Help for \x02ACCESS\x02:",
+      format_help("ACCESS", ["{ADD|DEL|LIST|CLEAR} [mask]"], "Manages your access list."),
+      "",
+      "The ACCESS list allows you to maintain a list of authorized",
+      "host masks (user@host) for your nickname. This can be used for",
+      "future authentication features and security purposes.",
+      "",
+      "Available subcommands:",
+      "",
+      "\x02ACCESS ADD <mask>\x02",
+      "    Adds a host mask to your access list.",
+      "    The mask must be in the format: [ident]@host",
+      "    Wildcards * (any string) and ? (one character) are allowed.",
+      "    Example: *@trusted.vpn, user@192.168.1.1, ~user@*.example.com",
+      "",
+      "\x02ACCESS DEL <mask>\x02",
+      "    Removes a host mask from your access list.",
+      "    The mask must match exactly (case-insensitive).",
+      "",
+      "\x02ACCESS LIST\x02",
+      "    Displays all masks in your access list with their creation dates.",
+      "",
+      "\x02ACCESS CLEAR\x02",
+      "    Removes all entries from your access list.",
+      "",
+      "You can have a maximum of \x02#{max_access_entries}\x02 entries in your access list.",
+      "",
+      "\x1FSECURITY WARNING:\x1F",
+      "Be careful with overly broad masks like *@*.isp.com or *@*.",
+      "Using wildcards on dynamic IPs or shared VPNs can be a security risk.",
+      "Always use the most specific mask possible for your situation.",
+      "",
+      "Syntax: \x02ACCESS {ADD|DEL|LIST|CLEAR} [mask]\x02",
+      "",
+      "Examples:",
+      "    \x02/msg NickServ ACCESS ADD *@trusted.vpn\x02",
+      "    \x02/msg NickServ ACCESS LIST\x02",
+      "    \x02/msg NickServ ACCESS DEL *@trusted.vpn\x02"
     ])
   end
 end

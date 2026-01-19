@@ -245,6 +245,8 @@ config :elixircd,
       regain_reservation_duration: 60,
       # Duration (in seconds) a nickname remains reserved after RECOVER command
       recover_reservation_duration: 60,
+      # Maximum number of ACCESS entries per registered nickname
+      max_access_entries: 10,
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
         # Default for: SET HIDE EMAIL {ON|OFF}

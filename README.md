@@ -313,7 +313,7 @@ NickServ allows users to register and manage nicknames, providing authentication
 - **DROP**: Delete a registered nickname permanently. ✅
 - **INFO**: Display information about a registered nickname. ✅
 - **SET**: Configure settings for your registered nickname. ✅
-- **ACCESS**: Manage the access list for your nickname. ❌
+- **ACCESS**: Manage the access list for your nickname. ✅
 - **ALIST**: Display channels or nicknames associated with your account. ❌
 - **STATUS**: Check the identification status of one or more nicknames. ❌
 - **GROUP**: Group a nickname with your current registered nickname. ❌

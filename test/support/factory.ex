@@ -11,6 +11,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Job
   alias ElixIRCd.Tables.Metric
+  alias ElixIRCd.Tables.NickAccess
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
@@ -215,6 +216,17 @@ defmodule ElixIRCd.Factory do
       last_seen_at: Map.get(attrs, :last_seen_at, DateTime.utc_now()),
       reserved_until: Map.get(attrs, :reserved_until, nil),
       settings: Map.get(attrs, :settings, RegisteredNick.Settings.new()),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:nick_access, attrs) do
+    nickname = Map.get(attrs, :nickname, "Nick_#{random_string(5)}")
+    nickname_key = if nickname, do: CaseMapping.normalize(nickname), else: nil
+
+    %NickAccess{
+      nickname_key: nickname_key,
+      mask: Map.get(attrs, :mask, "*@example.com"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
@@ -425,6 +437,20 @@ defmodule ElixIRCd.Factory do
 
     Memento.transaction!(fn ->
       build(:user_silence, updated_attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:nick_access, attrs) do
+    # Get nickname from attrs or use the provided nickname
+    nickname = Map.get(attrs, :nickname, "Nick_#{random_string(5)}")
+
+    updated_attrs =
+      attrs
+      |> Map.put(:nickname, nickname)
+
+    Memento.transaction!(fn ->
+      build(:nick_access, updated_attrs)
       |> Memento.Query.write()
     end)
   end
