@@ -367,7 +367,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **CHGHOST**: Forcefully change a user's ident and hostname. ✅
 - **INVITE**: Extended to optionally include account information. ✅
 - **JOIN**: Extended to include account name and real name in join messages. ✅
-- **MONITOR**: Track when specific nicknames go online or offline. ❌
+- **MONITOR**: Track when specific nicknames go online or offline. ✅
 - **NAMES**: Extended to include account names when supported. ✅
 - **TAGMSG**: Send messages with tags but without text content. ✅
 - **WEBIRC**: Allow gateways to pass real client IP and hostname to the server. ✅
@@ -394,7 +394,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ❌
 - **Message IDs** (msgid): Unique identifiers for messages. ✅
 - **Message Tags** (message-tags): Additional metadata in messages. ✅
-- **Monitor** (monitor): Efficient tracking of user online/offline status. ❌
+- **Monitor** (monitor): Efficient tracking of user online/offline status. ✅
 - **Multi-Prefix** (multi-prefix): Display multiple status prefixes for users in channel responses. ✅
 - **Server Time** (server-time): Timestamp information for messages. ✅
 - **Set Name** (setname): Allow clients to change their real name during the session. ✅

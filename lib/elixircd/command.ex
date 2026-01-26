@@ -28,6 +28,7 @@ defmodule ElixIRCd.Command do
     "LIST" => Commands.List,
     "LUSERS" => Commands.Lusers,
     "MODE" => Commands.Mode,
+    "MONITOR" => Commands.Monitor,
     "MOTD" => Commands.Motd,
     "NAMES" => Commands.Names,
     "NICK" => Commands.Nick,

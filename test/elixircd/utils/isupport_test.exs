@@ -53,7 +53,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
          ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz UHNAMES EXTENDED-UHLIST UMODES=BgHiorRswxZ BOT=B :are supported by this server\r\n"},
-        {user.pid, ":irc.test 005 #{user.nick} UTF8ONLY :are supported by this server\r\n"}
+        {user.pid, ":irc.test 005 #{user.nick} UTF8ONLY MONITOR=100 :are supported by this server\r\n"}
       ])
 
       Application.put_env(:elixircd, :channel, original_channel_config)
@@ -95,7 +95,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz UMODES=BgHiorRswxZ BOT=B :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz UMODES=BgHiorRswxZ BOT=B MONITOR=100 :are supported by this server\r\n"}
       ])
 
       Application.put_env(:elixircd, :channel, original_channel_config)

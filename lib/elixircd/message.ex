@@ -373,6 +373,11 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_rehashing), do: "382"
   defp numeric_reply(:rpl_time), do: "391"
   defp numeric_reply(:rpl_umodegmsg), do: "716"
+  defp numeric_reply(:rpl_mononline), do: "730"
+  defp numeric_reply(:rpl_monoffline), do: "731"
+  defp numeric_reply(:rpl_monlist), do: "732"
+  defp numeric_reply(:rpl_endofmonlist), do: "733"
+  defp numeric_reply(:err_monlistfull), do: "734"
   # SASL replies
   defp numeric_reply(:rpl_loggedin), do: "900"
   defp numeric_reply(:rpl_loggedout), do: "901"

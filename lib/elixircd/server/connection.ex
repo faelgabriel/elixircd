@@ -9,6 +9,7 @@ defmodule ElixIRCd.Server.Connection do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Command
+
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
@@ -16,12 +17,14 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Repositories.UserSilences
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Monitor
 
   @type transport :: :tcp | :tls | :ws | :wss
   @type connection_data :: %{ip_address: :inet.ip_address(), port_connected: :inet.port_number()}
@@ -233,11 +236,14 @@ defmodule ElixIRCd.Server.Connection do
         end)
       end)
 
+    Monitor.notify_offline(user)
+
     ChannelInvites.delete_by_user_pid(user.pid)
     UserChannels.delete_by_user_pid(user.pid)
     UserAccepts.delete_by_user_pid(user.pid)
     UserAccepts.delete_by_accepted_user_pid(user.pid)
     UserSilences.delete_by_user_pid(user.pid)
+    UserMonitors.delete_by_user_pid(user.pid)
     Users.delete(user)
 
     # Delete the channels that have no other users

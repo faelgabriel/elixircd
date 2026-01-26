@@ -19,6 +19,7 @@ defmodule ElixIRCd.Commands.Nick do
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Monitor
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -103,6 +104,9 @@ defmodule ElixIRCd.Commands.Nick do
     |> Dispatcher.broadcast(user, [updated_user | all_users])
 
     send_nick_change_snotice(old_nick, updated_user)
+
+    Monitor.notify_offline(user)
+    Monitor.notify_online(updated_user)
   end
 
   @spec send_nick_change_snotice(String.t(), User.t()) :: :ok

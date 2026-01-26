@@ -17,6 +17,7 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Isupport
+  alias ElixIRCd.Utils.Monitor
 
   @doc """
   Handles the user handshake.
@@ -62,6 +63,7 @@ defmodule ElixIRCd.Server.Handshake do
     Motd.send_motd(updated_user)
     send_user_modes(updated_user)
     send_connect_snotice(updated_user)
+    Monitor.notify_online(updated_user)
   end
 
   @spec send_connect_snotice(User.t()) :: :ok

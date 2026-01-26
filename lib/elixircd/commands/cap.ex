@@ -94,6 +94,10 @@ defmodule ElixIRCd.Commands.Cap do
     "MSGID" => %{
       name: "MSGID",
       description: "Attach unique msgid= message tags"
+    },
+    "MONITOR" => %{
+      name: "MONITOR",
+      description: "Efficient tracking of user online/offline status"
     }
   }
 
@@ -195,7 +199,8 @@ defmodule ElixIRCd.Commands.Cap do
             {:server_time, "SERVER-TIME"},
             {:message_tags, "MESSAGE-TAGS"},
             {:extended_uhlist, "EXTENDED-UHLIST"},
-            {:extended_names, "UHNAMES"}
+            {:extended_names, "UHNAMES"},
+            {:monitor, "MONITOR"}
           ],
           Keyword.get(capabilities_config, config_key, false) and name != nil do
         name

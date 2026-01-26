@@ -17,6 +17,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Tables.UserSilence
   alias ElixIRCd.Utils.CaseMapping
 
@@ -75,6 +76,17 @@ defmodule ElixIRCd.Factory do
     %UserAccept{
       user_pid: Map.get(attrs, :user_pid, new_pid()),
       accepted_user_pid: Map.get(attrs, :accepted_user_pid, new_pid()),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
+    }
+  end
+
+  def build(:user_monitor, attrs) do
+    target_nick = Map.get(attrs, :target_nick, "Nick_#{random_string(5)}")
+    target_nick_key = CaseMapping.normalize(target_nick)
+
+    %UserMonitor{
+      user_pid: Map.get(attrs, :user_pid, new_pid()),
+      target_nick_key: Map.get(attrs, :target_nick_key, target_nick_key),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
@@ -437,6 +449,27 @@ defmodule ElixIRCd.Factory do
 
     Memento.transaction!(fn ->
       build(:user_silence, updated_attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:user_monitor, attrs) do
+    user =
+      case Map.get(attrs, :user) do
+        nil -> insert(:user)
+        user -> user
+      end
+
+    target_nick = Map.get(attrs, :target_nick, "Nick_#{random_string(5)}")
+    target_nick_key = CaseMapping.normalize(target_nick)
+
+    updated_attrs =
+      attrs
+      |> Map.put(:user_pid, user.pid)
+      |> Map.put_new(:target_nick_key, target_nick_key)
+
+    Memento.transaction!(fn ->
+      build(:user_monitor, updated_attrs)
       |> Memento.Query.write()
     end)
   end

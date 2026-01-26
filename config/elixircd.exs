@@ -144,7 +144,14 @@ config :elixircd,
     # Whether to support MSGID capability adding msgid= tags
     msgid: true,
     # Whether to support Strict Transport Security (sts capability)
-    sts: true
+    sts: true,
+    # Whether to support MONITOR for tracking user online/offline status (monitor capability)
+    monitor: true
+  ],
+  # MONITOR Configuration
+  monitor: [
+    # Maximum number of targets a user can monitor (0 = unlimited)
+    max_targets: 100
   ],
   # Strict Transport Security (STS) Configuration
   sts: [

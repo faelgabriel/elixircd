@@ -51,7 +51,8 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:boolean, "EXTENDED-UHLIST", capabilities_config[:extended_uhlist]),
       format_feature(:string, "UMODES", format_umodes()),
       format_feature(:string, "BOT", "B"),
-      format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only])
+      format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only]),
+      format_monitor_feature()
     ]
     |> Enum.reject(&is_nil/1)
   end
@@ -111,4 +112,22 @@ defmodule ElixIRCd.Utils.Isupport do
   defp format_feature(:list, name, list) when is_list(list), do: "#{name}=#{Enum.join(list, "")}"
   defp format_feature(:boolean, _name, false), do: nil
   defp format_feature(:boolean, name, true), do: name
+
+  @spec format_monitor_feature() :: String.t() | nil
+  defp format_monitor_feature do
+    capabilities_config = Application.get_env(:elixircd, :capabilities, [])
+
+    if Keyword.get(capabilities_config, :monitor, false) do
+      monitor_config = Application.get_env(:elixircd, :monitor, [])
+      max_targets = Keyword.get(monitor_config, :max_targets, 100)
+
+      if max_targets > 0 do
+        "MONITOR=#{max_targets}"
+      else
+        "MONITOR"
+      end
+    else
+      nil
+    end
+  end
 end
