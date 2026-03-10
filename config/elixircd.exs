@@ -113,6 +113,8 @@ config :elixircd,
     extended_names: true,
     # Whether to support extended user modes in WHO replies (extended-uhlist capability)
     extended_uhlist: true,
+    # Whether to support WHOX extensions for WHO replies
+    whox: true,
     # Whether to support IRCv3 message tags (message-tags capability)
     message_tags: true,
     # Whether to attach account= tags with authenticated nickname (account-tag capability)

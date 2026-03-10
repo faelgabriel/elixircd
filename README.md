@@ -371,7 +371,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **NAMES**: Extended to include account names when supported. ✅
 - **TAGMSG**: Send messages with tags but without text content. ✅
 - **WEBIRC**: Allow gateways to pass real client IP and hostname to the server. ✅
-- **WHO**: Extended to include additional information (WHOX). ❌
+- **WHO**: Extended to include additional information (WHOX). ✅
 - **BATCH**: Group related messages for batch delivery. ❌
 - **SETNAME**: Allow clients to change their real name (GECOS). ✅
 

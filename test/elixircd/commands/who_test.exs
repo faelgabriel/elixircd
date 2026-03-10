@@ -533,5 +533,140 @@ defmodule ElixIRCd.Commands.WhoTest do
         )
       end)
     end
+
+    test "handles WHOX command with common o% filter syntax and token" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "requester")
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        target_user =
+          insert(:user,
+            nick: "oper_target",
+            ident: "~oper",
+            hostname: "oper.example.test",
+            realname: "Oper Target",
+            modes: ["o"],
+            identified_as: "oper_account",
+            last_activity: :erlang.system_time(:second) + 60
+          )
+
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+        insert(:user, nick: "non_oper_target")
+
+        message = %Message{command: "WHO", params: [channel.name, "o%tcuihsnfdlar,42"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 354 #{user.nick} 42 #{channel.name} #{target_user.ident} 255.255.255.255 #{target_user.hostname} irc.test #{target_user.nick} H*@ 0 0 #{target_user.identified_as} :#{target_user.realname}\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+        ])
+      end)
+    end
+
+    test "handles WHOX command returning real IP and channel level to operators" do
+      Memento.transaction!(fn ->
+        operator_user = insert(:user, nick: "oper_requester", modes: ["o"])
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: operator_user)
+
+        target_user =
+          insert(:user,
+            nick: "voice_target",
+            ip_address: {192, 0, 2, 10}
+          )
+
+        insert(:user_channel, channel: channel, user: target_user, modes: ["v"])
+
+        message = %Message{command: "WHO", params: [channel.name, "%tio,7"]}
+        assert :ok = Who.handle(operator_user, message)
+
+        assert_sent_messages(
+          [
+            {operator_user.pid, ":irc.test 354 #{operator_user.nick} 7 127.0.0.1 0\r\n"},
+            {operator_user.pid, ":irc.test 354 #{operator_user.nick} 7 192.0.2.10 1\r\n"},
+            {operator_user.pid, ":irc.test 315 #{operator_user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "handles WHOX command without token and reports channel operator level" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "requester")
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        target_user = insert(:user, nick: "channel_oper")
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name, "%to"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.pid, ":irc.test 354 #{user.nick} 0\r\n"},
+            {user.pid, ":irc.test 354 #{user.nick} 2\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "handles WHOX command with empty token and no visible channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "requester")
+        target_user = insert(:user, nick: "lonely_user")
+
+        message = %Message{command: "WHO", params: [target_user.nick, "%to,"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 354 #{user.nick} 0\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} #{target_user.nick} :End of WHO list\r\n"}
+        ])
+      end)
+    end
+
+    test "falls back to standard WHO replies when WHOX support is disabled" do
+      original_capabilities = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_capabilities || [])
+        |> Keyword.put(:whox, false)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "requester")
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        target_user =
+          insert(:user,
+            nick: "oper_target",
+            ident: "~oper",
+            hostname: "oper.example.test",
+            realname: "Oper Target",
+            modes: ["o"]
+          )
+
+        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+
+        message = %Message{command: "WHO", params: [channel.name, "o%tcuihsnfdlar,42"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} #{channel.name} #{target_user.ident} #{target_user.hostname} irc.test #{target_user.nick} H*@ :0 #{target_user.realname}\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+        ])
+      end)
+    end
   end
 end

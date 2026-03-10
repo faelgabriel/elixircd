@@ -49,6 +49,7 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:string, "CHANMODES", format_chanmodes()),
       format_feature(:boolean, "UHNAMES", capabilities_config[:extended_names]),
       format_feature(:boolean, "EXTENDED-UHLIST", capabilities_config[:extended_uhlist]),
+      format_feature(:boolean, "WHOX", capabilities_config[:whox]),
       format_feature(:string, "UMODES", format_umodes()),
       format_feature(:string, "BOT", "B"),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only]),

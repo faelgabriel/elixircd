@@ -30,7 +30,8 @@ defmodule ElixIRCd.Utils.IsupportTest do
 
       capabilities_config = [
         extended_names: true,
-        extended_uhlist: true
+        extended_uhlist: true,
+        whox: true
       ]
 
       settings_config = [
@@ -52,8 +53,8 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz UHNAMES EXTENDED-UHLIST UMODES=BgHiorRswxZ BOT=B :are supported by this server\r\n"},
-        {user.pid, ":irc.test 005 #{user.nick} UTF8ONLY MONITOR=100 :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz UHNAMES EXTENDED-UHLIST WHOX UMODES=BgHiorRswxZ :are supported by this server\r\n"},
+        {user.pid, ":irc.test 005 #{user.nick} BOT=B UTF8ONLY MONITOR=100 :are supported by this server\r\n"}
       ])
 
       Application.put_env(:elixircd, :channel, original_channel_config)
@@ -73,7 +74,8 @@ defmodule ElixIRCd.Utils.IsupportTest do
 
       capabilities_config = [
         extended_names: false,
-        extended_uhlist: false
+        extended_uhlist: false,
+        whox: false
       ]
 
       settings_config = [
@@ -88,7 +90,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
       user = insert(:user)
       assert :ok = Isupport.send_isupport_messages(user)
 
-      # Should not contain UHNAMES, EXTENDED-UHLIST, or UTF8ONLY since they're set to false
+      # Should not contain UHNAMES, EXTENDED-UHLIST, WHOX, or UTF8ONLY since they're set to false
       assert_sent_messages([
         {user.pid,
          ":irc.test 005 #{user.nick} MODES=20 CHANLIMIT=#:20,&:5 PREFIX=(ov)@+ CHANTYPES=#& NICKLEN=30 :are supported by this server\r\n"},

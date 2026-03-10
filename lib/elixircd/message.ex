@@ -360,6 +360,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_version), do: "351"
   defp numeric_reply(:rpl_whoreply), do: "352"
   defp numeric_reply(:rpl_namreply), do: "353"
+  defp numeric_reply(:rpl_whospcrpl), do: "354"
   defp numeric_reply(:rpl_endofnames), do: "366"
   defp numeric_reply(:rpl_banlist), do: "367"
   defp numeric_reply(:rpl_endofbanlist), do: "368"
