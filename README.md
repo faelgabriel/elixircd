@@ -385,7 +385,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Capability Notifications** (cap-notify): Notify clients when server capabilities change dynamically. ✅
 - **Change Host** (chghost): Real-time notifications when a user's hostname changes. ✅
 - **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
-- **Echo Message** (echo-message): Clients receive a copy of their sent messages. ❌
+- **Echo Message** (echo-message): Clients receive a copy of their sent messages. ✅
 - **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ✅
 - **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
 - **Extended User Mode** (extended-uhlist): Adds additional user modes in WHO and related replies. ✅

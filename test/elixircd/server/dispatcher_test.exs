@@ -403,17 +403,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "adds server time and msgid tags when capabilities are enabled" do
-      original_config = Application.get_env(:elixircd, :capabilities)
-      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
-
-      Application.put_env(
-        :elixircd,
-        :capabilities,
-        original_config
-        |> Keyword.put(:server_time, true)
-        |> Keyword.put(:msgid, true)
-      )
-
       user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS", "SERVER-TIME", "MSGID"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
@@ -433,16 +422,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "adds account tag when sender is identified and recipient has ACCOUNT-TAG" do
-      original_config = Application.get_env(:elixircd, :capabilities)
-      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
-
-      Application.put_env(
-        :elixircd,
-        :capabilities,
-        (original_config || [])
-        |> Keyword.put(:account_tag, true)
-      )
-
       sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
       recipient_with_cap = insert(:user, capabilities: ["MESSAGE-TAGS", "ACCOUNT-TAG"])
       recipient_without_cap = insert(:user, capabilities: ["MESSAGE-TAGS"])
@@ -469,16 +448,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "does not add msgid tag when MSGID capability is not negotiated" do
-      original_config = Application.get_env(:elixircd, :capabilities)
-      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
-
-      Application.put_env(
-        :elixircd,
-        :capabilities,
-        (original_config || [])
-        |> Keyword.put(:msgid, true)
-      )
-
       user_without_msgid = insert(:user, capabilities: ["MESSAGE-TAGS"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
@@ -553,6 +522,90 @@ defmodule ElixIRCd.Server.DispatcherTest do
       end)
 
       assert :ok == Dispatcher.broadcast(message, sender, recipient)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+  end
+
+  describe "broadcast_with_echo/3" do
+    test "echoes to the sender and reuses the same msgid for all recipients" do
+      sender =
+        insert(:user,
+          nick: "echoer",
+          ident: "ident",
+          hostname: "host.test",
+          capabilities: ["ECHO-MESSAGE", "MESSAGE-TAGS", "MSGID"]
+        )
+
+      recipient = insert(:user, capabilities: ["MESSAGE-TAGS", "MSGID"])
+      sender_pid = sender.pid
+      recipient_pid = recipient.pid
+      parent = self()
+
+      Connection
+      |> expect(:handle_send, 2, fn pid, received_message ->
+        send(parent, {:delivered, pid, received_message})
+        :ok
+      end)
+
+      assert :ok ==
+               Dispatcher.broadcast_with_echo(
+                 %Message{command: "PRIVMSG", params: ["#test"], trailing: "hello"},
+                 sender,
+                 recipient
+               )
+
+      assert_receive {:delivered, ^sender_pid, sender_message}
+      assert_receive {:delivered, ^recipient_pid, recipient_message}
+
+      assert sender_message =~ ":echoer!ident@host.test PRIVMSG #test :hello\r\n"
+      assert recipient_message =~ ":echoer!ident@host.test PRIVMSG #test :hello\r\n"
+
+      [sender_msgid] = Regex.run(~r/msgid=([^ ;]+)/, sender_message, capture: :all_but_first)
+      [recipient_msgid] = Regex.run(~r/msgid=([^ ;]+)/, recipient_message, capture: :all_but_first)
+
+      assert sender_msgid == recipient_msgid
+    end
+
+    test "does not echo when ECHO-MESSAGE is not negotiated" do
+      sender = insert(:user, nick: "echoer", ident: "ident", hostname: "host.test", capabilities: [])
+      recipient = insert(:user)
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === recipient.pid
+        assert received_message == ":echoer!ident@host.test NOTICE target :hello\r\n"
+        :ok
+      end)
+
+      assert :ok ==
+               Dispatcher.broadcast_with_echo(
+                 %Message{command: "NOTICE", params: ["target"], trailing: "hello"},
+                 sender,
+                 recipient
+               )
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "deduplicates the sender when the sender is already one of the targets" do
+      sender = insert(:user, nick: "echoer", ident: "ident", hostname: "host.test", capabilities: ["ECHO-MESSAGE"])
+
+      Connection
+      |> expect(:handle_send, 1, fn pid, received_message ->
+        assert pid === sender.pid
+        assert received_message == ":echoer!ident@host.test NOTICE echoer :hello\r\n"
+        :ok
+      end)
+
+      assert :ok ==
+               Dispatcher.broadcast_with_echo(
+                 %Message{command: "NOTICE", params: ["echoer"], trailing: "hello"},
+                 sender,
+                 sender.pid
+               )
 
       Connection
       |> reject(:handle_send, 2)

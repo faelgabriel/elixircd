@@ -130,6 +130,21 @@ defmodule ElixIRCd.Commands.NoticeTest do
       end)
     end
 
+    test "echoes NOTICE commands back to the sender when ECHO-MESSAGE is enabled" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["ECHO-MESSAGE"])
+        another_user = insert(:user)
+
+        message = %Message{command: "NOTICE", params: [another_user.nick], trailing: "Hello"}
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"},
+          {user.pid, ":#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
+        ])
+      end)
+    end
+
     test "handles NOTICE command directed to a service with trailing message" do
       Memento.transaction!(fn ->
         user = insert(:user)

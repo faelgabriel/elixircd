@@ -42,6 +42,42 @@ defmodule ElixIRCd.Server.Dispatcher do
     end
   end
 
+  @doc """
+  Broadcasts user-originated messages and echoes them back to the sender when the
+  `ECHO-MESSAGE` capability is enabled for that user.
+  """
+  @spec broadcast_with_echo(Message.t() | [Message.t()], User.t(), target() | [target()]) :: :ok
+  def broadcast_with_echo(messages, %User{} = sender, targets) do
+    all_targets =
+      targets
+      |> List.wrap()
+      |> maybe_include_echo_target(sender)
+
+    broadcast(messages, sender, all_targets)
+  end
+
+  @spec maybe_include_echo_target([target()], User.t()) :: [target()]
+  defp maybe_include_echo_target(targets, sender) do
+    targets =
+      if echo_message_enabled?(sender) do
+        [sender | targets]
+      else
+        targets
+      end
+
+    Enum.uniq_by(targets, &target_pid/1)
+  end
+
+  @spec echo_message_enabled?(User.t()) :: boolean()
+  defp echo_message_enabled?(%User{capabilities: capabilities}) do
+    echo_message_supported = Application.get_env(:elixircd, :capabilities)[:echo_message] || false
+    echo_message_supported and "ECHO-MESSAGE" in capabilities
+  end
+
+  @spec target_pid(target()) :: pid()
+  defp target_pid(%User{pid: pid}), do: pid
+  defp target_pid(pid) when is_pid(pid), do: pid
+
   @spec broadcast_to_targets(Message.t(), [target()]) :: :ok
   defp broadcast_to_targets(message, targets) do
     Enum.each(targets, fn

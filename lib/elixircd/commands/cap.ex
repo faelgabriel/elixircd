@@ -43,6 +43,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "CHGHOST",
       description: "Notify when a user's ident or hostname changes"
     },
+    "ECHO-MESSAGE" => %{
+      name: "ECHO-MESSAGE",
+      description: "Echo accepted PRIVMSG, NOTICE, and TAGMSG commands back to the sender"
+    },
     "CLIENT-TAGS" => %{
       name: "CLIENT-TAGS",
       description: "Allow vendor-specific client-only tags from clients"
@@ -187,6 +191,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:away_notify, "AWAY-NOTIFY"},
             {:cap_notify, "CAP-NOTIFY"},
             {:chghost, "CHGHOST"},
+            {:echo_message, "ECHO-MESSAGE"},
             {:client_tags, "CLIENT-TAGS"},
             {:extended_join, "EXTENDED-JOIN"},
             {:invite_extended, "INVITE-EXTENDED"},

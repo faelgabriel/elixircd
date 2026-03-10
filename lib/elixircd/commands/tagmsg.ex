@@ -73,7 +73,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
 
       # Preserve tags from original message
       %Message{command: "TAGMSG", params: [channel.name], trailing: nil, tags: message.tags}
-      |> Dispatcher.broadcast(user, users)
+      |> Dispatcher.broadcast_with_echo(user, users)
     else
       {:error, :channel_not_found} ->
         %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
@@ -113,7 +113,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
       true ->
         # Preserve tags from original message
         %Message{command: "TAGMSG", params: [target_nick], trailing: nil, tags: message.tags}
-        |> Dispatcher.broadcast(user, target_user)
+        |> Dispatcher.broadcast_with_echo(user, target_user)
 
         :ok
     end

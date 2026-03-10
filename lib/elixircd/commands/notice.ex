@@ -76,7 +76,7 @@ defmodule ElixIRCd.Commands.Notice do
       users = Users.get_by_pids(user_pids)
 
       %Message{command: "NOTICE", params: [channel.name], trailing: message_text}
-      |> Dispatcher.broadcast(user, users)
+      |> Dispatcher.broadcast_with_echo(user, users)
     else
       {:error, :delay_message_blocked, delay} ->
         %Message{
@@ -182,7 +182,7 @@ defmodule ElixIRCd.Commands.Notice do
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_normal_user_message(user, receiver_user, target_nick, message_text) do
     %Message{command: "NOTICE", params: [target_nick], trailing: message_text}
-    |> Dispatcher.broadcast(user, receiver_user)
+    |> Dispatcher.broadcast_with_echo(user, receiver_user)
   end
 
   @spec handle_user_not_found(User.t(), String.t()) :: :ok

@@ -127,6 +127,8 @@ config :elixircd,
     cap_notify: true,
     # Whether to send CHGHOST notifications when ident/hostname changes (chghost capability)
     chghost: true,
+    # Whether to echo accepted PRIVMSG/NOTICE/TAGMSG commands back to senders (echo-message capability)
+    echo_message: true,
     # Whether to allow client-only tags from clients (client-tags capability)
     client_tags: true,
     # Whether to support extended JOIN with account information (extended-join capability)

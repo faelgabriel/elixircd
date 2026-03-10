@@ -75,7 +75,7 @@ defmodule ElixIRCd.Commands.Privmsg do
       users = Users.get_by_pids(user_pids)
 
       %Message{command: "PRIVMSG", params: [channel.name], trailing: message_text}
-      |> Dispatcher.broadcast(user, users)
+      |> Dispatcher.broadcast_with_echo(user, users)
     else
       {:error, :channel_not_found} ->
         %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
@@ -174,7 +174,7 @@ defmodule ElixIRCd.Commands.Privmsg do
   @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
   defp handle_normal_user_message(user, target_user, target_nick, message_text) do
     %Message{command: "PRIVMSG", params: [target_nick], trailing: message_text}
-    |> Dispatcher.broadcast(user, target_user)
+    |> Dispatcher.broadcast_with_echo(user, target_user)
 
     if target_user.away_message do
       %Message{command: :rpl_away, params: [user.nick, target_user.nick], trailing: target_user.away_message}

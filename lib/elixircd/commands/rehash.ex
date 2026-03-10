@@ -21,6 +21,7 @@ defmodule ElixIRCd.Commands.Rehash do
     {:away_notify, "AWAY-NOTIFY"},
     {:cap_notify, "CAP-NOTIFY"},
     {:chghost, "CHGHOST"},
+    {:echo_message, "ECHO-MESSAGE"},
     {:client_tags, "CLIENT-TAGS"},
     {:extended_join, "EXTENDED-JOIN"},
     {:invite_extended, "INVITE-EXTENDED"},

@@ -46,7 +46,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST ECHO-MESSAGE CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
         ])
       end)
     end
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
+           ":irc.test CAP * LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST ECHO-MESSAGE CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
         ])
       end)
     end
@@ -148,7 +148,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST MONITOR\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST ECHO-MESSAGE CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST MONITOR\r\n"}
         ])
       end)
     end
@@ -185,7 +185,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS MONITOR\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST ECHO-MESSAGE CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SASL=PLAIN SETNAME MSGID SERVER-TIME MESSAGE-TAGS MONITOR\r\n"}
         ])
       end)
     end
@@ -203,6 +203,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:away_notify, false)
         |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, false)
+        |> Keyword.put(:echo_message, false)
         |> Keyword.put(:client_tags, false)
         |> Keyword.put(:extended_join, false)
         |> Keyword.put(:invite_extended, false)
@@ -266,7 +267,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST ECHO-MESSAGE CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
         ])
       end)
     end
@@ -319,7 +320,7 @@ defmodule ElixIRCd.Commands.CapTest do
         # SASL should not be in the list when no mechanisms are enabled
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
+           ":irc.test CAP #{user.nick} LS :ACCOUNT-TAG ACCOUNT-NOTIFY AWAY-NOTIFY CHGHOST ECHO-MESSAGE CLIENT-TAGS EXTENDED-JOIN INVITE-EXTENDED INVITE-NOTIFY MULTI-PREFIX SETNAME MSGID SERVER-TIME MESSAGE-TAGS EXTENDED-UHLIST UHNAMES MONITOR\r\n"}
         ])
       end)
     end
@@ -515,6 +516,22 @@ defmodule ElixIRCd.Commands.CapTest do
         # Verify the capability was added to the user
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
         assert "MESSAGE-TAGS" in updated_user.capabilities
+      end)
+    end
+
+    test "handles CAP REQ command with ECHO-MESSAGE capability" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [])
+        message = %Message{command: "CAP", params: ["REQ", "ECHO-MESSAGE"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test CAP #{user.nick} ACK :ECHO-MESSAGE\r\n"}
+        ])
+
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert "ECHO-MESSAGE" in updated_user.capabilities
       end)
     end
   end

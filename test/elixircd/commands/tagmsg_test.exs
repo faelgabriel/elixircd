@@ -52,6 +52,24 @@ defmodule ElixIRCd.Commands.TagmsgTest do
       end)
     end
 
+    test "echoes TAGMSG back to the sender when ECHO-MESSAGE is enabled" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
+
+        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"example" => "1"}}
+
+        assert :ok = Tagmsg.handle(sender, message)
+
+        assert_sent_messages([
+          {recipient.pid,
+           "@example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"},
+          {sender.pid,
+           "@example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+        ])
+      end)
+    end
+
     test "returns error when no TAGMSG target is provided" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: ["MESSAGE-TAGS"])
