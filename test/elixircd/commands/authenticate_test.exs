@@ -291,7 +291,8 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 testnick testnick!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"}
+          {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"},
+          {user.pid, ":* ACCOUNT testuser\r\n"}
         ])
 
         # Verify session was deleted
@@ -464,7 +465,8 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 #{user.nick} #{user.nick}!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"}
+          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"},
+          {user.pid, ":* ACCOUNT testuser\r\n"}
         ])
       end)
     end
@@ -561,7 +563,8 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 #{user.nick} #{user.nick}!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"}
+          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"},
+          {user.pid, ":* ACCOUNT testuser\r\n"}
         ])
       end)
     end
@@ -674,11 +677,12 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         # The ACCOUNT notification is sent with the user's nick from when notify_account_change is called
         # At that point, the user may not have completed registration yet, so nick might be *
-        # Verify ACCOUNT notification was sent to watcher (covers lines 407-410)
+        # Verify ACCOUNT notification was sent to user and watcher
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 testnick testnick!~username@hostname testuser :You are now logged in as testuser\r\n"},
           {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"},
+          {user.pid, ":* ACCOUNT testuser\r\n"},
           {watcher.pid, ":* ACCOUNT testuser\r\n"}
         ])
       end)
@@ -713,11 +717,12 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert :ok = Authenticate.handle(user, message)
 
-        # Verify ACCOUNT notification was NOT sent because capability is disabled
+        # Verify ACCOUNT notification was sent to user but NOT to watchers (capability is disabled)
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 testnick testnick!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"}
+          {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"},
+          {user.pid, ":* ACCOUNT testuser\r\n"}
         ])
       end)
     end

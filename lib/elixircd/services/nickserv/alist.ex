@@ -8,7 +8,7 @@ defmodule ElixIRCd.Services.Nickserv.Alist do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [grouped?: 1, notify: 2]
   import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2]
 
   alias ElixIRCd.Repositories.NickAccesses
@@ -55,13 +55,14 @@ defmodule ElixIRCd.Services.Nickserv.Alist do
 
   defp collect_access_matched_accounts(user) do
     RegisteredNicks.get_all()
-    |> Enum.filter(&account_matches_access?(user, &1.nickname))
-    |> Enum.map(&{&1.nickname, :access})
+    |> Enum.reject(&grouped?/1)
+    |> Enum.filter(&account_matches_access?(user, &1.account_name))
+    |> Enum.map(&{&1.account_name, :access})
   end
 
   @spec account_matches_access?(User.t(), String.t()) :: boolean()
-  defp account_matches_access?(user, nickname) do
-    NickAccesses.get_by_nickname(nickname)
+  defp account_matches_access?(user, account_name) do
+    NickAccesses.get_by_account_name(account_name)
     |> Enum.any?(fn access_entry ->
       # Convert ACCESS mask (ident@host) to full mask (nick!ident@host)
       full_mask = "*!#{access_entry.mask}"

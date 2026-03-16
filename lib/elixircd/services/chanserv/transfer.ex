@@ -59,12 +59,12 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
     case RegisteredNicks.get_by_nickname(target_new_founder) do
       {:ok, registered_nick} ->
         RegisteredChannels.update(registered_channel, %{
-          founder: registered_nick.nickname,
+          founder: registered_nick.account_name,
           successor: nil
         })
 
         notify(user, [
-          "Channel \x02#{registered_channel.name}\x02 has been transferred to \x02#{registered_nick.nickname}\x02.",
+          "Channel \x02#{registered_channel.name}\x02 has been transferred to \x02#{registered_nick.account_name}\x02.",
           "They are now the new channel founder."
         ])
 

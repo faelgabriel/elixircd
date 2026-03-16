@@ -217,6 +217,50 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
       end)
     end
 
+    test "handles IDENTIFY command with a grouped (alias) nickname and correct password" do
+      Memento.transaction!(fn ->
+        password = "correct_password"
+        password_hash = Argon2.hash_pwd_salt(password)
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick", password_hash: password_hash)
+
+        _grouped_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            account_name: primary_nick.nickname,
+            password_hash: password_hash
+          )
+
+        user = insert(:user, nick: "AliasNick")
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", "AliasNick", password])
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.identified_as == primary_nick.nickname
+      end)
+    end
+
+    test "handles IDENTIFY command with primary nickname while using a grouped alias nick" do
+      Memento.transaction!(fn ->
+        password = "correct_password"
+        password_hash = Argon2.hash_pwd_salt(password)
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick", password_hash: password_hash)
+
+        _grouped_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            account_name: primary_nick.nickname,
+            password_hash: password_hash
+          )
+
+        user = insert(:user, nick: "AliasNick")
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", "PrimaryNick", password])
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.identified_as == primary_nick.nickname
+      end)
+    end
+
     test "blocks IDENTIFY attempt when user authenticated via SASL" do
       Memento.transaction!(fn ->
         _registered_nick = insert(:registered_nick, nickname: "sasl_account")

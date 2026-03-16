@@ -24,6 +24,7 @@ defmodule ElixIRCd.Tables.User do
       :password,
       :away_message,
       :identified_as,
+      :identified_as_key,
       :sasl_authenticated,
       :sasl_attempts,
       :capabilities,
@@ -37,7 +38,7 @@ defmodule ElixIRCd.Tables.User do
       :registered_at,
       :created_at
     ],
-    index: [:nick_key, :ip_address],
+    index: [:nick_key, :ip_address, :identified_as_key],
     type: :set
 
   @type t :: %__MODULE__{
@@ -56,6 +57,7 @@ defmodule ElixIRCd.Tables.User do
           password: String.t() | nil,
           away_message: String.t() | nil,
           identified_as: String.t() | nil,
+          identified_as_key: String.t() | nil,
           sasl_authenticated: boolean() | nil,
           sasl_attempts: non_neg_integer() | nil,
           capabilities: [String.t()],
@@ -85,6 +87,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:password) => String.t() | nil,
           optional(:away_message) => String.t() | nil,
           optional(:identified_as) => String.t() | nil,
+          optional(:identified_as_key) => String.t() | nil,
           optional(:sasl_authenticated) => boolean() | nil,
           optional(:sasl_attempts) => non_neg_integer() | nil,
           optional(:capabilities) => [String.t()],
@@ -112,6 +115,7 @@ defmodule ElixIRCd.Tables.User do
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> handle_nick_key()
+      |> handle_identified_as_key()
       |> maybe_generate_cloaked_hostname()
 
     struct!(__MODULE__, new_attrs)
@@ -125,6 +129,7 @@ defmodule ElixIRCd.Tables.User do
     new_attrs =
       attrs
       |> handle_nick_key()
+      |> handle_identified_as_key()
       |> maybe_generate_cloaked_hostname()
 
     struct!(user, new_attrs)
@@ -137,6 +142,14 @@ defmodule ElixIRCd.Tables.User do
   end
 
   defp handle_nick_key(attrs), do: attrs
+
+  @spec handle_identified_as_key(t_attrs()) :: t_attrs()
+  defp handle_identified_as_key(%{identified_as: identified_as} = attrs) do
+    identified_as_key = if identified_as != nil, do: CaseMapping.normalize(identified_as), else: nil
+    Map.put(attrs, :identified_as_key, identified_as_key)
+  end
+
+  defp handle_identified_as_key(attrs), do: attrs
 
   @spec maybe_generate_cloaked_hostname(t_attrs()) :: t_attrs()
   defp maybe_generate_cloaked_hostname(attrs) do

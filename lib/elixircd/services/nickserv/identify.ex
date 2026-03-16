@@ -9,7 +9,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
@@ -44,26 +44,26 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   defp identify_nickname(user, nickname, password) do
     Logger.debug("IDENTIFY attempt for nickname #{nickname} from #{user_mask(user)}")
 
-    cond do
-      user.sasl_authenticated && user.identified_as != nil ->
-        notify(user, "You authenticated via SASL. Please /msg NickServ LOGOUT first, then IDENTIFY.")
-
-      user.identified_as && user.identified_as != nickname ->
-        notify(user, "You are already identified as \x02#{user.identified_as}\x02. Please /msg NickServ LOGOUT first.")
-
-      user.identified_as == nickname ->
-        notify(user, "You are already identified as \x02#{nickname}\x02.")
-
-      true ->
-        verify_nickname_and_password(user, nickname, password)
-    end
-  end
-
-  @spec verify_nickname_and_password(User.t(), String.t(), String.t()) :: :ok
-  defp verify_nickname_and_password(user, nickname, password) do
     case RegisteredNicks.get_by_nickname(nickname) do
       {:ok, registered_nick} ->
-        verify_password(user, registered_nick, password)
+        target_account = registered_nick.account_name
+
+        cond do
+          user.sasl_authenticated && user.identified_as != nil ->
+            notify(user, "You authenticated via SASL. Please /msg NickServ LOGOUT first, then IDENTIFY.")
+
+          user.identified_as && user.identified_as != target_account ->
+            notify(
+              user,
+              "You are already identified as \x02#{user.identified_as}\x02. Please /msg NickServ LOGOUT first."
+            )
+
+          user.identified_as == target_account ->
+            notify(user, "You are already identified as \x02#{target_account}\x02.")
+
+          true ->
+            verify_password(user, registered_nick, password)
+        end
 
       {:error, :registered_nick_not_found} ->
         notify(user, "Nickname \x02#{nickname}\x02 is not registered.")
@@ -72,16 +72,22 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   @spec verify_password(User.t(), RegisteredNick.t(), String.t()) :: :ok
   defp verify_password(user, registered_nick, password) do
-    if Argon2.verify_pass(password, registered_nick.password_hash) do
-      complete_identification(user, registered_nick)
-    else
-      handle_failed_identification(user, registered_nick)
+    case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
+      {:ok, account_nick} ->
+        if Argon2.verify_pass(password, account_nick.password_hash) do
+          complete_identification(user, registered_nick, account_nick)
+        else
+          handle_failed_identification(user, registered_nick)
+        end
+
+      {:error, :registered_nick_not_found} ->
+        notify(user, "Nickname \x02#{registered_nick.nickname}\x02 is not registered.")
     end
   end
 
-  @spec complete_identification(User.t(), RegisteredNick.t()) :: :ok
-  defp complete_identification(user, registered_nick) do
-    RegisteredNicks.update(registered_nick, %{
+  @spec complete_identification(User.t(), RegisteredNick.t(), RegisteredNick.t()) :: :ok
+  defp complete_identification(user, _registered_nick, account_nick) do
+    RegisteredNicks.update(account_nick, %{
       last_seen_at: DateTime.utc_now()
     })
 
@@ -89,45 +95,24 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
     updated_user =
       Users.update(user, %{
-        identified_as: registered_nick.nickname,
+        identified_as: account_nick.account_name,
         modes: new_modes
       })
 
-    notify(updated_user, "You are now identified for \x02#{registered_nick.nickname}\x02.")
+    notify(updated_user, "You are now identified for \x02#{account_nick.account_name}\x02.")
 
-    if updated_user.nick != registered_nick.nickname do
+    if updated_user.nick != account_nick.account_name do
       notify(updated_user, "Your current nickname will now be recognized with your account.")
     end
 
     %Message{command: "MODE", params: [updated_user.nick, "+r"]}
     |> Dispatcher.broadcast(:server, updated_user)
 
-    notify_account_change(updated_user, registered_nick.nickname)
+    notify_account_change(updated_user, account_nick.account_name)
   end
 
   @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok
   defp handle_failed_identification(user, registered_nick) do
     notify(user, "Password incorrect for \x02#{registered_nick.nickname}\x02.")
-  end
-
-  @spec notify_account_change(User.t(), String.t()) :: :ok
-  defp notify_account_change(user, account) do
-    %Message{command: "ACCOUNT", params: [account]}
-    |> Dispatcher.broadcast(user, [user])
-
-    account_notify_supported = Application.get_env(:elixircd, :capabilities)[:account_notify] || false
-
-    if account_notify_supported do
-      watchers =
-        Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
-        |> Enum.reject(&(&1.pid == user.pid))
-
-      if watchers != [] do
-        %Message{command: "ACCOUNT", params: [account]}
-        |> Dispatcher.broadcast(user, watchers)
-      end
-    end
-
-    :ok
   end
 end

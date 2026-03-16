@@ -22,7 +22,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
       :last_used_at,
       :created_at
     ],
-    index: [:founder],
+    index: [:founder, :successor],
     type: :set
 
   @type t :: %__MODULE__{

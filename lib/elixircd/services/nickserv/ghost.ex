@@ -7,7 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, get_account_nick: 1, notify: 2]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -49,7 +49,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
 
   @spec handle_registered_ghost(User.t(), User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_registered_ghost(user, target_user, registered_nick, password) do
-    if user.identified_as == registered_nick.nickname do
+    if belongs_to_account?(registered_nick, user.identified_as) do
       perform_disconnect(user, target_user)
     else
       verify_password_for_ghost(user, target_user, registered_nick, password)
@@ -58,17 +58,30 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
 
   @spec verify_password_for_ghost(User.t(), User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp verify_password_for_ghost(user, target_user, registered_nick, password) do
-    if is_nil(password) do
-      notify(user, [
-        "You need to provide a password to ghost \x02#{target_user.nick}\x02.",
-        "Syntax: \x02GHOST #{target_user.nick} <password>\x02"
-      ])
-    else
-      if Argon2.verify_pass(password, registered_nick.password_hash) do
-        perform_disconnect(user, target_user)
-      else
-        notify(user, "Invalid password for \x02#{target_user.nick}\x02.")
-      end
+    case password do
+      nil ->
+        notify(user, [
+          "You need to provide a password to ghost \x02#{target_user.nick}\x02.",
+          "Syntax: \x02GHOST #{target_user.nick} <password>\x02"
+        ])
+
+      _password ->
+        verify_ghost_account_password(user, target_user, registered_nick, password)
+    end
+  end
+
+  @spec verify_ghost_account_password(User.t(), User.t(), RegisteredNick.t(), String.t()) :: :ok
+  defp verify_ghost_account_password(user, target_user, registered_nick, password) do
+    case get_account_nick(registered_nick) do
+      {:ok, account_nick} ->
+        if Argon2.verify_pass(password, account_nick.password_hash) do
+          perform_disconnect(user, target_user)
+        else
+          notify(user, "Invalid password for \x02#{target_user.nick}\x02.")
+        end
+
+      {:error, :registered_nick_not_found} ->
+        notify(user, "Nick \x02#{target_user.nick}\x02 is not registered.")
     end
   end
 

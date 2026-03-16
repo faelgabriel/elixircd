@@ -123,7 +123,7 @@ defmodule ElixIRCd.Services.Chanserv.Register do
     })
 
     notify(user, [
-      "Channel \x02#{channel.name}\x02 has been registered under your nickname \x02#{user.identified_as}\x02.",
+      "Channel \x02#{channel.name}\x02 has been registered under your account \x02#{user.identified_as}\x02.",
       "Password accepted.",
       "Remember your password so that you can identify to ChanServ and make changes later!"
     ])

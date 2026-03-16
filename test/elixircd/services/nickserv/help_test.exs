@@ -16,7 +16,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP"])
 
-        assert_sent_messages_amount(user.pid, 22)
+        assert_sent_messages_amount(user.pid, 25)
       end)
     end
 

@@ -97,6 +97,28 @@ defmodule ElixIRCd.Services.Chanserv.TransferTest do
       end)
     end
 
+    test "canonicalizes grouped nickname when transferring channel ownership" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        founder = "founder"
+        user = insert(:user, identified_as: founder)
+        insert(:registered_channel, name: channel_name, founder: founder)
+        primary_founder = insert(:registered_nick, nickname: "PrimaryFounder")
+        grouped_founder = insert(:registered_nick, nickname: "AliasFounder", account_name: primary_founder.nickname)
+
+        assert :ok = Transfer.handle(user, ["TRANSFER", channel_name, grouped_founder.nickname])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Channel \x02#{channel_name}\x02 has been transferred to \x02#{primary_founder.nickname}\x02.\r\n"},
+          {user.pid, ":ChanServ!service@irc.test NOTICE #{user.nick} :They are now the new channel founder.\r\n"}
+        ])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.founder == primary_founder.nickname
+      end)
+    end
+
     test "fails to transfer channel to a user not registered" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"

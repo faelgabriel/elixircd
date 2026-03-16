@@ -170,7 +170,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         assert :ok = Register.handle(user, ["REGISTER", channel_name, password])
 
         assert_sent_messages([
-          {user.pid, ~r/ChanServ.*NOTICE.*has been registered under your nickname/},
+          {user.pid, ~r/ChanServ.*NOTICE.*has been registered under your account/},
           {user.pid, ~r/ChanServ.*NOTICE.*Password accepted/},
           {user.pid, ~r/ChanServ.*NOTICE.*Remember your password/}
         ])
@@ -214,7 +214,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         assert :ok = Register.handle(user, ["REGISTER", channel_name, password])
 
         assert_sent_messages([
-          {user.pid, ~r/ChanServ.*NOTICE.*has been registered under your nickname/},
+          {user.pid, ~r/ChanServ.*NOTICE.*has been registered under your account/},
           {user.pid, ~r/ChanServ.*NOTICE.*Password accepted/},
           {user.pid, ~r/ChanServ.*NOTICE.*Remember your password/}
         ])

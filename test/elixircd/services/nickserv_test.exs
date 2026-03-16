@@ -19,7 +19,13 @@ defmodule ElixIRCd.Services.NickservTest do
     {"RELEASE", Nickserv.Release},
     {"DROP", Nickserv.Drop},
     {"INFO", Nickserv.Info},
-    {"SET", Nickserv.Set}
+    {"SET", Nickserv.Set},
+    {"ACCESS", Nickserv.Access},
+    {"ALIST", Nickserv.Alist},
+    {"STATUS", Nickserv.Status},
+    {"GROUP", Nickserv.Group},
+    {"UNGROUP", Nickserv.Ungroup},
+    {"LISTCHANS", Nickserv.Listchans}
   ]
 
   setup do

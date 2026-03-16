@@ -8,7 +8,11 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
 
   require Logger
 
+  import ElixIRCd.Utils.Nickserv,
+    only: [cleanup_channel_registrations: 1, get_account_nick: 1, grouped?: 1, logout_account_users: 1]
+
   alias ElixIRCd.JobQueue
+  alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.Job
   alias ElixIRCd.Tables.RegisteredNick
@@ -43,9 +47,20 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
     Memento.transaction!(fn ->
       RegisteredNicks.get_all()
       |> Enum.filter(&check_nick_expiration/1)
+      |> Enum.flat_map(&collect_nicks_to_expire/1)
+      |> Enum.uniq_by(& &1.nickname_key)
       |> Enum.map(&remove_expired_nick/1)
       |> length()
     end)
+  end
+
+  @spec collect_nicks_to_expire(RegisteredNick.t()) :: [RegisteredNick.t()]
+  defp collect_nicks_to_expire(registered_nick) do
+    if registered_nick.nickname_key == registered_nick.account_name_key do
+      RegisteredNicks.get_by_account_name(registered_nick.account_name)
+    else
+      [registered_nick]
+    end
   end
 
   @spec remove_expired_nick(RegisteredNick.t()) :: String.t()
@@ -54,6 +69,12 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
     last_seen_at = registered_nick.last_seen_at || registered_nick.created_at
     Logger.info("Expiring nickname: #{nickname} (last seen: #{last_seen_at})")
 
+    if !grouped?(registered_nick) do
+      logout_account_users(registered_nick.account_name)
+      NickAccesses.delete_by_account_name(registered_nick.account_name)
+      cleanup_channel_registrations(registered_nick.account_name)
+    end
+
     RegisteredNicks.delete(registered_nick)
     registered_nick.nickname
   end
@@ -61,7 +82,18 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
   @spec check_nick_expiration(RegisteredNick.t()) :: boolean()
   defp check_nick_expiration(registered_nick) do
     nick_expire_days = get_nick_expire_days()
-    reference_date = registered_nick.last_seen_at || registered_nick.created_at
+
+    reference_nick =
+      if grouped?(registered_nick) do
+        case get_account_nick(registered_nick) do
+          {:ok, primary} -> primary
+          {:error, :registered_nick_not_found} -> registered_nick
+        end
+      else
+        registered_nick
+      end
+
+    reference_date = reference_nick.last_seen_at || reference_nick.created_at
     expiration_date = DateTime.add(reference_date, nick_expire_days, :day)
 
     DateTime.compare(DateTime.utc_now(), expiration_date) == :gt

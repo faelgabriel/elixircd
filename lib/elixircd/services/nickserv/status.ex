@@ -8,7 +8,7 @@ defmodule ElixIRCd.Services.Nickserv.Status do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, notify: 2]
   import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2]
 
   alias ElixIRCd.Repositories.NickAccesses
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Services.Nickserv.Status do
   defp calculate_status_for_online(online_user, registered_nick) do
     cond do
       # Not identified to this nick
-      online_user.identified_as != registered_nick.nickname ->
+      !belongs_to_account?(registered_nick, online_user.identified_as) ->
         # STATUS 1: Registered but not authenticated
         1
 
@@ -74,7 +74,7 @@ defmodule ElixIRCd.Services.Nickserv.Status do
         3
 
       # Check if user matches ACCESS list
-      user_matches_access?(online_user, registered_nick.nickname) ->
+      user_matches_access?(online_user, registered_nick.account_name) ->
         # STATUS 3: Authenticated and trusted (ACCESS match)
         3
 
@@ -86,8 +86,8 @@ defmodule ElixIRCd.Services.Nickserv.Status do
   end
 
   @spec user_matches_access?(User.t(), String.t()) :: boolean()
-  defp user_matches_access?(user, nickname) do
-    NickAccesses.get_by_nickname(nickname)
+  defp user_matches_access?(user, account_name) do
+    NickAccesses.get_by_account_name(account_name)
     |> Enum.any?(fn access_entry ->
       full_mask = "*!#{access_entry.mask}"
       match_user_mask?(user, full_mask)

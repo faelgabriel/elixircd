@@ -33,6 +33,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
+          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
@@ -81,6 +82,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
+          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
@@ -162,6 +164,66 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
       end)
     end
 
+    test "dropping primary nick (sole nick) logs out all users identified to the account" do
+      Memento.transaction!(fn ->
+        registered_nick = insert(:registered_nick, nickname: "PrimaryNick")
+
+        primary_user =
+          insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
+
+        alias_user = insert(:user, nick: "OtherNick", identified_as: registered_nick.nickname, modes: ["r"])
+
+        assert :ok = Drop.handle(primary_user, ["DROP"])
+
+        {:ok, updated_primary_user} = Users.get_by_pid(primary_user.pid)
+        assert updated_primary_user.identified_as == nil
+        assert "r" not in updated_primary_user.modes
+
+        {:ok, updated_alias_user} = Users.get_by_pid(alias_user.pid)
+        assert updated_alias_user.identified_as == nil
+        assert "r" not in updated_alias_user.modes
+      end)
+    end
+
+    test "blocks dropping primary nick when grouped aliases exist" do
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+        _alias_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
+
+        user = insert(:user, nick: primary_nick.nickname, identified_as: primary_nick.nickname)
+
+        assert :ok = Drop.handle(user, ["DROP"])
+
+        assert {:ok, _} = RegisteredNicks.get_by_nickname("PrimaryNick")
+        assert {:ok, _} = RegisteredNicks.get_by_nickname("AliasNick")
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02PrimaryNick\x02 is the primary nickname for your account.\r\n"},
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Ungroup or drop the other nicknames in the group before dropping this one.\r\n"}
+        ])
+      end)
+    end
+
+    test "drops a grouped alias nick without affecting the account" do
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+        alias_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
+
+        user = insert(:user, nick: alias_nick.nickname, identified_as: primary_nick.nickname)
+
+        assert :ok = Drop.handle(user, ["DROP"])
+
+        assert {:ok, _} = RegisteredNicks.get_by_nickname("PrimaryNick")
+        assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname("AliasNick")
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 has been dropped.\r\n"}
+        ])
+      end)
+    end
+
     test "handles DROP command for user identified as nickname but using different current nick" do
       Memento.transaction!(fn ->
         password = "correct_password"
@@ -174,6 +236,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
+          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])

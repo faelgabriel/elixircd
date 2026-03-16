@@ -7,7 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_logout: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
@@ -46,32 +46,11 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
     %Message{command: "MODE", params: [updated_user.nick, "-r"]}
     |> Dispatcher.broadcast(:server, updated_user)
 
-    send_account_logout(updated_user)
+    notify_account_logout(updated_user)
 
     send_logged_out(updated_user, identified_nickname)
 
     notify(updated_user, "You are now logged out from \x02#{identified_nickname}\x02.")
-  end
-
-  @spec send_account_logout(User.t()) :: :ok
-  defp send_account_logout(user) do
-    %Message{command: "ACCOUNT", params: ["*"]}
-    |> Dispatcher.broadcast(user, [user])
-
-    account_notify_supported = Application.get_env(:elixircd, :capabilities)[:account_notify] || false
-
-    if account_notify_supported do
-      watchers =
-        Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
-        |> Enum.reject(&(&1.pid == user.pid))
-
-      if watchers != [] do
-        %Message{command: "ACCOUNT", params: ["*"]}
-        |> Dispatcher.broadcast(user, watchers)
-      end
-    end
-
-    :ok
   end
 
   @spec send_logged_out(User.t(), String.t()) :: :ok

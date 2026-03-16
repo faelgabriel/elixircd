@@ -7,7 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, get_account_nick: 1, notify: 2]
   import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -20,8 +20,15 @@ defmodule ElixIRCd.Services.Nickserv.Info do
   def handle(user, ["INFO", target_nick | _command_params]) do
     case RegisteredNicks.get_by_nickname(target_nick) do
       {:ok, registered_nick} ->
-        has_full_access = user.identified_as == registered_nick.nickname || irc_operator?(user)
-        show_info(user, registered_nick, has_full_access)
+        case get_account_nick(registered_nick) do
+          {:ok, account_nick} ->
+            has_full_access = belongs_to_account?(registered_nick, user.identified_as) || irc_operator?(user)
+
+            show_info(user, registered_nick, account_nick, has_full_access)
+
+          {:error, :registered_nick_not_found} ->
+            notify(user, "Nick \x02#{target_nick}\x02 is not registered.")
+        end
 
       {:error, :registered_nick_not_found} ->
         notify(user, "Nick \x02#{target_nick}\x02 is not registered.")
@@ -32,16 +39,16 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     handle(user, ["INFO", user.nick])
   end
 
-  @spec show_info(User.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp show_info(user, registered_nick, has_full_access) do
+  @spec show_info(User.t(), RegisteredNick.t(), RegisteredNick.t(), boolean()) :: :ok
+  defp show_info(user, registered_nick, account_nick, has_full_access) do
     notify(user, "\x02\x0312*** \x0304#{registered_nick.nickname}\x0312 ***\x03\x02")
 
     display_online_status(user, registered_nick)
 
     if has_full_access do
       display_registration_info(user, registered_nick)
-      display_email_info(user, registered_nick, has_full_access)
-      show_options(user, registered_nick, has_full_access)
+      display_email_info(user, account_nick, has_full_access)
+      show_options(user, account_nick, has_full_access)
     else
       notify(user, "The information for this nickname is private.")
     end
@@ -72,6 +79,10 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     end
 
     notify(user, "Registered from: \x02#{registered_nick.registered_by}\x02")
+
+    if registered_nick.nickname_key != registered_nick.account_name_key do
+      notify(user, "Grouped with: \x02#{registered_nick.account_name}\x02")
+    end
   end
 
   @spec display_email_info(User.t(), RegisteredNick.t(), boolean()) :: :ok

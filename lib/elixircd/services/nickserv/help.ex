@@ -39,6 +39,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "ACCESS"), do: send_access_help(user)
   defp send_help_for_command(user, "ALIST"), do: send_alist_help(user)
   defp send_help_for_command(user, "STATUS"), do: send_status_help(user)
+  defp send_help_for_command(user, "GROUP"), do: send_group_help(user)
+  defp send_help_for_command(user, "UNGROUP"), do: send_ungroup_help(user)
+  defp send_help_for_command(user, "LISTCHANS"), do: send_listchans_help(user)
   defp send_help_for_command(user, "FAQ"), do: send_faq_help(user)
   defp send_help_for_command(user, command), do: send_unknown_command_help(user, command)
 
@@ -393,6 +396,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02ACCESS\x02       - Manage your access list",
       "\x02ALIST\x02        - List accounts you are recognized for",
       "\x02STATUS\x02       - Check authentication status of nicknames",
+      "\x02GROUP\x02        - Group your current nick into your account",
+      "\x02UNGROUP\x02      - Remove your current nick from your account",
+      "\x02LISTCHANS\x02    - List channels where your account has access",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
@@ -547,6 +553,64 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "Examples:",
       "    \x02/msg NickServ STATUS Alice\x02",
       "    \x02/msg NickServ STATUS Alice Bob Charlie\x02"
+    ])
+  end
+
+  @spec send_group_help(User.t()) :: :ok
+  defp send_group_help(user) do
+    notify(user, [
+      "Help for \x02GROUP\x02:",
+      format_help(
+        "GROUP",
+        ["[current-nick-password]"],
+        "Groups your current nickname into the account you are identified to."
+      ),
+      "",
+      "This command registers your current nickname as an alias of the",
+      "NickServ account you are currently identified to.",
+      "",
+      "If your current nickname is already registered, provide that nick's",
+      "password so NickServ can move it into the account you are using now.",
+      "",
+      "Syntax: \x02GROUP [current-nick-password]\x02",
+      "",
+      "Examples:",
+      "    \x02/msg NickServ GROUP\x02",
+      "    \x02/msg NickServ GROUP currentnickpassword\x02"
+    ])
+  end
+
+  @spec send_ungroup_help(User.t()) :: :ok
+  defp send_ungroup_help(user) do
+    notify(user, [
+      "Help for \x02UNGROUP\x02:",
+      format_help("UNGROUP", [], "Removes your current nickname from the account you are identified to."),
+      "",
+      "This command separates your current nickname from the current",
+      "NickServ account and turns it into its own account.",
+      "",
+      "You cannot use it on the primary nickname of the account.",
+      "",
+      "Syntax: \x02UNGROUP\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ UNGROUP\x02"
+    ])
+  end
+
+  @spec send_listchans_help(User.t()) :: :ok
+  defp send_listchans_help(user) do
+    notify(user, [
+      "Help for \x02LISTCHANS\x02:",
+      format_help("LISTCHANS", [], "Lists registered channels where your account has persisted access."),
+      "",
+      "This command lists channels where your NickServ account is the",
+      "founder or configured successor.",
+      "",
+      "Syntax: \x02LISTCHANS\x02",
+      "",
+      "Example:",
+      "    \x02/msg NickServ LISTCHANS\x02"
     ])
   end
 end

@@ -7,7 +7,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, get_account_nick: 1, notify: 2]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
   @spec handle_registered_nick(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp handle_registered_nick(user, registered_nick, password) do
-    if user.identified_as == registered_nick.nickname do
+    if belongs_to_account?(registered_nick, user.identified_as) do
       recover_nickname(user, registered_nick)
     else
       verify_password_for_recover(user, registered_nick, password)
@@ -43,17 +43,30 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
   @spec verify_password_for_recover(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp verify_password_for_recover(user, registered_nick, password) do
-    if is_nil(password) do
-      notify(user, [
-        "Insufficient parameters for \x02RECOVER\x02.",
-        "Syntax: \x02RECOVER <nickname> <password>\x02"
-      ])
-    else
-      if Argon2.verify_pass(password, registered_nick.password_hash) do
-        recover_nickname(user, registered_nick)
-      else
-        notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
-      end
+    case password do
+      nil ->
+        notify(user, [
+          "Insufficient parameters for \x02RECOVER\x02.",
+          "Syntax: \x02RECOVER <nickname> <password>\x02"
+        ])
+
+      _password ->
+        verify_recover_account_password(user, registered_nick, password)
+    end
+  end
+
+  @spec verify_recover_account_password(User.t(), RegisteredNick.t(), String.t()) :: :ok
+  defp verify_recover_account_password(user, registered_nick, password) do
+    case get_account_nick(registered_nick) do
+      {:ok, account_nick} ->
+        if Argon2.verify_pass(password, account_nick.password_hash) do
+          recover_nickname(user, registered_nick)
+        else
+          notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
+        end
+
+      {:error, :registered_nick_not_found} ->
+        notify(user, "Nick \x02#{registered_nick.nickname}\x02 is not registered.")
     end
   end
 

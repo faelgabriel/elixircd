@@ -362,11 +362,11 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   defp handle_successor(user, registered_channel, [target_successor]) do
     case RegisteredNicks.get_by_nickname(target_successor) do
       {:ok, registered_nick} ->
-        RegisteredChannels.update(registered_channel, %{successor: registered_nick.nickname})
+        RegisteredChannels.update(registered_channel, %{successor: registered_nick.account_name})
 
         notify(
           user,
-          "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 has been set to: \2#{registered_nick.nickname}\2"
+          "\2SUCCESSOR\2 for \2#{registered_channel.name}\2 has been set to: \2#{registered_nick.account_name}\2"
         )
 
       {:error, :registered_nick_not_found} ->

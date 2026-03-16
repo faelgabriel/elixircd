@@ -21,6 +21,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   require Logger
 
+  import ElixIRCd.Utils.Nickserv, only: [notify_account_change: 2]
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1, user_mask: 1]
 
   alias ElixIRCd.Message
@@ -314,19 +315,32 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec verify_password(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t()) :: :ok
   defp verify_password(user, registered_nick, password) do
-    if Argon2.verify_pass(password, registered_nick.password_hash) do
-      complete_sasl_authentication(user, registered_nick)
-    else
-      Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
+    case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
+      {:ok, account_nick} ->
+        if Argon2.verify_pass(password, account_nick.password_hash) do
+          complete_sasl_authentication(user, account_nick)
+        else
+          Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
 
-      %Message{
-        command: :err_saslfail,
-        params: [user_reply(user)],
-        trailing: "SASL authentication failed"
-      }
-      |> Dispatcher.broadcast(:server, user)
+          %Message{
+            command: :err_saslfail,
+            params: [user_reply(user)],
+            trailing: "SASL authentication failed"
+          }
+          |> Dispatcher.broadcast(:server, user)
 
-      SaslSessions.delete(user.pid)
+          SaslSessions.delete(user.pid)
+        end
+
+      {:error, :registered_nick_not_found} ->
+        %Message{
+          command: :err_saslfail,
+          params: [user_reply(user)],
+          trailing: "SASL authentication failed"
+        }
+        |> Dispatcher.broadcast(:server, user)
+
+        SaslSessions.delete(user.pid)
     end
   end
 
@@ -342,7 +356,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
     updated_user =
       Users.update(user, %{
-        identified_as: registered_nick.nickname,
+        identified_as: registered_nick.account_name,
         sasl_authenticated: true,
         sasl_attempts: 0,
         modes: new_modes
@@ -350,7 +364,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
     SaslSessions.delete(user.pid)
 
-    account_name = registered_nick.nickname
+    account_name = registered_nick.account_name
 
     hostname = if user.cloaked_hostname, do: user.cloaked_hostname, else: user.hostname
     ident = String.slice(user.ident, 0..9)
@@ -375,24 +389,6 @@ defmodule ElixIRCd.Commands.Authenticate do
     |> Dispatcher.broadcast(:server, updated_user)
 
     notify_account_change(updated_user, account_name)
-  end
-
-  @spec notify_account_change(User.t(), String.t()) :: :ok
-  defp notify_account_change(user, account) do
-    account_notify_supported = Application.get_env(:elixircd, :capabilities)[:account_notify] || false
-
-    if account_notify_supported do
-      watchers =
-        Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
-        |> Enum.reject(&(&1.pid == user.pid))
-
-      if watchers != [] do
-        %Message{command: "ACCOUNT", params: [account]}
-        |> Dispatcher.broadcast(user, watchers)
-      end
-    end
-
-    :ok
   end
 
   @spec handle_abort(User.t()) :: :ok

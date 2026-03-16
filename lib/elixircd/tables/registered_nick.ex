@@ -6,11 +6,21 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   alias ElixIRCd.Tables.RegisteredNick.Settings
   alias ElixIRCd.Utils.CaseMapping
 
-  @enforce_keys [:nickname_key, :nickname, :password_hash, :registered_by, :created_at]
+  @enforce_keys [
+    :nickname_key,
+    :nickname,
+    :account_name_key,
+    :account_name,
+    :password_hash,
+    :registered_by,
+    :created_at
+  ]
   use Memento.Table,
     attributes: [
       :nickname_key,
       :nickname,
+      :account_name_key,
+      :account_name,
       :password_hash,
       :email,
       :registered_by,
@@ -21,12 +31,14 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       :settings,
       :created_at
     ],
-    index: [],
+    index: [:account_name_key],
     type: :set
 
   @type t :: %__MODULE__{
           nickname_key: String.t(),
           nickname: String.t(),
+          account_name_key: String.t(),
+          account_name: String.t(),
           password_hash: String.t(),
           email: String.t() | nil,
           registered_by: String.t(),
@@ -40,6 +52,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
 
   @type t_attrs :: %{
           optional(:nickname) => String.t(),
+          optional(:account_name) => String.t(),
           optional(:password_hash) => String.t(),
           optional(:email) => String.t() | nil,
           optional(:registered_by) => String.t(),
@@ -60,7 +73,8 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       attrs
       |> Map.put_new(:settings, Settings.new())
       |> Map.put_new(:created_at, DateTime.utc_now())
-      |> handle_nickname_key()
+      |> put_default_account_name()
+      |> handle_keys()
 
     struct!(__MODULE__, new_attrs)
   end
@@ -72,16 +86,33 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   def update(registered_nick, attrs) do
     new_attrs =
       attrs
-      |> handle_nickname_key()
+      |> put_default_account_name()
+      |> handle_keys()
 
     struct!(registered_nick, new_attrs)
   end
 
-  @spec handle_nickname_key(t_attrs()) :: t_attrs()
-  defp handle_nickname_key(%{nickname: nickname} = attrs) do
-    nickname_key = if nickname != nil, do: CaseMapping.normalize(nickname), else: nil
-    Map.put(attrs, :nickname_key, nickname_key)
+  @spec put_default_account_name(t_attrs()) :: t_attrs()
+  defp put_default_account_name(%{account_name: _account_name} = attrs), do: attrs
+
+  defp put_default_account_name(%{nickname: nickname} = attrs) do
+    Map.put(attrs, :account_name, nickname)
   end
 
-  defp handle_nickname_key(attrs), do: attrs
+  defp put_default_account_name(attrs), do: attrs
+
+  @spec handle_keys(t_attrs()) :: t_attrs()
+  defp handle_keys(attrs) do
+    attrs
+    |> maybe_put_normalized_key(:nickname, :nickname_key)
+    |> maybe_put_normalized_key(:account_name, :account_name_key)
+  end
+
+  @spec maybe_put_normalized_key(t_attrs(), atom(), atom()) :: t_attrs()
+  defp maybe_put_normalized_key(attrs, source_key, target_key) do
+    case Map.fetch(attrs, source_key) do
+      {:ok, value} when is_binary(value) -> Map.put(attrs, target_key, CaseMapping.normalize(value))
+      _ -> attrs
+    end
+  end
 end

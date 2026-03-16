@@ -74,7 +74,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
 
         assert :ok = Access.handle(user, ["ACCESS", "ADD", mask])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert length(entries) == 1
         assert hd(entries).mask == String.downcase(mask)
 
@@ -109,7 +109,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
 
         assert :ok = Access.handle(user, ["ACCESS", "ADD", invalid_mask])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert Enum.empty?(entries)
 
         assert_sent_messages([
@@ -126,7 +126,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
 
         assert :ok = Access.handle(user, ["ACCESS", "ADD", "*@*"])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert Enum.empty?(entries)
 
         assert_sent_messages([
@@ -143,7 +143,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
 
         assert :ok = Access.handle(user, ["ACCESS", "ADD", "@*"])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert Enum.empty?(entries)
 
         assert_sent_messages([
@@ -165,7 +165,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
         # Try to add again
         assert :ok = Access.handle(user, ["ACCESS", "ADD", mask])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert length(entries) == 1
 
         assert_sent_messages([
@@ -187,7 +187,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
         # Try to add 11th entry
         assert :ok = Access.handle(user, ["ACCESS", "ADD", "*@host11.com"])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert length(entries) == 10
 
         assert_sent_messages([
@@ -205,7 +205,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
 
         assert :ok = Access.handle(user, ["ACCESS", "ADD", mask])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert hd(entries).mask == "*@trusted.vpn"
       end)
     end
@@ -227,7 +227,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
           assert :ok = Access.handle(user, ["ACCESS", "ADD", mask])
         end
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert length(entries) == length(valid_masks)
       end)
     end
@@ -244,7 +244,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
 
         assert :ok = Access.handle(user, ["ACCESS", "DEL", mask])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert Enum.empty?(entries)
 
         assert_sent_messages([
@@ -295,7 +295,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
         # Delete with uppercase
         assert :ok = Access.handle(user, ["ACCESS", "DEL", "*@TRUSTED.VPN"])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert Enum.empty?(entries)
       end)
     end
@@ -368,7 +368,7 @@ defmodule ElixIRCd.Services.Nickserv.AccessTest do
 
         assert :ok = Access.handle(user, ["ACCESS", "CLEAR"])
 
-        entries = NickAccesses.get_by_nickname(registered_nick.nickname)
+        entries = NickAccesses.get_by_account_name(registered_nick.nickname)
         assert Enum.empty?(entries)
 
         assert_sent_messages([

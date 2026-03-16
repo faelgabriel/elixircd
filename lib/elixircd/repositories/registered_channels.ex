@@ -5,6 +5,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
 
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Utils.CaseMapping
+  alias Memento.Query.Data
 
   @doc """
   Create a new registered channel and write it to the database.
@@ -42,7 +43,17 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   """
   @spec get_by_founder(String.t()) :: [RegisteredChannel.t()]
   def get_by_founder(founder) do
-    Memento.Query.select(RegisteredChannel, {:==, :founder, founder})
+    :mnesia.index_read(RegisteredChannel, founder, :founder)
+    |> Enum.map(&Data.load/1)
+  end
+
+  @doc """
+  Get all registered channels where the given account is the successor.
+  """
+  @spec get_by_successor(String.t()) :: [RegisteredChannel.t()]
+  def get_by_successor(successor) do
+    :mnesia.index_read(RegisteredChannel, successor, :successor)
+    |> Enum.map(&Data.load/1)
   end
 
   @doc """

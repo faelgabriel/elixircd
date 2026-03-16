@@ -103,7 +103,7 @@ defmodule ElixIRCd.Services.Nickserv.Access do
 
   @spec handle_list(User.t(), [String.t()]) :: :ok
   defp handle_list(user, _rest_params) do
-    entries = NickAccesses.get_by_nickname(user.identified_as)
+    entries = NickAccesses.get_by_account_name(user.identified_as)
 
     if Enum.empty?(entries) do
       notify(user, "Your access list is empty.")
@@ -123,12 +123,12 @@ defmodule ElixIRCd.Services.Nickserv.Access do
 
   @spec handle_clear(User.t(), [String.t()]) :: :ok
   defp handle_clear(user, _rest_params) do
-    count = NickAccesses.count_by_nickname(user.identified_as)
+    count = NickAccesses.count_by_account_name(user.identified_as)
 
     if count == 0 do
       notify(user, "Your access list is already empty.")
     else
-      NickAccesses.delete_by_nickname(user.identified_as)
+      NickAccesses.delete_by_account_name(user.identified_as)
 
       notify(user, [
         "Your access list has been cleared.",
@@ -166,12 +166,12 @@ defmodule ElixIRCd.Services.Nickserv.Access do
 
   @spec mask_exists?(String.t(), String.t()) :: boolean()
   defp mask_exists?(nickname, mask) do
-    NickAccesses.get_by_nickname_and_mask(nickname, mask) != nil
+    NickAccesses.get_by_account_name_and_mask(nickname, mask) != nil
   end
 
   @spec max_entries_reached?(String.t()) :: boolean()
   defp max_entries_reached?(nickname) do
-    count = NickAccesses.count_by_nickname(nickname)
+    count = NickAccesses.count_by_account_name(nickname)
     max_entries = get_max_access_entries()
     count >= max_entries
   end

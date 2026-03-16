@@ -24,10 +24,10 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
     end
   end
 
-  describe "get_by_nickname/1" do
+  describe "get_by_account_name/1" do
     test "returns empty list when nickname has no access entries" do
       Memento.transaction!(fn ->
-        result = NickAccesses.get_by_nickname("TestNick")
+        result = NickAccesses.get_by_account_name("TestNick")
 
         assert result == []
       end)
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         _entry1 = insert(:nick_access, nickname: nickname, mask: mask1)
         _entry2 = insert(:nick_access, nickname: nickname, mask: mask2)
 
-        result = NickAccesses.get_by_nickname(nickname)
+        result = NickAccesses.get_by_account_name(nickname)
 
         assert length(result) == 2
         result_masks = Enum.map(result, & &1.mask) |> Enum.sort()
@@ -63,7 +63,7 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         _entry2 = insert(:nick_access, nickname: nickname, mask: "*@host2.com", created_at: time1)
         _entry3 = insert(:nick_access, nickname: nickname, mask: "*@host3.com", created_at: time3)
 
-        result = NickAccesses.get_by_nickname(nickname)
+        result = NickAccesses.get_by_account_name(nickname)
 
         assert length(result) == 3
         assert Enum.at(result, 0).mask == "*@host2.com"
@@ -80,7 +80,7 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname1, mask: "*@host1.com")
         insert(:nick_access, nickname: nickname2, mask: "*@host2.com")
 
-        result = NickAccesses.get_by_nickname(nickname1)
+        result = NickAccesses.get_by_account_name(nickname1)
 
         assert length(result) == 1
         assert hd(result).nickname_key == "testnick1"
@@ -93,9 +93,9 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
 
         insert(:nick_access, nickname: nickname, mask: "*@host.com")
 
-        result1 = NickAccesses.get_by_nickname("TestNick")
-        result2 = NickAccesses.get_by_nickname("testnick")
-        result3 = NickAccesses.get_by_nickname("TESTNICK")
+        result1 = NickAccesses.get_by_account_name("TestNick")
+        result2 = NickAccesses.get_by_account_name("testnick")
+        result3 = NickAccesses.get_by_account_name("TESTNICK")
 
         assert length(result1) == 1
         assert length(result2) == 1
@@ -104,10 +104,10 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
     end
   end
 
-  describe "get_by_nickname_and_mask/2" do
+  describe "get_by_account_name_and_mask/2" do
     test "returns nil when no matching entry exists" do
       Memento.transaction!(fn ->
-        result = NickAccesses.get_by_nickname_and_mask("TestNick", "*@host.com")
+        result = NickAccesses.get_by_account_name_and_mask("TestNick", "*@host.com")
 
         assert result == nil
       end)
@@ -120,7 +120,7 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
 
         entry = insert(:nick_access, nickname: nickname, mask: mask)
 
-        result = NickAccesses.get_by_nickname_and_mask(nickname, mask)
+        result = NickAccesses.get_by_account_name_and_mask(nickname, mask)
 
         assert result.nickname_key == entry.nickname_key
         assert result.mask == entry.mask
@@ -137,8 +137,8 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         entry1 = insert(:nick_access, nickname: nickname, mask: mask1)
         entry2 = insert(:nick_access, nickname: nickname, mask: mask2)
 
-        result1 = NickAccesses.get_by_nickname_and_mask(nickname, mask1)
-        result2 = NickAccesses.get_by_nickname_and_mask(nickname, mask2)
+        result1 = NickAccesses.get_by_account_name_and_mask(nickname, mask1)
+        result2 = NickAccesses.get_by_account_name_and_mask(nickname, mask2)
 
         assert result1.mask == mask1
         assert result2.mask == mask2
@@ -154,9 +154,9 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
 
         insert(:nick_access, nickname: nickname, mask: mask)
 
-        result1 = NickAccesses.get_by_nickname_and_mask("TestNick", mask)
-        result2 = NickAccesses.get_by_nickname_and_mask("testnick", mask)
-        result3 = NickAccesses.get_by_nickname_and_mask("TESTNICK", mask)
+        result1 = NickAccesses.get_by_account_name_and_mask("TestNick", mask)
+        result2 = NickAccesses.get_by_account_name_and_mask("testnick", mask)
+        result3 = NickAccesses.get_by_account_name_and_mask("TESTNICK", mask)
 
         assert result1 != nil
         assert result2 != nil
@@ -172,9 +172,9 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
 
         insert(:nick_access, nickname: nickname, mask: mask)
 
-        result1 = NickAccesses.get_by_nickname_and_mask(nickname, "*@HOST.COM")
-        result2 = NickAccesses.get_by_nickname_and_mask(nickname, "*@host.com")
-        result3 = NickAccesses.get_by_nickname_and_mask(nickname, "*@Host.Com")
+        result1 = NickAccesses.get_by_account_name_and_mask(nickname, "*@HOST.COM")
+        result2 = NickAccesses.get_by_account_name_and_mask(nickname, "*@host.com")
+        result3 = NickAccesses.get_by_account_name_and_mask(nickname, "*@Host.Com")
 
         assert result1 != nil
         assert result2 != nil
@@ -183,10 +183,10 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
     end
   end
 
-  describe "count_by_nickname/1" do
+  describe "count_by_account_name/1" do
     test "returns 0 when nickname has no access entries" do
       Memento.transaction!(fn ->
-        result = NickAccesses.count_by_nickname("TestNick")
+        result = NickAccesses.count_by_account_name("TestNick")
 
         assert result == 0
       end)
@@ -200,7 +200,7 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname, mask: "*@host2.com")
         insert(:nick_access, nickname: nickname, mask: "*@host3.com")
 
-        result = NickAccesses.count_by_nickname(nickname)
+        result = NickAccesses.count_by_account_name(nickname)
 
         assert result == 3
       end)
@@ -215,7 +215,7 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname1, mask: "*@host2.com")
         insert(:nick_access, nickname: nickname2, mask: "*@host3.com")
 
-        result = NickAccesses.count_by_nickname(nickname1)
+        result = NickAccesses.count_by_account_name(nickname1)
 
         assert result == 2
       end)
@@ -227,9 +227,9 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
 
         insert(:nick_access, nickname: nickname, mask: "*@host.com")
 
-        result1 = NickAccesses.count_by_nickname("TestNick")
-        result2 = NickAccesses.count_by_nickname("testnick")
-        result3 = NickAccesses.count_by_nickname("TESTNICK")
+        result1 = NickAccesses.count_by_account_name("TestNick")
+        result2 = NickAccesses.count_by_account_name("testnick")
+        result3 = NickAccesses.count_by_account_name("TESTNICK")
 
         assert result1 == 1
         assert result2 == 1
@@ -246,9 +246,9 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
 
         insert(:nick_access, nickname: nickname, mask: mask)
 
-        assert NickAccesses.get_by_nickname_and_mask(nickname, mask) != nil
+        assert NickAccesses.get_by_account_name_and_mask(nickname, mask) != nil
         assert :ok = NickAccesses.delete(nickname, mask)
-        assert NickAccesses.get_by_nickname_and_mask(nickname, mask) == nil
+        assert NickAccesses.get_by_account_name_and_mask(nickname, mask) == nil
       end)
     end
 
@@ -268,8 +268,8 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname, mask: mask2)
 
         assert :ok = NickAccesses.delete(nickname, mask1)
-        assert NickAccesses.get_by_nickname_and_mask(nickname, mask1) == nil
-        assert NickAccesses.get_by_nickname_and_mask(nickname, mask2) != nil
+        assert NickAccesses.get_by_account_name_and_mask(nickname, mask1) == nil
+        assert NickAccesses.get_by_account_name_and_mask(nickname, mask2) != nil
       end)
     end
 
@@ -281,7 +281,7 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname, mask: mask)
 
         assert :ok = NickAccesses.delete("TESTNICK", mask)
-        assert NickAccesses.get_by_nickname_and_mask(nickname, mask) == nil
+        assert NickAccesses.get_by_account_name_and_mask(nickname, mask) == nil
       end)
     end
 
@@ -293,12 +293,12 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname, mask: mask)
 
         assert :ok = NickAccesses.delete(nickname, "*@HOST.COM")
-        assert NickAccesses.get_by_nickname_and_mask(nickname, mask) == nil
+        assert NickAccesses.get_by_account_name_and_mask(nickname, mask) == nil
       end)
     end
   end
 
-  describe "delete_by_nickname/1" do
+  describe "delete_by_account_name/1" do
     test "deletes all access entries for a nickname" do
       Memento.transaction!(fn ->
         nickname = "TestNick"
@@ -306,16 +306,16 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname, mask: "*@host1.com")
         insert(:nick_access, nickname: nickname, mask: "*@host2.com")
 
-        assert length(NickAccesses.get_by_nickname(nickname)) == 2
+        assert length(NickAccesses.get_by_account_name(nickname)) == 2
 
-        assert :ok = NickAccesses.delete_by_nickname(nickname)
-        assert NickAccesses.get_by_nickname(nickname) == []
+        assert :ok = NickAccesses.delete_by_account_name(nickname)
+        assert NickAccesses.get_by_account_name(nickname) == []
       end)
     end
 
     test "returns :ok when nickname has no access entries" do
       Memento.transaction!(fn ->
-        assert :ok = NickAccesses.delete_by_nickname("TestNick")
+        assert :ok = NickAccesses.delete_by_account_name("TestNick")
       end)
     end
 
@@ -327,9 +327,9 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         insert(:nick_access, nickname: nickname1, mask: "*@host1.com")
         insert(:nick_access, nickname: nickname2, mask: "*@host2.com")
 
-        assert :ok = NickAccesses.delete_by_nickname(nickname1)
-        assert NickAccesses.get_by_nickname(nickname1) == []
-        assert length(NickAccesses.get_by_nickname(nickname2)) == 1
+        assert :ok = NickAccesses.delete_by_account_name(nickname1)
+        assert NickAccesses.get_by_account_name(nickname1) == []
+        assert length(NickAccesses.get_by_account_name(nickname2)) == 1
       end)
     end
 
@@ -339,8 +339,8 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
 
         insert(:nick_access, nickname: nickname, mask: "*@host.com")
 
-        assert :ok = NickAccesses.delete_by_nickname("TESTNICK")
-        assert NickAccesses.get_by_nickname(nickname) == []
+        assert :ok = NickAccesses.delete_by_account_name("TESTNICK")
+        assert NickAccesses.get_by_account_name(nickname) == []
       end)
     end
   end
@@ -352,38 +352,38 @@ defmodule ElixIRCd.Repositories.NickAccessesTest do
         mask1 = "*@host1.com"
         mask2 = "*@host2.com"
 
-        assert NickAccesses.get_by_nickname(nickname) == []
-        assert NickAccesses.count_by_nickname(nickname) == 0
+        assert NickAccesses.get_by_account_name(nickname) == []
+        assert NickAccesses.count_by_account_name(nickname) == 0
 
         entry1 = NickAccesses.create(%{nickname: nickname, mask: mask1})
         assert entry1.nickname_key == "testnick"
         assert entry1.mask == mask1
 
-        entries = NickAccesses.get_by_nickname(nickname)
+        entries = NickAccesses.get_by_account_name(nickname)
         assert length(entries) == 1
         assert hd(entries).mask == mask1
-        assert NickAccesses.count_by_nickname(nickname) == 1
+        assert NickAccesses.count_by_account_name(nickname) == 1
 
         _entry2 = NickAccesses.create(%{nickname: nickname, mask: mask2})
 
-        entries = NickAccesses.get_by_nickname(nickname)
+        entries = NickAccesses.get_by_account_name(nickname)
         assert length(entries) == 2
         entry_masks = Enum.map(entries, & &1.mask) |> Enum.sort()
         expected_masks = [mask1, mask2] |> Enum.sort()
         assert entry_masks == expected_masks
-        assert NickAccesses.count_by_nickname(nickname) == 2
+        assert NickAccesses.count_by_account_name(nickname) == 2
 
         NickAccesses.delete(nickname, mask1)
 
-        entries = NickAccesses.get_by_nickname(nickname)
+        entries = NickAccesses.get_by_account_name(nickname)
         assert length(entries) == 1
         assert hd(entries).mask == mask2
-        assert NickAccesses.count_by_nickname(nickname) == 1
+        assert NickAccesses.count_by_account_name(nickname) == 1
 
-        NickAccesses.delete_by_nickname(nickname)
+        NickAccesses.delete_by_account_name(nickname)
 
-        assert NickAccesses.get_by_nickname(nickname) == []
-        assert NickAccesses.count_by_nickname(nickname) == 0
+        assert NickAccesses.get_by_account_name(nickname) == []
+        assert NickAccesses.count_by_account_name(nickname) == 0
       end)
     end
   end

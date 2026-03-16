@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.Nick do
 
   require Logger
 
+  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2]
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message
@@ -70,7 +71,7 @@ defmodule ElixIRCd.Commands.Nick do
   defp check_reserved_nick(user, input_nick) do
     with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
          {:reserved, true} <- {:reserved, reserved?(registered_nick)},
-         {:identified, false} <- {:identified, user.identified_as == registered_nick.nickname} do
+         {:identified, false} <- {:identified, belongs_to_account?(registered_nick, user.identified_as)} do
       {:error, :nick_reserved}
     else
       {:error, :registered_nick_not_found} -> :ok

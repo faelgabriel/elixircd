@@ -64,8 +64,8 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
     notify(user, "Nickname \x02#{registered_nick.nickname}\x02 has been successfully verified.")
 
     if user.nick == registered_nick.nickname do
-      Users.update(user, %{identified_as: registered_nick.nickname})
-      notify(user, "You are now identified for \x02#{registered_nick.nickname}\x02.")
+      Users.update(user, %{identified_as: registered_nick.account_name})
+      notify(user, "You are now identified for \x02#{registered_nick.account_name}\x02.")
     else
       notify(
         user,

@@ -71,6 +71,17 @@ defmodule ElixIRCd.Repositories.Users do
   end
 
   @doc """
+  Get all users identified to the given account.
+  """
+  @spec get_by_identified_as(String.t()) :: [User.t()]
+  def get_by_identified_as(account_name) do
+    identified_as_key = CaseMapping.normalize(account_name)
+
+    :mnesia.index_read(User, identified_as_key, :identified_as_key)
+    |> Enum.map(&Data.load/1)
+  end
+
+  @doc """
   Get all users by the pids.
   """
   @spec get_by_pids([pid()]) :: [User.t()]

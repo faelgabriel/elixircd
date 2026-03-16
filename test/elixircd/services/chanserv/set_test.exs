@@ -771,6 +771,28 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       end)
     end
 
+    test "canonicalizes grouped nickname when setting SUCCESSOR" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder")
+        primary_successor = insert(:registered_nick, nickname: "PrimarySuccessor")
+
+        grouped_successor =
+          insert(:registered_nick, nickname: "AliasSuccessor", account_name: primary_successor.nickname)
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "SUCCESSOR", grouped_successor.nickname])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2SUCCESSOR\2 for \2#{channel_name}\2 has been set to: \2#{primary_successor.nickname}\2\r\n"}
+        ])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.successor == primary_successor.nickname
+      end)
+    end
+
     test "handles SUCCESSOR with non-existent nickname" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"

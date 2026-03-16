@@ -178,6 +178,25 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
       end)
     end
 
+    test "handles INFO command for a grouped nickname showing group info" do
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+
+        grouped_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            account_name: primary_nick.nickname,
+            password_hash: primary_nick.password_hash
+          )
+
+        user = insert(:user, identified_as: primary_nick.nickname)
+
+        assert :ok = Info.handle(user, ["INFO", grouped_nick.nickname])
+
+        assert_sent_message_contains(user.pid, ~r/Grouped with:.*PrimaryNick/)
+      end)
+    end
+
     test "email visibility respects complex privacy rules" do
       registered_nick =
         insert(:registered_nick,

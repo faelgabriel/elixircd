@@ -5,6 +5,7 @@ defmodule ElixIRCd.Repositories.RegisteredNicks do
 
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Utils.CaseMapping
+  alias Memento.Query.Data
 
   @doc """
   Create a new registered nickname and write it to the database.
@@ -35,6 +36,18 @@ defmodule ElixIRCd.Repositories.RegisteredNicks do
   @spec get_all() :: [RegisteredNick.t()]
   def get_all do
     Memento.Query.all(RegisteredNick)
+  end
+
+  @doc """
+  Get all registered nicknames that belong to the same canonical account.
+  """
+  @spec get_by_account_name(String.t()) :: [RegisteredNick.t()]
+  def get_by_account_name(account_name) do
+    account_name_key = CaseMapping.normalize(account_name)
+
+    :mnesia.index_read(RegisteredNick, account_name_key, :account_name_key)
+    |> Enum.map(&Data.load/1)
+    |> Enum.sort_by(&String.downcase(&1.nickname))
   end
 
   @doc """

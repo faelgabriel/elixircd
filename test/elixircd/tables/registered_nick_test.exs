@@ -18,6 +18,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
 
       assert registered_nick.nickname_key == "testnick"
       assert registered_nick.nickname == "TestNick"
+      assert registered_nick.account_name_key == "testnick"
+      assert registered_nick.account_name == "TestNick"
       assert registered_nick.password_hash == "hash123"
       assert registered_nick.registered_by == "user@host"
       assert registered_nick.email == nil
@@ -43,6 +45,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
 
       assert registered_nick.nickname_key == "testnick"
       assert registered_nick.nickname == "TestNick"
+      assert registered_nick.account_name_key == "testnick"
+      assert registered_nick.account_name == "TestNick"
       assert registered_nick.email == "test@example.com"
       assert registered_nick.settings.hide_email == true
     end
@@ -69,6 +73,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
       registered_nick = %RegisteredNick{
         nickname_key: "testnick",
         nickname: "TestNick",
+        account_name_key: "testnick",
+        account_name: "TestNick",
         password_hash: "hash123",
         registered_by: "user@host",
         email: nil,
@@ -97,6 +103,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
       registered_nick = %RegisteredNick{
         nickname_key: "testnick",
         nickname: "TestNick",
+        account_name_key: "testnick",
+        account_name: "TestNick",
         password_hash: "hash123",
         registered_by: "user@host",
         email: "original@example.com",
@@ -120,6 +128,8 @@ defmodule ElixIRCd.Tables.RegisteredNickTest do
       assert updated_nick.last_seen_at != nil
       assert updated_nick.nickname_key == "testnick"
       assert updated_nick.nickname == "TestNick"
+      assert updated_nick.account_name_key == "testnick"
+      assert updated_nick.account_name == "TestNick"
     end
   end
 end
