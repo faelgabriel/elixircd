@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.JoinTest do
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
     test "handles JOIN command with user not registered" do
@@ -66,6 +67,84 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":irc.test 331 #{user.nick} #new_channel :No topic is set\r\n"},
           {user.pid, ":irc.test 353 = #{user.nick} #new_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "restores the registered topic when recreating a KEEPTOPIC channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        restored_topic = build(:channel_topic, text: "Stored topic", setter: "ChanServ!service@irc.test")
+
+        insert(:registered_channel,
+          name: "#new_channel",
+          founder: "founder",
+          topic: restored_topic,
+          settings: %{Settings.new() | keeptopic: true}
+        )
+
+        message = %Message{command: "JOIN", params: ["#new_channel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #new_channel\r\n"},
+          {user.pid, ":irc.test MODE #new_channel +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #new_channel :Stored topic\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #new_channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "restores the registered topic when recreating a TOPICLOCK channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        restored_topic = build(:channel_topic, text: "Locked topic", setter: "ChanServ!service@irc.test")
+
+        insert(:registered_channel,
+          name: "#locked_channel",
+          founder: "founder",
+          topic: restored_topic,
+          settings: %{Settings.new() | keeptopic: false, topiclock: true}
+        )
+
+        message = %Message{command: "JOIN", params: ["#locked_channel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #locked_channel\r\n"},
+          {user.pid, ":irc.test MODE #locked_channel +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 332 #{user.nick} #locked_channel :Locked topic\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #locked_channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #locked_channel :End of NAMES list.\r\n"}
+        ])
+      end)
+    end
+
+    test "does not restore the registered topic when KEEPTOPIC and TOPICLOCK are disabled" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        restored_topic = build(:channel_topic, text: "Stored topic", setter: "ChanServ!service@irc.test")
+
+        insert(:registered_channel,
+          name: "#plain_channel",
+          founder: "founder",
+          topic: restored_topic,
+          settings: Settings.new(%{keeptopic: false, topiclock: false})
+        )
+
+        message = %Message{command: "JOIN", params: ["#plain_channel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} JOIN #plain_channel\r\n"},
+          {user.pid, ":irc.test MODE #plain_channel +o #{user.nick}\r\n"},
+          {user.pid, ":irc.test 331 #{user.nick} #plain_channel :No topic is set\r\n"},
+          {user.pid, ":irc.test 353 = #{user.nick} #plain_channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #plain_channel :End of NAMES list.\r\n"}
         ])
       end)
     end

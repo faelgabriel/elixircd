@@ -20,6 +20,7 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Repositories.ChannelInvexes
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -91,8 +92,18 @@ defmodule ElixIRCd.Commands.Join do
         {:existing, channel}
 
       _ ->
-        channel = Channels.create(%{name: channel_name, topic: nil})
+        channel = Channels.create(%{name: channel_name, topic: restored_topic(channel_name)})
         {:created, channel}
+    end
+  end
+
+  @spec restored_topic(String.t()) :: Channel.Topic.t() | nil
+  defp restored_topic(channel_name) do
+    case RegisteredChannels.get_by_name(channel_name) do
+      {:ok, %{settings: %{keeptopic: true}, topic: topic}} -> topic
+      {:ok, %{settings: %{topiclock: true}, topic: topic}} -> topic
+      {:ok, _registered_channel} -> nil
+      {:error, :registered_channel_not_found} -> nil
     end
   end
 

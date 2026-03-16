@@ -9,7 +9,9 @@ defmodule ElixIRCd.Commands.TopicTest do
 
   alias ElixIRCd.Commands.Topic
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.RegisteredChannel
 
   describe "handle/2" do
     test "handles TOPIC command with user not registered" do
@@ -114,6 +116,69 @@ defmodule ElixIRCd.Commands.TopicTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 482 #{user.nick} #{channel.name} :You're not a channel operator\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks direct TOPIC changes when ChanServ TOPICLOCK is enabled" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "member")
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+
+        insert(:registered_channel,
+          name: channel.name,
+          founder: "founder",
+          settings: %{RegisteredChannel.Settings.new() | topiclock: true}
+        )
+
+        message = %Message{command: "TOPIC", params: [channel.name], trailing: "Locked topic"}
+        assert :ok = Topic.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 482 #{user.nick} #{channel.name} :Topic changes are restricted by ChanServ\r\n"}
+        ])
+      end)
+    end
+
+    test "allows TOPIC changes for users with ChanServ T access on TOPICLOCK channels and syncs the registered topic" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "helper")
+        channel = insert(:channel, modes: [])
+        insert(:user_channel, user: user, channel: channel)
+
+        insert(:registered_channel,
+          name: channel.name,
+          founder: "founder",
+          settings: %{RegisteredChannel.Settings.new() | topiclock: true}
+        )
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "T")
+
+        message = %Message{command: "TOPIC", params: [channel.name], trailing: "Locked topic"}
+        assert :ok = Topic.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :Locked topic\r\n"}
+        ])
+
+        {:ok, registered_channel} = RegisteredChannels.get_by_name(channel.name)
+        assert registered_channel.topic.text == "Locked topic"
+      end)
+    end
+
+    test "uses normal channel operator checks when a registered channel is not TOPICLOCKed" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["t"])
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:registered_channel, name: channel.name, founder: "founder")
+
+        message = %Message{command: "TOPIC", params: [channel.name], trailing: "Operator topic"}
+        assert :ok = Topic.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} TOPIC #{channel.name} :Operator topic\r\n"}
         ])
       end)
     end

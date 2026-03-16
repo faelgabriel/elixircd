@@ -192,6 +192,26 @@ defmodule ElixIRCd.Utils.Chanserv.Flags do
   end
 
   @doc """
+  Returns whether an account may use ChanServ topic management commands.
+  """
+  @spec can_use_topic(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) ::
+          permission_result()
+  def can_use_topic(channel, account_name, access_entries) do
+    (founder?(channel, account_name) or has_flag?(channel, account_name, "T", access_entries))
+    |> permission_result()
+  end
+
+  @doc """
+  Returns whether an account may use ChanServ moderation commands.
+  """
+  @spec can_use_moderation(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) ::
+          permission_result()
+  def can_use_moderation(channel, account_name, access_entries) do
+    (founder?(channel, account_name) or has_flag?(channel, account_name, "S", access_entries))
+    |> permission_result()
+  end
+
+  @doc """
   Returns a numeric access rank suitable for comparing privileges.
   """
   @spec access_rank(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) :: non_neg_integer()
@@ -216,6 +236,21 @@ defmodule ElixIRCd.Utils.Chanserv.Flags do
     Enum.into(access_entries, %{}, fn {account_name, flags} ->
       {account_name, flags |> String.upcase() |> normalize_flags()}
     end)
+  end
+
+  @doc """
+  Returns the desired live channel modes for an account after a ChanServ SYNC.
+  """
+  @spec desired_channel_modes(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) :: [
+          String.t()
+        ]
+  def desired_channel_modes(channel, account_name, access_entries) do
+    cond do
+      founder?(channel, account_name) -> ["o"]
+      has_flag?(channel, account_name, "S", access_entries) -> ["o"]
+      has_flag?(channel, account_name, "V", access_entries) -> ["v"]
+      true -> []
+    end
   end
 
   @spec has_any_flag?(RegisteredChannel.t(), String.t() | nil, [String.t()], %{optional(String.t()) => String.t()}) ::

@@ -120,13 +120,34 @@ defmodule ElixIRCd.Services.Chanserv.StatusTest do
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :The nickname \x02missing\x02 is not registered.\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :The nickname \x02missing\x02 is neither registered nor identified.\r\n"}
         ])
 
         assert :ok = Status.handle(user, ["STATUS", "#missing", founder.nickname])
 
         assert_sent_messages([
           {user.pid, ":ChanServ!service@irc.test NOTICE #{user.nick} :Channel \x02#missing\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
+
+    test "resolves online identified users without a registered nickname alias" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "founder")
+        online_helper = insert(:user, nick: "LiveHelper", identified_as: "helper")
+        insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access,
+          channel_name: "#testchannel",
+          account_name: "helper",
+          flags: "VAF"
+        )
+
+        assert :ok = Status.handle(user, ["STATUS", "#testchannel", online_helper.nick])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Status for \x02helper\x02 on \x02#testchannel\x02: level 3 (flags \x02VAF\x02)\r\n"}
         ])
       end)
     end

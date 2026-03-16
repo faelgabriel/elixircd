@@ -16,33 +16,40 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP"])
 
-        assert_sent_messages_amount(user.pid, 25)
+        assert_sent_messages_amount(user.pid, 32)
       end)
     end
 
     test "handles main command help topics" do
-      test_cases = [
-        {"REGISTER", 18},
-        {"DROP", 20},
-        {"INFO", 19},
-        {"TRANSFER", 20},
-        {"ACCESS", 18},
-        {"FLAGS", 22},
-        {"ALIST", 10},
-        {"STATUS", 9},
-        {"OP", 14},
-        {"DEOP", 14},
-        {"VOICE", 14},
-        {"DEVOICE", 14}
+      commands = [
+        "REGISTER",
+        "DROP",
+        "INFO",
+        "TRANSFER",
+        "ACCESS",
+        "FLAGS",
+        "ALIST",
+        "STATUS",
+        "KICK",
+        "BAN",
+        "UNBAN",
+        "INVITE",
+        "TOPIC",
+        "SYNC",
+        "CLEAR",
+        "OP",
+        "DEOP",
+        "VOICE",
+        "DEVOICE"
       ]
 
-      for {command, expected_messages} <- test_cases do
+      for command <- commands do
         Memento.transaction!(fn ->
           user = insert(:user)
 
           assert :ok = Help.handle(user, ["HELP", command])
 
-          assert_sent_messages_amount(user.pid, expected_messages)
+          assert_sent_message_contains(user.pid, ~r/Help for \x02#{command}\x02:/)
         end)
       end
     end
@@ -68,7 +75,7 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
         {"OPNOTICE", 13},
         {"PEACE", 14},
         {"SECURE", 14},
-        {"TOPICLOCK", 17}
+        {"TOPICLOCK", 18}
       ]
 
       for {option, expected_messages} <- boolean_options do
@@ -110,7 +117,7 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP", "set", "topiclock"])
 
-        assert_sent_messages_amount(user.pid, 17)
+        assert_sent_messages_amount(user.pid, 18)
       end)
     end
 

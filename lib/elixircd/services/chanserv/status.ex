@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Chanserv.Status do
   alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Chanserv.Flags
 
@@ -42,12 +43,12 @@ defmodule ElixIRCd.Services.Chanserv.Status do
   end
 
   def handle(user, [@command_name, channel_name, nickname]) do
-    case RegisteredNicks.get_by_nickname(nickname) do
+    case resolve_account_name(nickname) do
       {:ok, registered_nick} ->
-        show_status(user, channel_name, registered_nick.account_name)
+        show_status(user, channel_name, registered_nick)
 
-      {:error, :registered_nick_not_found} ->
-        notify(user, "The nickname \x02#{nickname}\x02 is not registered.")
+      {:error, :account_not_resolved} ->
+        notify(user, "The nickname \x02#{nickname}\x02 is neither registered nor identified.")
     end
   end
 
@@ -70,6 +71,20 @@ defmodule ElixIRCd.Services.Chanserv.Status do
 
       {:error, :registered_channel_not_found} ->
         notify(user, "Channel \x02#{channel_name}\x02 is not registered.")
+    end
+  end
+
+  @spec resolve_account_name(String.t()) :: {:ok, String.t()} | {:error, :account_not_resolved}
+  defp resolve_account_name(nickname) do
+    case RegisteredNicks.get_by_nickname(nickname) do
+      {:ok, registered_nick} ->
+        {:ok, registered_nick.account_name}
+
+      {:error, :registered_nick_not_found} ->
+        case Users.get_by_nick(nickname) do
+          {:ok, %{identified_as: identified_as}} when not is_nil(identified_as) -> {:ok, identified_as}
+          _ -> {:error, :account_not_resolved}
+        end
     end
   end
 

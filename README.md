@@ -337,14 +337,14 @@ ChanServ allows users to register and manage channels, providing channel adminis
 - **DEOP**: Remove operator status from a user in the channel. ✅
 - **VOICE**: Grant voice status to a user in the channel. ✅
 - **DEVOICE**: Remove voice status from a user in the channel. ✅
-- **KICK**: Kick a user from the channel. ❌
-- **BAN**: Ban a user or hostmask from the channel. ❌
-- **UNBAN**: Remove a ban on a user or hostmask. ❌
-- **INVITE**: Invite a user to the channel. ❌
-- **TOPIC**: Change the channel topic. ❌
-- **CLEAR**: Clear various channel settings (modes, bans, ops, etc.). ❌
-- **STATUS**: Check a user's access level in the channel. ✴️
-- **SYNC**: Synchronize channel modes with the access list. ❌
+- **KICK**: Kick a user from the channel. ✅
+- **BAN**: Ban a user or hostmask from the channel. ✅
+- **UNBAN**: Remove a ban on a user or hostmask. ✅
+- **INVITE**: Invite a user to the channel. ✅
+- **TOPIC**: Change the channel topic. ✅
+- **CLEAR**: Clear various channel settings (modes, bans, ops, etc.). ✅
+- **STATUS**: Check a user's access level in the channel. ✅
+- **SYNC**: Synchronize channel modes with the access list. ✅
 
 ### IRCv3 Specifications
 

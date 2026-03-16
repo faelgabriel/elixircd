@@ -203,17 +203,25 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
-        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        insert(:registered_channel,
+          name: channel_name,
+          founder: "founder",
+          settings: Settings.new(%{keeptopic: false})
+        )
 
         assert :ok = Set.handle(user, ["SET", channel_name, "TOPICLOCK", "ON"])
 
         assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2KEEPTOPIC\2 option for \2#{channel_name}\2 is now \2ON\2\r\n"},
           {user.pid,
            ":ChanServ!service@irc.test NOTICE #{user.nick} :\2TOPICLOCK\2 option for \2#{channel_name}\2 is now \2ON\2\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
         assert channel.settings.topiclock == true
+        assert channel.settings.keeptopic == true
 
         assert :ok = Set.handle(user, ["SET", channel_name, "TOPICLOCK"])
 
@@ -241,11 +249,40 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       end)
     end
 
+    test "handles TOPICLOCK ON when KEEPTOPIC is already enabled" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+
+        insert(:registered_channel,
+          name: channel_name,
+          founder: "founder",
+          settings: Settings.new(%{keeptopic: true})
+        )
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "TOPICLOCK", "ON"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2TOPICLOCK\2 option for \2#{channel_name}\2 is now \2ON\2\r\n"}
+        ])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.settings.keeptopic == true
+        assert channel.settings.topiclock == true
+      end)
+    end
+
     test "handles KEEPTOPIC setting" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
-        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        insert(:registered_channel,
+          name: channel_name,
+          founder: "founder",
+          settings: Settings.new(%{topiclock: true})
+        )
 
         assert :ok = Set.handle(user, ["SET", channel_name, "KEEPTOPIC", "ON"])
 
@@ -261,11 +298,14 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2KEEPTOPIC\2 option for \2#{channel_name}\2 is now \2OFF\2\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2KEEPTOPIC\2 option for \2#{channel_name}\2 is now \2OFF\2\r\n"},
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2TOPICLOCK\2 option for \2#{channel_name}\2 is now \2OFF\2\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
         assert channel.settings.keeptopic == false
+        assert channel.settings.topiclock == false
 
         assert :ok = Set.handle(user, ["SET", channel_name, "KEEPTOPIC", "INVALID"])
 
@@ -273,6 +313,30 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
           {user.pid,
            ":ChanServ!service@irc.test NOTICE #{user.nick} :\2INVALID\2 is not a valid setting for \2KEEPTOPIC\2. Use \2ON\2 or \2OFF\2.\r\n"}
         ])
+      end)
+    end
+
+    test "handles KEEPTOPIC OFF when TOPICLOCK is already disabled" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+
+        insert(:registered_channel,
+          name: channel_name,
+          founder: "founder",
+          settings: Settings.new(%{keeptopic: true, topiclock: false})
+        )
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "KEEPTOPIC", "OFF"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2KEEPTOPIC\2 option for \2#{channel_name}\2 is now \2OFF\2\r\n"}
+        ])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.settings.keeptopic == false
+        assert channel.settings.topiclock == false
       end)
     end
 

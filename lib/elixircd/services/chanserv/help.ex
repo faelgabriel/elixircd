@@ -33,6 +33,13 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   defp send_help_for_command(user, "FLAGS"), do: send_flags_help(user)
   defp send_help_for_command(user, "ALIST"), do: send_alist_help(user)
   defp send_help_for_command(user, "STATUS"), do: send_status_help(user)
+  defp send_help_for_command(user, "KICK"), do: send_kick_help(user)
+  defp send_help_for_command(user, "BAN"), do: send_ban_help(user)
+  defp send_help_for_command(user, "UNBAN"), do: send_unban_help(user)
+  defp send_help_for_command(user, "INVITE"), do: send_invite_help(user)
+  defp send_help_for_command(user, "TOPIC"), do: send_topic_help(user)
+  defp send_help_for_command(user, "SYNC"), do: send_sync_help(user)
+  defp send_help_for_command(user, "CLEAR"), do: send_clear_help(user)
   defp send_help_for_command(user, "OP"), do: send_op_help(user)
   defp send_help_for_command(user, "DEOP"), do: send_deop_help(user)
   defp send_help_for_command(user, "VOICE"), do: send_voice_help(user)
@@ -73,6 +80,13 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02FLAGS        \x02- Manage symbolic channel flags.",
       "\x02ALIST        \x02- List channels with ChanServ access.",
       "\x02STATUS       \x02- Show an account's access on a channel.",
+      "\x02KICK         \x02- Kick users from a channel.",
+      "\x02BAN          \x02- Set a channel ban through ChanServ.",
+      "\x02UNBAN        \x02- Remove channel bans through ChanServ.",
+      "\x02INVITE       \x02- Invite users through ChanServ.",
+      "\x02TOPIC        \x02- View or change the registered topic.",
+      "\x02SYNC         \x02- Synchronize live channel status with access.",
+      "\x02CLEAR        \x02- Clear bans, flags, or users from a channel.",
       "\x02OP           \x02- Grant operator status in a channel.",
       "\x02DEOP         \x02- Remove operator status in a channel.",
       "\x02VOICE        \x02- Grant voice status in a channel.",
@@ -520,6 +534,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "SET TOPICLOCK causes ChanServ to revert topic changes by users",
       "without the +t flag. Topic changes during netsplits or services",
       "outages will always be reverted.",
+      "Enabling TOPICLOCK also enables KEEPTOPIC automatically.",
       "",
       "\x02ON\x02  - Only users with the +t flag can change the topic",
       "\x02OFF\x02 - Anyone can change the topic if channel mode allows it",
@@ -637,7 +652,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "    \x02A\x02 - Manage ACCESS entries",
       "    \x02F\x02 - Manage FLAGS entries",
       "    \x02S\x02 - Use ChanServ OP and DEOP",
-      "    \x02T\x02 - Reserved for future founder-style actions",
+      "    \x02T\x02 - Manage topics on TOPICLOCK channels",
       "",
       "You may replace the whole flag set (\x02VAF\x02), add flags",
       "incrementally (\x02+AF\x02), remove flags (\x02-F\x02), or",
@@ -687,6 +702,105 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "Examples:",
       "    \x02/msg ChanServ STATUS #mychannel\x02",
       "    \x02/msg ChanServ STATUS #mychannel helper\x02"
+    ])
+  end
+
+  @spec send_kick_help(User.t()) :: :ok
+  defp send_kick_help(user) do
+    notify(user, [
+      "Help for \x02KICK\x02:",
+      format_help("KICK", ["<channel> <nickname|mask> [reason]"], "Kicks one or more users from a channel."),
+      "",
+      "KICK removes the selected nickname, or all users matching",
+      "a hostmask, from a registered channel that is currently in use.",
+      "",
+      "You must be identified with NickServ and have the \x02S\x02 flag",
+      "on the channel, or be the founder."
+    ])
+  end
+
+  @spec send_ban_help(User.t()) :: :ok
+  defp send_ban_help(user) do
+    notify(user, [
+      "Help for \x02BAN\x02:",
+      format_help("BAN", ["<channel> <nickname|mask>"], "Adds a ban to a live channel."),
+      "",
+      "If a nickname is given and is online, ChanServ converts it",
+      "to a full ban mask before setting +b on the channel.",
+      "",
+      "You must be identified with NickServ and have the \x02S\x02 flag",
+      "on the channel, or be the founder."
+    ])
+  end
+
+  @spec send_unban_help(User.t()) :: :ok
+  defp send_unban_help(user) do
+    notify(user, [
+      "Help for \x02UNBAN\x02:",
+      format_help("UNBAN", ["<channel> [nickname|mask]"], "Removes bans from a live channel."),
+      "",
+      "If no nickname or mask is given, your current nickname is used.",
+      "When a nickname is online, all matching bans for that user are removed.",
+      "",
+      "You must be identified with NickServ and have the \x02S\x02 flag",
+      "on the channel, or be the founder."
+    ])
+  end
+
+  @spec send_invite_help(User.t()) :: :ok
+  defp send_invite_help(user) do
+    notify(user, [
+      "Help for \x02INVITE\x02:",
+      format_help("INVITE", ["<channel> [nickname]"], "Invites a user to a live channel."),
+      "",
+      "If no nickname is given, your current nickname is invited.",
+      "ChanServ will also record an invite on +i channels.",
+      "",
+      "You must be identified with NickServ and have the \x02S\x02 flag",
+      "on the channel, or be the founder."
+    ])
+  end
+
+  @spec send_topic_help(User.t()) :: :ok
+  defp send_topic_help(user) do
+    notify(user, [
+      "Help for \x02TOPIC\x02:",
+      format_help("TOPIC", ["<channel> [topic|OFF]"], "Views or changes the registered topic."),
+      "",
+      "TOPIC updates the stored topic for a registered channel and",
+      "synchronizes the live channel topic if the channel is in use.",
+      "",
+      "You must be identified with NickServ and have the \x02T\x02 flag",
+      "on the channel, or be the founder."
+    ])
+  end
+
+  @spec send_sync_help(User.t()) :: :ok
+  defp send_sync_help(user) do
+    notify(user, [
+      "Help for \x02SYNC\x02:",
+      format_help("SYNC", ["<channel>"], "Synchronizes +o/+v with ChanServ access."),
+      "",
+      "SYNC removes stale live channel status and reapplies +o or +v",
+      "based on the registered founder and access list.",
+      "",
+      "You must be identified with NickServ and have the \x02S\x02 flag",
+      "on the channel, or be the founder."
+    ])
+  end
+
+  @spec send_clear_help(User.t()) :: :ok
+  defp send_clear_help(user) do
+    notify(user, [
+      "Help for \x02CLEAR\x02:",
+      format_help("CLEAR", ["<channel> {BANS|FLAGS|USERS}"], "Clears channel state managed by ChanServ."),
+      "",
+      "\x02BANS\x02  - Removes all +b/+e/+I entries from a live channel",
+      "\x02FLAGS\x02 - Removes all explicit ChanServ flags/access entries",
+      "\x02USERS\x02 - Kicks all users from a live channel",
+      "",
+      "CLEAR BANS and CLEAR USERS require the \x02S\x02 flag or founder",
+      "status. CLEAR FLAGS requires the \x02F\x02 flag or founder status."
     ])
   end
 

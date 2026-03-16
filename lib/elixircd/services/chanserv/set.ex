@@ -19,9 +19,8 @@ defmodule ElixIRCd.Services.Chanserv.Set do
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
-  def handle(%{identified_as: nil} = user, [@command_name | _]) do
-    notify(user, "You must be identified with NickServ to use this command.")
-  end
+  def handle(%{identified_as: nil} = user, [@command_name | _]),
+    do: notify(user, "You must be identified with NickServ to use this command.")
 
   def handle(user, [@command_name, channel_name, setting | args]) do
     setting = String.upcase(setting)
@@ -48,12 +47,15 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   @spec check_channel_ownership(User.t(), String.t()) ::
           {:ok, RegisteredChannel.t()} | {:error, :not_founder | :registered_channel_not_found}
   defp check_channel_ownership(user, channel_name) do
-    with {:ok, registered_channel} <- RegisteredChannels.get_by_name(channel_name) do
-      if registered_channel.founder == user.identified_as do
+    case RegisteredChannels.get_by_name(channel_name) do
+      {:ok, registered_channel} when registered_channel.founder == user.identified_as ->
         {:ok, registered_channel}
-      else
+
+      {:ok, _registered_channel} ->
         {:error, :not_founder}
-      end
+
+      {:error, :registered_channel_not_found} = error ->
+        error
     end
   end
 
@@ -88,47 +90,39 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   end
 
   @spec handle_guard(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_guard(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :guard, true)
-  end
+  defp handle_guard(user, registered_channel, ["ON"]), do: update_setting(user, registered_channel, :guard, true)
 
-  defp handle_guard(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :guard, false)
-  end
+  defp handle_guard(user, registered_channel, ["OFF"]), do: update_setting(user, registered_channel, :guard, false)
 
-  defp handle_guard(user, _registered_channel, [value]) do
-    notify(user, "\2#{value}\2 is not a valid setting for \2GUARD\2. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_guard(user, _registered_channel, [value]),
+    do: notify(user, "\2#{value}\2 is not a valid setting for \2GUARD\2. Use \2ON\2 or \2OFF\2.")
 
-  defp handle_guard(user, _registered_channel, _) do
-    notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_guard(user, _registered_channel, _), do: notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
 
   @spec handle_keeptopic(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_keeptopic(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :keeptopic, true)
+  defp handle_keeptopic(user, registered_channel, ["ON"]),
+    do: update_setting(user, registered_channel, :keeptopic, true)
+
+  defp handle_keeptopic(user, %{settings: %{topiclock: true}} = registered_channel, ["OFF"]) do
+    update_settings(user, registered_channel, %{keeptopic: false, topiclock: false}, [
+      "\2KEEPTOPIC\2 option for \2#{registered_channel.name}\2 is now \2OFF\2",
+      "\2TOPICLOCK\2 option for \2#{registered_channel.name}\2 is now \2OFF\2"
+    ])
   end
 
-  defp handle_keeptopic(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :keeptopic, false)
-  end
+  defp handle_keeptopic(user, registered_channel, ["OFF"]),
+    do: update_setting(user, registered_channel, :keeptopic, false)
 
-  defp handle_keeptopic(user, _registered_channel, [value]) do
-    notify(user, "\2#{value}\2 is not a valid setting for \2KEEPTOPIC\2. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_keeptopic(user, _registered_channel, [value]),
+    do: notify(user, "\2#{value}\2 is not a valid setting for \2KEEPTOPIC\2. Use \2ON\2 or \2OFF\2.")
 
-  defp handle_keeptopic(user, _registered_channel, _) do
-    notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_keeptopic(user, _registered_channel, _),
+    do: notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
 
   @spec handle_private(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_private(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :private, true)
-  end
+  defp handle_private(user, registered_channel, ["ON"]), do: update_setting(user, registered_channel, :private, true)
 
-  defp handle_private(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :private, false)
-  end
+  defp handle_private(user, registered_channel, ["OFF"]), do: update_setting(user, registered_channel, :private, false)
 
   defp handle_private(user, _registered_channel, [value]) do
     notify(user, "\2#{value}\2 is not a valid setting for \2PRIVATE\2. Use \2ON\2 or \2OFF\2.")
@@ -139,13 +133,11 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   end
 
   @spec handle_restricted(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_restricted(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :restricted, true)
-  end
+  defp handle_restricted(user, registered_channel, ["ON"]),
+    do: update_setting(user, registered_channel, :restricted, true)
 
-  defp handle_restricted(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :restricted, false)
-  end
+  defp handle_restricted(user, registered_channel, ["OFF"]),
+    do: update_setting(user, registered_channel, :restricted, false)
 
   defp handle_restricted(user, _registered_channel, [value]) do
     notify(user, "\2#{value}\2 is not a valid setting for \2RESTRICTED\2. Use \2ON\2 or \2OFF\2.")
@@ -156,13 +148,9 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   end
 
   @spec handle_fantasy(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_fantasy(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :fantasy, true)
-  end
+  defp handle_fantasy(user, registered_channel, ["ON"]), do: update_setting(user, registered_channel, :fantasy, true)
 
-  defp handle_fantasy(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :fantasy, false)
-  end
+  defp handle_fantasy(user, registered_channel, ["OFF"]), do: update_setting(user, registered_channel, :fantasy, false)
 
   defp handle_fantasy(user, _registered_channel, [value]) do
     notify(user, "\2#{value}\2 is not a valid setting for \2FANTASY\2. Use \2ON\2 or \2OFF\2.")
@@ -253,9 +241,8 @@ defmodule ElixIRCd.Services.Chanserv.Set do
     end
   end
 
-  defp handle_entrymsg(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :entrymsg, nil)
-  end
+  defp handle_entrymsg(user, registered_channel, ["OFF"]),
+    do: update_setting(user, registered_channel, :entrymsg, nil)
 
   defp handle_entrymsg(user, registered_channel, message) do
     message_text = Enum.join(message, " ")
@@ -268,55 +255,37 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   end
 
   @spec handle_opnotice(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_opnotice(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :opnotice, true)
-  end
+  defp handle_opnotice(user, registered_channel, ["ON"]),
+    do: update_setting(user, registered_channel, :opnotice, true)
 
-  defp handle_opnotice(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :opnotice, false)
-  end
+  defp handle_opnotice(user, registered_channel, ["OFF"]),
+    do: update_setting(user, registered_channel, :opnotice, false)
 
-  defp handle_opnotice(user, _registered_channel, [value]) do
-    notify(user, "\2#{value}\2 is not a valid setting for \2OPNOTICE\2. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_opnotice(user, _registered_channel, [value]),
+    do: notify(user, "\2#{value}\2 is not a valid setting for \2OPNOTICE\2. Use \2ON\2 or \2OFF\2.")
 
-  defp handle_opnotice(user, _registered_channel, _) do
-    notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_opnotice(user, _registered_channel, _),
+    do: notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
 
   @spec handle_peace(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_peace(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :peace, true)
-  end
+  defp handle_peace(user, registered_channel, ["ON"]), do: update_setting(user, registered_channel, :peace, true)
 
-  defp handle_peace(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :peace, false)
-  end
+  defp handle_peace(user, registered_channel, ["OFF"]), do: update_setting(user, registered_channel, :peace, false)
 
-  defp handle_peace(user, _registered_channel, [value]) do
-    notify(user, "\2#{value}\2 is not a valid setting for \2PEACE\2. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_peace(user, _registered_channel, [value]),
+    do: notify(user, "\2#{value}\2 is not a valid setting for \2PEACE\2. Use \2ON\2 or \2OFF\2.")
 
-  defp handle_peace(user, _registered_channel, _) do
-    notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_peace(user, _registered_channel, _), do: notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
 
   @spec handle_secure(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
-  defp handle_secure(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :secure, true)
-  end
+  defp handle_secure(user, registered_channel, ["ON"]), do: update_setting(user, registered_channel, :secure, true)
 
-  defp handle_secure(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :secure, false)
-  end
+  defp handle_secure(user, registered_channel, ["OFF"]), do: update_setting(user, registered_channel, :secure, false)
 
-  defp handle_secure(user, _registered_channel, [value]) do
-    notify(user, "\2#{value}\2 is not a valid setting for \2SECURE\2. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_secure(user, _registered_channel, [value]),
+    do: notify(user, "\2#{value}\2 is not a valid setting for \2SECURE\2. Use \2ON\2 or \2OFF\2.")
 
-  defp handle_secure(user, _registered_channel, _) do
-    notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_secure(user, _registered_channel, _), do: notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
 
   @spec handle_topiclock(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
   defp handle_topiclock(user, registered_channel, []) do
@@ -326,13 +295,18 @@ defmodule ElixIRCd.Services.Chanserv.Set do
     end
   end
 
+  defp handle_topiclock(user, %{settings: %{keeptopic: true}} = registered_channel, ["ON"]),
+    do: update_setting(user, registered_channel, :topiclock, true)
+
   defp handle_topiclock(user, registered_channel, ["ON"]) do
-    update_setting(user, registered_channel, :topiclock, true)
+    update_settings(user, registered_channel, %{keeptopic: true, topiclock: true}, [
+      "\2KEEPTOPIC\2 option for \2#{registered_channel.name}\2 is now \2ON\2",
+      "\2TOPICLOCK\2 option for \2#{registered_channel.name}\2 is now \2ON\2"
+    ])
   end
 
-  defp handle_topiclock(user, registered_channel, ["OFF"]) do
-    update_setting(user, registered_channel, :topiclock, false)
-  end
+  defp handle_topiclock(user, registered_channel, ["OFF"]),
+    do: update_setting(user, registered_channel, :topiclock, false)
 
   defp handle_topiclock(user, _registered_channel, [value]) do
     notify(
@@ -341,9 +315,8 @@ defmodule ElixIRCd.Services.Chanserv.Set do
     )
   end
 
-  defp handle_topiclock(user, _registered_channel, _) do
-    notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
-  end
+  defp handle_topiclock(user, _registered_channel, _),
+    do: notify(user, "\2Invalid\2 value. Use \2ON\2 or \2OFF\2.")
 
   @spec handle_successor(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
   defp handle_successor(user, registered_channel, []) do
@@ -380,19 +353,28 @@ defmodule ElixIRCd.Services.Chanserv.Set do
 
   @spec update_setting(User.t(), RegisteredChannel.t(), atom(), any()) :: :ok
   defp update_setting(user, registered_channel, setting, value) do
-    updated_settings = RegisteredChannel.Settings.update(registered_channel.settings, %{setting => value})
+    update_settings(user, registered_channel, %{setting => value}, [
+      setting_message(registered_channel.name, setting, value)
+    ])
+  end
+
+  @spec update_settings(User.t(), RegisteredChannel.t(), map(), [String.t()]) :: :ok
+  defp update_settings(user, registered_channel, attrs, messages) do
+    updated_settings = RegisteredChannel.Settings.update(registered_channel.settings, attrs)
     RegisteredChannels.update(registered_channel, %{settings: updated_settings})
 
+    notify(user, messages)
+  end
+
+  @spec setting_message(String.t(), atom(), any()) :: String.t()
+  defp setting_message(channel_name, setting, value) do
     setting_name = setting |> to_string() |> String.upcase()
 
-    message =
-      case value do
-        true -> "\2#{setting_name}\2 option for \2#{registered_channel.name}\2 is now \2ON\2"
-        false -> "\2#{setting_name}\2 option for \2#{registered_channel.name}\2 is now \2OFF\2"
-        nil -> "\2#{setting_name}\2 for \2#{registered_channel.name}\2 has been unset"
-        _ -> "\2#{setting_name}\2 for \2#{registered_channel.name}\2 has been set to: \2#{value}\2"
-      end
-
-    notify(user, message)
+    case value do
+      true -> "\2#{setting_name}\2 option for \2#{channel_name}\2 is now \2ON\2"
+      false -> "\2#{setting_name}\2 option for \2#{channel_name}\2 is now \2OFF\2"
+      nil -> "\2#{setting_name}\2 for \2#{channel_name}\2 has been unset"
+      _ -> "\2#{setting_name}\2 for \2#{channel_name}\2 has been set to: \2#{value}\2"
+    end
   end
 end
