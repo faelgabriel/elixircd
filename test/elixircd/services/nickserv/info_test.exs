@@ -197,6 +197,24 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
       end)
     end
 
+    test "handles INFO command when grouped nick canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: "MissingAccount",
+          password_hash: Argon2.hash_pwd_salt("correct_password")
+        )
+
+        user = insert(:user)
+
+        assert :ok = Info.handle(user, ["INFO", "AliasNick"])
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
+
     test "email visibility respects complex privacy rules" do
       registered_nick =
         insert(:registered_nick,

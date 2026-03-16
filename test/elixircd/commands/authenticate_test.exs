@@ -338,6 +338,35 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       end)
     end
 
+    test "rejects authentication when grouped nick canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick,
+          nickname: "aliasuser",
+          account_name: "missingaccount",
+          password_hash: Argon2.hash_pwd_salt("password123")
+        )
+
+        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+
+        SaslSessions.create(%{
+          user_pid: user.pid,
+          mechanism: "PLAIN",
+          buffer: ""
+        })
+
+        credentials = Base.encode64("\0aliasuser\0password123")
+        message = %Message{command: "AUTHENTICATE", params: [credentials]}
+
+        assert :ok = Authenticate.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 904 * :SASL authentication failed\r\n"}
+        ])
+
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+      end)
+    end
+
     test "rejects authentication with non-existent user" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)

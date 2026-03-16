@@ -131,6 +131,26 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
       end)
     end
 
+    test "handles DROP command when canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            account_name: "MissingAccount",
+            password_hash: Argon2.hash_pwd_salt("correct_password")
+          )
+
+        user = insert(:user)
+
+        assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, "correct_password"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
+
     test "handles DROP command for non-identified user without providing password" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)

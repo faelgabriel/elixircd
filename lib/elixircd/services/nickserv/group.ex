@@ -163,7 +163,9 @@ defmodule ElixIRCd.Services.Nickserv.Group do
       settings: account_nick.settings
     })
 
-    migrate_account_state(previous_account_name, account_nick.account_name)
+    if previous_account_name != account_nick.account_name do
+      migrate_account_state(previous_account_name, account_nick.account_name)
+    end
 
     notify(user, [
       "Nick \x02#{registered_nick.nickname}\x02 has been grouped into account \x02#{account_nick.account_name}\x02.",
@@ -172,10 +174,6 @@ defmodule ElixIRCd.Services.Nickserv.Group do
   end
 
   @spec migrate_account_state(String.t(), String.t()) :: :ok
-  defp migrate_account_state(previous_account_name, new_account_name) when previous_account_name == new_account_name do
-    :ok
-  end
-
   defp migrate_account_state(previous_account_name, new_account_name) do
     move_access_entries(previous_account_name, new_account_name)
     move_channel_registrations(previous_account_name, new_account_name)

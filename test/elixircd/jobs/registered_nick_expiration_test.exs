@@ -111,6 +111,24 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpirationTest do
       end)
     end
 
+    test "expires grouped nick when canonical account record is missing", %{job: job} do
+      current_time = DateTime.utc_now()
+      nick_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90
+      expired_time = DateTime.add(current_time, -(nick_expire_days + 1), :day)
+
+      insert(:registered_nick, %{
+        nickname: "DanglingAlias",
+        account_name: "MissingPrimary",
+        last_seen_at: expired_time
+      })
+
+      RegisteredNickExpiration.run(job)
+
+      Memento.transaction!(fn ->
+        assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname("DanglingAlias")
+      end)
+    end
+
     test "schedule creates a job with correct parameters" do
       job = RegisteredNickExpiration.schedule()
 

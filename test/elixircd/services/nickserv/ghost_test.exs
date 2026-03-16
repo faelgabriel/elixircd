@@ -121,6 +121,27 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
       end)
     end
 
+    test "handles GHOST command when canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        target_user = insert(:user, nick: "AliasNick")
+
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: "MissingAccount",
+          password_hash: Argon2.hash_pwd_salt("correct_password")
+        )
+
+        user = insert(:user)
+
+        assert :ok = Ghost.handle(user, ["GHOST", target_user.nick, "correct_password"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{target_user.nick}\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
+
     test "handles GHOST command when user is already identified as the registered nick" do
       Memento.transaction!(fn ->
         target_pid = spawn_test_process()

@@ -131,5 +131,26 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
         ])
       end)
     end
+
+    test "handles RELEASE command when canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        reserved_until = DateTime.utc_now() |> DateTime.add(300)
+
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: "MissingAccount",
+          reserved_until: reserved_until,
+          password_hash: Argon2.hash_pwd_salt("correct_password")
+        )
+
+        user = insert(:user)
+
+        assert :ok = Release.handle(user, ["RELEASE", "AliasNick", "correct_password"])
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
   end
 end

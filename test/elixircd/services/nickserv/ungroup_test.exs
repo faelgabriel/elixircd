@@ -136,5 +136,19 @@ defmodule ElixIRCd.Services.Nickserv.UngroupTest do
         ])
       end)
     end
+
+    test "reports error when authenticated account cannot be resolved" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick, nickname: "AliasNick", account_name: "MissingAccount")
+        user = insert(:user, nick: "AliasNick", identified_as: "MissingAccount")
+
+        assert :ok = Ungroup.handle(user, ["UNGROUP"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Your account could not be resolved. Please try identifying again.\r\n"}
+        ])
+      end)
+    end
   end
 end

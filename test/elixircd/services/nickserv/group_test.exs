@@ -154,6 +154,32 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
       end)
     end
 
+    test "does not duplicate access entries already present on the destination account" do
+      Memento.transaction!(fn ->
+        account_nick = insert(:registered_nick, nickname: "AccountNick")
+        current_nick_password = "current_password"
+
+        standalone_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            password_hash: Argon2.hash_pwd_salt(current_nick_password)
+          )
+
+        insert(:nick_access, nickname: standalone_nick.nickname, mask: "*@shared.host")
+        insert(:nick_access, nickname: account_nick.nickname, mask: "*@shared.host")
+
+        user = insert(:user, nick: standalone_nick.nickname, identified_as: account_nick.nickname)
+
+        assert :ok = Group.handle(user, ["GROUP", current_nick_password])
+
+        matching_entries =
+          NickAccesses.get_by_account_name(account_nick.nickname)
+          |> Enum.filter(&(&1.mask == "*@shared.host"))
+
+        assert length(matching_entries) == 1
+      end)
+    end
+
     test "rejects grouping a registered current nick when the password is invalid" do
       Memento.transaction!(fn ->
         account_nick = insert(:registered_nick, nickname: "AccountNick")
@@ -165,6 +191,25 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
         assert_sent_messages([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Authentication failed. Invalid password for \x02AliasNick\x02.\r\n"}
+        ])
+      end)
+    end
+
+    test "rejects grouping when the current nick account cannot be resolved" do
+      Memento.transaction!(fn ->
+        account_nick = insert(:registered_nick, nickname: "AccountNick")
+        user = insert(:user, nick: "AliasNick", identified_as: account_nick.nickname)
+
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: "MissingAccount",
+          password_hash: Argon2.hash_pwd_salt("current_password")
+        )
+
+        assert :ok = Group.handle(user, ["GROUP", "current_password"])
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 is not registered.\r\n"}
         ])
       end)
     end

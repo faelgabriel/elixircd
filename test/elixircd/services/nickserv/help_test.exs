@@ -195,6 +195,39 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
       end)
     end
 
+    test "handles HELP command for GROUP" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "GROUP"])
+
+        assert_sent_message_contains(user.pid, ~r/Help for \x02GROUP\x02/)
+        assert_sent_message_contains(user.pid, ~r/Groups your current nickname into the account/)
+      end)
+    end
+
+    test "handles HELP command for UNGROUP" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "UNGROUP"])
+
+        assert_sent_message_contains(user.pid, ~r/Help for \x02UNGROUP\x02/)
+        assert_sent_message_contains(user.pid, ~r/Removes your current nickname from the account/)
+      end)
+    end
+
+    test "handles HELP command for LISTCHANS" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "LISTCHANS"])
+
+        assert_sent_message_contains(user.pid, ~r/Help for \x02LISTCHANS\x02/)
+        assert_sent_message_contains(user.pid, ~r/Lists registered channels where your account has persisted access/)
+      end)
+    end
+
     test "handles HELP command for FAQ" do
       Memento.transaction!(fn ->
         user = insert(:user)

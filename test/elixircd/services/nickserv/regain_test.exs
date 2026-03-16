@@ -89,6 +89,24 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
       end)
     end
 
+    test "handles REGAIN command when canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: "MissingAccount",
+          password_hash: Argon2.hash_pwd_salt("correct_password")
+        )
+
+        user = insert(:user)
+
+        assert :ok = Regain.handle(user, ["REGAIN", "AliasNick", "correct_password"])
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
+
     test "handles REGAIN command when user is already identified as the registered nick" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)

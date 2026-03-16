@@ -239,6 +239,25 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
       end)
     end
 
+    test "handles IDENTIFY command when grouped nick canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: "MissingAccount",
+          password_hash: Argon2.hash_pwd_salt("correct_password")
+        )
+
+        user = insert(:user, nick: "AliasNick")
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", "correct_password"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02AliasNick\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
+
     test "handles IDENTIFY command with primary nickname while using a grouped alias nick" do
       Memento.transaction!(fn ->
         password = "correct_password"

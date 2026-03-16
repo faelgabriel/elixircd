@@ -61,6 +61,19 @@ defmodule ElixIRCd.Utils.NickservTest do
   end
 
   describe "get_account_nick/1" do
+    test "resolves the canonical account record from a nickname" do
+      grouped_nick = build(:registered_nick, %{nickname: "AliasNick", account_name: "AccountNick"})
+      account_nick = build(:registered_nick, %{nickname: "AccountNick", account_name: "AccountNick"})
+
+      RegisteredNicks
+      |> expect(:get_by_nickname, 2, fn
+        "AliasNick" -> {:ok, grouped_nick}
+        "AccountNick" -> {:ok, account_nick}
+      end)
+
+      assert Nickserv.get_account_nick("AliasNick") == {:ok, account_nick}
+    end
+
     test "resolves the canonical account record from a grouped nick" do
       registered_nick = build(:registered_nick, %{nickname: "AliasNick", account_name: "AccountNick"})
       account_nick = build(:registered_nick, %{nickname: "AccountNick", account_name: "AccountNick"})
@@ -71,6 +84,15 @@ defmodule ElixIRCd.Utils.NickservTest do
       end)
 
       assert Nickserv.get_account_nick(registered_nick) == {:ok, account_nick}
+    end
+
+    test "returns error when nickname cannot be resolved" do
+      RegisteredNicks
+      |> expect(:get_by_nickname, fn "MissingNick" ->
+        {:error, :registered_nick_not_found}
+      end)
+
+      assert Nickserv.get_account_nick("MissingNick") == {:error, :registered_nick_not_found}
     end
   end
 

@@ -112,6 +112,24 @@ defmodule ElixIRCd.Services.Nickserv.RecoverTest do
       end)
     end
 
+    test "handles RECOVER command when canonical account cannot be resolved" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: "MissingAccount",
+          password_hash: Argon2.hash_pwd_salt("correct_password")
+        )
+
+        user = insert(:user)
+
+        assert :ok = Recover.handle(user, ["RECOVER", "AliasNick", "correct_password"])
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 is not registered.\r\n"}
+        ])
+      end)
+    end
+
     test "handles RECOVER command for trying to recover your own session" do
       Memento.transaction!(fn ->
         password = "correct_password"
