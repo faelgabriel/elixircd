@@ -22,7 +22,11 @@ defmodule ElixIRCd.Services.Chanserv do
     "ACCESS" => Chanserv.Access,
     "FLAGS" => Chanserv.Flags,
     "ALIST" => Chanserv.Alist,
-    "STATUS" => Chanserv.Status
+    "STATUS" => Chanserv.Status,
+    "OP" => Chanserv.Op,
+    "DEOP" => Chanserv.Deop,
+    "VOICE" => Chanserv.Voice,
+    "DEVOICE" => Chanserv.Devoice
   }
 
   @impl true

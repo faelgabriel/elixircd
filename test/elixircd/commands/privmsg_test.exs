@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
   alias ElixIRCd.Commands.Privmsg
   alias ElixIRCd.Message
   alias ElixIRCd.Service
+  alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
     test "handles PRIVMSG command with user not registered" do
@@ -182,6 +183,79 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
         assert_sent_messages([
           {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "dispatches fantasy ChanServ commands instead of broadcasting the message" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "helper")
+        channel = insert(:channel, name: "#testchannel")
+        settings = Settings.new(%{guard: true, fantasy: true})
+
+        insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
+        insert(:user_channel, user: user, channel: channel)
+
+        for {input, expected} <- [
+              {"!op AnotherNick", "OP"},
+              {"!deop AnotherNick", "DEOP"},
+              {"!voice AnotherNick", "VOICE"},
+              {"!devoice AnotherNick", "DEVOICE"}
+            ] do
+          message = %Message{command: "PRIVMSG", params: [channel.name], trailing: input}
+
+          Service
+          |> expect(:dispatch, fn dispatched_user, service, command_list ->
+            assert dispatched_user == user
+            assert service == "ChanServ"
+            assert command_list == [expected, channel.name, "AnotherNick"]
+            :ok
+          end)
+
+          assert :ok = Privmsg.handle(user, message)
+        end
+
+        assert_sent_messages_amount(user.pid, 0)
+        verify!()
+      end)
+    end
+
+    test "broadcasts unknown fantasy-like messages normally" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "helper")
+        another_user = insert(:user)
+        channel = insert(:channel, name: "#testchannel")
+        settings = Settings.new(%{guard: true, fantasy: true})
+
+        insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "!unknown test"}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :!unknown test\r\n"}
+        ])
+      end)
+    end
+
+    test "broadcasts empty fantasy-enabled channel messages normally" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "helper")
+        another_user = insert(:user)
+        channel = insert(:channel, name: "#testchannel")
+        settings = Settings.new(%{guard: true, fantasy: true})
+
+        insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: ""}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :\r\n"}
         ])
       end)
     end

@@ -49,8 +49,14 @@ defmodule ElixIRCd.Utils.Chanserv.FlagsTest do
       assert Flags.flags_for_account(channel, "founder", access_entries) == "VAFST"
       assert Flags.can_manage_access(channel, "founder", access_entries) == :ok
       assert Flags.can_manage_flags(channel, "founder", access_entries) == :ok
+      assert Flags.can_use_op(channel, "founder", access_entries) == :ok
+      assert Flags.can_use_voice(channel, "helper", access_entries) == :ok
       assert Flags.can_view_privileged_info(channel, "helper", access_entries) == :ok
       assert Flags.can_manage_flags(channel, "helper", access_entries) == {:error, :access_denied}
+      assert Flags.can_use_op(channel, "helper", access_entries) == {:error, :access_denied}
+
+      assert Flags.access_rank(channel, "founder", access_entries) >
+               Flags.access_rank(channel, "helper", access_entries)
     end
 
     test "handles nil and normalizes persisted access entries" do
@@ -63,6 +69,7 @@ defmodule ElixIRCd.Utils.Chanserv.FlagsTest do
       assert Flags.can_view_privileged_info(channel, "guest", access_entries) == {:error, :access_denied}
       assert Flags.valid_flag_string?("VAF")
       refute Flags.valid_flag_string?("VFZ")
+      assert Flags.access_rank(channel, "weird", %{"weird" => "Z"}) == 0
     end
   end
 end

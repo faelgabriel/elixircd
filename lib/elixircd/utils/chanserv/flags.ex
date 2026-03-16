@@ -172,6 +172,43 @@ defmodule ElixIRCd.Utils.Chanserv.Flags do
   end
 
   @doc """
+  Returns whether an account may use ChanServ OP and DEOP.
+  """
+  @spec can_use_op(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) ::
+          permission_result()
+  def can_use_op(channel, account_name, access_entries) do
+    (founder?(channel, account_name) or has_flag?(channel, account_name, "S", access_entries))
+    |> permission_result()
+  end
+
+  @doc """
+  Returns whether an account may use ChanServ VOICE and DEVOICE.
+  """
+  @spec can_use_voice(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) ::
+          permission_result()
+  def can_use_voice(channel, account_name, access_entries) do
+    (founder?(channel, account_name) or has_flag?(channel, account_name, "V", access_entries))
+    |> permission_result()
+  end
+
+  @doc """
+  Returns a numeric access rank suitable for comparing privileges.
+  """
+  @spec access_rank(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) :: non_neg_integer()
+  def access_rank(channel, account_name, access_entries) do
+    flags_for_account(channel, account_name, access_entries)
+    |> String.graphemes()
+    |> Enum.reduce(0, fn
+      "V", acc -> acc + 1
+      "A", acc -> acc + 2
+      "F", acc -> acc + 4
+      "S", acc -> acc + 8
+      "T", acc -> acc + 16
+      _flag, acc -> acc
+    end)
+  end
+
+  @doc """
   Canonicalizes a map of persisted access entries.
   """
   @spec normalize_access_entries(%{optional(String.t()) => String.t()}) :: %{optional(String.t()) => String.t()}

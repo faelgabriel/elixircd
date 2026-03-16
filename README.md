@@ -333,10 +333,10 @@ ChanServ allows users to register and manage channels, providing channel adminis
 - **ACCESS**: Manage the channel access list. ✅
 - **ALIST**: Display channel access list entries. ✅
 - **FLAGS**: Manage user flags and permissions for the channel. ✅
-- **OP**: Grant operator status to a user in the channel. ❌
-- **DEOP**: Remove operator status from a user in the channel. ❌
-- **VOICE**: Grant voice status to a user in the channel. ❌
-- **DEVOICE**: Remove voice status from a user in the channel. ❌
+- **OP**: Grant operator status to a user in the channel. ✅
+- **DEOP**: Remove operator status from a user in the channel. ✅
+- **VOICE**: Grant voice status to a user in the channel. ✅
+- **DEVOICE**: Remove voice status from a user in the channel. ✅
 - **KICK**: Kick a user from the channel. ❌
 - **BAN**: Ban a user or hostmask from the channel. ❌
 - **UNBAN**: Remove a ban on a user or hostmask. ❌

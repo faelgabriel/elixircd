@@ -16,7 +16,7 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP"])
 
-        assert_sent_messages_amount(user.pid, 21)
+        assert_sent_messages_amount(user.pid, 25)
       end)
     end
 
@@ -29,7 +29,11 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
         {"ACCESS", 18},
         {"FLAGS", 22},
         {"ALIST", 10},
-        {"STATUS", 9}
+        {"STATUS", 9},
+        {"OP", 14},
+        {"DEOP", 14},
+        {"VOICE", 14},
+        {"DEVOICE", 14}
       ]
 
       for {command, expected_messages} <- test_cases do

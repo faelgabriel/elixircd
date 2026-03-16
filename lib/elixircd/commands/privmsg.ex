@@ -17,6 +17,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
@@ -42,6 +43,7 @@ defmodule ElixIRCd.Commands.Privmsg do
     message_text = extract_message_text(message)
 
     cond do
+      fantasy_command_message?(target, message_text) -> handle_fantasy_channel_message(user, target, message_text)
       channel_name?(target) -> handle_channel_message(user, target, message_text)
       service_name?(target) -> handle_service_message(user, target, message)
       true -> handle_user_message(user, target, message_text)
@@ -55,18 +57,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok
   defp handle_channel_message(user, channel_name, message_text) do
-    user_channel =
-      UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
-      |> case do
-        {:ok, user_channel} -> user_channel
-        {:error, :user_channel_not_found} -> nil
-      end
-
-    with {:ok, channel} <- Channels.get_by_name(channel_name),
-         :ok <- check_user_channel_modes(channel, user, user_channel),
-         :ok <- check_registered_only_speak(channel, user, user_channel),
-         :ok <- check_ctcp(channel, user, user_channel, message_text),
-         :ok <- check_formatting(channel, user, message_text) do
+    with_channel_message_permissions(user, channel_name, message_text, fn channel, _user_channel ->
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
@@ -76,6 +67,31 @@ defmodule ElixIRCd.Commands.Privmsg do
 
       %Message{command: "PRIVMSG", params: [channel.name], trailing: message_text}
       |> Dispatcher.broadcast_with_echo(user, users)
+    end)
+  end
+
+  @spec handle_fantasy_channel_message(User.t(), String.t(), String.t()) :: :ok
+  defp handle_fantasy_channel_message(user, channel_name, message_text) do
+    with_channel_message_permissions(user, channel_name, message_text, fn channel, _user_channel ->
+      Service.dispatch(user, "ChanServ", fantasy_command_list(channel.name, message_text))
+    end)
+  end
+
+  @spec with_channel_message_permissions(
+          User.t(),
+          String.t(),
+          String.t(),
+          (Channel.t(), UserChannel.t() | nil -> :ok)
+        ) :: :ok
+  defp with_channel_message_permissions(user, channel_name, message_text, on_success) do
+    user_channel = get_user_channel(user.pid, channel_name)
+
+    with {:ok, channel} <- Channels.get_by_name(channel_name),
+         :ok <- check_user_channel_modes(channel, user, user_channel),
+         :ok <- check_registered_only_speak(channel, user, user_channel),
+         :ok <- check_ctcp(channel, user, user_channel, message_text),
+         :ok <- check_formatting(channel, user, message_text) do
+      on_success.(channel, user_channel)
     else
       {:error, :channel_not_found} ->
         %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
@@ -116,6 +132,55 @@ defmodule ElixIRCd.Commands.Privmsg do
           trailing: "You must be identified to speak in this channel (+M)"
         }
         |> Dispatcher.broadcast(:server, user)
+    end
+  end
+
+  @spec get_user_channel(pid(), String.t()) :: UserChannel.t() | nil
+  defp get_user_channel(user_pid, channel_name) do
+    case UserChannels.get_by_user_pid_and_channel_name(user_pid, channel_name) do
+      {:ok, user_channel} -> user_channel
+      {:error, :user_channel_not_found} -> nil
+    end
+  end
+
+  @spec fantasy_command_message?(String.t(), String.t()) :: boolean()
+  defp fantasy_command_message?(target, message_text) do
+    channel_name?(target) and fantasy_enabled?(target) and not is_nil(fantasy_command_list(target, message_text))
+  end
+
+  @spec fantasy_enabled?(String.t()) :: boolean()
+  defp fantasy_enabled?(channel_name) do
+    case RegisteredChannels.get_by_name(channel_name) do
+      {:ok, registered_channel} ->
+        registered_channel.settings.guard and registered_channel.settings.fantasy
+
+      {:error, :registered_channel_not_found} ->
+        false
+    end
+  end
+
+  @spec fantasy_command_list(String.t(), String.t()) :: [String.t()] | nil
+  defp fantasy_command_list(channel_name, message_text) do
+    case String.split(message_text, ~r/\s+/, trim: true) do
+      [command | args] ->
+        case normalize_fantasy_command(command) do
+          nil -> nil
+          mapped_command -> [mapped_command, channel_name | args]
+        end
+
+      [] ->
+        nil
+    end
+  end
+
+  @spec normalize_fantasy_command(String.t()) :: String.t() | nil
+  defp normalize_fantasy_command(command) do
+    case String.upcase(command) do
+      "!OP" -> "OP"
+      "!DEOP" -> "DEOP"
+      "!VOICE" -> "VOICE"
+      "!DEVOICE" -> "DEVOICE"
+      _unknown_command -> nil
     end
   end
 

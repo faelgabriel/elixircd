@@ -33,6 +33,10 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   defp send_help_for_command(user, "FLAGS"), do: send_flags_help(user)
   defp send_help_for_command(user, "ALIST"), do: send_alist_help(user)
   defp send_help_for_command(user, "STATUS"), do: send_status_help(user)
+  defp send_help_for_command(user, "OP"), do: send_op_help(user)
+  defp send_help_for_command(user, "DEOP"), do: send_deop_help(user)
+  defp send_help_for_command(user, "VOICE"), do: send_voice_help(user)
+  defp send_help_for_command(user, "DEVOICE"), do: send_devoice_help(user)
   defp send_help_for_command(user, "SET GUARD"), do: send_set_guard_help(user)
   defp send_help_for_command(user, "SET KEEPTOPIC"), do: send_set_keeptopic_help(user)
   defp send_help_for_command(user, "SET PRIVATE"), do: send_set_private_help(user)
@@ -69,6 +73,10 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02FLAGS        \x02- Manage symbolic channel flags.",
       "\x02ALIST        \x02- List channels with ChanServ access.",
       "\x02STATUS       \x02- Show an account's access on a channel.",
+      "\x02OP           \x02- Grant operator status in a channel.",
+      "\x02DEOP         \x02- Remove operator status in a channel.",
+      "\x02VOICE        \x02- Grant voice status in a channel.",
+      "\x02DEVOICE      \x02- Remove voice status in a channel.",
       " ",
       "For more information on a command, type:",
       "\x02/msg ChanServ HELP <command>\x02",
@@ -628,8 +636,8 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "    \x02V\x02 - View privileged channel information",
       "    \x02A\x02 - Manage ACCESS entries",
       "    \x02F\x02 - Manage FLAGS entries",
-      "    \x02S\x02 - Reserved for ChanServ SET style management",
-      "    \x02T\x02 - Reserved for transfer-style management",
+      "    \x02S\x02 - Use ChanServ OP and DEOP",
+      "    \x02T\x02 - Reserved for future founder-style actions",
       "",
       "You may replace the whole flag set (\x02VAF\x02), add flags",
       "incrementally (\x02+AF\x02), remove flags (\x02-F\x02), or",
@@ -679,6 +687,102 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "Examples:",
       "    \x02/msg ChanServ STATUS #mychannel\x02",
       "    \x02/msg ChanServ STATUS #mychannel helper\x02"
+    ])
+  end
+
+  @spec send_op_help(User.t()) :: :ok
+  defp send_op_help(user) do
+    notify(user, [
+      "Help for \x02OP\x02:",
+      format_help(
+        "OP",
+        ["<channel> [nickname]"],
+        "Grants channel operator status through ChanServ."
+      ),
+      "",
+      "This command grants +o to the selected nickname on a",
+      "registered channel that is currently in use.",
+      "",
+      "You must be identified with NickServ and have the \x02S\x02 flag",
+      "on the channel, or be the founder.",
+      "",
+      "If no nickname is given, your current nickname is used.",
+      "",
+      "Example:",
+      "    \x02/msg ChanServ OP #mychannel\x02",
+      "    \x02/msg ChanServ OP #mychannel helper\x02"
+    ])
+  end
+
+  @spec send_deop_help(User.t()) :: :ok
+  defp send_deop_help(user) do
+    notify(user, [
+      "Help for \x02DEOP\x02:",
+      format_help(
+        "DEOP",
+        ["<channel> [nickname]"],
+        "Removes channel operator status through ChanServ."
+      ),
+      "",
+      "This command removes +o from the selected nickname on a",
+      "registered channel that is currently in use.",
+      "",
+      "You must be identified with NickServ and have the \x02S\x02 flag",
+      "on the channel, or be the founder.",
+      "",
+      "If no nickname is given, your current nickname is used.",
+      "",
+      "Example:",
+      "    \x02/msg ChanServ DEOP #mychannel\x02",
+      "    \x02/msg ChanServ DEOP #mychannel helper\x02"
+    ])
+  end
+
+  @spec send_voice_help(User.t()) :: :ok
+  defp send_voice_help(user) do
+    notify(user, [
+      "Help for \x02VOICE\x02:",
+      format_help(
+        "VOICE",
+        ["<channel> [nickname]"],
+        "Grants channel voice status through ChanServ."
+      ),
+      "",
+      "This command grants +v to the selected nickname on a",
+      "registered channel that is currently in use.",
+      "",
+      "You must be identified with NickServ and have the \x02V\x02 flag",
+      "on the channel, or be the founder.",
+      "",
+      "If no nickname is given, your current nickname is used.",
+      "",
+      "Example:",
+      "    \x02/msg ChanServ VOICE #mychannel\x02",
+      "    \x02/msg ChanServ VOICE #mychannel helper\x02"
+    ])
+  end
+
+  @spec send_devoice_help(User.t()) :: :ok
+  defp send_devoice_help(user) do
+    notify(user, [
+      "Help for \x02DEVOICE\x02:",
+      format_help(
+        "DEVOICE",
+        ["<channel> [nickname]"],
+        "Removes channel voice status through ChanServ."
+      ),
+      "",
+      "This command removes +v from the selected nickname on a",
+      "registered channel that is currently in use.",
+      "",
+      "You must be identified with NickServ and have the \x02V\x02 flag",
+      "on the channel, or be the founder.",
+      "",
+      "If no nickname is given, your current nickname is used.",
+      "",
+      "Example:",
+      "    \x02/msg ChanServ DEVOICE #mychannel\x02",
+      "    \x02/msg ChanServ DEVOICE #mychannel helper\x02"
     ])
   end
 
