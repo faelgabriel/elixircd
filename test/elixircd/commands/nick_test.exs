@@ -162,6 +162,29 @@ defmodule ElixIRCd.Commands.NickTest do
       end)
     end
 
+    test "handles NICK command for user identified as the reserved nick account" do
+      reserved_until = DateTime.add(DateTime.utc_now(), 3600, :second)
+
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+
+        insert(:registered_nick,
+          nickname: "AliasNick",
+          account_name: primary_nick.nickname,
+          reserved_until: reserved_until
+        )
+
+        user = insert(:user, nick: "othernick", identified_as: primary_nick.nickname)
+        message = %Message{command: "NICK", params: ["AliasNick"]}
+
+        assert :ok = Nick.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":#{user_mask(user)} NICK AliasNick\r\n"}
+        ])
+      end)
+    end
+
     test "handles NICK command for registered nickname that is not reserved" do
       nickname = "registered_not_reserved"
 

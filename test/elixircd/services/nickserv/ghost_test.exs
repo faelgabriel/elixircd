@@ -160,6 +160,26 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
         assert_disconnect_process_message_sent()
       end)
     end
+
+    test "handles GHOST command when user is identified to the grouped nick account" do
+      Memento.transaction!(fn ->
+        target_pid = spawn_test_process()
+
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+        _grouped_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
+        target_user = insert(:user, nick: "AliasNick", pid: target_pid)
+        user = insert(:user, identified_as: primary_nick.nickname)
+
+        assert :ok = Ghost.handle(user, ["GHOST", target_user.nick])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
+        ])
+
+        assert_disconnect_process_message_sent()
+      end)
+    end
   end
 
   @spec spawn_test_process() :: pid()

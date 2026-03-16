@@ -126,6 +126,26 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
       end)
     end
 
+    test "handles REGAIN command when user is identified to the grouped nick account" do
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+        _grouped_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
+        user = insert(:user, identified_as: primary_nick.nickname)
+        old_nick = user.nick
+
+        assert :ok = Regain.handle(user, ["REGAIN", "AliasNick"])
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.nick == "AliasNick"
+
+        assert_sent_messages([
+          {user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK AliasNick\r\n"},
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You have regained the nickname \x02AliasNick\x02.\r\n"}
+        ])
+      end)
+    end
+
     test "handles REGAIN command for trying to regain your own session" do
       Memento.transaction!(fn ->
         password = "correct_password"

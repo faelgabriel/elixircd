@@ -85,6 +85,28 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
       end)
     end
 
+    test "handles RELEASE command when user is identified to the grouped nick account" do
+      Memento.transaction!(fn ->
+        reserved_until = DateTime.utc_now() |> DateTime.add(300)
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+
+        _grouped_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            account_name: primary_nick.nickname,
+            reserved_until: reserved_until
+          )
+
+        user = insert(:user, identified_as: primary_nick.nickname)
+
+        assert :ok = Release.handle(user, ["RELEASE", "AliasNick"])
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 has been released.\r\n"}
+        ])
+      end)
+    end
+
     test "handles RELEASE command with correct password" do
       Memento.transaction!(fn ->
         reserved_until = DateTime.utc_now() |> DateTime.add(300)

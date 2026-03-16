@@ -91,6 +91,26 @@ defmodule ElixIRCd.Services.Nickserv.RecoverTest do
       end)
     end
 
+    test "handles RECOVER command when user is identified to the grouped nick account" do
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+        _grouped_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
+        user = insert(:user, identified_as: primary_nick.nickname)
+
+        assert :ok = Recover.handle(user, ["RECOVER", "AliasNick"])
+
+        {:ok, updated_registered_nick} = RegisteredNicks.get_by_nickname("AliasNick")
+        assert updated_registered_nick.reserved_until != nil
+
+        assert_sent_messages([
+          {user.pid, ~r/NickServ.*NOTICE.*Nick \x02AliasNick\x02 has been recovered\./},
+          {user.pid, ~r/NickServ.*NOTICE.*The nick will be held for you for.*seconds\./},
+          {user.pid, ~r/NickServ.*NOTICE.*To use it, type: \x02\/msg NickServ IDENTIFY AliasNick <password>\x02/},
+          {user.pid, ~r/NickServ.*NOTICE.*followed by: \x02\/NICK AliasNick\x02/}
+        ])
+      end)
+    end
+
     test "handles RECOVER command for registered nick with correct password when nick is not in use" do
       Memento.transaction!(fn ->
         password = "correct_password"

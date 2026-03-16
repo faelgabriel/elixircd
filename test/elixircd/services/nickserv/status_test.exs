@@ -252,5 +252,27 @@ defmodule ElixIRCd.Services.Nickserv.StatusTest do
         ])
       end)
     end
+
+    test "returns STATUS 2 for grouped nick when user is identified to its canonical account" do
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+        _grouped_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
+
+        _target_user =
+          insert(:user,
+            nick: "AliasNick",
+            identified_as: primary_nick.nickname,
+            sasl_authenticated: false
+          )
+
+        requester = insert(:user)
+
+        assert :ok = Status.handle(requester, ["STATUS", "AliasNick"])
+
+        assert_sent_messages([
+          {requester.pid, ":NickServ!service@irc.test NOTICE #{requester.nick} :STATUS AliasNick 2\r\n"}
+        ])
+      end)
+    end
   end
 end

@@ -205,6 +205,28 @@ defmodule ElixIRCd.Services.Nickserv.AlistTest do
       end)
     end
 
+    test "ignores grouped aliases and lists only the canonical account once" do
+      Memento.transaction!(fn ->
+        primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
+        _alias_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
+
+        user = insert(:user, identified_as: nil, ident: "user", hostname: "example.com")
+
+        NickAccesses.create(%{
+          nickname: primary_nick.nickname,
+          mask: "*@example.com"
+        })
+
+        assert :ok = Alist.handle(user, ["ALIST"])
+
+        assert_sent_messages([
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Accounts you are recognized for:\r\n"},
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :  PrimaryNick (via access)\r\n"},
+          {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :End of list.\r\n"}
+        ])
+      end)
+    end
+
     test "handles case-insensitive duplicate removal" do
       Memento.transaction!(fn ->
         _registered_nick = insert(:registered_nick, nickname: "TestAccount")
