@@ -11,7 +11,11 @@ defmodule ElixIRCd.Services.ChanservTest do
   @service_commands [
     {"HELP", Chanserv.Help},
     {"REGISTER", Chanserv.Register},
-    {"SET", Chanserv.Set}
+    {"SET", Chanserv.Set},
+    {"ACCESS", Chanserv.Access},
+    {"FLAGS", Chanserv.Flags},
+    {"ALIST", Chanserv.Alist},
+    {"STATUS", Chanserv.Status}
   ]
 
   setup do

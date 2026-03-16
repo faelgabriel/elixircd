@@ -6,6 +6,7 @@ defmodule ElixIRCd.Services.Chanserv.DropTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Services.Chanserv.Drop
 
@@ -88,6 +89,20 @@ defmodule ElixIRCd.Services.Chanserv.DropTest do
 
         # Verify channel is no longer registered
         assert {:error, :registered_channel_not_found} = RegisteredChannels.get_by_name(channel_name)
+      end)
+    end
+
+    test "deletes persisted channel access entries when dropping a channel" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+
+        insert(:registered_channel, name: channel_name, founder: "founder")
+        insert(:registered_channel_access, channel_name: channel_name, account_name: "helper", flags: "VA")
+
+        assert :ok = Drop.handle(user, ["DROP", channel_name])
+
+        assert %{} == RegisteredChannelAccesses.get_flags_map_by_channel_name(channel_name)
       end)
     end
   end

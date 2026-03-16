@@ -13,6 +13,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.NickAccess
   alias ElixIRCd.Tables.RegisteredChannel
+  alias ElixIRCd.Tables.RegisteredChannelAccess
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
@@ -206,6 +207,22 @@ defmodule ElixIRCd.Factory do
       successor: Map.get(attrs, :successor, nil),
       created_at: created_at,
       last_used_at: last_used_at
+    }
+  end
+
+  def build(:registered_channel_access, attrs) do
+    channel_name = Map.get(attrs, :channel_name, "#Channel_#{random_string(5)}")
+    channel_name_key = Map.get(attrs, :channel_name_key, CaseMapping.normalize(channel_name))
+    account_name = Map.get(attrs, :account_name, "Nick_#{random_string(5)}")
+    account_name_key = Map.get(attrs, :account_name_key, CaseMapping.normalize(account_name))
+
+    %RegisteredChannelAccess{
+      id: {channel_name_key, account_name_key},
+      channel_name_key: channel_name_key,
+      account_name_key: account_name_key,
+      account_name: account_name,
+      flags: Map.get(attrs, :flags, "V"),
+      created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end
 
@@ -407,6 +424,13 @@ defmodule ElixIRCd.Factory do
   def insert(:registered_channel, attrs) do
     Memento.transaction!(fn ->
       build(:registered_channel, attrs)
+      |> Memento.Query.write()
+    end)
+  end
+
+  def insert(:registered_channel_access, attrs) do
+    Memento.transaction!(fn ->
+      build(:registered_channel_access, attrs)
       |> Memento.Query.write()
     end)
   end

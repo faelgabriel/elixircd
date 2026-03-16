@@ -9,6 +9,7 @@ defmodule ElixIRCd.Services.Chanserv.Drop do
 
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
 
+  alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
@@ -57,6 +58,7 @@ defmodule ElixIRCd.Services.Chanserv.Drop do
   defp drop_channel(user, registered_channel) do
     channel_name = registered_channel.name
 
+    RegisteredChannelAccesses.delete_by_channel_name(channel_name)
     RegisteredChannels.delete(registered_channel)
 
     notify(user, [

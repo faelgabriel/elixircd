@@ -330,9 +330,9 @@ ChanServ allows users to register and manage channels, providing channel adminis
 - **INFO**: Display information about a registered channel. ✅
 - **SET**: Configure settings for a registered channel. ✅
 - **TRANSFER**: Transfer ownership of a registered channel to another user. ✅
-- **ACCESS**: Manage the channel access list. ❌
-- **ALIST**: Display channel access list entries. ❌
-- **FLAGS**: Manage user flags and permissions for the channel. ❌
+- **ACCESS**: Manage the channel access list. ✅
+- **ALIST**: Display channel access list entries. ✅
+- **FLAGS**: Manage user flags and permissions for the channel. ✅
 - **OP**: Grant operator status to a user in the channel. ❌
 - **DEOP**: Remove operator status from a user in the channel. ❌
 - **VOICE**: Grant voice status to a user in the channel. ❌
@@ -343,7 +343,7 @@ ChanServ allows users to register and manage channels, providing channel adminis
 - **INVITE**: Invite a user to the channel. ❌
 - **TOPIC**: Change the channel topic. ❌
 - **CLEAR**: Clear various channel settings (modes, bans, ops, etc.). ❌
-- **STATUS**: Check a user's access level in the channel. ❌
+- **STATUS**: Check a user's access level in the channel. ✴️
 - **SYNC**: Synchronize channel modes with the access list. ❌
 
 ### IRCv3 Specifications

@@ -6,6 +6,7 @@ defmodule ElixIRCd.Services.Chanserv.TransferTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Services.Chanserv.Transfer
 
@@ -94,6 +95,34 @@ defmodule ElixIRCd.Services.Chanserv.TransferTest do
         # Verify channel ownership changed
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
         assert channel.founder == new_founder
+      end)
+    end
+
+    test "removes explicit access entry for the new founder during transfer" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        founder = "founder"
+        new_founder = insert(:registered_nick, nickname: "newfounder")
+        user = insert(:user, identified_as: founder)
+
+        insert(:registered_channel,
+          name: channel_name,
+          founder: founder
+        )
+
+        insert(:registered_channel_access,
+          channel_name: channel_name,
+          account_name: new_founder.account_name,
+          flags: "VAF"
+        )
+
+        assert :ok = Transfer.handle(user, ["TRANSFER", channel_name, new_founder.nickname])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.founder == new_founder.account_name
+
+        assert nil ==
+                 RegisteredChannelAccesses.get_by_channel_name_and_account_name(channel_name, new_founder.account_name)
       end)
     end
 

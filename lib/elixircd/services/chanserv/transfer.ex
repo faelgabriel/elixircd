@@ -9,6 +9,7 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
 
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
 
+  alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.RegisteredChannel
@@ -62,6 +63,8 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
           founder: registered_nick.account_name,
           successor: nil
         })
+
+        RegisteredChannelAccesses.delete(registered_channel.name, registered_nick.account_name)
 
         notify(user, [
           "Channel \x02#{registered_channel.name}\x02 has been transferred to \x02#{registered_nick.account_name}\x02.",

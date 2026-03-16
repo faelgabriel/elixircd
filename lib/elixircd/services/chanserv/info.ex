@@ -10,9 +10,11 @@ defmodule ElixIRCd.Services.Chanserv.Info do
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
   import ElixIRCd.Utils.Time, only: [format_time: 1]
 
+  alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Chanserv.Flags
 
   @command_name "INFO"
 
@@ -30,17 +32,22 @@ defmodule ElixIRCd.Services.Chanserv.Info do
 
     case RegisteredChannels.get_by_name(channel_name) do
       {:ok, registered_channel} ->
-        display_channel_info(user, registered_channel, show_all?)
+        access_entries =
+          registered_channel.name
+          |> RegisteredChannelAccesses.get_flags_map_by_channel_name()
+          |> Flags.normalize_access_entries()
+
+        display_channel_info(user, registered_channel, access_entries, show_all?)
 
       {:error, :registered_channel_not_found} ->
         notify(user, "Channel \x02#{channel_name}\x02 is not registered.")
     end
   end
 
-  @spec display_channel_info(User.t(), RegisteredChannel.t(), boolean()) :: :ok
-  defp display_channel_info(user, channel, show_all?) do
+  @spec display_channel_info(User.t(), RegisteredChannel.t(), %{optional(String.t()) => String.t()}, boolean()) :: :ok
+  defp display_channel_info(user, channel, access_entries, show_all?) do
     founder? = channel.founder == user.identified_as
-    privileged? = founder? || has_view_access?(user, channel)
+    privileged? = founder? || has_view_access?(user, channel, access_entries)
 
     # Always show basic information
     notify(user, [
@@ -126,11 +133,9 @@ defmodule ElixIRCd.Services.Chanserv.Info do
     end
   end
 
-  @spec has_view_access?(User.t(), RegisteredChannel.t()) :: boolean()
-  defp has_view_access?(user, channel) do
-    # In a full implementation, check channel access list for +A or equivalent flags
-    # For now, simplified to only allow founders to see privileged info
-    channel.founder == user.identified_as
+  @spec has_view_access?(User.t(), RegisteredChannel.t(), %{optional(String.t()) => String.t()}) :: boolean()
+  defp has_view_access?(user, channel, access_entries) do
+    match?(:ok, Flags.can_view_privileged_info(channel, user.identified_as, access_entries))
   end
 
   @spec calculate_expiry_info(RegisteredChannel.t()) :: String.t()

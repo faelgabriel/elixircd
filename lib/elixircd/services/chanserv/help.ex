@@ -29,6 +29,10 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   defp send_help_for_command(user, "INFO"), do: send_info_help(user)
   defp send_help_for_command(user, "SET"), do: send_set_help(user)
   defp send_help_for_command(user, "TRANSFER"), do: send_transfer_help(user)
+  defp send_help_for_command(user, "ACCESS"), do: send_access_help(user)
+  defp send_help_for_command(user, "FLAGS"), do: send_flags_help(user)
+  defp send_help_for_command(user, "ALIST"), do: send_alist_help(user)
+  defp send_help_for_command(user, "STATUS"), do: send_status_help(user)
   defp send_help_for_command(user, "SET GUARD"), do: send_set_guard_help(user)
   defp send_help_for_command(user, "SET KEEPTOPIC"), do: send_set_keeptopic_help(user)
   defp send_help_for_command(user, "SET PRIVATE"), do: send_set_private_help(user)
@@ -61,6 +65,10 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02INFO         \x02- Display information about a channel.",
       "\x02SET          \x02- Set channel options and access levels.",
       "\x02TRANSFER     \x02- Transfer channel ownership.",
+      "\x02ACCESS       \x02- Manage the channel access list.",
+      "\x02FLAGS        \x02- Manage symbolic channel flags.",
+      "\x02ALIST        \x02- List channels with ChanServ access.",
+      "\x02STATUS       \x02- Show an account's access on a channel.",
       " ",
       "For more information on a command, type:",
       "\x02/msg ChanServ HELP <command>\x02",
@@ -572,6 +580,105 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "Examples:",
       "    \x02/msg ChanServ TRANSFER #mychannel newowner\x02  - Transfer to new owner",
       "    \x02/msg ChanServ TRANSFER #mychannel\x02          - Claim as successor"
+    ])
+  end
+
+  @spec send_access_help(User.t()) :: :ok
+  defp send_access_help(user) do
+    notify(user, [
+      "Help for \x02ACCESS\x02:",
+      format_help(
+        "ACCESS",
+        ["<channel> {ADD|DEL|LIST|CLEAR} [nickname] [level]"],
+        "Manages a channel access list using numeric levels."
+      ),
+      "",
+      "ACCESS is a compatibility wrapper around FLAGS. It stores",
+      "predefined flag bundles using levels from \x021\x02 to \x025\x02.",
+      "",
+      "Level mapping:",
+      "    \x021\x02 => \x02V\x02      (view privileged channel information)",
+      "    \x022\x02 => \x02VA\x02     (view info and manage ACCESS)",
+      "    \x023\x02 => \x02VAF\x02    (view info, manage ACCESS, manage FLAGS)",
+      "    \x024\x02 => \x02VAFS\x02   (plus ChanServ SET management)",
+      "    \x025\x02 => \x02VAFST\x02  (full non-founder access)",
+      "",
+      "Examples:",
+      "    \x02/msg ChanServ ACCESS #mychannel ADD helper 3\x02",
+      "    \x02/msg ChanServ ACCESS #mychannel DEL helper\x02",
+      "    \x02/msg ChanServ ACCESS #mychannel LIST\x02",
+      "    \x02/msg ChanServ ACCESS #mychannel CLEAR\x02"
+    ])
+  end
+
+  @spec send_flags_help(User.t()) :: :ok
+  defp send_flags_help(user) do
+    notify(user, [
+      "Help for \x02FLAGS\x02:",
+      format_help(
+        "FLAGS",
+        ["<channel> [nickname [flags]]"],
+        "Manages a channel access list using symbolic flags."
+      ),
+      "",
+      "FLAGS lets you inspect or change symbolic permissions for",
+      "registered accounts on a channel.",
+      "",
+      "Supported flags:",
+      "    \x02V\x02 - View privileged channel information",
+      "    \x02A\x02 - Manage ACCESS entries",
+      "    \x02F\x02 - Manage FLAGS entries",
+      "    \x02S\x02 - Reserved for ChanServ SET style management",
+      "    \x02T\x02 - Reserved for transfer-style management",
+      "",
+      "You may replace the whole flag set (\x02VAF\x02), add flags",
+      "incrementally (\x02+AF\x02), remove flags (\x02-F\x02), or",
+      "clear them with \x02OFF\x02.",
+      "",
+      "Examples:",
+      "    \x02/msg ChanServ FLAGS #mychannel helper\x02",
+      "    \x02/msg ChanServ FLAGS #mychannel helper VAF\x02",
+      "    \x02/msg ChanServ FLAGS #mychannel helper +A\x02",
+      "    \x02/msg ChanServ FLAGS #mychannel helper OFF\x02"
+    ])
+  end
+
+  @spec send_alist_help(User.t()) :: :ok
+  defp send_alist_help(user) do
+    notify(user, [
+      "Help for \x02ALIST\x02:",
+      format_help(
+        "ALIST",
+        ["[nickname]"],
+        "Lists channels where an account has ChanServ access."
+      ),
+      "",
+      "ALIST displays founder-level and explicit ACCESS/FLAGS entries",
+      "for the selected account. If no nickname is provided, your",
+      "currently identified NickServ account is used.",
+      "",
+      "Examples:",
+      "    \x02/msg ChanServ ALIST\x02",
+      "    \x02/msg ChanServ ALIST helper\x02"
+    ])
+  end
+
+  @spec send_status_help(User.t()) :: :ok
+  defp send_status_help(user) do
+    notify(user, [
+      "Help for \x02STATUS\x02:",
+      format_help(
+        "STATUS",
+        ["<channel> [nickname]"],
+        "Shows the ChanServ access held on a channel."
+      ),
+      "",
+      "STATUS reports the compatibility level and symbolic flags",
+      "held by an account on a registered channel.",
+      "",
+      "Examples:",
+      "    \x02/msg ChanServ STATUS #mychannel\x02",
+      "    \x02/msg ChanServ STATUS #mychannel helper\x02"
     ])
   end
 

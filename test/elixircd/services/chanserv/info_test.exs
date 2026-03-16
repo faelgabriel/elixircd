@@ -129,6 +129,41 @@ defmodule ElixIRCd.Services.Chanserv.InfoTest do
         ])
       end)
     end
+
+    test "displays privileged channel info for users with view access flags" do
+      Memento.transaction!(fn ->
+        founder = "founder"
+        helper = insert(:registered_nick, nickname: "Helper")
+        user = insert(:user, identified_as: helper.account_name)
+
+        channel =
+          create_test_channel(
+            founder: founder,
+            settings: [
+              guard: true,
+              mlock: "+nt",
+              entrymsg: "Staff only"
+            ]
+          )
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: helper.account_name, flags: "V")
+
+        assert :ok = Info.handle(user, ["INFO", channel.name])
+
+        assert_sent_messages([
+          {user.pid, ~r/ChanServ.*NOTICE.*Information for channel \x02#{channel.name}\x02:/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Founder: #{founder}/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Description: \(none\)/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Registered: 2021-01-01 00:00:00/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Last used: 2021-01-01 00:00:00/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Flags: FANTASY, GUARD, KEEPTOPIC, OPNOTICE/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Mode lock: \+nt/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Entry message: Staff only/},
+          {user.pid, ~r/ChanServ.*NOTICE.*Last topic: \(none\)/},
+          {user.pid, ~r/ChanServ.*NOTICE.*\*\*\*\*\* End of Info \*\*\*\*\*/}
+        ])
+      end)
+    end
   end
 
   describe "handle/2 content display tests" do

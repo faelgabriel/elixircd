@@ -15,6 +15,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.NickAccess
   alias ElixIRCd.Tables.RegisteredChannel
+  alias ElixIRCd.Tables.RegisteredChannelAccess
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.SaslSession
   alias ElixIRCd.Tables.User
@@ -43,6 +44,7 @@ defmodule ElixIRCd.Utils.Mnesia do
     Job,
     NickAccess,
     RegisteredChannel,
+    RegisteredChannelAccess,
     RegisteredNick
   ]
 
