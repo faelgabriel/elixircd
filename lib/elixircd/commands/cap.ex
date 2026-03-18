@@ -47,10 +47,6 @@ defmodule ElixIRCd.Commands.Cap do
       name: "ECHO-MESSAGE",
       description: "Echo accepted PRIVMSG, NOTICE, and TAGMSG commands back to the sender"
     },
-    "CLIENT-TAGS" => %{
-      name: "CLIENT-TAGS",
-      description: "Allow vendor-specific client-only tags from clients"
-    },
     "EXTENDED-JOIN" => %{
       name: "EXTENDED-JOIN",
       description: "Extended JOIN messages including account name and real name"
@@ -192,7 +188,6 @@ defmodule ElixIRCd.Commands.Cap do
             {:cap_notify, "CAP-NOTIFY"},
             {:chghost, "CHGHOST"},
             {:echo_message, "ECHO-MESSAGE"},
-            {:client_tags, "CLIENT-TAGS"},
             {:extended_join, "EXTENDED-JOIN"},
             {:invite_extended, "INVITE-EXTENDED"},
             {:invite_notify, "INVITE-NOTIFY"},

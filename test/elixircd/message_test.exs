@@ -370,6 +370,41 @@ defmodule ElixIRCd.MessageTest do
 
       assert Message.parse(raw_message) == expected
     end
+
+    test "normalizes empty tag values to nil" do
+      raw_message = "@foo=;bar=baz PRIVMSG #channel :hello"
+
+      assert Message.parse(raw_message) ==
+               {:ok,
+                %Message{
+                  tags: %{"foo" => nil, "bar" => "baz"},
+                  prefix: nil,
+                  command: "PRIVMSG",
+                  params: ["#channel"],
+                  trailing: "hello"
+                }}
+    end
+
+    test "drops invalid escapes and trailing backslashes in tag values" do
+      raw_message = "@foo=te\\bst\\\\x\\ PRIVMSG #channel :hello"
+
+      assert Message.parse(raw_message) ==
+               {:ok,
+                %Message{
+                  tags: %{"foo" => "tebst\\x"},
+                  prefix: nil,
+                  command: "PRIVMSG",
+                  params: ["#channel"],
+                  trailing: "hello"
+                }}
+    end
+
+    test "rejects messages with too much client tag data" do
+      oversized_tags = String.duplicate("a", 4095)
+      raw_message = "@#{oversized_tags} PRIVMSG #channel :hello"
+
+      assert Message.parse(raw_message) == {:error, :input_too_long}
+    end
   end
 
   describe "unparse/1 - IRCv3 message tags" do
@@ -459,6 +494,19 @@ defmodule ElixIRCd.MessageTest do
       expected = {:ok, ":irc.example.com PRIVMSG #channel :hello\r\n"}
 
       assert Message.unparse(message) == expected
+    end
+
+    test "unparses server tags before client-only tags" do
+      message = %Message{
+        tags: %{"+draft/reply" => "123", "msgid" => "abc"},
+        prefix: "irc.example.com",
+        command: "PRIVMSG",
+        params: ["#channel"],
+        trailing: "hello"
+      }
+
+      assert Message.unparse(message) ==
+               {:ok, "@msgid=abc;+draft/reply=123 :irc.example.com PRIVMSG #channel :hello\r\n"}
     end
   end
 end

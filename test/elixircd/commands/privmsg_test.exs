@@ -187,6 +187,54 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
       end)
     end
 
+    test "forwards only client-only tags on PRIVMSG to other message-tags clients and echo" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+
+        message =
+          %Message{
+            command: "PRIVMSG",
+            params: [another_user.nick],
+            trailing: "Hello",
+            tags: %{"unknown-tag" => "abc", "+draft/reply" => "123"}
+          }
+
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n"},
+          {user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "forwards only client-only tags on channel PRIVMSG to message-tags clients and echo" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        channel = insert(:channel)
+
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message =
+          %Message{
+            command: "PRIVMSG",
+            params: [channel.name],
+            trailing: "Hello",
+            tags: %{"unknown-tag" => "abc", "+draft/reply" => "123"}
+          }
+
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"},
+          {user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
     test "dispatches fantasy ChanServ commands instead of broadcasting the message" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "helper")

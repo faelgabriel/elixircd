@@ -268,6 +268,19 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
       Application.put_env(:elixircd, :settings, original_settings)
     end
+
+    test "rejects messages with too much tag data", %{user: user} do
+      Command
+      |> reject(:dispatch, 2)
+
+      oversized_tags = String.duplicate("a", 4095)
+
+      assert :ok = Connection.handle_receive(user.pid, "@#{oversized_tags} PRIVMSG #test :hello")
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 417 #{user.nick} :Input line was too long\r\n"}
+      ])
+    end
   end
 
   describe "handle_send/2" do

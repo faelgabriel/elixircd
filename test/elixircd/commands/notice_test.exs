@@ -145,6 +145,54 @@ defmodule ElixIRCd.Commands.NoticeTest do
       end)
     end
 
+    test "forwards only client-only tags on NOTICE to other message-tags clients and echo" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+
+        message =
+          %Message{
+            command: "NOTICE",
+            params: [another_user.nick],
+            trailing: "Hello",
+            tags: %{"unknown-tag" => "abc", "+draft/reply" => "123"}
+          }
+
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"},
+          {user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
+        ])
+      end)
+    end
+
+    test "forwards only client-only tags on channel NOTICE to message-tags clients and echo" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        channel = insert(:channel)
+
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message =
+          %Message{
+            command: "NOTICE",
+            params: [channel.name],
+            trailing: "Hello",
+            tags: %{"unknown-tag" => "abc", "+draft/reply" => "123"}
+          }
+
+        assert :ok = Notice.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"},
+          {user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+        ])
+      end)
+    end
+
     test "handles NOTICE command directed to a service with trailing message" do
       Memento.transaction!(fn ->
         user = insert(:user)

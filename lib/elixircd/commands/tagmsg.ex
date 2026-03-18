@@ -69,7 +69,11 @@ defmodule ElixIRCd.Commands.Tagmsg do
         |> Enum.reject(&(&1.user_pid == user.pid))
 
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
-      users = Users.get_by_pids(user_pids)
+
+      users =
+        user_pids
+        |> Users.get_by_pids()
+        |> Enum.filter(&tagmsg_enabled?/1)
 
       # Preserve tags from original message
       %Message{command: "TAGMSG", params: [channel.name], trailing: nil, tags: message.tags}
@@ -110,6 +114,9 @@ defmodule ElixIRCd.Commands.Tagmsg do
       "R" in target_user.modes and "r" not in user.modes ->
         handle_restricted_user_message(user, target_user)
 
+      not tagmsg_enabled?(target_user) ->
+        maybe_echo_tagmsg(user, target_nick, message)
+
       true ->
         # Preserve tags from original message
         %Message{command: "TAGMSG", params: [target_nick], trailing: nil, tags: message.tags}
@@ -118,6 +125,15 @@ defmodule ElixIRCd.Commands.Tagmsg do
         :ok
     end
   end
+
+  @spec maybe_echo_tagmsg(User.t(), String.t(), Message.t()) :: :ok
+  defp maybe_echo_tagmsg(user, target, message) do
+    %Message{command: "TAGMSG", params: [target], trailing: nil, tags: message.tags}
+    |> Dispatcher.broadcast_with_echo(user, [])
+  end
+
+  @spec tagmsg_enabled?(User.t()) :: boolean()
+  defp tagmsg_enabled?(%User{capabilities: capabilities}), do: "MESSAGE-TAGS" in capabilities
 
   @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
   defp handle_restricted_user_message(sender, recipient) do

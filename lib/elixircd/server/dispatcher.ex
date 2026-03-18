@@ -21,13 +21,14 @@ defmodule ElixIRCd.Server.Dispatcher do
   def broadcast(messages, context, targets) do
     messages = List.wrap(messages)
     targets = List.wrap(targets)
+    source_user = source_user_from_context(context)
 
     if messages == [] or targets == [] do
       :ok
     else
       any_msgid_cap? =
         Enum.any?(targets, fn
-          %User{capabilities: caps} -> "MESSAGE-TAGS" in caps and "MSGID" in caps
+          %User{capabilities: caps} -> "MSGID" in caps and recipient_supports_message_tags?(MapSet.new(caps))
           _ -> false
         end)
 
@@ -37,7 +38,7 @@ defmodule ElixIRCd.Server.Dispatcher do
           |> add_context(context)
           |> maybe_put_base_msgid(any_msgid_cap?)
 
-        broadcast_to_targets(message, targets)
+        broadcast_to_targets(message, targets, source_user)
       end)
     end
   end
@@ -78,17 +79,32 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp target_pid(%User{pid: pid}), do: pid
   defp target_pid(pid) when is_pid(pid), do: pid
 
-  @spec broadcast_to_targets(Message.t(), [target()]) :: :ok
-  defp broadcast_to_targets(message, targets) do
+  @spec source_user_from_context(context()) :: User.t() | nil
+  defp source_user_from_context(%User{} = user), do: user
+  defp source_user_from_context(_context), do: nil
+
+  @spec broadcast_to_targets(Message.t(), [target()], User.t() | nil) :: :ok
+  defp broadcast_to_targets(message, targets, source_user) do
     Enum.each(targets, fn
       %User{pid: pid} = user ->
-        message
-        |> filter_tags(user)
-        |> send_message(pid)
+        maybe_send_to_user(message, user, pid)
 
       pid when is_pid(pid) ->
-        send_message(message, pid)
+        case source_user do
+          %User{pid: ^pid} = user ->
+            maybe_send_to_user(message, user, pid)
+
+          _other ->
+            send_message(message, pid)
+        end
     end)
+  end
+
+  @spec maybe_send_to_user(Message.t(), User.t(), pid()) :: :ok
+  defp maybe_send_to_user(message, user, pid) do
+    message
+    |> filter_tags(user)
+    |> send_message(pid)
   end
 
   @spec send_message(Message.t(), pid()) :: :ok
@@ -102,6 +118,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp add_context(message, %User{modes: modes} = user) do
     message =
       message
+      |> sanitize_client_message_tags(user)
       |> add_prefix(user)
       |> maybe_put_bot_tag(modes)
       |> maybe_put_account_tag(user)
@@ -119,6 +136,18 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp add_prefix(%Message{} = message, :chanserv), do: %{message | prefix: "ChanServ!service@#{hostname()}"}
   defp add_prefix(%Message{} = message, :nickserv), do: %{message | prefix: "NickServ!service@#{hostname()}"}
   defp add_prefix(%Message{} = message, nil), do: message
+
+  @spec sanitize_client_message_tags(Message.t(), User.t()) :: Message.t()
+  defp sanitize_client_message_tags(%Message{tags: tags} = message, %User{capabilities: capabilities}) do
+    sanitized_tags =
+      if "MESSAGE-TAGS" in capabilities do
+        relayable_client_tags(tags)
+      else
+        %{}
+      end
+
+    %{message | tags: sanitized_tags}
+  end
 
   @spec maybe_put_bot_tag(Message.t(), [String.t()]) :: Message.t()
   defp maybe_put_bot_tag(%Message{} = message, modes) do
@@ -166,7 +195,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp filter_tags(message, %User{capabilities: caps}) do
     capabilities = MapSet.new(caps)
 
-    if MapSet.member?(capabilities, "MESSAGE-TAGS") do
+    if recipient_supports_message_tags?(capabilities) do
       tags =
         message.tags
         |> maybe_put_server_time_tag(capabilities)
@@ -179,8 +208,12 @@ defmodule ElixIRCd.Server.Dispatcher do
     end
   end
 
-  @spec maybe_put_server_time_tag(%{optional(String.t()) => String.t() | nil}, MapSet.t()) ::
-          %{optional(String.t()) => String.t() | nil}
+  @spec recipient_supports_message_tags?(MapSet.t(String.t())) :: boolean()
+  defp recipient_supports_message_tags?(capabilities) do
+    Enum.any?(["MESSAGE-TAGS", "ACCOUNT-TAG", "SERVER-TIME", "MSGID"], &MapSet.member?(capabilities, &1))
+  end
+
+  @spec maybe_put_server_time_tag(Message.tags(), MapSet.t()) :: Message.tags()
   defp maybe_put_server_time_tag(tags, capabilities) do
     server_time_supported = Application.get_env(:elixircd, :capabilities)[:server_time] || false
 
@@ -196,8 +229,7 @@ defmodule ElixIRCd.Server.Dispatcher do
     end
   end
 
-  @spec maybe_filter_msgid_tag(%{optional(String.t()) => String.t() | nil}, MapSet.t()) ::
-          %{optional(String.t()) => String.t() | nil}
+  @spec maybe_filter_msgid_tag(Message.tags(), MapSet.t()) :: Message.tags()
   defp maybe_filter_msgid_tag(tags, capabilities) do
     msgid_supported = Application.get_env(:elixircd, :capabilities)[:msgid] || false
 
@@ -208,8 +240,7 @@ defmodule ElixIRCd.Server.Dispatcher do
     end
   end
 
-  @spec maybe_filter_account_tag(%{optional(String.t()) => String.t() | nil}, MapSet.t()) ::
-          %{optional(String.t()) => String.t() | nil}
+  @spec maybe_filter_account_tag(Message.tags(), MapSet.t()) :: Message.tags()
   defp maybe_filter_account_tag(tags, capabilities) do
     account_tag_supported = Application.get_env(:elixircd, :capabilities)[:account_tag] || false
 
@@ -218,5 +249,10 @@ defmodule ElixIRCd.Server.Dispatcher do
       not MapSet.member?(capabilities, "ACCOUNT-TAG") -> Map.delete(tags, "account")
       true -> tags
     end
+  end
+
+  @spec relayable_client_tags(Message.tags()) :: Message.tags()
+  defp relayable_client_tags(tags) do
+    Map.filter(tags, fn {tag_name, _value} -> String.starts_with?(tag_name, "+") end)
   end
 end

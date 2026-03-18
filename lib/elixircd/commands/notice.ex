@@ -42,9 +42,9 @@ defmodule ElixIRCd.Commands.Notice do
     message_text = extract_message_text(message)
 
     cond do
-      channel_name?(target) -> handle_channel_message(user, target, message_text)
+      channel_name?(target) -> handle_channel_message(user, target, message_text, message.tags)
       service_name?(target) -> handle_service_message(user, target, message)
-      true -> handle_user_message(user, target, message_text)
+      true -> handle_user_message(user, target, message_text, message.tags)
     end
   end
 
@@ -54,7 +54,7 @@ defmodule ElixIRCd.Commands.Notice do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  defp handle_channel_message(user, channel_name, message_text) do
+  defp handle_channel_message(user, channel_name, message_text, message_tags) do
     user_channel =
       UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
       |> case do
@@ -75,7 +75,7 @@ defmodule ElixIRCd.Commands.Notice do
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
       users = Users.get_by_pids(user_pids)
 
-      %Message{command: "NOTICE", params: [channel.name], trailing: message_text}
+      %Message{command: "NOTICE", params: [channel.name], trailing: message_text, tags: message_tags}
       |> Dispatcher.broadcast_with_echo(user, users)
     else
       {:error, :delay_message_blocked, delay} ->
@@ -134,15 +134,15 @@ defmodule ElixIRCd.Commands.Notice do
     Service.dispatch(user, target_service, command_list)
   end
 
-  defp handle_user_message(user, target_nick, message_text) do
+  defp handle_user_message(user, target_nick, message_text, message_tags) do
     case Users.get_by_nick(target_nick) do
-      {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message_text)
+      {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message_text, message_tags)
       {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
     end
   end
 
-  @spec handle_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_user_message(user, receiver_user, target_nick, message_text) do
+  @spec handle_user_message(User.t(), User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp handle_user_message(user, receiver_user, target_nick, message_text, message_tags) do
     cond do
       should_silence_message?(receiver_user, user) ->
         :ok
@@ -155,7 +155,7 @@ defmodule ElixIRCd.Commands.Notice do
         handle_blocked_user_message(user, receiver_user)
 
       true ->
-        handle_normal_user_message(user, receiver_user, target_nick, message_text)
+        handle_normal_user_message(user, receiver_user, target_nick, message_text, message_tags)
     end
   end
 
@@ -179,9 +179,9 @@ defmodule ElixIRCd.Commands.Notice do
     |> Dispatcher.broadcast(:server, sender)
   end
 
-  @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_normal_user_message(user, receiver_user, target_nick, message_text) do
-    %Message{command: "NOTICE", params: [target_nick], trailing: message_text}
+  @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp handle_normal_user_message(user, receiver_user, target_nick, message_text, message_tags) do
+    %Message{command: "NOTICE", params: [target_nick], trailing: message_text, tags: message_tags}
     |> Dispatcher.broadcast_with_echo(user, receiver_user)
   end
 

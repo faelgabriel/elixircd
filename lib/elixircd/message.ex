@@ -68,8 +68,10 @@ defmodule ElixIRCd.Message do
   @enforce_keys [:command, :params]
   defstruct tags: %{}, prefix: nil, command: nil, params: [], trailing: nil
 
+  @type tags :: %{optional(String.t()) => String.t() | nil}
+
   @type t :: %__MODULE__{
-          tags: %{optional(String.t()) => String.t() | nil},
+          tags: tags(),
           prefix: String.t() | nil,
           command: String.t() | atom(),
           params: [String.t()],
@@ -89,23 +91,65 @@ defmodule ElixIRCd.Message do
   - For a message ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user",
   - the function parses it into `%Message{prefix: "Freenode.net", command: "001", params: ["user"], trailing: "Welcome to the freenode Internet Relay Chat Network user"}`
   """
-  @spec parse(String.t()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
+  @spec parse(String.t()) :: {:ok, __MODULE__.t()} | {:error, String.t() | :input_too_long}
   def parse(raw_message) do
-    {tags, rest_after_tags} =
-      raw_message
-      |> String.trim_trailing()
-      |> extract_tags()
+    trimmed_message = String.trim_trailing(raw_message)
 
-    {prefix, rest_raw_message} = extract_prefix(rest_after_tags)
+    with {:ok, {tags, rest_after_tags}} <- extract_tags(trimmed_message) do
+      {prefix, rest_raw_message} = extract_prefix(rest_after_tags)
 
-    parse_command_and_params(rest_raw_message)
-    |> case do
-      {command, params, trailing} ->
-        {:ok, %__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}}
+      parse_command_and_params(rest_raw_message)
+      |> case do
+        {command, params, trailing} ->
+          {:ok, %__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}}
 
-      {:error, error} ->
-        {:error, error}
+        {:error, error} ->
+          {:error, error}
+      end
     end
+  end
+
+  @spec extract_tags(String.t()) :: {:ok, {tags(), String.t()}} | {:error, atom()}
+  defp extract_tags("@" <> message) do
+    [tags_string | rest] = String.split(message, " ", parts: 2)
+
+    if byte_size(tags_string) > 4094 do
+      {:error, :input_too_long}
+    else
+      tags = parse_tags(tags_string)
+      {:ok, {tags, Enum.join(rest, " ")}}
+    end
+  end
+
+  defp extract_tags(message), do: {:ok, {%{}, message}}
+
+  @spec unescape_tag_value(String.t()) :: String.t()
+  defp unescape_tag_value(value) do
+    value
+    |> String.to_charlist()
+    |> do_unescape_tag_value([])
+    |> Enum.reverse()
+    |> to_string()
+  end
+
+  defp do_unescape_tag_value([], acc), do: acc
+  defp do_unescape_tag_value([?\\], acc), do: acc
+  defp do_unescape_tag_value([?\\, ?: | rest], acc), do: do_unescape_tag_value(rest, [?; | acc])
+  defp do_unescape_tag_value([?\\, ?s | rest], acc), do: do_unescape_tag_value(rest, [?\s | acc])
+  defp do_unescape_tag_value([?\\, ?r | rest], acc), do: do_unescape_tag_value(rest, [?\r | acc])
+  defp do_unescape_tag_value([?\\, ?n | rest], acc), do: do_unescape_tag_value(rest, [?\n | acc])
+  defp do_unescape_tag_value([?\\, ?\\ | rest], acc), do: do_unescape_tag_value(rest, [?\\ | acc])
+  defp do_unescape_tag_value([?\\, char | rest], acc), do: do_unescape_tag_value(rest, [char | acc])
+  defp do_unescape_tag_value([char | rest], acc), do: do_unescape_tag_value(rest, [char | acc])
+
+  @spec format_tags(tags()) :: String.t()
+  defp format_tags(tags) do
+    {server_tags, client_only_tags} =
+      tags
+      |> Enum.sort_by(fn {key, _value} -> key end)
+      |> Enum.split_with(fn {key, _value} -> not String.starts_with?(key, "+") end)
+
+    Enum.map_join(server_tags ++ client_only_tags, ";", &format_single_tag/1)
   end
 
   @doc """
@@ -167,21 +211,9 @@ defmodule ElixIRCd.Message do
     end
   end
 
-  # Extracts IRCv3 message tags from the beginning of the message if present.
-  # Tags are in the format: @tag1=value1;tag2=value2;tag3
-  # Returns {tags_map, message_without_tags}
-  @spec extract_tags(String.t()) :: {%{optional(String.t()) => String.t() | nil}, String.t()}
-  defp extract_tags("@" <> message) do
-    [tags_string | rest] = String.split(message, " ", parts: 2)
-    tags = parse_tags(tags_string)
-    {tags, Enum.join(rest, " ")}
-  end
-
-  defp extract_tags(message), do: {%{}, message}
-
   # Parses a tags string into a map.
   # Format: tag1=value1;tag2=value2;tag3
-  @spec parse_tags(String.t()) :: %{optional(String.t()) => String.t() | nil}
+  @spec parse_tags(String.t()) :: tags()
   defp parse_tags(tags_string) do
     tags_string
     |> String.split(";")
@@ -194,38 +226,20 @@ defmodule ElixIRCd.Message do
   @spec parse_single_tag(String.t()) :: {String.t(), String.t() | nil}
   defp parse_single_tag(tag) do
     case String.split(tag, "=", parts: 2) do
+      [key, ""] -> {key, nil}
       [key, value] -> {key, unescape_tag_value(value)}
       [key] -> {key, nil}
     end
   end
 
-  # Unescapes IRCv3 tag values according to the spec.
-  # \: -> ; \s -> space \\ -> \ \r -> CR \n -> LF
-  @spec unescape_tag_value(String.t()) :: String.t()
-  defp unescape_tag_value(value) do
-    value
-    |> String.replace("\\:", ";")
-    |> String.replace("\\s", " ")
-    |> String.replace("\\r", "\r")
-    |> String.replace("\\n", "\n")
-    |> String.replace("\\\\", "\\")
-  end
-
   # Prepends tags to a message string if tags are present.
   # Returns the message with tags prepended, or the original message if no tags.
-  @spec prepend_tags(%{optional(String.t()) => String.t() | nil}, String.t()) :: String.t()
+  @spec prepend_tags(tags(), String.t()) :: String.t()
   defp prepend_tags(tags, message) when map_size(tags) == 0, do: message
 
   defp prepend_tags(tags, message) do
     tags_string = format_tags(tags)
     "@#{tags_string} #{message}"
-  end
-
-  # Formats tags map into IRCv3 tags string.
-  # Format: tag1=value1;tag2=value2;tag3
-  @spec format_tags(%{optional(String.t()) => String.t() | nil}) :: String.t()
-  defp format_tags(tags) do
-    Enum.map_join(tags, ";", &format_single_tag/1)
   end
 
   # Formats a single tag into "key=value" or "key" format.

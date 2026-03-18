@@ -103,6 +103,59 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
+    test "broadcasts with nil context without adding a prefix", %{message: message, target_user: target_user} do
+      expected_message = "PRIVMSG #test :hello\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_user.pid
+        assert received_message == expected_message
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, nil, target_user)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "broadcasts with User context to a pid target that is not the sender", %{user: user, message: message} do
+      target_pid = self()
+      expected_message = ":testnick!testident@test.host PRIVMSG #test :hello\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === target_pid
+        assert received_message == expected_message
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, user, target_pid)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "broadcasts with User context to the sender pid target using user capabilities", %{
+      user: user,
+      message: message
+    } do
+      sender_with_caps = %{user | capabilities: ["MESSAGE-TAGS"], modes: ["B"]}
+      expected_message = "@bot :testnick!testident@test.host PRIVMSG #test :hello\r\n"
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === sender_with_caps.pid
+        assert received_message == expected_message
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, sender_with_caps, sender_with_caps.pid)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
     test "broadcasts with User context to multiple targets", %{
       user: user,
       target_user: target_user
@@ -421,6 +474,24 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
+    test "adds server time when SERVER-TIME is negotiated without MESSAGE-TAGS" do
+      user_with_caps = insert(:user, capabilities: ["SERVER-TIME"])
+      message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === user_with_caps.pid
+        assert String.starts_with?(received_message, "@time=")
+        assert String.contains?(received_message, " :irc.test NOTICE test :hello\r\n")
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, :server, user_with_caps)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
     test "adds account tag when sender is identified and recipient has ACCOUNT-TAG" do
       sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
       recipient_with_cap = insert(:user, capabilities: ["MESSAGE-TAGS", "ACCOUNT-TAG"])
@@ -447,6 +518,24 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
+    test "adds account tag when recipient has ACCOUNT-TAG without MESSAGE-TAGS" do
+      sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
+      recipient = insert(:user, capabilities: ["ACCOUNT-TAG"])
+      message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === recipient.pid
+        assert received_message == "@account=account_name :acctuser!acct@acct.host NOTICE test :hello\r\n"
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, sender, recipient)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
     test "does not add msgid tag when MSGID capability is not negotiated" do
       user_without_msgid = insert(:user, capabilities: ["MESSAGE-TAGS"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
@@ -460,6 +549,24 @@ defmodule ElixIRCd.Server.DispatcherTest do
       end)
 
       assert :ok == Dispatcher.broadcast(message, :server, user_without_msgid)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
+    test "adds msgid tag when MSGID is negotiated without MESSAGE-TAGS" do
+      user_with_caps = insert(:user, capabilities: ["MSGID"])
+      message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === user_with_caps.pid
+        assert String.starts_with?(received_message, "@msgid=")
+        assert String.contains?(received_message, " :irc.test NOTICE test :hello\r\n")
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, :server, user_with_caps)
 
       Connection
       |> reject(:handle_send, 2)
@@ -529,6 +636,47 @@ defmodule ElixIRCd.Server.DispatcherTest do
   end
 
   describe "broadcast_with_echo/3" do
+    test "forwards client-only tags to all recipients with MESSAGE-TAGS and strips client-sent server tags" do
+      sender =
+        insert(:user,
+          nick: "echoer",
+          ident: "ident",
+          hostname: "host.test",
+          capabilities: ["ECHO-MESSAGE", "MESSAGE-TAGS"]
+        )
+
+      recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
+      sender_pid = sender.pid
+      recipient_pid = recipient.pid
+      parent = self()
+
+      Connection
+      |> expect(:handle_send, 2, fn pid, received_message ->
+        send(parent, {:delivered, pid, received_message})
+        :ok
+      end)
+
+      assert :ok ==
+               Dispatcher.broadcast_with_echo(
+                 %Message{
+                   command: "PRIVMSG",
+                   params: ["#test"],
+                   trailing: "hello",
+                   tags: %{"unknown-tag" => "abc", "+draft/reply" => "123"}
+                 },
+                 sender,
+                 recipient
+               )
+
+      assert_receive {:delivered, ^sender_pid, sender_message}
+      assert_receive {:delivered, ^recipient_pid, recipient_message}
+
+      assert sender_message =~ "+draft/reply=123"
+      assert recipient_message =~ "+draft/reply=123"
+      refute sender_message =~ "unknown-tag=abc"
+      refute recipient_message =~ "unknown-tag=abc"
+    end
+
     test "echoes to the sender and reuses the same msgid for all recipients" do
       sender =
         insert(:user,

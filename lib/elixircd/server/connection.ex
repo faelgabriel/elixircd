@@ -138,6 +138,10 @@ defmodule ElixIRCd.Server.Connection do
         updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
         Command.dispatch(updated_user, message)
 
+      {:error, :input_too_long} ->
+        %Message{command: :err_inputtoolong, params: [user_reply(user)], trailing: "Input line was too long"}
+        |> Dispatcher.broadcast(:server, user)
+
       {:error, error} ->
         Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
     end

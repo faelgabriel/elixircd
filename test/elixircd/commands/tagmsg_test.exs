@@ -41,14 +41,43 @@ defmodule ElixIRCd.Commands.TagmsgTest do
         sender = insert(:user, capabilities: ["MESSAGE-TAGS"])
         recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
 
-        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"example" => "1"}}
+        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
 
         assert :ok = Tagmsg.handle(sender, message)
 
         assert_sent_messages([
           {recipient.pid,
-           "@example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
         ])
+      end)
+    end
+
+    test "does not send TAGMSG to a user without MESSAGE-TAGS" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        recipient = insert(:user, capabilities: [])
+
+        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
+
+        assert :ok = Tagmsg.handle(sender, message)
+
+        assert_sent_messages([
+          {sender.pid,
+           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+        ])
+      end)
+    end
+
+    test "does not send TAGMSG anywhere when recipient lacks MESSAGE-TAGS and sender has no ECHO-MESSAGE" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        recipient = insert(:user, capabilities: [])
+
+        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
+
+        assert :ok = Tagmsg.handle(sender, message)
+
+        assert_sent_messages([])
       end)
     end
 
@@ -57,15 +86,38 @@ defmodule ElixIRCd.Commands.TagmsgTest do
         sender = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
         recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
 
-        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"example" => "1"}}
+        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
 
         assert :ok = Tagmsg.handle(sender, message)
 
         assert_sent_messages([
           {recipient.pid,
-           "@example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"},
+           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"},
           {sender.pid,
-           "@example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+        ])
+      end)
+    end
+
+    test "forwards only client-only tags on TAGMSG and strips client-sent server tags" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
+
+        message =
+          %Message{
+            command: "TAGMSG",
+            params: [recipient.nick],
+            tags: %{"unknown-tag" => "abc", "+draft/reply" => "123"}
+          }
+
+        assert :ok = Tagmsg.handle(sender, message)
+
+        assert_sent_messages([
+          {recipient.pid,
+           "@+draft/reply=123 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"},
+          {sender.pid,
+           "@+draft/reply=123 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
         ])
       end)
     end
@@ -86,7 +138,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
     test "does not send TAGMSG when target is a service" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: ["MESSAGE-TAGS"])
-        message = %Message{command: "TAGMSG", params: ["NickServ"], tags: %{"example" => "1"}}
+        message = %Message{command: "TAGMSG", params: ["NickServ"], tags: %{"+example" => "1"}}
 
         assert :ok = Tagmsg.handle(user, message)
 
@@ -105,13 +157,13 @@ defmodule ElixIRCd.Commands.TagmsgTest do
         insert(:user_channel, user: user, channel: channel, modes: [])
         insert(:user_channel, user: other_user, channel: channel, modes: [])
 
-        message = %Message{command: "TAGMSG", params: [channel.name], tags: %{"example" => "1"}}
+        message = %Message{command: "TAGMSG", params: [channel.name], tags: %{"+example" => "1"}}
 
         assert :ok = Tagmsg.handle(user, message)
 
         assert_sent_messages([
           {other_user.pid,
-           "@example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"}
+           "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"}
         ])
       end)
     end
@@ -126,13 +178,37 @@ defmodule ElixIRCd.Commands.TagmsgTest do
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
         insert(:user_channel, user: other_user, channel: channel, modes: [])
 
-        message = %Message{command: "TAGMSG", params: [channel.name], tags: %{"example" => "1"}}
+        message = %Message{command: "TAGMSG", params: [channel.name], tags: %{"+example" => "1"}}
 
         assert :ok = Tagmsg.handle(user, message)
 
         assert_sent_messages([
           {other_user.pid,
-           "@example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #staff\r\n"}
+           "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #staff\r\n"}
+        ])
+      end)
+    end
+
+    test "does not send TAGMSG to channel users without MESSAGE-TAGS" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        channel = insert(:channel, name: "#chan", modes: [])
+
+        recipient_with_tags = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        recipient_without_tags = insert(:user, capabilities: [])
+
+        insert(:user_channel, user: user, channel: channel, modes: [])
+        insert(:user_channel, user: recipient_with_tags, channel: channel, modes: [])
+        insert(:user_channel, user: recipient_without_tags, channel: channel, modes: [])
+
+        message = %Message{command: "TAGMSG", params: [channel.name], tags: %{"+example" => "1"}}
+
+        assert :ok = Tagmsg.handle(user, message)
+
+        assert_sent_messages([
+          {recipient_with_tags.pid,
+           "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"},
+          {user.pid, "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"}
         ])
       end)
     end
@@ -219,7 +295,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         insert(:user_silence, user: recipient, mask: "spammer!spam@evil.com")
 
-        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"example" => "1"}}
+        message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
 
         assert :ok = Tagmsg.handle(sender, message)
 

@@ -44,9 +44,9 @@ defmodule ElixIRCd.Commands.Privmsg do
 
     cond do
       fantasy_command_message?(target, message_text) -> handle_fantasy_channel_message(user, target, message_text)
-      channel_name?(target) -> handle_channel_message(user, target, message_text)
+      channel_name?(target) -> handle_channel_message(user, target, message_text, message.tags)
       service_name?(target) -> handle_service_message(user, target, message)
-      true -> handle_user_message(user, target, message_text)
+      true -> handle_user_message(user, target, message_text, message.tags)
     end
   end
 
@@ -55,8 +55,8 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec handle_channel_message(User.t(), String.t(), String.t()) :: :ok
-  defp handle_channel_message(user, channel_name, message_text) do
+  @spec handle_channel_message(User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp handle_channel_message(user, channel_name, message_text, message_tags) do
     with_channel_message_permissions(user, channel_name, message_text, fn channel, _user_channel ->
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
@@ -65,7 +65,7 @@ defmodule ElixIRCd.Commands.Privmsg do
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
       users = Users.get_by_pids(user_pids)
 
-      %Message{command: "PRIVMSG", params: [channel.name], trailing: message_text}
+      %Message{command: "PRIVMSG", params: [channel.name], trailing: message_text, tags: message_tags}
       |> Dispatcher.broadcast_with_echo(user, users)
     end)
   end
@@ -190,16 +190,16 @@ defmodule ElixIRCd.Commands.Privmsg do
     Service.dispatch(user, target_service, command_list)
   end
 
-  @spec handle_user_message(User.t(), String.t(), String.t()) :: :ok
-  defp handle_user_message(user, target_nick, message_text) do
+  @spec handle_user_message(User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp handle_user_message(user, target_nick, message_text, message_tags) do
     case Users.get_by_nick(target_nick) do
-      {:ok, target_user} -> send_user_message(user, target_user, target_nick, message_text)
+      {:ok, target_user} -> send_user_message(user, target_user, target_nick, message_text, message_tags)
       {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
     end
   end
 
-  @spec send_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp send_user_message(user, target_user, target_nick, message_text) do
+  @spec send_user_message(User.t(), User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp send_user_message(user, target_user, target_nick, message_text, message_tags) do
     cond do
       should_silence_message?(target_user, user) ->
         :ok
@@ -212,7 +212,7 @@ defmodule ElixIRCd.Commands.Privmsg do
         handle_blocked_user_message(user, target_user)
 
       true ->
-        handle_normal_user_message(user, target_user, target_nick, message_text)
+        handle_normal_user_message(user, target_user, target_nick, message_text, message_tags)
     end
   end
 
@@ -236,9 +236,11 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(:server, sender)
   end
 
-  @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t()) :: :ok
-  defp handle_normal_user_message(user, target_user, target_nick, message_text) do
-    %Message{command: "PRIVMSG", params: [target_nick], trailing: message_text}
+  @spec handle_normal_user_message(User.t(), User.t(), String.t(), String.t(), %{
+          optional(String.t()) => String.t() | nil
+        }) :: :ok
+  defp handle_normal_user_message(user, target_user, target_nick, message_text, message_tags) do
+    %Message{command: "PRIVMSG", params: [target_nick], trailing: message_text, tags: message_tags}
     |> Dispatcher.broadcast_with_echo(user, target_user)
 
     if target_user.away_message do

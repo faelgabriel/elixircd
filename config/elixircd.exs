@@ -129,8 +129,6 @@ config :elixircd,
     chghost: true,
     # Whether to echo accepted PRIVMSG/NOTICE/TAGMSG commands back to senders (echo-message capability)
     echo_message: true,
-    # Whether to allow client-only tags from clients (client-tags capability)
-    client_tags: true,
     # Whether to support extended JOIN with account information (extended-join capability)
     extended_join: true,
     # Whether to support extended INVITE with account information (invite-extended capability)
