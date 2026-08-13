@@ -29,6 +29,8 @@ defmodule ElixIRCd.Server.Connection do
   @type transport :: :tcp | :tls | :ws | :wss
   @type connection_data :: %{ip_address: :inet.ip_address(), port_connected: :inet.port_number()}
 
+  @max_client_tag_data_length 4094
+
   @doc """
   Handles the connection establishment.
   """
@@ -133,11 +135,13 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
   defp handle_valid_message(user, data) do
-    case Message.parse(data) do
-      {:ok, message} ->
-        updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
-        Command.dispatch(updated_user, message)
+    parsed_message = Message.parse(data)
 
+    with :ok <- validate_tag_data_length(data),
+         {:ok, message} <- parsed_message do
+      updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
+      Command.dispatch(updated_user, message)
+    else
       {:error, :input_too_long} ->
         %Message{command: :err_inputtoolong, params: [user_reply(user)], trailing: "Input line was too long"}
         |> Dispatcher.broadcast(:server, user)
@@ -146,6 +150,23 @@ defmodule ElixIRCd.Server.Connection do
         Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
     end
   end
+
+  @spec validate_tag_data_length(String.t()) :: :ok | {:error, :input_too_long}
+  defp validate_tag_data_length("@" <> data) do
+    tag_data_length =
+      case :binary.match(data, " ") do
+        {length, 1} -> length
+        :nomatch -> byte_size(data)
+      end
+
+    if tag_data_length > @max_client_tag_data_length do
+      {:error, :input_too_long}
+    else
+      :ok
+    end
+  end
+
+  defp validate_tag_data_length(_data), do: :ok
 
   @spec handle_throttled_message(user :: User.t(), retry_after_ms :: non_neg_integer()) :: :ok
   defp handle_throttled_message(user, retry_after_ms) do

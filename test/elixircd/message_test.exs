@@ -399,11 +399,12 @@ defmodule ElixIRCd.MessageTest do
                 }}
     end
 
-    test "rejects messages with too much client tag data" do
+    test "parses tag data above the connection-level limit" do
       oversized_tags = String.duplicate("a", 4095)
       raw_message = "@#{oversized_tags} PRIVMSG #channel :hello"
 
-      assert Message.parse(raw_message) == {:error, :input_too_long}
+      assert {:ok, %Message{tags: tags, command: "PRIVMSG"}} = Message.parse(raw_message)
+      assert tags == %{oversized_tags => nil}
     end
   end
 

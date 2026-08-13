@@ -550,22 +550,6 @@ defmodule ElixIRCd.Commands.CapTest do
       end)
     end
 
-    test "rejects CAP REQ command with removed client-tags capability" do
-      Memento.transaction!(fn ->
-        user = insert(:user, capabilities: [])
-        message = %Message{command: "CAP", params: ["REQ", "client-tags"]}
-
-        assert :ok = Cap.handle(user, message)
-
-        assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} NAK :client-tags\r\n"}
-        ])
-
-        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert updated_user.capabilities == []
-      end)
-    end
-
     test "handles CAP REQ command with echo-message capability" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [])

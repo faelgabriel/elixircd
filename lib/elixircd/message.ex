@@ -91,37 +91,33 @@ defmodule ElixIRCd.Message do
   - For a message ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user",
   - the function parses it into `%Message{prefix: "Freenode.net", command: "001", params: ["user"], trailing: "Welcome to the freenode Internet Relay Chat Network user"}`
   """
-  @spec parse(String.t()) :: {:ok, __MODULE__.t()} | {:error, String.t() | :input_too_long}
+  @spec parse(String.t()) :: {:ok, __MODULE__.t()} | {:error, String.t()}
   def parse(raw_message) do
-    trimmed_message = String.trim_trailing(raw_message)
+    {tags, rest_after_tags} =
+      raw_message
+      |> String.trim_trailing()
+      |> extract_tags()
 
-    with {:ok, {tags, rest_after_tags}} <- extract_tags(trimmed_message) do
-      {prefix, rest_raw_message} = extract_prefix(rest_after_tags)
+    {prefix, rest_raw_message} = extract_prefix(rest_after_tags)
 
-      parse_command_and_params(rest_raw_message)
-      |> case do
-        {command, params, trailing} ->
-          {:ok, %__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}}
+    parse_command_and_params(rest_raw_message)
+    |> case do
+      {command, params, trailing} ->
+        {:ok, %__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}}
 
-        {:error, error} ->
-          {:error, error}
-      end
+      {:error, error} ->
+        {:error, error}
     end
   end
 
-  @spec extract_tags(String.t()) :: {:ok, {tags(), String.t()}} | {:error, atom()}
+  @spec extract_tags(String.t()) :: {tags(), String.t()}
   defp extract_tags("@" <> message) do
     [tags_string | rest] = String.split(message, " ", parts: 2)
-
-    if byte_size(tags_string) > 4094 do
-      {:error, :input_too_long}
-    else
-      tags = parse_tags(tags_string)
-      {:ok, {tags, Enum.join(rest, " ")}}
-    end
+    tags = parse_tags(tags_string)
+    {tags, Enum.join(rest, " ")}
   end
 
-  defp extract_tags(message), do: {:ok, {%{}, message}}
+  defp extract_tags(message), do: {%{}, message}
 
   @spec unescape_tag_value(String.t()) :: String.t()
   defp unescape_tag_value(value) do

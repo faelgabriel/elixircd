@@ -281,6 +281,33 @@ defmodule ElixIRCd.Server.ConnectionTest do
         {user.pid, ":irc.test 417 #{user.nick} :Input line was too long\r\n"}
       ])
     end
+
+    test "accepts the maximum client tag data length", %{user: user} do
+      max_sized_tags = String.duplicate("a", 4094)
+
+      Command
+      |> expect(:dispatch, 1, fn dispatched_user, message ->
+        assert dispatched_user.pid == user.pid
+        assert message.tags == %{max_sized_tags => nil}
+        :ok
+      end)
+
+      assert :ok = Connection.handle_receive(user.pid, "@#{max_sized_tags} PRIVMSG #test :hello")
+      assert_sent_messages_amount(user.pid, 0)
+    end
+
+    test "prioritizes the tag data limit for malformed messages", %{user: user} do
+      Command
+      |> reject(:dispatch, 2)
+
+      oversized_tags = String.duplicate("a", 4095)
+
+      assert :ok = Connection.handle_receive(user.pid, "@#{oversized_tags}")
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 417 #{user.nick} :Input line was too long\r\n"}
+      ])
+    end
   end
 
   describe "handle_send/2" do

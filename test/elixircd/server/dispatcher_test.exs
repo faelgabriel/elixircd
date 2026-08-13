@@ -492,6 +492,31 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
+    test "filters client-only tags when recipient has SERVER-TIME without MESSAGE-TAGS" do
+      sender = insert(:user, capabilities: ["message-tags"])
+      recipient = insert(:user, capabilities: ["server-time"])
+
+      message = %Message{
+        command: "PRIVMSG",
+        params: [recipient.nick],
+        trailing: "hello",
+        tags: %{"+draft/reply" => "123"}
+      }
+
+      Connection
+      |> expect(:handle_send, fn pid, received_message ->
+        assert pid === recipient.pid
+        assert String.starts_with?(received_message, "@time=")
+        refute received_message =~ "+draft/reply"
+        :ok
+      end)
+
+      assert :ok == Dispatcher.broadcast(message, sender, recipient)
+
+      Connection
+      |> reject(:handle_send, 2)
+    end
+
     test "adds account tag when sender is identified and recipient has ACCOUNT-TAG" do
       sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
       recipient_with_cap = insert(:user, capabilities: ["message-tags", "account-tag"])

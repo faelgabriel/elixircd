@@ -198,6 +198,7 @@ defmodule ElixIRCd.Server.Dispatcher do
     if recipient_supports_message_tags?(capabilities) do
       tags =
         message.tags
+        |> maybe_filter_client_only_tags(capabilities)
         |> maybe_put_server_time_tag(capabilities)
         |> maybe_filter_msgid_tag(capabilities)
         |> maybe_filter_account_tag(capabilities)
@@ -211,6 +212,15 @@ defmodule ElixIRCd.Server.Dispatcher do
   @spec recipient_supports_message_tags?(MapSet.t(String.t())) :: boolean()
   defp recipient_supports_message_tags?(capabilities) do
     Enum.any?(["message-tags", "account-tag", "server-time", "msgid"], &MapSet.member?(capabilities, &1))
+  end
+
+  @spec maybe_filter_client_only_tags(Message.tags(), MapSet.t()) :: Message.tags()
+  defp maybe_filter_client_only_tags(tags, capabilities) do
+    if MapSet.member?(capabilities, "message-tags") do
+      tags
+    else
+      Map.reject(tags, fn {tag_name, _value} -> String.starts_with?(tag_name, "+") end)
+    end
   end
 
   @spec maybe_put_server_time_tag(Message.tags(), MapSet.t()) :: Message.tags()
