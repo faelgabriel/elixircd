@@ -31,7 +31,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
   def handle(user, %{command: "TAGMSG"} = message) do
     capabilities = user.capabilities || []
 
-    if "MESSAGE-TAGS" in capabilities do
+    if "message-tags" in capabilities do
       do_handle(user, message)
     else
       %Message{command: :err_unknowncommand, params: [user.nick, "TAGMSG"], trailing: "Unknown command"}
@@ -133,7 +133,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
   end
 
   @spec tagmsg_enabled?(User.t()) :: boolean()
-  defp tagmsg_enabled?(%User{capabilities: capabilities}), do: "MESSAGE-TAGS" in capabilities
+  defp tagmsg_enabled?(%User{capabilities: capabilities}), do: "message-tags" in capabilities
 
   @spec handle_restricted_user_message(User.t(), User.t()) :: :ok
   defp handle_restricted_user_message(sender, recipient) do

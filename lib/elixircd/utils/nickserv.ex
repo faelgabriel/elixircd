@@ -90,7 +90,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   end
 
   @doc """
-  Broadcasts an ACCOUNT message to the user and optionally to watchers with ACCOUNT-NOTIFY capability.
+  Broadcasts an ACCOUNT message to the user and optionally to watchers with the `account-notify` capability.
   """
   @spec notify_account_change(User.t(), String.t()) :: :ok
   def notify_account_change(user, account) do
@@ -98,7 +98,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   end
 
   @doc """
-  Broadcasts ACCOUNT * to the user and optionally to watchers with ACCOUNT-NOTIFY capability.
+  Broadcasts ACCOUNT * to the user and optionally to watchers with the `account-notify` capability.
   """
   @spec notify_account_logout(User.t()) :: :ok
   def notify_account_logout(user) do
@@ -130,7 +130,7 @@ defmodule ElixIRCd.Utils.Nickserv do
 
     if account_notify_supported do
       watchers =
-        Users.get_in_shared_channels_with_capability(user, "ACCOUNT-NOTIFY", true)
+        Users.get_in_shared_channels_with_capability(user, "account-notify", true)
         |> Enum.reject(&(&1.pid == user.pid))
 
       if watchers != [] do

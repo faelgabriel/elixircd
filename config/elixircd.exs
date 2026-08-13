@@ -141,9 +141,9 @@ config :elixircd,
     sasl: true,
     # Whether to allow clients to change their real name during the session (setname capability)
     setname: true,
-    # Whether to support SERVER-TIME capability adding time= tags
+    # Whether to support the server-time capability adding time= tags
     server_time: true,
-    # Whether to support MSGID capability adding msgid= tags
+    # Whether to support the msgid capability adding msgid= tags
     msgid: true,
     # Whether to support Strict Transport Security (sts capability)
     sts: true,

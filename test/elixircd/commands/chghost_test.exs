@@ -97,7 +97,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
       Memento.transaction!(fn ->
         operator = insert(:user, modes: ["o"])
         target = insert(:user, ident: "oldident", hostname: "oldhost.example.com")
-        watcher = insert(:user, capabilities: ["CHGHOST"])
+        watcher = insert(:user, capabilities: ["chghost"])
 
         # Users must share a channel to receive CHGHOST
         channel = insert(:channel, name: "#test")

@@ -404,7 +404,7 @@ defmodule ElixIRCd.Commands.WhoTest do
 
     test "handles WHO command with EXTENDED-UHLIST capability enabled shows extended user modes" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["EXTENDED-UHLIST"])
+        user = insert(:user, capabilities: ["extended-uhlist"])
         channel = insert(:channel)
         insert(:user_channel, channel: channel, user: user)
 
@@ -456,7 +456,7 @@ defmodule ElixIRCd.Commands.WhoTest do
 
     test "handles WHO command with EXTENDED-UHLIST capability filters out operator mode already shown as *" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["EXTENDED-UHLIST"])
+        user = insert(:user, capabilities: ["extended-uhlist"])
         channel = insert(:channel)
         insert(:user_channel, channel: channel, user: user)
 
@@ -482,7 +482,7 @@ defmodule ElixIRCd.Commands.WhoTest do
 
     test "handles WHO command with EXTENDED-UHLIST capability filters operator-restricted modes for non-operators" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["EXTENDED-UHLIST"], modes: [])
+        user = insert(:user, capabilities: ["extended-uhlist"], modes: [])
         channel = insert(:channel)
         insert(:user_channel, channel: channel, user: user)
 
@@ -509,7 +509,7 @@ defmodule ElixIRCd.Commands.WhoTest do
 
     test "handles WHO command with EXTENDED-UHLIST capability shows operator-restricted modes for operators" do
       Memento.transaction!(fn ->
-        operator_user = insert(:user, capabilities: ["EXTENDED-UHLIST"], modes: ["o"])
+        operator_user = insert(:user, capabilities: ["extended-uhlist"], modes: ["o"])
         channel = insert(:channel)
         insert(:user_channel, channel: channel, user: operator_user)
 

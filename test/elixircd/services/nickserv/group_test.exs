@@ -123,7 +123,7 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
           insert(:user,
             nick: "OtherUser",
             identified_as: standalone_nick.nickname,
-            capabilities: ["ACCOUNT-NOTIFY"]
+            capabilities: ["account-notify"]
           )
 
         user = insert(:user, nick: standalone_nick.nickname, identified_as: account_nick.nickname)

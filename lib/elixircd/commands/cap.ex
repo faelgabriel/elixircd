@@ -10,6 +10,9 @@ defmodule ElixIRCd.Commands.Cap do
 
   During CAP negotiation, the server blocks registration (001) even if NICK and USER
   are provided. This allows SASL authentication before registration completes.
+
+  Capability identifiers are case-sensitive opaque strings. Standard capabilities
+  are advertised and stored using their canonical lowercase names.
   """
 
   @behaviour ElixIRCd.Command
@@ -23,87 +26,87 @@ defmodule ElixIRCd.Commands.Cap do
   alias ElixIRCd.Tables.User
 
   @supported_capabilities %{
-    "ACCOUNT-TAG" => %{
-      name: "ACCOUNT-TAG",
+    "account-tag" => %{
+      name: "account-tag",
       description: "Attach authenticated account name via message tags"
     },
-    "ACCOUNT-NOTIFY" => %{
-      name: "ACCOUNT-NOTIFY",
+    "account-notify" => %{
+      name: "account-notify",
       description: "Notify when users identify or logout"
     },
-    "AWAY-NOTIFY" => %{
-      name: "AWAY-NOTIFY",
+    "away-notify" => %{
+      name: "away-notify",
       description: "Notify when users set or remove away status"
     },
-    "CAP-NOTIFY" => %{
-      name: "CAP-NOTIFY",
+    "cap-notify" => %{
+      name: "cap-notify",
       description: "Notify clients when server capabilities change dynamically"
     },
-    "CHGHOST" => %{
-      name: "CHGHOST",
+    "chghost" => %{
+      name: "chghost",
       description: "Notify when a user's ident or hostname changes"
     },
-    "ECHO-MESSAGE" => %{
-      name: "ECHO-MESSAGE",
+    "echo-message" => %{
+      name: "echo-message",
       description: "Echo accepted PRIVMSG, NOTICE, and TAGMSG commands back to the sender"
     },
-    "EXTENDED-JOIN" => %{
-      name: "EXTENDED-JOIN",
+    "extended-join" => %{
+      name: "extended-join",
       description: "Extended JOIN messages including account name and real name"
     },
-    "INVITE-EXTENDED" => %{
-      name: "INVITE-EXTENDED",
+    "invite-extended" => %{
+      name: "invite-extended",
       description: "Extended INVITE messages including account information"
     },
-    "INVITE-NOTIFY" => %{
-      name: "INVITE-NOTIFY",
+    "invite-notify" => %{
+      name: "invite-notify",
       description: "Notify channel members when users are invited"
     },
-    "MULTI-PREFIX" => %{
-      name: "MULTI-PREFIX",
+    "multi-prefix" => %{
+      name: "multi-prefix",
       description: "Display multiple status prefixes for users in channel responses"
     },
-    "SASL" => %{
-      name: "SASL",
+    "sasl" => %{
+      name: "sasl",
       description: "Display multiple status prefixes for users in channel responses"
     },
-    "SETNAME" => %{
-      name: "SETNAME",
+    "setname" => %{
+      name: "setname",
       description: "Allow clients to change their real name during the session"
     },
-    "STS" => %{
-      name: "STS",
+    "sts" => %{
+      name: "sts",
       description: "Strict Transport Security - automatic TLS upgrade and policy persistence"
     },
-    "UHNAMES" => %{
-      name: "UHNAMES",
+    "uhnames" => %{
+      name: "uhnames",
       description: "Extended NAMES reply with full user@host format"
     },
-    "EXTENDED-UHLIST" => %{
-      name: "EXTENDED-UHLIST",
+    "extended-uhlist" => %{
+      name: "extended-uhlist",
       description: "Extended user modes in WHO replies"
     },
-    "MESSAGE-TAGS" => %{
-      name: "MESSAGE-TAGS",
+    "message-tags" => %{
+      name: "message-tags",
       description: "Support for IRCv3 message tags including bot tag"
     },
-    "SERVER-TIME" => %{
-      name: "SERVER-TIME",
+    "server-time" => %{
+      name: "server-time",
       description: "Attach server-generated time= message tags"
     },
-    "MSGID" => %{
-      name: "MSGID",
+    "msgid" => %{
+      name: "msgid",
       description: "Attach unique msgid= message tags"
     },
-    "MONITOR" => %{
-      name: "MONITOR",
+    "monitor" => %{
+      name: "monitor",
       description: "Efficient tracking of user online/offline status"
     }
   }
 
   # Capabilities that are announced via CAP LS but cannot be requested via CAP REQ
   # As per IRCv3 specifications, these capabilities are informational only
-  @non_requestable_capabilities ["STS"]
+  @non_requestable_capabilities ["sts"]
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -182,25 +185,25 @@ defmodule ElixIRCd.Commands.Cap do
 
     capabilities =
       for {config_key, name} <- [
-            {:account_tag, "ACCOUNT-TAG"},
-            {:account_notify, "ACCOUNT-NOTIFY"},
-            {:away_notify, "AWAY-NOTIFY"},
-            {:cap_notify, "CAP-NOTIFY"},
-            {:chghost, "CHGHOST"},
-            {:echo_message, "ECHO-MESSAGE"},
-            {:extended_join, "EXTENDED-JOIN"},
-            {:invite_extended, "INVITE-EXTENDED"},
-            {:invite_notify, "INVITE-NOTIFY"},
-            {:multi_prefix, "MULTI-PREFIX"},
+            {:account_tag, "account-tag"},
+            {:account_notify, "account-notify"},
+            {:away_notify, "away-notify"},
+            {:cap_notify, "cap-notify"},
+            {:chghost, "chghost"},
+            {:echo_message, "echo-message"},
+            {:extended_join, "extended-join"},
+            {:invite_extended, "invite-extended"},
+            {:invite_notify, "invite-notify"},
+            {:multi_prefix, "multi-prefix"},
             {:sasl, build_sasl_capability_value()},
-            {:setname, "SETNAME"},
+            {:setname, "setname"},
             {:sts, build_sts_capability_value(user)},
-            {:msgid, "MSGID"},
-            {:server_time, "SERVER-TIME"},
-            {:message_tags, "MESSAGE-TAGS"},
-            {:extended_uhlist, "EXTENDED-UHLIST"},
-            {:extended_names, "UHNAMES"},
-            {:monitor, "MONITOR"}
+            {:msgid, "msgid"},
+            {:server_time, "server-time"},
+            {:message_tags, "message-tags"},
+            {:extended_uhlist, "extended-uhlist"},
+            {:extended_names, "uhnames"},
+            {:monitor, "monitor"}
           ],
           Keyword.get(capabilities_config, config_key, false) and name != nil do
         name
@@ -216,7 +219,7 @@ defmodule ElixIRCd.Commands.Cap do
 
     case mechanisms do
       [] -> nil
-      mechs -> "SASL=#{Enum.join(mechs, ",")}"
+      mechs -> "sasl=#{Enum.join(mechs, ",")}"
     end
   end
 
@@ -283,11 +286,11 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec parse_single_capability(String.t()) :: %{action: :enable | :disable, name: String.t()} | nil
   defp parse_single_capability("-" <> capability) do
-    %{action: :disable, name: String.upcase(capability)}
+    %{action: :disable, name: capability}
   end
 
   defp parse_single_capability(capability) do
-    %{action: :enable, name: String.upcase(capability)}
+    %{action: :enable, name: capability}
   end
 
   @spec validate_capabilities([%{action: :enable | :disable, name: String.t()}]) ::

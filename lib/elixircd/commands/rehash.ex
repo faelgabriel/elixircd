@@ -16,23 +16,23 @@ defmodule ElixIRCd.Commands.Rehash do
   alias ElixIRCd.Tables.User
 
   @cap_mappings [
-    {:account_tag, "ACCOUNT-TAG"},
-    {:account_notify, "ACCOUNT-NOTIFY"},
-    {:away_notify, "AWAY-NOTIFY"},
-    {:cap_notify, "CAP-NOTIFY"},
-    {:chghost, "CHGHOST"},
-    {:echo_message, "ECHO-MESSAGE"},
-    {:extended_join, "EXTENDED-JOIN"},
-    {:invite_extended, "INVITE-EXTENDED"},
-    {:invite_notify, "INVITE-NOTIFY"},
-    {:multi_prefix, "MULTI-PREFIX"},
-    {:sasl, "SASL"},
-    {:setname, "SETNAME"},
-    {:extended_names, "UHNAMES"},
-    {:extended_uhlist, "EXTENDED-UHLIST"},
-    {:message_tags, "MESSAGE-TAGS"},
-    {:server_time, "SERVER-TIME"},
-    {:msgid, "MSGID"}
+    {:account_tag, "account-tag"},
+    {:account_notify, "account-notify"},
+    {:away_notify, "away-notify"},
+    {:cap_notify, "cap-notify"},
+    {:chghost, "chghost"},
+    {:echo_message, "echo-message"},
+    {:extended_join, "extended-join"},
+    {:invite_extended, "invite-extended"},
+    {:invite_notify, "invite-notify"},
+    {:multi_prefix, "multi-prefix"},
+    {:sasl, "sasl"},
+    {:setname, "setname"},
+    {:extended_names, "uhnames"},
+    {:extended_uhlist, "extended-uhlist"},
+    {:message_tags, "message-tags"},
+    {:server_time, "server-time"},
+    {:msgid, "msgid"}
   ]
 
   @impl true
@@ -134,15 +134,12 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec has_cap_notify?(User.t()) :: boolean()
   defp has_cap_notify?(user) do
-    "CAP-NOTIFY" in user.capabilities
+    "cap-notify" in user.capabilities
   end
 
   @spec remove_deleted_capabilities(User.t(), String.t()) :: User.t()
   defp remove_deleted_capabilities(user, capabilities_string) do
-    capabilities_to_remove =
-      capabilities_string
-      |> String.split()
-      |> Enum.map(&String.upcase/1)
+    capabilities_to_remove = String.split(capabilities_string)
 
     new_capabilities =
       user.capabilities

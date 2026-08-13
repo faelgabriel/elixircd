@@ -526,7 +526,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with UHNAMES capability enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["UHNAMES"], ident: "~testuser", hostname: "test.example.com")
+        user = insert(:user, capabilities: ["uhnames"], ident: "~testuser", hostname: "test.example.com")
         channel = insert(:channel)
         another_user = insert(:user, nick: "another_user", ident: "~another", hostname: "another.example.com")
         insert(:user_channel, user: another_user, channel: channel, modes: ["o"])
@@ -569,7 +569,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command creating new channel with UHNAMES capability enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["UHNAMES"], ident: "~creator", hostname: "creator.example.com")
+        user = insert(:user, capabilities: ["uhnames"], ident: "~creator", hostname: "creator.example.com")
         message = %Message{command: "JOIN", params: ["#newchannel"]}
 
         assert :ok = Join.handle(user, message)
@@ -589,7 +589,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         channel = insert(:channel)
 
         uhnames_user =
-          insert(:user, nick: "uhnames_user", capabilities: ["UHNAMES"], ident: "~uhuser", hostname: "uh.example.com")
+          insert(:user, nick: "uhnames_user", capabilities: ["uhnames"], ident: "~uhuser", hostname: "uh.example.com")
 
         insert(:user_channel, user: uhnames_user, channel: channel, modes: ["v"])
 
@@ -598,7 +598,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
         insert(:user_channel, user: normal_user, channel: channel)
 
-        joining_user = insert(:user, capabilities: ["UHNAMES"], ident: "~joining", hostname: "joining.example.com")
+        joining_user = insert(:user, capabilities: ["uhnames"], ident: "~joining", hostname: "joining.example.com")
         message = %Message{command: "JOIN", params: [channel.name]}
 
         assert :ok = Join.handle(joining_user, message)
@@ -784,7 +784,7 @@ defmodule ElixIRCd.Commands.JoinTest do
   describe "handle/2 - extended-join capability" do
     test "sends extended JOIN format when recipient has EXTENDED-JOIN capability (without account)" do
       Memento.transaction!(fn ->
-        user = insert(:user, realname: "John Doe", capabilities: ["EXTENDED-JOIN"])
+        user = insert(:user, realname: "John Doe", capabilities: ["extended-join"])
         message = %Message{command: "JOIN", params: ["#test"]}
 
         assert :ok = Join.handle(user, message)
@@ -801,7 +801,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "sends extended JOIN format when recipient has EXTENDED-JOIN capability (with account)" do
       Memento.transaction!(fn ->
-        user = insert(:user, realname: "John Doe", identified_as: "john123", capabilities: ["EXTENDED-JOIN"])
+        user = insert(:user, realname: "John Doe", identified_as: "john123", capabilities: ["extended-join"])
         message = %Message{command: "JOIN", params: ["#test"]}
 
         assert :ok = Join.handle(user, message)
@@ -819,7 +819,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "sends appropriate JOIN format to each user based on their capabilities" do
       Memento.transaction!(fn ->
         channel = insert(:channel, name: "#test")
-        existing_user = insert(:user, realname: "Existing User", capabilities: ["EXTENDED-JOIN"])
+        existing_user = insert(:user, realname: "Existing User", capabilities: ["extended-join"])
         insert(:user_channel, user: existing_user, channel: channel, modes: ["o"])
 
         existing_user_without_cap = insert(:user, realname: "Regular User", capabilities: [])
@@ -850,7 +850,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "sends extended JOIN with asterisk when user is not identified" do
       Memento.transaction!(fn ->
         channel = insert(:channel, name: "#test")
-        existing_user = insert(:user, capabilities: ["EXTENDED-JOIN"])
+        existing_user = insert(:user, capabilities: ["extended-join"])
         insert(:user_channel, user: existing_user, channel: channel, modes: ["o"])
 
         joining_user = insert(:user, realname: "Anonymous User", identified_as: nil, capabilities: [])

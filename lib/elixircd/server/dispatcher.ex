@@ -28,7 +28,7 @@ defmodule ElixIRCd.Server.Dispatcher do
     else
       any_msgid_cap? =
         Enum.any?(targets, fn
-          %User{capabilities: caps} -> "MSGID" in caps and recipient_supports_message_tags?(MapSet.new(caps))
+          %User{capabilities: caps} -> "msgid" in caps and recipient_supports_message_tags?(MapSet.new(caps))
           _ -> false
         end)
 
@@ -45,7 +45,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   @doc """
   Broadcasts user-originated messages and echoes them back to the sender when the
-  `ECHO-MESSAGE` capability is enabled for that user.
+  `echo-message` capability is enabled for that user.
   """
   @spec broadcast_with_echo(Message.t() | [Message.t()], User.t(), target() | [target()]) :: :ok
   def broadcast_with_echo(messages, %User{} = sender, targets) do
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   @spec echo_message_enabled?(User.t()) :: boolean()
   defp echo_message_enabled?(%User{capabilities: capabilities}) do
     echo_message_supported = Application.get_env(:elixircd, :capabilities)[:echo_message] || false
-    echo_message_supported and "ECHO-MESSAGE" in capabilities
+    echo_message_supported and "echo-message" in capabilities
   end
 
   @spec target_pid(target()) :: pid()
@@ -140,7 +140,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   @spec sanitize_client_message_tags(Message.t(), User.t()) :: Message.t()
   defp sanitize_client_message_tags(%Message{tags: tags} = message, %User{capabilities: capabilities}) do
     sanitized_tags =
-      if "MESSAGE-TAGS" in capabilities do
+      if "message-tags" in capabilities do
         relayable_client_tags(tags)
       else
         %{}
@@ -210,14 +210,14 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   @spec recipient_supports_message_tags?(MapSet.t(String.t())) :: boolean()
   defp recipient_supports_message_tags?(capabilities) do
-    Enum.any?(["MESSAGE-TAGS", "ACCOUNT-TAG", "SERVER-TIME", "MSGID"], &MapSet.member?(capabilities, &1))
+    Enum.any?(["message-tags", "account-tag", "server-time", "msgid"], &MapSet.member?(capabilities, &1))
   end
 
   @spec maybe_put_server_time_tag(Message.tags(), MapSet.t()) :: Message.tags()
   defp maybe_put_server_time_tag(tags, capabilities) do
     server_time_supported = Application.get_env(:elixircd, :capabilities)[:server_time] || false
 
-    if server_time_supported and MapSet.member?(capabilities, "SERVER-TIME") and not Map.has_key?(tags, "time") do
+    if server_time_supported and MapSet.member?(capabilities, "server-time") and not Map.has_key?(tags, "time") do
       time =
         DateTime.utc_now()
         |> DateTime.truncate(:millisecond)
@@ -235,7 +235,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
     cond do
       not msgid_supported -> Map.delete(tags, "msgid")
-      not MapSet.member?(capabilities, "MSGID") -> Map.delete(tags, "msgid")
+      not MapSet.member?(capabilities, "msgid") -> Map.delete(tags, "msgid")
       true -> tags
     end
   end
@@ -246,7 +246,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
     cond do
       not account_tag_supported -> Map.delete(tags, "account")
-      not MapSet.member?(capabilities, "ACCOUNT-TAG") -> Map.delete(tags, "account")
+      not MapSet.member?(capabilities, "account-tag") -> Map.delete(tags, "account")
       true -> tags
     end
   end

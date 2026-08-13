@@ -127,9 +127,9 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
         registered_nick = insert(:registered_nick)
 
         logging_out_user =
-          insert(:user, identified_as: registered_nick.nickname, modes: ["r"], capabilities: ["ACCOUNT-NOTIFY"])
+          insert(:user, identified_as: registered_nick.nickname, modes: ["r"], capabilities: ["account-notify"])
 
-        watcher = insert(:user, capabilities: ["ACCOUNT-NOTIFY"])
+        watcher = insert(:user, capabilities: ["account-notify"])
         # Users must share a channel to receive ACCOUNT-NOTIFY (and user receives it too)
         channel = insert(:channel, name: "#test")
         insert(:user_channel, user: logging_out_user, channel: channel)

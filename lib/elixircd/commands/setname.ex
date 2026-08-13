@@ -3,7 +3,7 @@ defmodule ElixIRCd.Commands.Setname do
   This module defines the SETNAME command.
 
   SETNAME allows users to change their real name (GECOS) during an active session.
-  This requires the SETNAME capability to be enabled.
+  This requires the `setname` capability to be enabled.
   """
 
   @behaviour ElixIRCd.Command
@@ -82,7 +82,7 @@ defmodule ElixIRCd.Commands.Setname do
     setname_supported = Application.get_env(:elixircd, :capabilities)[:setname] || false
 
     if setname_supported do
-      watchers = Users.get_in_shared_channels_with_capability(user, "SETNAME", true)
+      watchers = Users.get_in_shared_channels_with_capability(user, "setname", true)
 
       if watchers != [] do
         %Message{command: "SETNAME", params: [], trailing: new_realname}

@@ -98,7 +98,7 @@ defmodule ElixIRCd.Commands.Invite do
     |> Dispatcher.broadcast(:server, user)
 
     # Send INVITE to the target user
-    if "INVITE-EXTENDED" in target_user.capabilities do
+    if "invite-extended" in target_user.capabilities do
       account = user.identified_as || "*"
 
       %Message{command: "INVITE", params: [target_user.nick, channel.name, "account=#{account}"]}
@@ -119,7 +119,7 @@ defmodule ElixIRCd.Commands.Invite do
     users = Users.get_by_pids(user_pids)
 
     users_with_invite_notify =
-      Enum.filter(users, fn u -> "INVITE-NOTIFY" in u.capabilities end)
+      Enum.filter(users, fn u -> "invite-notify" in u.capabilities end)
 
     unless Enum.empty?(users_with_invite_notify) do
       %Message{command: "INVITE", params: [invitee.nick, channel.name]}

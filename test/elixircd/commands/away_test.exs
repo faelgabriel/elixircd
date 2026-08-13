@@ -89,7 +89,7 @@ defmodule ElixIRCd.Commands.AwayTest do
 
       Memento.transaction!(fn ->
         user = insert(:user)
-        watcher = insert(:user, capabilities: ["AWAY-NOTIFY"])
+        watcher = insert(:user, capabilities: ["away-notify"])
         # Users must share a channel to receive AWAY-NOTIFY
         channel = insert(:channel, name: "#test")
         insert(:user_channel, user: user, channel: channel)
@@ -119,7 +119,7 @@ defmodule ElixIRCd.Commands.AwayTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, away_message: "I'm away")
-        watcher = insert(:user, capabilities: ["AWAY-NOTIFY"])
+        watcher = insert(:user, capabilities: ["away-notify"])
         # Users must share a channel to receive AWAY-NOTIFY
         channel = insert(:channel, name: "#test")
         insert(:user_channel, user: user, channel: channel)

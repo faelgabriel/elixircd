@@ -56,7 +56,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   def handle(user, %{command: "AUTHENTICATE", params: [mechanism | _]}) do
     cond do
-      "SASL" not in user.capabilities ->
+      "sasl" not in user.capabilities ->
         %Message{
           command: :err_unknowncommand,
           params: [user_reply(user), "AUTHENTICATE"],

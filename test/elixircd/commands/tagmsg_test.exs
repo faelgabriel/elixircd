@@ -38,8 +38,8 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "sends TAGMSG to a user when MESSAGE-TAGS is enabled" do
       Memento.transaction!(fn ->
-        sender = insert(:user, capabilities: ["MESSAGE-TAGS"])
-        recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        sender = insert(:user, capabilities: ["message-tags"])
+        recipient = insert(:user, capabilities: ["message-tags"])
 
         message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
 
@@ -54,7 +54,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "does not send TAGMSG to a user without MESSAGE-TAGS" do
       Memento.transaction!(fn ->
-        sender = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        sender = insert(:user, capabilities: ["message-tags", "echo-message"])
         recipient = insert(:user, capabilities: [])
 
         message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
@@ -70,7 +70,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "does not send TAGMSG anywhere when recipient lacks MESSAGE-TAGS and sender has no ECHO-MESSAGE" do
       Memento.transaction!(fn ->
-        sender = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        sender = insert(:user, capabilities: ["message-tags"])
         recipient = insert(:user, capabilities: [])
 
         message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
@@ -83,8 +83,8 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "echoes TAGMSG back to the sender when ECHO-MESSAGE is enabled" do
       Memento.transaction!(fn ->
-        sender = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
-        recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        sender = insert(:user, capabilities: ["message-tags", "echo-message"])
+        recipient = insert(:user, capabilities: ["message-tags"])
 
         message = %Message{command: "TAGMSG", params: [recipient.nick], tags: %{"+example" => "1"}}
 
@@ -101,8 +101,8 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "forwards only client-only tags on TAGMSG and strips client-sent server tags" do
       Memento.transaction!(fn ->
-        sender = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
-        recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        sender = insert(:user, capabilities: ["message-tags", "echo-message"])
+        recipient = insert(:user, capabilities: ["message-tags"])
 
         message =
           %Message{
@@ -124,7 +124,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "returns error when no TAGMSG target is provided" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         message = %Message{command: "TAGMSG", params: []}
 
         assert :ok = Tagmsg.handle(user, message)
@@ -137,7 +137,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "does not send TAGMSG when target is a service" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         message = %Message{command: "TAGMSG", params: ["NickServ"], tags: %{"+example" => "1"}}
 
         assert :ok = Tagmsg.handle(user, message)
@@ -149,11 +149,11 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "sends TAGMSG to a channel when user is joined and channel allows sending" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         channel = insert(:channel, name: "#chan", modes: [])
 
         # Usuário remetente e outro usuário no canal
-        other_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        other_user = insert(:user, capabilities: ["message-tags"])
         insert(:user_channel, user: user, channel: channel, modes: [])
         insert(:user_channel, user: other_user, channel: channel, modes: [])
 
@@ -170,10 +170,10 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "sends TAGMSG in moderated channel when user is operator and no delay is configured" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         channel = insert(:channel, name: "#staff", modes: ["m"])
 
-        other_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        other_user = insert(:user, capabilities: ["message-tags"])
 
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
         insert(:user_channel, user: other_user, channel: channel, modes: [])
@@ -191,10 +191,10 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "does not send TAGMSG to channel users without MESSAGE-TAGS" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
+        user = insert(:user, capabilities: ["message-tags", "echo-message"])
         channel = insert(:channel, name: "#chan", modes: [])
 
-        recipient_with_tags = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        recipient_with_tags = insert(:user, capabilities: ["message-tags"])
         recipient_without_tags = insert(:user, capabilities: [])
 
         insert(:user_channel, user: user, channel: channel, modes: [])
@@ -215,7 +215,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "returns error when sending TAGMSG to a user that does not exist" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         message = %Message{command: "TAGMSG", params: ["UnknownNick"]}
 
         assert :ok = Tagmsg.handle(user, message)
@@ -228,7 +228,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "returns error when sending TAGMSG to an unknown channel" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         channel_name = "#unknown"
         message = %Message{command: "TAGMSG", params: [channel_name]}
 
@@ -242,7 +242,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "returns error when sending TAGMSG to a moderated or no-outside-messages channel the user is not in" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         channel = insert(:channel, name: "#mod", modes: ["m"])
         message = %Message{command: "TAGMSG", params: [channel.name]}
 
@@ -256,7 +256,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "returns delay error when channel has +d and user has not waited enough" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags"])
         channel = insert(:channel, name: "#delay", modes: [{"d", "10"}])
 
         insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now(), modes: [])
@@ -274,7 +274,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
     test "returns error when sending TAGMSG to a restricted user without +r" do
       Memento.transaction!(fn ->
-        sender = insert(:user, capabilities: ["MESSAGE-TAGS"], modes: [])
+        sender = insert(:user, capabilities: ["message-tags"], modes: [])
         recipient = insert(:user, modes: ["R"])
 
         message = %Message{command: "TAGMSG", params: [recipient.nick]}
@@ -291,7 +291,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
     test "silences TAGMSG when recipient has a matching silence mask" do
       Memento.transaction!(fn ->
         recipient = insert(:user)
-        sender = insert(:user, capabilities: ["MESSAGE-TAGS"], nick: "spammer", ident: "spam", hostname: "evil.com")
+        sender = insert(:user, capabilities: ["message-tags"], nick: "spammer", ident: "spam", hostname: "evil.com")
 
         insert(:user_silence, user: recipient, mask: "spammer!spam@evil.com")
 

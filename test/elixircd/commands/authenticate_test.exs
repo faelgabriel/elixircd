@@ -61,7 +61,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         user =
           insert(:user,
             registered: false,
-            capabilities: ["SASL"],
+            capabilities: ["sasl"],
             cap_negotiating: true,
             identified_as: "testuser",
             sasl_authenticated: true
@@ -86,7 +86,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
           insert(:user,
             registered: false,
             nick: nil,
-            capabilities: ["SASL"],
+            capabilities: ["sasl"],
             cap_negotiating: true,
             identified_as: "testuser",
             sasl_authenticated: true
@@ -135,7 +135,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "rejects AUTHENTICATE when CAP negotiation is not active" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: false)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: false)
         message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
 
         assert :ok = Authenticate.handle(user, message)
@@ -150,7 +150,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
   describe "handle/2 - AUTHENTICATE - mechanism selection" do
     test "starts PLAIN authentication" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
         message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
 
         assert :ok = Authenticate.handle(user, message)
@@ -166,7 +166,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "rejects unsupported mechanism" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
         message = %Message{command: "AUTHENTICATE", params: ["EXTERNAL"]}
 
         assert :ok = Authenticate.handle(user, message)
@@ -182,7 +182,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Application.put_env(:elixircd, :capabilities, sasl: false)
 
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
         message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
 
         assert :ok = Authenticate.handle(user, message)
@@ -198,7 +198,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Application.put_env(:elixircd, :sasl, plain: [enabled: false])
 
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
         message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
 
         assert :ok = Authenticate.handle(user, message)
@@ -213,7 +213,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
     test "rejects authentication after max attempts" do
       Memento.transaction!(fn ->
         # Set attempts to 3, which is the limit (attempts will be 3 >= 3)
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true, sasl_attempts: 3)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, sasl_attempts: 3)
         message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
 
         assert :ok = Authenticate.handle(user, message)
@@ -231,7 +231,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
   describe "handle/2 - AUTHENTICATE - aborting" do
     test "aborts authentication with *" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -255,7 +255,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "rejects abort when no session exists" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
         message = %Message{command: "AUTHENTICATE", params: ["*"]}
 
         assert :ok = Authenticate.handle(user, message)
@@ -272,7 +272,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Memento.transaction!(fn ->
         # Create a registered user
         registered_nick = insert(:registered_nick, nickname: "testuser", password: "password123")
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true, nick: "testnick")
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, nick: "testnick")
 
         # Start authentication
         SaslSessions.create(%{
@@ -314,7 +314,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Memento.transaction!(fn ->
         # Create a registered user
         insert(:registered_nick, nickname: "testuser", password: "password123")
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -346,7 +346,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
           password_hash: Argon2.hash_pwd_salt("password123")
         )
 
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         SaslSessions.create(%{
           user_pid: user.pid,
@@ -369,7 +369,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "rejects authentication with non-existent user" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -395,7 +395,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "rejects authentication with invalid base64" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -419,7 +419,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "rejects authentication with invalid PLAIN format" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -447,7 +447,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Application.put_env(:elixircd, :sasl, plain: [enabled: true, require_tls: true])
 
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true, transport: :tcp)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tcp)
 
         # Start authentication
         SaslSessions.create(%{
@@ -476,7 +476,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Memento.transaction!(fn ->
         # Create a registered user
         insert(:registered_nick, nickname: "testuser", password: "password123")
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true, transport: :tls)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tls)
 
         # Start authentication
         SaslSessions.create(%{
@@ -502,7 +502,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "rejects authentication with too long message" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -530,7 +530,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Memento.transaction!(fn ->
         # Create a registered user
         insert(:registered_nick, nickname: "testuser", password: "password123")
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -552,7 +552,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "handles authentication when no session exists" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Try to send auth data without starting a session
         credentials = Base.encode64("\0testuser\0password123")
@@ -573,7 +573,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Memento.transaction!(fn ->
         # Create a registered user
         insert(:registered_nick, nickname: "testuser", password: "password123")
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -600,7 +600,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "handles data when session no longer exists during auth data" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Create a session
         SaslSessions.create(%{
@@ -627,7 +627,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "handles fragmented message requiring continuation" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
         SaslSessions.create(%{
@@ -655,7 +655,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
     test "handles unsupported mechanism in session (defensive case)" do
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Create session with unsupported mechanism (this shouldn't normally happen)
         SaslSessions.create(%{
@@ -680,10 +680,10 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Memento.transaction!(fn ->
         # Create a registered user
         insert(:registered_nick, nickname: "testuser", password: "password123")
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true, nick: "testnick")
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, nick: "testnick")
 
         # Create a watcher user that has ACCOUNT-NOTIFY capability
-        watcher = insert(:user, nick: "watcher", capabilities: ["ACCOUNT-NOTIFY"])
+        watcher = insert(:user, nick: "watcher", capabilities: ["account-notify"])
 
         # Start authentication
         SaslSessions.create(%{
@@ -694,7 +694,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         # Mock Users.get_in_shared_channels_with_capability to return the watcher
         # Use expect to be specific about this call only
-        Mimic.expect(Users, :get_in_shared_channels_with_capability, 1, fn _user, "ACCOUNT-NOTIFY", true ->
+        Mimic.expect(Users, :get_in_shared_channels_with_capability, 1, fn _user, "account-notify", true ->
           [watcher]
         end)
 
@@ -723,10 +723,10 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       Memento.transaction!(fn ->
         # Create a registered user
         insert(:registered_nick, nickname: "testuser", password: "password123")
-        user = insert(:user, registered: false, capabilities: ["SASL"], cap_negotiating: true, nick: "testnick")
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, nick: "testnick")
 
         # Create a watcher user
-        watcher = insert(:user, nick: "watcher", capabilities: ["ACCOUNT-NOTIFY"])
+        watcher = insert(:user, nick: "watcher", capabilities: ["account-notify"])
 
         # Start authentication
         SaslSessions.create(%{
@@ -736,7 +736,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         })
 
         # Mock Users.get_in_shared_channels_with_capability to return the watcher
-        Mimic.stub(Users, :get_in_shared_channels_with_capability, fn _user, "ACCOUNT-NOTIFY", true ->
+        Mimic.stub(Users, :get_in_shared_channels_with_capability, fn _user, "account-notify", true ->
           [watcher]
         end)
 

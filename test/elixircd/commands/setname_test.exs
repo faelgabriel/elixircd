@@ -143,8 +143,8 @@ defmodule ElixIRCd.Commands.SetnameTest do
       )
 
       Memento.transaction!(fn ->
-        user = insert(:user, realname: "Old Name", capabilities: ["SETNAME"])
-        watcher = insert(:user, capabilities: ["SETNAME"])
+        user = insert(:user, realname: "Old Name", capabilities: ["setname"])
+        watcher = insert(:user, capabilities: ["setname"])
 
         # Users must share a channel to receive SETNAME
         channel = insert(:channel, name: "#test")

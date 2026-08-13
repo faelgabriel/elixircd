@@ -189,8 +189,8 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
     test "forwards only client-only tags on PRIVMSG to other message-tags clients and echo" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
-        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags", "echo-message"])
+        another_user = insert(:user, capabilities: ["message-tags"])
 
         message =
           %Message{
@@ -211,8 +211,8 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
     test "forwards only client-only tags on channel PRIVMSG to message-tags clients and echo" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
-        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags", "echo-message"])
+        another_user = insert(:user, capabilities: ["message-tags"])
         channel = insert(:channel)
 
         insert(:user_channel, user: user, channel: channel)

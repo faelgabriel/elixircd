@@ -174,7 +174,7 @@ defmodule ElixIRCd.Commands.InviteTest do
     test "handles INVITE command with INVITE-EXTENDED capability and authenticated user" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "alice")
-        target_user = insert(:user, capabilities: ["INVITE-EXTENDED"])
+        target_user = insert(:user, capabilities: ["invite-extended"])
         channel = insert(:channel, name: "#channel")
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
@@ -191,7 +191,7 @@ defmodule ElixIRCd.Commands.InviteTest do
     test "handles INVITE command with INVITE-EXTENDED capability and unauthenticated user" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        target_user = insert(:user, capabilities: ["INVITE-EXTENDED"])
+        target_user = insert(:user, capabilities: ["invite-extended"])
         channel = insert(:channel, name: "#channel")
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
@@ -209,7 +209,7 @@ defmodule ElixIRCd.Commands.InviteTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user)
-        member_with_notify = insert(:user, capabilities: ["INVITE-NOTIFY"])
+        member_with_notify = insert(:user, capabilities: ["invite-notify"])
         member_without_notify = insert(:user)
         channel = insert(:channel, name: "#channel")
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
@@ -249,8 +249,8 @@ defmodule ElixIRCd.Commands.InviteTest do
     test "handles INVITE command with both INVITE-NOTIFY and INVITE-EXTENDED capabilities" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "alice")
-        target_user = insert(:user, capabilities: ["INVITE-EXTENDED"])
-        member = insert(:user, capabilities: ["INVITE-NOTIFY"])
+        target_user = insert(:user, capabilities: ["invite-extended"])
+        member = insert(:user, capabilities: ["invite-notify"])
         channel = insert(:channel, name: "#channel")
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
         insert(:user_channel, user: member, channel: channel)

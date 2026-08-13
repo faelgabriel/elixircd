@@ -251,7 +251,7 @@ defmodule ElixIRCd.Commands.NamesTest do
 
     test "handles NAMES command with UHNAMES capability enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["UHNAMES"])
+        user = insert(:user, capabilities: ["uhnames"])
         channel = insert(:channel, name: "#channel")
         user1 = insert(:user, nick: "user1", ident: "~ident1", hostname: "host1.example.com")
         insert(:user_channel, user: user1, channel: channel)
@@ -284,7 +284,7 @@ defmodule ElixIRCd.Commands.NamesTest do
 
     test "handles NAMES command with free users and UHNAMES capability" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["UHNAMES"])
+        user = insert(:user, capabilities: ["uhnames"])
         _free_user = insert(:user, nick: "free_user", ident: "~freeuser", hostname: "freehost.example.com")
         message = %Message{command: "NAMES", params: []}
         assert :ok = Names.handle(user, message)
@@ -310,7 +310,7 @@ defmodule ElixIRCd.Commands.NamesTest do
 
     test "handles NAMES with MULTI-PREFIX capability showing all prefixes" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MULTI-PREFIX"])
+        user = insert(:user, capabilities: ["multi-prefix"])
         channel = insert(:channel, name: "#test")
 
         dual_prefix_user = insert(:user)

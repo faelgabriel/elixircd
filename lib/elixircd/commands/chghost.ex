@@ -153,7 +153,7 @@ defmodule ElixIRCd.Commands.Chghost do
     chghost_supported = Application.get_env(:elixircd, :capabilities)[:chghost] || false
 
     if chghost_supported do
-      watchers = Users.get_in_shared_channels_with_capability(user, "CHGHOST", true)
+      watchers = Users.get_in_shared_channels_with_capability(user, "chghost", true)
 
       if watchers != [] do
         %Message{command: "CHGHOST", params: [new_ident, new_host]}

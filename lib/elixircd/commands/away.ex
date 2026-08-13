@@ -59,7 +59,7 @@ defmodule ElixIRCd.Commands.Away do
     away_notify_supported = Application.get_env(:elixircd, :capabilities)[:away_notify] || false
 
     if away_notify_supported do
-      watchers = Users.get_in_shared_channels_with_capability(user, "AWAY-NOTIFY", false)
+      watchers = Users.get_in_shared_channels_with_capability(user, "away-notify", false)
 
       if watchers != [] do
         %Message{command: "AWAY", params: [], trailing: user.away_message}

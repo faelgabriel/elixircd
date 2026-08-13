@@ -69,7 +69,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["CAP-NOTIFY"], registered: true)
+        client = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
         |> stub(:load_configurations, fn ->
@@ -82,7 +82,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
 
-        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :INVITE-NOTIFY/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :invite-notify/)
       end)
     end
 
@@ -91,7 +91,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["CAP-NOTIFY", "AWAY-NOTIFY"], registered: true)
+        client = insert(:user, capabilities: ["cap-notify", "away-notify"], registered: true)
 
         System
         |> stub(:load_configurations, fn ->
@@ -104,11 +104,11 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
 
-        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :AWAY-NOTIFY/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :away-notify/)
 
         updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
-        assert "AWAY-NOTIFY" not in updated_client.capabilities
-        assert "CAP-NOTIFY" in updated_client.capabilities
+        assert "away-notify" not in updated_client.capabilities
+        assert "cap-notify" in updated_client.capabilities
       end)
     end
 
@@ -121,7 +121,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["CAP-NOTIFY"], registered: true)
+        client = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
         |> stub(:load_configurations, fn ->
@@ -136,8 +136,8 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
 
-        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :.*EXTENDED-JOIN/)
-        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :.*CHGHOST/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :.*extended-join/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :.*chghost/)
       end)
     end
 
@@ -146,7 +146,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["CAP-NOTIFY"], registered: true)
+        client = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
         |> stub(:load_configurations, fn ->
@@ -164,12 +164,12 @@ defmodule ElixIRCd.Commands.RehashTest do
       end)
     end
 
-    test "only notifies users with CAP-NOTIFY enabled", %{original_config: original_config} do
+    test "only notifies users with cap-notify enabled", %{original_config: original_config} do
       Application.put_env(:elixircd, :capabilities, (original_config || []) |> Keyword.put(:multi_prefix, false))
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client_with_cap = insert(:user, capabilities: ["CAP-NOTIFY"], registered: true)
+        client_with_cap = insert(:user, capabilities: ["cap-notify"], registered: true)
         client_without_cap = insert(:user, capabilities: [], registered: true)
 
         System
@@ -183,18 +183,18 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
 
-        assert_sent_message_contains(client_with_cap.pid, ~r/CAP .* NEW :MULTI-PREFIX/)
+        assert_sent_message_contains(client_with_cap.pid, ~r/CAP .* NEW :multi-prefix/)
         refute_received {^client_without_cap, _}
       end)
     end
 
-    test "broadcasts to all users with CAP-NOTIFY", %{original_config: original_config} do
+    test "broadcasts to all users with cap-notify", %{original_config: original_config} do
       Application.put_env(:elixircd, :capabilities, (original_config || []) |> Keyword.put(:account_notify, false))
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client1 = insert(:user, capabilities: ["CAP-NOTIFY"], registered: true)
-        client2 = insert(:user, capabilities: ["CAP-NOTIFY"], registered: true)
+        client1 = insert(:user, capabilities: ["cap-notify"], registered: true)
+        client2 = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
         |> stub(:load_configurations, fn ->
@@ -207,8 +207,8 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
 
-        assert_sent_message_contains(client1.pid, ~r/CAP .* NEW :ACCOUNT-NOTIFY/)
-        assert_sent_message_contains(client2.pid, ~r/CAP .* NEW :ACCOUNT-NOTIFY/)
+        assert_sent_message_contains(client1.pid, ~r/CAP .* NEW :account-notify/)
+        assert_sent_message_contains(client2.pid, ~r/CAP .* NEW :account-notify/)
       end)
     end
 
@@ -221,7 +221,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["CAP-NOTIFY", "SERVER-TIME", "MSGID"], registered: true)
+        client = insert(:user, capabilities: ["cap-notify", "server-time", "msgid"], registered: true)
 
         System
         |> stub(:load_configurations, fn ->
@@ -236,13 +236,13 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
 
-        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*SERVER-TIME/)
-        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*MSGID/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*server-time/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*msgid/)
 
         updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
-        assert "SERVER-TIME" not in updated_client.capabilities
-        assert "MSGID" not in updated_client.capabilities
-        assert "CAP-NOTIFY" in updated_client.capabilities
+        assert "server-time" not in updated_client.capabilities
+        assert "msgid" not in updated_client.capabilities
+        assert "cap-notify" in updated_client.capabilities
       end)
     end
   end

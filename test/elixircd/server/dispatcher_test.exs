@@ -28,7 +28,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       message: message
     } do
       bot_user = insert(:user, nick: "botuser", ident: "bot", hostname: "bot.host", modes: ["B"])
-      target_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS"])
+      target_with_caps = insert(:user, capabilities: ["message-tags"])
       expected_message = "@bot :botuser!bot@bot.host PRIVMSG #test :hello\r\n"
 
       Connection
@@ -140,7 +140,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       user: user,
       message: message
     } do
-      sender_with_caps = %{user | capabilities: ["MESSAGE-TAGS"], modes: ["B"]}
+      sender_with_caps = %{user | capabilities: ["message-tags"], modes: ["B"]}
       expected_message = "@bot :testnick!testident@test.host PRIVMSG #test :hello\r\n"
 
       Connection
@@ -421,7 +421,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "filters message tags based on recipient capabilities with :server context", %{user: _user} do
-      user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS"])
+      user_with_caps = insert(:user, capabilities: ["message-tags"])
 
       message_with_tags =
         %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
@@ -456,7 +456,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "adds server time and msgid tags when capabilities are enabled" do
-      user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS", "SERVER-TIME", "MSGID"])
+      user_with_caps = insert(:user, capabilities: ["message-tags", "server-time", "msgid"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
@@ -475,7 +475,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "adds server time when SERVER-TIME is negotiated without MESSAGE-TAGS" do
-      user_with_caps = insert(:user, capabilities: ["SERVER-TIME"])
+      user_with_caps = insert(:user, capabilities: ["server-time"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
@@ -494,8 +494,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "adds account tag when sender is identified and recipient has ACCOUNT-TAG" do
       sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
-      recipient_with_cap = insert(:user, capabilities: ["MESSAGE-TAGS", "ACCOUNT-TAG"])
-      recipient_without_cap = insert(:user, capabilities: ["MESSAGE-TAGS"])
+      recipient_with_cap = insert(:user, capabilities: ["message-tags", "account-tag"])
+      recipient_without_cap = insert(:user, capabilities: ["message-tags"])
 
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
@@ -520,7 +520,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "adds account tag when recipient has ACCOUNT-TAG without MESSAGE-TAGS" do
       sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
-      recipient = insert(:user, capabilities: ["ACCOUNT-TAG"])
+      recipient = insert(:user, capabilities: ["account-tag"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
@@ -537,7 +537,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "does not add msgid tag when MSGID capability is not negotiated" do
-      user_without_msgid = insert(:user, capabilities: ["MESSAGE-TAGS"])
+      user_without_msgid = insert(:user, capabilities: ["message-tags"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
@@ -555,7 +555,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "adds msgid tag when MSGID is negotiated without MESSAGE-TAGS" do
-      user_with_caps = insert(:user, capabilities: ["MSGID"])
+      user_with_caps = insert(:user, capabilities: ["msgid"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
@@ -583,7 +583,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
         |> Keyword.put(:msgid, false)
       )
 
-      user_with_caps = insert(:user, capabilities: ["MESSAGE-TAGS", "MSGID"])
+      user_with_caps = insert(:user, capabilities: ["message-tags", "msgid"])
 
       message = %Message{
         command: "NOTICE",
@@ -617,7 +617,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       )
 
       sender = insert(:user, nick: "acctuser", ident: "acct", hostname: "acct.host", identified_as: "account_name")
-      recipient = insert(:user, capabilities: ["MESSAGE-TAGS", "ACCOUNT-TAG"])
+      recipient = insert(:user, capabilities: ["message-tags", "account-tag"])
 
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
@@ -642,10 +642,10 @@ defmodule ElixIRCd.Server.DispatcherTest do
           nick: "echoer",
           ident: "ident",
           hostname: "host.test",
-          capabilities: ["ECHO-MESSAGE", "MESSAGE-TAGS"]
+          capabilities: ["echo-message", "message-tags"]
         )
 
-      recipient = insert(:user, capabilities: ["MESSAGE-TAGS"])
+      recipient = insert(:user, capabilities: ["message-tags"])
       sender_pid = sender.pid
       recipient_pid = recipient.pid
       parent = self()
@@ -683,10 +683,10 @@ defmodule ElixIRCd.Server.DispatcherTest do
           nick: "echoer",
           ident: "ident",
           hostname: "host.test",
-          capabilities: ["ECHO-MESSAGE", "MESSAGE-TAGS", "MSGID"]
+          capabilities: ["echo-message", "message-tags", "msgid"]
         )
 
-      recipient = insert(:user, capabilities: ["MESSAGE-TAGS", "MSGID"])
+      recipient = insert(:user, capabilities: ["message-tags", "msgid"])
       sender_pid = sender.pid
       recipient_pid = recipient.pid
       parent = self()
@@ -739,7 +739,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "deduplicates the sender when the sender is already one of the targets" do
-      sender = insert(:user, nick: "echoer", ident: "ident", hostname: "host.test", capabilities: ["ECHO-MESSAGE"])
+      sender = insert(:user, nick: "echoer", ident: "ident", hostname: "host.test", capabilities: ["echo-message"])
 
       Connection
       |> expect(:handle_send, 1, fn pid, received_message ->

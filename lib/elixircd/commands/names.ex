@@ -147,8 +147,8 @@ defmodule ElixIRCd.Commands.Names do
   @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: [{String.t(), String.t()}]
   defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
     is_operator = "o" in user.modes
-    use_extended_names = "UHNAMES" in user.capabilities
-    use_multi_prefix = "MULTI-PREFIX" in user.capabilities
+    use_extended_names = "uhnames" in user.capabilities
+    use_multi_prefix = "multi-prefix" in user.capabilities
 
     user_channels
     |> Enum.map(fn uc ->
@@ -202,7 +202,7 @@ defmodule ElixIRCd.Commands.Names do
       |> Enum.sort_by(& &1.nick)
 
     if free_users != [] do
-      use_extended_names = "UHNAMES" in user.capabilities
+      use_extended_names = "uhnames" in user.capabilities
 
       free_user_list =
         Enum.map_join(free_users, " ", &format_user_display(&1, use_extended_names))

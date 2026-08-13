@@ -196,8 +196,8 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
-        identifying_user = insert(:user, nick: registered_nick.nickname, capabilities: ["ACCOUNT-NOTIFY"])
-        watcher = insert(:user, capabilities: ["ACCOUNT-NOTIFY"])
+        identifying_user = insert(:user, nick: registered_nick.nickname, capabilities: ["account-notify"])
+        watcher = insert(:user, capabilities: ["account-notify"])
         # Users must share a channel to receive ACCOUNT-NOTIFY (and user receives it too)
         channel = insert(:channel, name: "#test")
         insert(:user_channel, user: identifying_user, channel: channel)

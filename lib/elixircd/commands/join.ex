@@ -121,7 +121,7 @@ defmodule ElixIRCd.Commands.Join do
     users = Users.get_by_pids(user_pids)
 
     {users_with_extended_join, users_without_extended_join} =
-      Enum.split_with(users, fn u -> "EXTENDED-JOIN" in u.capabilities end)
+      Enum.split_with(users, fn u -> "extended-join" in u.capabilities end)
 
     unless Enum.empty?(users_without_extended_join) do
       %Message{command: "JOIN", params: [channel.name]}
@@ -374,7 +374,7 @@ defmodule ElixIRCd.Commands.Join do
       |> Users.get_by_pids()
       |> Map.new(fn user -> {user.pid, user} end)
 
-    use_extended_names = "UHNAMES" in requesting_user.capabilities
+    use_extended_names = "uhnames" in requesting_user.capabilities
 
     user_channels
     |> Enum.map(fn user_channel ->

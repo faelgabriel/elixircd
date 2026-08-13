@@ -396,7 +396,7 @@ defmodule ElixIRCd.Commands.Who do
 
   @spec user_statuses(User.t(), User.t(), UserChannel.t() | nil) :: String.t()
   defp user_statuses(requesting_user, user_target, user_channel) do
-    use_extended_uhlist = "EXTENDED-UHLIST" in requesting_user.capabilities
+    use_extended_uhlist = "extended-uhlist" in requesting_user.capabilities
 
     base_status =
       user_away_status(user_target) <>

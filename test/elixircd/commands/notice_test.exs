@@ -132,7 +132,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
     test "echoes NOTICE commands back to the sender when ECHO-MESSAGE is enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["ECHO-MESSAGE"])
+        user = insert(:user, capabilities: ["echo-message"])
         another_user = insert(:user)
 
         message = %Message{command: "NOTICE", params: [another_user.nick], trailing: "Hello"}
@@ -147,8 +147,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
     test "forwards only client-only tags on NOTICE to other message-tags clients and echo" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
-        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags", "echo-message"])
+        another_user = insert(:user, capabilities: ["message-tags"])
 
         message =
           %Message{
@@ -169,8 +169,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
     test "forwards only client-only tags on channel NOTICE to message-tags clients and echo" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["MESSAGE-TAGS", "ECHO-MESSAGE"])
-        another_user = insert(:user, capabilities: ["MESSAGE-TAGS"])
+        user = insert(:user, capabilities: ["message-tags", "echo-message"])
+        another_user = insert(:user, capabilities: ["message-tags"])
         channel = insert(:channel)
 
         insert(:user_channel, user: user, channel: channel)
