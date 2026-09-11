@@ -203,8 +203,16 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n"},
-          {user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n"}
+          {another_user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n") <> "$"
+           )},
+          {user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} PRIVMSG #{another_user.nick} :Hello\r\n") <> "$"
+           )}
         ])
       end)
     end
@@ -229,8 +237,16 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"},
-          {user.pid, "@+draft/reply=123 :#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n"}
+          {another_user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n") <> "$"
+           )},
+          {user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} PRIVMSG #{channel.name} :Hello\r\n") <> "$"
+           )}
         ])
       end)
     end

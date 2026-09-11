@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
   alias ElixIRCd.Commands.Rehash
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Utils.System
 
   describe "handle/2" do
@@ -53,6 +54,88 @@ defmodule ElixIRCd.Commands.RehashTest do
     end
   end
 
+  describe "feature configuration during REHASH" do
+    setup do
+      config = for key <- [:whox, :monitor, :message_ids], do: {key, Application.get_env(:elixircd, key)}
+      on_exit(fn -> Enum.each(config, fn {key, value} -> Application.put_env(:elixircd, key, value) end) end)
+      :ok
+    end
+
+    for enabled <- [true, false] do
+      test "announces ISUPPORT changes when WHOX and MONITOR become #{enabled}" do
+        Application.put_env(:elixircd, :whox, enabled: not unquote(enabled))
+        Application.put_env(:elixircd, :monitor, enabled: not unquote(enabled), max_targets: 100)
+
+        Memento.transaction!(fn ->
+          oper = insert(:user, modes: ["o"])
+          client = insert(:user, capabilities: [])
+          negotiating = insert(:user, registered: false, capabilities: ["cap-notify"])
+          insert(:user_monitor, user: client, target_nick_key: "target")
+
+          stub(System, :load_configurations, fn ->
+            Application.put_env(:elixircd, :whox, enabled: unquote(enabled))
+            Application.put_env(:elixircd, :monitor, enabled: unquote(enabled), max_targets: 100)
+          end)
+
+          assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+          tokens = if unquote(enabled), do: "WHOX MONITOR=100", else: "-WHOX -MONITOR"
+
+          assert_sent_message_contains(
+            client.pid,
+            ":irc.test 005 #{client.nick} #{tokens} :are supported by this server\r\n"
+          )
+
+          assert_sent_messages_amount(client.pid, 1)
+          assert_sent_messages_amount(negotiating.pid, 0)
+          expected_count = if unquote(enabled), do: 1, else: 0
+          assert UserMonitors.count_by_user_pid(client.pid) == expected_count
+        end)
+      end
+    end
+
+    for limit <- [25, 0] do
+      test "announces a MONITOR limit of #{limit} without clearing subscriptions" do
+        Application.put_env(:elixircd, :monitor, enabled: true, max_targets: 100)
+
+        Memento.transaction!(fn ->
+          oper = insert(:user, modes: ["o"])
+          client = insert(:user)
+          insert(:user_monitor, user: client, target_nick_key: "target")
+
+          stub(System, :load_configurations, fn ->
+            Application.put_env(:elixircd, :monitor, enabled: true, max_targets: unquote(limit))
+          end)
+
+          assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+          token = if unquote(limit) == 0, do: "MONITOR", else: "MONITOR=#{unquote(limit)}"
+
+          assert_sent_message_contains(
+            client.pid,
+            ":irc.test 005 #{client.nick} #{token} :are supported by this server\r\n"
+          )
+
+          assert_sent_messages_amount(client.pid, 1)
+          assert UserMonitors.count_by_user_pid(client.pid) == 1
+        end)
+      end
+    end
+
+    test "changing message IDs does not announce a capability change" do
+      Application.put_env(:elixircd, :message_ids, enabled: true)
+
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"])
+        client = insert(:user, capabilities: ["message-tags", "cap-notify"])
+        stub(System, :load_configurations, fn -> Application.put_env(:elixircd, :message_ids, enabled: false) end)
+
+        assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+        assert_sent_messages_amount(client.pid, 0)
+        updated = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+        assert updated.capabilities == client.capabilities
+      end)
+    end
+  end
+
   describe "capability notifications during REHASH" do
     setup do
       original_config = Application.get_env(:elixircd, :capabilities)
@@ -62,6 +145,43 @@ defmodule ElixIRCd.Commands.RehashTest do
       end)
 
       %{original_config: original_config}
+    end
+
+    for enabled <- [true, false] do
+      test "REHASH changes userhost-in-names availability to #{enabled}", %{original_config: original_config} do
+        Application.put_env(
+          :elixircd,
+          :capabilities,
+          Keyword.put(original_config, :extended_names, not unquote(enabled))
+        )
+
+        Memento.transaction!(fn ->
+          oper = insert(:user, modes: ["o"])
+          capabilities = if unquote(enabled), do: ["cap-notify"], else: ["cap-notify", "userhost-in-names"]
+          client = insert(:user, capabilities: capabilities)
+          silent_client = insert(:user, capabilities: ["userhost-in-names"])
+
+          stub(System, :load_configurations, fn ->
+            Application.put_env(
+              :elixircd,
+              :capabilities,
+              Keyword.put(original_config, :extended_names, unquote(enabled))
+            )
+          end)
+
+          assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+          operation = if unquote(enabled), do: "NEW", else: "DEL"
+          assert_sent_message_contains(client.pid, ":irc.test CAP #{client.nick} #{operation} :userhost-in-names\r\n")
+          assert_sent_messages_amount(silent_client.pid, 0)
+          updated = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+          assert "userhost-in-names" not in updated.capabilities
+
+          unless unquote(enabled) do
+            updated_silent = Memento.Query.read(ElixIRCd.Tables.User, silent_client.pid)
+            assert "userhost-in-names" not in updated_silent.capabilities
+          end
+        end)
+      end
     end
 
     test "notifies clients when capability is enabled", %{original_config: original_config} do
@@ -216,12 +336,12 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(
         :elixircd,
         :capabilities,
-        (original_config || []) |> Keyword.put(:server_time, true) |> Keyword.put(:msgid, true)
+        (original_config || []) |> Keyword.put(:server_time, true)
       )
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["cap-notify", "server-time", "msgid"], registered: true)
+        client = insert(:user, capabilities: ["cap-notify", "server-time"], registered: true)
 
         System
         |> stub(:load_configurations, fn ->
@@ -230,18 +350,15 @@ defmodule ElixIRCd.Commands.RehashTest do
             :capabilities,
             Application.get_env(:elixircd, :capabilities, [])
             |> Keyword.put(:server_time, false)
-            |> Keyword.put(:msgid, false)
           )
         end)
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
 
         assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*server-time/)
-        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*msgid/)
 
         updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
         assert "server-time" not in updated_client.capabilities
-        assert "msgid" not in updated_client.capabilities
         assert "cap-notify" in updated_client.capabilities
       end)
     end

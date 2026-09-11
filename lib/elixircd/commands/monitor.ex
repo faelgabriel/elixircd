@@ -22,6 +22,7 @@ defmodule ElixIRCd.Commands.Monitor do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.Monitor, as: MonitorUtils
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -31,50 +32,52 @@ defmodule ElixIRCd.Commands.Monitor do
   end
 
   @impl true
-  def handle(user, %{command: "MONITOR", params: []}) do
+  def handle(user, message) do
+    if MonitorUtils.enabled?() do
+      handle_enabled(user, message)
+    else
+      %Message{command: :err_unknowncommand, params: [user_reply(user), "MONITOR"], trailing: "Unknown command"}
+      |> Dispatcher.broadcast(:server, user)
+    end
+  end
+
+  @spec handle_enabled(User.t(), Message.t()) :: :ok
+  defp handle_enabled(user, %{command: "MONITOR", params: []}) do
     %Message{command: :err_needmoreparams, params: [user_reply(user), "MONITOR"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: ["+" | targets]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: ["+" | targets]}) do
     handle_add(user, targets)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: ["-" | targets]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: ["-" | targets]}) do
     handle_remove(user, targets)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: ["+" <> targets_str]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: ["+" <> targets_str]}) do
     targets = String.split(targets_str, ",", trim: true)
     handle_add(user, targets)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: ["-" <> targets_str]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: ["-" <> targets_str]}) do
     targets = String.split(targets_str, ",", trim: true)
     handle_remove(user, targets)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: ["C"]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: ["C"]}) do
     handle_clear(user)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: ["L"]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: ["L"]}) do
     handle_list(user)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: ["S"]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: ["S"]}) do
     handle_status(user)
   end
 
-  @impl true
-  def handle(user, %{command: "MONITOR", params: _}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: _}) do
     %Message{command: :err_needmoreparams, params: [user_reply(user), "MONITOR"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end

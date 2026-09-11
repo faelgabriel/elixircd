@@ -150,7 +150,7 @@ defmodule ElixIRCd.Commands.Join do
       %Message{command: topic_reply, params: [user.nick, channel.name], trailing: topic_trailing},
       %Message{
         command: :rpl_namreply,
-        params: ["=", user.nick, channel.name],
+        params: [user.nick, channel_status(channel), channel.name],
         trailing: get_user_channels_nicks(user, user_channels)
       },
       %Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of NAMES list."}
@@ -374,7 +374,7 @@ defmodule ElixIRCd.Commands.Join do
       |> Users.get_by_pids()
       |> Map.new(fn user -> {user.pid, user} end)
 
-    use_extended_names = "uhnames" in requesting_user.capabilities
+    use_extended_names = "userhost-in-names" in requesting_user.capabilities
 
     user_channels
     |> Enum.map(fn user_channel ->
@@ -383,13 +383,26 @@ defmodule ElixIRCd.Commands.Join do
     end)
     |> Enum.sort_by(fn {_user, user_channel} -> user_channel.created_at end, :desc)
     |> Enum.map_join(" ", fn {user, user_channel} ->
-      prefix = user_mode_symbol(user_channel)
+      prefix = user_mode_symbol(user_channel, "multi-prefix" in requesting_user.capabilities)
       prefix <> format_user_for_join(user, use_extended_names)
     end)
   end
 
-  @spec user_mode_symbol(UserChannel.t()) :: String.t()
-  defp user_mode_symbol(%UserChannel{modes: modes}) do
+  @spec channel_status(Channel.t()) :: String.t()
+  defp channel_status(channel) do
+    cond do
+      "s" in channel.modes -> "@"
+      "p" in channel.modes -> "*"
+      true -> "="
+    end
+  end
+
+  @spec user_mode_symbol(UserChannel.t(), boolean()) :: String.t()
+  defp user_mode_symbol(%UserChannel{modes: modes}, true) do
+    Enum.map_join([{"o", "@"}, {"v", "+"}], fn {mode, prefix} -> if mode in modes, do: prefix, else: "" end)
+  end
+
+  defp user_mode_symbol(%UserChannel{modes: modes}, false) do
     cond do
       Enum.member?(modes, "o") -> "@"
       Enum.member?(modes, "v") -> "+"

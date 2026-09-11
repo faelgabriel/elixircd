@@ -59,10 +59,6 @@ defmodule ElixIRCd.Commands.Cap do
       name: "extended-join",
       description: "Extended JOIN messages including account name and real name"
     },
-    "invite-extended" => %{
-      name: "invite-extended",
-      description: "Extended INVITE messages including account information"
-    },
     "invite-notify" => %{
       name: "invite-notify",
       description: "Notify channel members when users are invited"
@@ -83,13 +79,9 @@ defmodule ElixIRCd.Commands.Cap do
       name: "sts",
       description: "Strict Transport Security - automatic TLS upgrade and policy persistence"
     },
-    "uhnames" => %{
-      name: "uhnames",
-      description: "Extended NAMES reply with full user@host format"
-    },
-    "extended-uhlist" => %{
-      name: "extended-uhlist",
-      description: "Extended user modes in WHO replies"
+    "userhost-in-names" => %{
+      name: "userhost-in-names",
+      description: "Extended NAMES reply with full nick!user@host masks"
     },
     "message-tags" => %{
       name: "message-tags",
@@ -98,14 +90,6 @@ defmodule ElixIRCd.Commands.Cap do
     "server-time" => %{
       name: "server-time",
       description: "Attach server-generated time= message tags"
-    },
-    "msgid" => %{
-      name: "msgid",
-      description: "Attach unique msgid= message tags"
-    },
-    "monitor" => %{
-      name: "monitor",
-      description: "Efficient tracking of user online/offline status"
     },
     "labeled-response" => %{
       name: "labeled-response",
@@ -207,19 +191,15 @@ defmodule ElixIRCd.Commands.Cap do
             {:chghost, "chghost"},
             {:echo_message, "echo-message"},
             {:extended_join, "extended-join"},
-            {:invite_extended, "invite-extended"},
             {:invite_notify, "invite-notify"},
             {:labeled_response, "labeled-response"},
             {:multi_prefix, "multi-prefix"},
             {:sasl, build_sasl_capability_value()},
             {:setname, "setname"},
             {:sts, build_sts_capability_value(user)},
-            {:msgid, "msgid"},
             {:server_time, "server-time"},
             {:message_tags, "message-tags"},
-            {:extended_uhlist, "extended-uhlist"},
-            {:extended_names, "uhnames"},
-            {:monitor, "monitor"}
+            {:extended_names, "userhost-in-names"}
           ],
           capability_enabled?(capabilities_config, config_key) and name != nil do
         name

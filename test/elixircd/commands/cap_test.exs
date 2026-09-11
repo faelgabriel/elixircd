@@ -27,15 +27,12 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:extended_join, true)
-        |> Keyword.put(:invite_extended, true)
         |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
-        |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:message_tags, true)
         |> Keyword.put(:server_time, true)
-        |> Keyword.put(:msgid, true)
         |> Keyword.put(:sts, false)
       )
 
@@ -47,7 +44,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-extended invite-notify labeled-response multi-prefix sasl=PLAIN setname msgid server-time message-tags extended-uhlist uhnames monitor\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -92,15 +89,12 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:extended_join, true)
-        |> Keyword.put(:invite_extended, true)
         |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
         |> Keyword.put(:extended_names, true)
-        |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:message_tags, true)
         |> Keyword.put(:server_time, true)
-        |> Keyword.put(:msgid, true)
         |> Keyword.put(:sts, false)
       )
 
@@ -112,7 +106,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-extended invite-notify labeled-response multi-prefix sasl=PLAIN setname msgid server-time message-tags extended-uhlist uhnames monitor\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -131,7 +125,6 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:extended_join, true)
-        |> Keyword.put(:invite_extended, true)
         |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
@@ -147,44 +140,26 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-extended invite-notify labeled-response multi-prefix sasl=PLAIN setname msgid server-time message-tags extended-uhlist monitor\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags\r\n"}
         ])
       end)
     end
 
-    test "handles CAP LS when extended uhlist is disabled" do
+    test "removed legacy configuration does not advertise custom capabilities" do
       original_config = Application.get_env(:elixircd, :capabilities)
       on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
 
       Application.put_env(
         :elixircd,
         :capabilities,
-        original_config
-        |> Keyword.put(:account_tag, true)
-        |> Keyword.put(:account_notify, true)
-        |> Keyword.put(:away_notify, true)
-        |> Keyword.put(:cap_notify, false)
-        |> Keyword.put(:chghost, true)
-        |> Keyword.put(:extended_join, true)
-        |> Keyword.put(:invite_extended, true)
-        |> Keyword.put(:invite_notify, true)
-        |> Keyword.put(:multi_prefix, true)
-        |> Keyword.put(:setname, true)
-        |> Keyword.put(:extended_names, false)
-        |> Keyword.put(:extended_uhlist, false)
-        |> Keyword.put(:sts, false)
+        Keyword.merge(original_config, extended_uhlist: true, invite_extended: true)
       )
 
       Memento.transaction!(fn ->
         user = insert(:user)
-        message = %Message{command: "CAP", params: ["LS"]}
-
-        assert :ok = Cap.handle(user, message)
-
-        assert_sent_messages([
-          {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-extended invite-notify labeled-response multi-prefix sasl=PLAIN setname msgid server-time message-tags monitor\r\n"}
-        ])
+        assert :ok = Cap.handle(user, %Message{command: "CAP", params: ["LS"]})
+        assert_sent_messages_count_containing(user.pid, ~r/ (uhnames|extended-uhlist|invite-extended)(?: |\r)/, 0)
+        assert_sent_message_contains(user.pid, ~r/ userhost-in-names(?: |\r)/)
       end)
     end
 
@@ -204,18 +179,14 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, false)
         |> Keyword.put(:echo_message, false)
         |> Keyword.put(:extended_join, false)
-        |> Keyword.put(:invite_extended, false)
         |> Keyword.put(:invite_notify, false)
         |> Keyword.put(:multi_prefix, false)
         |> Keyword.put(:setname, false)
         |> Keyword.put(:extended_names, false)
-        |> Keyword.put(:extended_uhlist, false)
         |> Keyword.put(:message_tags, false)
         |> Keyword.put(:server_time, false)
-        |> Keyword.put(:msgid, false)
         |> Keyword.put(:labeled_response, false)
         |> Keyword.put(:sts, false)
-        |> Keyword.put(:monitor, false)
       )
 
       Memento.transaction!(fn ->
@@ -244,14 +215,11 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:extended_join, true)
-        |> Keyword.put(:invite_extended, true)
         |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
-        |> Keyword.put(:msgid, true)
         |> Keyword.put(:server_time, true)
         |> Keyword.put(:message_tags, true)
-        |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:sasl, false)
         |> Keyword.put(:sts, false)
@@ -265,7 +233,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-extended invite-notify labeled-response multi-prefix setname msgid server-time message-tags extended-uhlist uhnames monitor\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -289,14 +257,11 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, true)
         |> Keyword.put(:extended_join, true)
-        |> Keyword.put(:invite_extended, true)
         |> Keyword.put(:invite_notify, true)
         |> Keyword.put(:multi_prefix, true)
         |> Keyword.put(:setname, true)
-        |> Keyword.put(:msgid, true)
         |> Keyword.put(:server_time, true)
         |> Keyword.put(:message_tags, true)
-        |> Keyword.put(:extended_uhlist, true)
         |> Keyword.put(:extended_names, true)
         |> Keyword.put(:sasl, true)
         |> Keyword.put(:sts, false)
@@ -317,7 +282,7 @@ defmodule ElixIRCd.Commands.CapTest do
         # SASL should not be in the list when no mechanisms are enabled
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-extended invite-notify labeled-response multi-prefix setname msgid server-time message-tags extended-uhlist uhnames monitor\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -337,66 +302,66 @@ defmodule ElixIRCd.Commands.CapTest do
       end)
     end
 
-    test "handles CAP LIST command with uhnames capability enabled" do
+    test "handles CAP LIST command with userhost-in-names capability enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"])
+        user = insert(:user, capabilities: ["userhost-in-names"])
         message = %Message{command: "CAP", params: ["LIST"]}
 
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} LIST :uhnames\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} LIST :userhost-in-names\r\n"}
         ])
       end)
     end
   end
 
   describe "handle/2 - CAP REQ" do
-    test "handles CAP REQ command to request uhnames capability" do
+    test "handles CAP REQ command to request userhost-in-names capability" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [])
-        message = %Message{command: "CAP", params: ["REQ", "uhnames"]}
+        message = %Message{command: "CAP", params: ["REQ", "userhost-in-names"]}
 
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} ACK :uhnames\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} ACK :userhost-in-names\r\n"}
         ])
 
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert "uhnames" in updated_user.capabilities
+        assert "userhost-in-names" in updated_user.capabilities
       end)
     end
 
     test "handles CAP REQ command with trailing parameter" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [])
-        message = %Message{command: "CAP", params: ["REQ"], trailing: "uhnames"}
+        message = %Message{command: "CAP", params: ["REQ"], trailing: "userhost-in-names"}
 
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} ACK :uhnames\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} ACK :userhost-in-names\r\n"}
         ])
 
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert "uhnames" in updated_user.capabilities
+        assert "userhost-in-names" in updated_user.capabilities
       end)
     end
 
-    test "handles CAP REQ command to disable uhnames capability" do
+    test "handles CAP REQ command to disable userhost-in-names capability" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"])
-        message = %Message{command: "CAP", params: ["REQ", "-uhnames"]}
+        user = insert(:user, capabilities: ["userhost-in-names"])
+        message = %Message{command: "CAP", params: ["REQ", "-userhost-in-names"]}
 
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} ACK :-uhnames\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} ACK :-userhost-in-names\r\n"}
         ])
 
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert "uhnames" not in updated_user.capabilities
+        assert "userhost-in-names" not in updated_user.capabilities
       end)
     end
 
@@ -450,51 +415,51 @@ defmodule ElixIRCd.Commands.CapTest do
 
     test "treats capability names as case-sensitive opaque strings" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"])
+        user = insert(:user, capabilities: ["userhost-in-names"])
 
         assert :ok =
                  Cap.handle(user, %Message{
                    command: "CAP",
-                   params: ["REQ", "UHNAMES"]
+                   params: ["REQ", "USERHOST-IN-NAMES"]
                  })
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} NAK :UHNAMES\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} NAK :USERHOST-IN-NAMES\r\n"}
         ])
 
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert updated_user.capabilities == ["uhnames"]
+        assert updated_user.capabilities == ["userhost-in-names"]
       end)
     end
 
     test "does not disable a lowercase capability through an uppercase alias" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"])
+        user = insert(:user, capabilities: ["userhost-in-names"])
 
         assert :ok =
                  Cap.handle(user, %Message{
                    command: "CAP",
-                   params: ["REQ", "-UHNAMES"]
+                   params: ["REQ", "-USERHOST-IN-NAMES"]
                  })
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} NAK :-UHNAMES\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} NAK :-USERHOST-IN-NAMES\r\n"}
         ])
 
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert updated_user.capabilities == ["uhnames"]
+        assert updated_user.capabilities == ["userhost-in-names"]
       end)
     end
 
     test "handles CAP REQ command with mixed valid and invalid capabilities" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [])
-        message = %Message{command: "CAP", params: ["REQ", "uhnames UNSUPPORTED"]}
+        message = %Message{command: "CAP", params: ["REQ", "userhost-in-names UNSUPPORTED"]}
 
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} NAK :uhnames UNSUPPORTED\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} NAK :userhost-in-names UNSUPPORTED\r\n"}
         ])
 
         # Verify no capabilities were added due to NAK
@@ -505,36 +470,32 @@ defmodule ElixIRCd.Commands.CapTest do
 
     test "handles CAP REQ command that tries to enable already enabled capability" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"])
-        message = %Message{command: "CAP", params: ["REQ", "uhnames"]}
+        user = insert(:user, capabilities: ["userhost-in-names"])
+        message = %Message{command: "CAP", params: ["REQ", "userhost-in-names"]}
 
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} ACK :uhnames\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} ACK :userhost-in-names\r\n"}
         ])
 
         # Verify the capability list doesn't have duplicates
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert updated_user.capabilities == ["uhnames"]
+        assert updated_user.capabilities == ["userhost-in-names"]
       end)
     end
 
-    test "handles CAP REQ command with extended-uhlist capability" do
-      Memento.transaction!(fn ->
-        user = insert(:user, capabilities: [])
-        message = %Message{command: "CAP", params: ["REQ", "extended-uhlist"]}
-
-        assert :ok = Cap.handle(user, message)
-
-        assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} ACK :extended-uhlist\r\n"}
-        ])
-
-        # Verify the capability was added to the user
-        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
-        assert "extended-uhlist" in updated_user.capabilities
-      end)
+    for capability <- ["uhnames", "extended-uhlist", "invite-extended", "WHOX", "whox", "monitor", "msgid"] do
+      test "rejects unsupported capability #{capability} without applying other requests" do
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          request = "userhost-in-names #{unquote(capability)}"
+          assert :ok = Cap.handle(user, %Message{command: "CAP", params: ["REQ", request]})
+          assert_sent_messages([{user.pid, ":irc.test CAP #{user.nick} NAK :#{request}\r\n"}])
+          updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+          assert updated_user.capabilities == user.capabilities
+        end)
+      end
     end
 
     test "handles CAP REQ command with message-tags capability" do
@@ -956,13 +917,13 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tls, capabilities: [])
-        message = %Message{command: "CAP", params: ["REQ", "uhnames sts"]}
+        message = %Message{command: "CAP", params: ["REQ", "userhost-in-names sts"]}
 
         assert :ok = Cap.handle(user, message)
 
         # Should return NAK because sts is in the request
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} NAK :uhnames sts\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} NAK :userhost-in-names sts\r\n"}
         ])
 
         # Verify neither capability was added

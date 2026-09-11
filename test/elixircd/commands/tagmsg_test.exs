@@ -47,7 +47,12 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         assert_sent_messages([
           {recipient.pid,
-           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"
+               ) <> "$"
+           )}
         ])
       end)
     end
@@ -63,7 +68,12 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         assert_sent_messages([
           {sender.pid,
-           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"
+               ) <> "$"
+           )}
         ])
       end)
     end
@@ -92,9 +102,19 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         assert_sent_messages([
           {recipient.pid,
-           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"},
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"
+               ) <> "$"
+           )},
           {sender.pid,
-           "@+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"
+               ) <> "$"
+           )}
         ])
       end)
     end
@@ -115,9 +135,19 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         assert_sent_messages([
           {recipient.pid,
-           "@+draft/reply=123 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"},
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+draft/reply=123 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"
+               ) <> "$"
+           )},
           {sender.pid,
-           "@+draft/reply=123 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"}
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+draft/reply=123 :#{sender.nick}!#{String.slice(sender.ident, 0..9)}@#{sender.hostname} TAGMSG #{recipient.nick}\r\n"
+               ) <> "$"
+           )}
         ])
       end)
     end
@@ -163,7 +193,12 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         assert_sent_messages([
           {other_user.pid,
-           "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"}
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"
+               ) <> "$"
+           )}
         ])
       end)
     end
@@ -184,7 +219,12 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         assert_sent_messages([
           {other_user.pid,
-           "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #staff\r\n"}
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #staff\r\n"
+               ) <> "$"
+           )}
         ])
       end)
     end
@@ -207,8 +247,19 @@ defmodule ElixIRCd.Commands.TagmsgTest do
 
         assert_sent_messages([
           {recipient_with_tags.pid,
-           "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"},
-          {user.pid, "@+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"}
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"
+               ) <> "$"
+           )},
+          {user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape(
+                 "+example=1 :#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} TAGMSG #chan\r\n"
+               ) <> "$"
+           )}
         ])
       end)
     end

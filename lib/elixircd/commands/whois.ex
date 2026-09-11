@@ -53,6 +53,7 @@ defmodule ElixIRCd.Commands.Whois do
   def whois_message(user, _target_nick, target_user, target_user_channels_display) when target_user != nil do
     []
     |> add_whoisuser(user, target_user)
+    |> maybe_add_whoismodes(user, target_user)
     |> maybe_add_whoisregnick(user, target_user)
     |> maybe_add_whoisaccount(user, target_user)
     |> maybe_add_whoisbot(user, target_user)
@@ -82,6 +83,24 @@ defmodule ElixIRCd.Commands.Whois do
       }
 
       messages ++ [whoisactually]
+    else
+      messages
+    end
+  end
+
+  @spec maybe_add_whoismodes([Message.t()], User.t(), User.t()) :: [Message.t()]
+  defp maybe_add_whoismodes(messages, user, target_user) do
+    if user.pid == target_user.pid or irc_operator?(user) do
+      modes = "+" <> (target_user.modes |> Enum.sort() |> Enum.join())
+
+      messages ++
+        [
+          %Message{
+            command: :rpl_whoismodes,
+            params: [user.nick, target_user.nick],
+            trailing: "is using modes #{modes}"
+          }
+        ]
     else
       messages
     end
@@ -214,7 +233,8 @@ defmodule ElixIRCd.Commands.Whois do
     user_channels_keys = Enum.map(user_channels, & &1.channel_name_key)
     target_user_channels_keys = Enum.map(target_user_channels, & &1.channel_name_key)
 
-    if target_user_visible?(user_channels_keys, target_user, target_user_channels_keys) do
+    if user.pid == target_user.pid or irc_operator?(user) or
+         target_user_visible?(user_channels_keys, target_user, target_user_channels_keys) do
       # Early return if target has no channels
       if target_user_channels_keys == [] do
         {target_user, []}

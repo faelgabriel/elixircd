@@ -98,15 +98,8 @@ defmodule ElixIRCd.Commands.Invite do
     |> Dispatcher.broadcast(:server, user)
 
     # Send INVITE to the target user
-    if "invite-extended" in target_user.capabilities do
-      account = user.identified_as || "*"
-
-      %Message{command: "INVITE", params: [target_user.nick, channel.name, "account=#{account}"]}
-      |> Dispatcher.broadcast(user, target_user)
-    else
-      %Message{command: "INVITE", params: [target_user.nick, channel.name]}
-      |> Dispatcher.broadcast(user, target_user)
-    end
+    %Message{command: "INVITE", params: [target_user.nick, channel.name]}
+    |> Dispatcher.broadcast(user, target_user)
 
     # Send INVITE notification to channel members with invite-notify capability
     send_invite_notify_to_channel_members(user, target_user, channel)

@@ -27,10 +27,10 @@ defmodule ElixIRCd.Server.Dispatcher do
     if messages == [] or targets == [] do
       :ok
     else
-      any_msgid_cap? = Enum.any?(targets, &msgid_capable?/1)
+      any_message_tags? = Enum.any?(targets, &message_tags_capable?/1)
 
       Enum.each(messages, fn message ->
-        prepared = prepare_message(message, context, any_msgid_cap?)
+        prepared = prepare_message(message, context, any_message_tags?)
         Enum.each(targets, &broadcast_to_target(prepared, &1, source_user))
       end)
     end
@@ -76,11 +76,12 @@ defmodule ElixIRCd.Server.Dispatcher do
     self_delivery? = Enum.any?(delivery_targets, &(target_pid(&1) == sender.pid))
     separate_echo? = echo_enabled? and (not self_delivery? or labeled_request?(sender.pid))
 
-    any_msgid_cap? =
-      ((echo_enabled? or self_delivery?) and msgid_capable?(sender)) or Enum.any?(delivery_targets, &msgid_capable?/1)
+    any_message_tags? =
+      ((echo_enabled? or self_delivery?) and message_tags_capable?(sender)) or
+        Enum.any?(delivery_targets, &message_tags_capable?/1)
 
     Enum.each(List.wrap(messages), fn message ->
-      prepared = prepare_message(message, sender, any_msgid_cap?)
+      prepared = prepare_message(message, sender, any_message_tags?)
       send_delivery_messages(prepared, delivery_targets, sender)
 
       if separate_echo?, do: broadcast_to_target(prepared, sender, sender)
@@ -92,10 +93,10 @@ defmodule ElixIRCd.Server.Dispatcher do
   end
 
   @spec prepare_message(Message.t(), context(), boolean()) :: Message.t()
-  defp prepare_message(message, context, any_msgid_cap?) do
+  defp prepare_message(message, context, any_message_tags?) do
     message
     |> add_context(context)
-    |> maybe_put_base_msgid(any_msgid_cap?)
+    |> maybe_put_base_msgid(any_message_tags?)
   end
 
   @spec labeled_request?(pid()) :: boolean()
@@ -108,12 +109,12 @@ defmodule ElixIRCd.Server.Dispatcher do
     end
   end
 
-  @spec msgid_capable?(target()) :: boolean()
-  defp msgid_capable?(%User{capabilities: capabilities}) do
-    "msgid" in capabilities
+  @spec message_tags_capable?(target()) :: boolean()
+  defp message_tags_capable?(%User{capabilities: capabilities}) do
+    "message-tags" in capabilities
   end
 
-  defp msgid_capable?(_pid), do: false
+  defp message_tags_capable?(_pid), do: false
 
   @spec send_delivery_messages(Message.t(), [target()], User.t()) :: :ok
   defp send_delivery_messages(message, targets, sender) do
@@ -236,15 +237,18 @@ defmodule ElixIRCd.Server.Dispatcher do
   end
 
   @spec maybe_put_base_msgid(Message.t(), boolean()) :: Message.t()
+  defp maybe_put_base_msgid(%Message{command: command} = message, _enabled)
+       when command not in ["PRIVMSG", "NOTICE", "TAGMSG"], do: message
+
   defp maybe_put_base_msgid(%Message{} = message, false), do: message
 
   defp maybe_put_base_msgid(%Message{tags: tags} = message, true) do
-    msgid_supported = Application.get_env(:elixircd, :capabilities)[:msgid] || false
+    msgid_supported = Application.get_env(:elixircd, :message_ids, [])[:enabled] || false
 
     if msgid_supported and not Map.has_key?(tags, "msgid") do
       msgid =
-        System.unique_integer([:positive, :monotonic])
-        |> Integer.to_string(36)
+        :crypto.strong_rand_bytes(18)
+        |> Base.url_encode64(padding: false)
 
       %{message | tags: Map.put(tags, "msgid", msgid)}
     else
@@ -287,7 +291,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp recipient_supports_message_tags?(capabilities) do
     Enum.any?(
       capabilities,
-      &(&1 in ["message-tags", "account-tag", "server-time", "msgid", "batch", "labeled-response"])
+      &(&1 in ["message-tags", "account-tag", "server-time", "batch", "labeled-response"])
     )
   end
 
@@ -320,11 +324,11 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp maybe_filter_msgid_tag(tags, _capabilities) when not is_map_key(tags, "msgid"), do: tags
 
   defp maybe_filter_msgid_tag(tags, capabilities) do
-    msgid_supported = Application.get_env(:elixircd, :capabilities)[:msgid] || false
+    msgid_supported = Application.get_env(:elixircd, :message_ids, [])[:enabled] || false
 
     cond do
       not msgid_supported -> Map.delete(tags, "msgid")
-      "msgid" not in capabilities -> Map.delete(tags, "msgid")
+      "message-tags" not in capabilities -> Map.delete(tags, "msgid")
       true -> tags
     end
   end

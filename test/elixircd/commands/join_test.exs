@@ -14,6 +14,38 @@ defmodule ElixIRCd.Commands.JoinTest do
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
+    for {caps, prefix} <- [{["userhost-in-names"], "@"}, {["userhost-in-names", "multi-prefix"], "@+"}],
+        {channel_modes, status} <- [{[], "="}, {["s"], "@"}, {["p"], "*"}] do
+      test "JOIN NAMES honors hostmasks, prefixes and channel status #{inspect({caps, channel_modes})}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, capabilities: unquote(caps))
+
+          target =
+            insert(:user,
+              nick: "target",
+              ident: "~target",
+              hostname: "private.example",
+              cloaked_hostname: "cloak.example",
+              modes: ["x"]
+            )
+
+          channel = insert(:channel, modes: unquote(channel_modes))
+          insert(:user_channel, user: target, channel: channel, modes: ["v", "o"])
+
+          assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+          assert_sent_message_contains(
+            user.pid,
+            ~r/:irc\.test 353 #{user.nick} #{Regex.escape(unquote(status))} #{channel.name} :/
+          )
+
+          assert_sent_message_contains(user.pid, ~r/#{Regex.escape(unquote(prefix))}target!~target@cloak\.example/)
+          assert_sent_messages_count_containing(user.pid, ~r/private\.example/, 0)
+          assert_sent_messages_count_containing(user.pid, ~r/ 366 /, 1)
+        end)
+      end
+    end
+
     test "handles JOIN command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -65,7 +97,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #new_channel\r\n"},
           {user.pid, ":irc.test MODE #new_channel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 331 #{user.nick} #new_channel :No topic is set\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #new_channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #new_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
         ])
       end)
@@ -91,7 +123,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #new_channel\r\n"},
           {user.pid, ":irc.test MODE #new_channel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #new_channel :Stored topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #new_channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #new_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
         ])
       end)
@@ -117,7 +149,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #locked_channel\r\n"},
           {user.pid, ":irc.test MODE #locked_channel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #locked_channel :Locked topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #locked_channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #locked_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #locked_channel :End of NAMES list.\r\n"}
         ])
       end)
@@ -143,7 +175,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #plain_channel\r\n"},
           {user.pid, ":irc.test MODE #plain_channel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 331 #{user.nick} #plain_channel :No topic is set\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #plain_channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #plain_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #plain_channel :End of NAMES list.\r\n"}
         ])
       end)
@@ -220,7 +252,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
@@ -239,7 +271,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
@@ -271,7 +303,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
@@ -289,7 +321,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
@@ -307,7 +339,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
@@ -325,7 +357,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
@@ -345,7 +377,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
           {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
         ])
@@ -401,7 +433,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN &local\r\n"},
           {user.pid, ":irc.test MODE &local +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 331 #{user.nick} &local :No topic is set\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} &local :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = &local :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} &local :End of NAMES list.\r\n"}
         ])
 
@@ -458,7 +490,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN +customchannel\r\n"},
           {user.pid, ":irc.test MODE +customchannel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 331 #{user.nick} +customchannel :No topic is set\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} +customchannel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = +customchannel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} +customchannel :End of NAMES list.\r\n"}
         ])
 
@@ -500,7 +532,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
@@ -518,15 +550,15 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
       end)
     end
 
-    test "handles JOIN command with UHNAMES capability enabled" do
+    test "handles JOIN command with USERHOST-IN-NAMES capability enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"], ident: "~testuser", hostname: "test.example.com")
+        user = insert(:user, capabilities: ["userhost-in-names"], ident: "~testuser", hostname: "test.example.com")
         channel = insert(:channel)
         another_user = insert(:user, nick: "another_user", ident: "~another", hostname: "another.example.com")
         insert(:user_channel, user: another_user, channel: channel, modes: ["o"])
@@ -539,14 +571,14 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
           {user.pid,
-           ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick}!~testuser@test.example.com @another_user!~another@another.example.com\r\n"},
+           ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}!~testuser@test.example.com @another_user!~another@another.example.com\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
           {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
         ])
       end)
     end
 
-    test "handles JOIN command without UHNAMES capability" do
+    test "handles JOIN command without USERHOST-IN-NAMES capability" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [], ident: "~testuser", hostname: "test.example.com")
         channel = insert(:channel)
@@ -560,16 +592,16 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #{channel.name} :#{user.nick} @another_user\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick} @another_user\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
           {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
         ])
       end)
     end
 
-    test "handles JOIN command creating new channel with UHNAMES capability enabled" do
+    test "handles JOIN command creating new channel with USERHOST-IN-NAMES capability enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"], ident: "~creator", hostname: "creator.example.com")
+        user = insert(:user, capabilities: ["userhost-in-names"], ident: "~creator", hostname: "creator.example.com")
         message = %Message{command: "JOIN", params: ["#newchannel"]}
 
         assert :ok = Join.handle(user, message)
@@ -578,7 +610,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #newchannel\r\n"},
           {user.pid, ":irc.test MODE #newchannel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 331 #{user.nick} #newchannel :No topic is set\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #newchannel :@#{user.nick}!~creator@creator.example.com\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #newchannel :@#{user.nick}!~creator@creator.example.com\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #newchannel :End of NAMES list.\r\n"}
         ])
       end)
@@ -588,17 +620,24 @@ defmodule ElixIRCd.Commands.JoinTest do
       Memento.transaction!(fn ->
         channel = insert(:channel)
 
-        uhnames_user =
-          insert(:user, nick: "uhnames_user", capabilities: ["uhnames"], ident: "~uhuser", hostname: "uh.example.com")
+        hostmask_user =
+          insert(:user,
+            nick: "hostmask_user",
+            capabilities: ["userhost-in-names"],
+            ident: "~uhuser",
+            hostname: "uh.example.com"
+          )
 
-        insert(:user_channel, user: uhnames_user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: hostmask_user, channel: channel, modes: ["v"])
 
         normal_user =
           insert(:user, nick: "normal_user", capabilities: [], ident: "~normal", hostname: "normal.example.com")
 
         insert(:user_channel, user: normal_user, channel: channel)
 
-        joining_user = insert(:user, capabilities: ["uhnames"], ident: "~joining", hostname: "joining.example.com")
+        joining_user =
+          insert(:user, capabilities: ["userhost-in-names"], ident: "~joining", hostname: "joining.example.com")
+
         message = %Message{command: "JOIN", params: [channel.name]}
 
         assert :ok = Join.handle(joining_user, message)
@@ -607,9 +646,9 @@ defmodule ElixIRCd.Commands.JoinTest do
           {joining_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"},
           {joining_user.pid, ":irc.test 332 #{joining_user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
           {joining_user.pid,
-           ":irc.test 353 = #{joining_user.nick} #{channel.name} :#{joining_user.nick}!~joining@joining.example.com normal_user!~normal@normal.example.com +uhnames_user!~uhuser@uh.example.com\r\n"},
+           ":irc.test 353 #{joining_user.nick} = #{channel.name} :#{joining_user.nick}!~joining@joining.example.com normal_user!~normal@normal.example.com +hostmask_user!~uhuser@uh.example.com\r\n"},
           {joining_user.pid, ":irc.test 366 #{joining_user.nick} #{channel.name} :End of NAMES list.\r\n"},
-          {uhnames_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"},
+          {hostmask_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"},
           {normal_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"}
         ])
       end)
@@ -793,7 +832,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #test * :John Doe\r\n"},
           {user.pid, ":irc.test MODE #test +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 331 #{user.nick} #test :No topic is set\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #test :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #test :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #test :End of NAMES list.\r\n"}
         ])
       end)
@@ -810,7 +849,7 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #test john123 :John Doe\r\n"},
           {user.pid, ":irc.test MODE #test +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 331 #{user.nick} #test :No topic is set\r\n"},
-          {user.pid, ":irc.test 353 = #{user.nick} #test :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 353 #{user.nick} = #test :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #test :End of NAMES list.\r\n"}
         ])
       end)

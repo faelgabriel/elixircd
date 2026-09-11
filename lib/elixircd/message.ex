@@ -380,6 +380,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_endofinfo), do: "374"
   defp numeric_reply(:rpl_motdstart), do: "375"
   defp numeric_reply(:rpl_endofmotd), do: "376"
+  defp numeric_reply(:rpl_whoismodes), do: "379"
   defp numeric_reply(:rpl_youreoper), do: "381"
   defp numeric_reply(:rpl_rehashing), do: "382"
   defp numeric_reply(:rpl_time), do: "391"

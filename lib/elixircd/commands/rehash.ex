@@ -11,10 +11,13 @@ defmodule ElixIRCd.Commands.Rehash do
   import ElixIRCd.Utils.System, only: [load_configurations: 0]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Isupport
+  alias ElixIRCd.Utils.Monitor
 
   @cap_mappings [
     {:account_tag, "account-tag"},
@@ -25,17 +28,14 @@ defmodule ElixIRCd.Commands.Rehash do
     {:chghost, "chghost"},
     {:echo_message, "echo-message"},
     {:extended_join, "extended-join"},
-    {:invite_extended, "invite-extended"},
     {:invite_notify, "invite-notify"},
     {:labeled_response, "labeled-response"},
     {:multi_prefix, "multi-prefix"},
     {:sasl, "sasl"},
     {:setname, "setname"},
-    {:extended_names, "uhnames"},
-    {:extended_uhlist, "extended-uhlist"},
+    {:extended_names, "userhost-in-names"},
     {:message_tags, "message-tags"},
-    {:server_time, "server-time"},
-    {:msgid, "msgid"}
+    {:server_time, "server-time"}
   ]
 
   @impl true
@@ -58,6 +58,8 @@ defmodule ElixIRCd.Commands.Rehash do
     %Message{command: :rpl_rehashing, params: [user.nick, "elixircd.exs"], trailing: "Rehashing"}
     |> Dispatcher.broadcast(:server, user)
 
+    old_features = Isupport.feature_tokens()
+    monitor_was_enabled = Monitor.enabled?()
     old_caps = Application.get_env(:elixircd, :capabilities, [])
     load_configurations()
     new_caps = Application.get_env(:elixircd, :capabilities, [])
@@ -69,6 +71,18 @@ defmodule ElixIRCd.Commands.Rehash do
     # announcing their removal. CAP DEL must never interrupt an open batch.
     ResponseContext.flush(user)
     notify_config_changes(old_caps, new_caps)
+    clear_disabled_monitor_lists(monitor_was_enabled)
+    Isupport.notify_changes(old_features)
+  end
+
+  @spec clear_disabled_monitor_lists(boolean()) :: :ok
+  defp clear_disabled_monitor_lists(was_enabled) do
+    if was_enabled and not Monitor.enabled?() do
+      Users.get_all()
+      |> Enum.each(&UserMonitors.delete_by_user_pid(&1.pid))
+    end
+
+    :ok
   end
 
   @spec noprivileges_message(User.t()) :: :ok
@@ -132,14 +146,15 @@ defmodule ElixIRCd.Commands.Rehash do
   @spec notify_del(String.t()) :: :ok
   defp notify_del(capabilities) when is_binary(capabilities) do
     Users.get_all()
-    |> Enum.filter(&has_cap_notify?/1)
     |> Enum.each(fn user ->
-      %Message{
-        command: "CAP",
-        params: [user_reply(user), "DEL"],
-        trailing: capabilities
-      }
-      |> Dispatcher.broadcast(:server, user)
+      if has_cap_notify?(user) do
+        %Message{
+          command: "CAP",
+          params: [user_reply(user), "DEL"],
+          trailing: capabilities
+        }
+        |> Dispatcher.broadcast(:server, user)
+      end
 
       remove_deleted_capabilities(user, capabilities)
     end)

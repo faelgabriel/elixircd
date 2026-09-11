@@ -161,8 +161,16 @@ defmodule ElixIRCd.Commands.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"},
-          {user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n"}
+          {another_user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n") <> "$"
+           )},
+          {user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} NOTICE #{another_user.nick} :Hello\r\n") <> "$"
+           )}
         ])
       end)
     end
@@ -187,8 +195,16 @@ defmodule ElixIRCd.Commands.NoticeTest do
         assert :ok = Notice.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"},
-          {user.pid, "@+draft/reply=123 :#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n"}
+          {another_user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n") <> "$"
+           )},
+          {user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24};" <>
+               Regex.escape("+draft/reply=123 :#{user_mask(user)} NOTICE #{channel.name} :Hello\r\n") <> "$"
+           )}
         ])
       end)
     end

@@ -108,16 +108,13 @@ config :elixircd,
     # E.g., 2 means "user.isp.com" becomes "elixir-HASH.isp.com"
     cloak_domain_parts: 2
   ],
+  # IRCv3 Capabilities Configuration
   capabilities: [
-    # Whether to support extended NAMES with hostmasks (uhnames capability)
+    # Whether to support extended NAMES with hostmasks (userhost-in-names capability)
     extended_names: true,
-    # Whether to support extended user modes in WHO replies (extended-uhlist capability)
-    extended_uhlist: true,
-    # Whether to support WHOX extensions for WHO replies
-    whox: true,
     # Whether to support IRCv3 message tags (message-tags capability)
     message_tags: true,
-    # Whether to attach account= tags with authenticated nickname (account-tag capability)
+    # Whether to attach the sender's services account to user messages and invites (account-tag)
     account_tag: true,
     # Whether to send ACCOUNT notifications on identify/logout (account-notify capability)
     account_notify: true,
@@ -133,8 +130,6 @@ config :elixircd,
     echo_message: true,
     # Whether to support extended JOIN with account information (extended-join capability)
     extended_join: true,
-    # Whether to support extended INVITE with account information (invite-extended capability)
-    invite_extended: true,
     # Whether to notify channel members when users are invited (invite-notify capability)
     invite_notify: true,
     # Whether to support multiple status prefixes in channel responses (multi-prefix capability)
@@ -145,17 +140,25 @@ config :elixircd,
     setname: true,
     # Whether to support the server-time capability adding time= tags
     server_time: true,
-    # Whether to support the msgid capability adding msgid= tags
-    msgid: true,
     # Whether to support LABELED-RESPONSE for correlating server replies with client labels
     labeled_response: true,
     # Whether to support Strict Transport Security (sts capability)
-    sts: true,
-    # Whether to support MONITOR for tracking user online/offline status (monitor capability)
-    monitor: true
+    sts: true
   ],
-  # MONITOR Configuration
+  # WHOX Extension Configuration
+  whox: [
+    # Enable extended WHO replies
+    enabled: true
+  ],
+  # Message IDs Configuration
+  message_ids: [
+    # Enable unique message IDs for clients using message-tags
+    enabled: true
+  ],
+  # MONITOR Command Configuration
   monitor: [
+    # Enable nickname monitoring
+    enabled: true,
     # Maximum number of targets a user can monitor (0 = unlimited)
     max_targets: 100
   ],

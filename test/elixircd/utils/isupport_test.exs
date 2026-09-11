@@ -12,7 +12,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
     test "sends ISUPPORT messages to the user" do
       original_channel_config = Application.get_env(:elixircd, :channel)
       original_user_config = Application.get_env(:elixircd, :user)
-      original_capabilities_config = Application.get_env(:elixircd, :capabilities)
+      original_whox_config = Application.get_env(:elixircd, :whox)
       original_settings_config = Application.get_env(:elixircd, :settings)
 
       channel_config = [
@@ -28,10 +28,8 @@ defmodule ElixIRCd.Utils.IsupportTest do
         max_nick_length: 30
       ]
 
-      capabilities_config = [
-        extended_names: true,
-        extended_uhlist: true,
-        whox: true
+      whox_config = [
+        enabled: true
       ]
 
       settings_config = [
@@ -41,7 +39,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
 
       Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config, channel_config))
       Application.put_env(:elixircd, :user, Keyword.merge(original_user_config, user_config))
-      Application.put_env(:elixircd, :capabilities, Keyword.merge(original_capabilities_config, capabilities_config))
+      Application.put_env(:elixircd, :whox, Keyword.merge(original_whox_config, whox_config))
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
 
       user = insert(:user)
@@ -53,29 +51,27 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz UHNAMES EXTENDED-UHLIST WHOX UMODES=BgHiorRswxZ :are supported by this server\r\n"},
-        {user.pid, ":irc.test 005 #{user.nick} BOT=B UTF8ONLY MONITOR=100 :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz WHOX UMODES=BgHiorRswxZ BOT=B UTF8ONLY :are supported by this server\r\n"},
+        {user.pid, ":irc.test 005 #{user.nick} MONITOR=100 :are supported by this server\r\n"}
       ])
 
       Application.put_env(:elixircd, :channel, original_channel_config)
       Application.put_env(:elixircd, :user, original_user_config)
-      Application.put_env(:elixircd, :capabilities, original_capabilities_config)
+      Application.put_env(:elixircd, :whox, original_whox_config)
       Application.put_env(:elixircd, :settings, original_settings_config)
     end
 
     test "excludes boolean features when set to false" do
       original_channel_config = Application.get_env(:elixircd, :channel)
-      original_capabilities_config = Application.get_env(:elixircd, :capabilities)
+      original_whox_config = Application.get_env(:elixircd, :whox)
       original_settings_config = Application.get_env(:elixircd, :settings)
 
       channel_config = [
         max_modes_per_command: 20
       ]
 
-      capabilities_config = [
-        extended_names: false,
-        extended_uhlist: false,
-        whox: false
+      whox_config = [
+        enabled: false
       ]
 
       settings_config = [
@@ -84,13 +80,13 @@ defmodule ElixIRCd.Utils.IsupportTest do
       ]
 
       Application.put_env(:elixircd, :channel, Keyword.merge(original_channel_config, channel_config))
-      Application.put_env(:elixircd, :capabilities, Keyword.merge(original_capabilities_config, capabilities_config))
+      Application.put_env(:elixircd, :whox, Keyword.merge(original_whox_config, whox_config))
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
 
       user = insert(:user)
       assert :ok = Isupport.send_isupport_messages(user)
 
-      # Should not contain UHNAMES, EXTENDED-UHLIST, WHOX, or UTF8ONLY since they're set to false
+      # Should not contain WHOX or UTF8ONLY since they're set to false
       assert_sent_messages([
         {user.pid,
          ":irc.test 005 #{user.nick} MODES=20 CHANLIMIT=#:20,&:5 PREFIX=(ov)@+ CHANTYPES=#& NICKLEN=30 :are supported by this server\r\n"},
@@ -101,7 +97,7 @@ defmodule ElixIRCd.Utils.IsupportTest do
       ])
 
       Application.put_env(:elixircd, :channel, original_channel_config)
-      Application.put_env(:elixircd, :capabilities, original_capabilities_config)
+      Application.put_env(:elixircd, :whox, original_whox_config)
       Application.put_env(:elixircd, :settings, original_settings_config)
     end
   end

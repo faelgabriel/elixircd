@@ -25,12 +25,6 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   def modes, do: @modes
 
   @doc """
-  Returns the operator-only modes.
-  """
-  @spec modes_restricted_to_operators :: [String.t()]
-  def modes_restricted_to_operators, do: @modes_restricted_to_operators
-
-  @doc """
   Returns the string representation of the modes for a user.
   Filters operator-only modes if the user is not an operator.
   """

@@ -309,7 +309,14 @@ defmodule ElixIRCd.CommandTest do
         assert :ok = Command.dispatch(user, message)
 
         trailing = if command == "TAGMSG", do: "", else: " :hello"
-        assert_sent_messages([{user.pid, ":#{user_mask(user)} #{command} #{user.nick}#{trailing}\r\n"}])
+
+        assert_sent_messages([
+          {user.pid,
+           Regex.compile!(
+             "^@msgid=[A-Za-z0-9_-]{24} " <>
+               Regex.escape(":#{user_mask(user)} #{command} #{user.nick}#{trailing}\r\n") <> "$"
+           )}
+        ])
       end
 
       test "self-targeted #{command} has distinct unlabeled delivery and labeled echo" do
@@ -337,8 +344,19 @@ defmodule ElixIRCd.CommandTest do
         assert :ok = Command.dispatch(user, message)
 
         trailing = if command == "TAGMSG", do: "", else: " :hello"
-        delivered = ":#{user_mask(user)} #{command} #{user.nick}#{trailing}\r\n"
-        echoed = "@label=self-echo :#{user_mask(user)} #{command} #{user.nick}#{trailing}\r\n"
+
+        delivered =
+          Regex.compile!(
+            "^@msgid=[A-Za-z0-9_-]{24} " <>
+              Regex.escape(":#{user_mask(user)} #{command} #{user.nick}#{trailing}\r\n") <> "$"
+          )
+
+        echoed =
+          Regex.compile!(
+            "^@label=self-echo;msgid=[A-Za-z0-9_-]{24} " <>
+              Regex.escape(":#{user_mask(user)} #{command} #{user.nick}#{trailing}\r\n") <> "$"
+          )
+
         assert_sent_messages([{user.pid, delivered}, {user.pid, echoed}])
       end
     end

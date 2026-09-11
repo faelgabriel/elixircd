@@ -14,6 +14,31 @@ defmodule ElixIRCd.Commands.MonitorTest do
   alias ElixIRCd.Utils.Monitor, as: MonitorUtils
 
   describe "handle/2" do
+    for config <- [[enabled: false, max_targets: 100], []] do
+      test "MONITOR disabled with #{inspect(config)} rejects commands and suppresses notifications" do
+        original_config = Application.get_env(:elixircd, :monitor)
+        on_exit(fn -> Application.put_env(:elixircd, :monitor, original_config) end)
+        Application.put_env(:elixircd, :monitor, unquote(config))
+
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          target = insert(:user, nick: "target")
+          insert(:user_monitor, user: user, target_nick_key: "target")
+
+          for params <- [["+", "other"], ["-", "target"], ["C"], ["L"], ["S"], []] do
+            assert :ok = Monitor.handle(user, %Message{command: "MONITOR", params: params})
+          end
+
+          assert :ok = MonitorUtils.notify_online(target)
+          assert :ok = MonitorUtils.notify_offline(target)
+          assert UserMonitors.count_by_user_pid(user.pid) == 1
+          assert_sent_messages_count_containing(user.pid, ~r/ 421 .* MONITOR :Unknown command/, 6)
+          assert_sent_messages_count_containing(user.pid, ~r/ 73[0-4] /, 0)
+          assert_sent_messages_amount(user.pid, 6)
+        end)
+      end
+    end
+
     test "handles MONITOR command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -220,8 +245,8 @@ defmodule ElixIRCd.Commands.MonitorTest do
 
     test "handles MONITOR + with unlimited targets" do
       Memento.transaction!(fn ->
-        Application.put_env(:elixircd, :monitor, max_targets: 0)
-        on_exit(fn -> Application.put_env(:elixircd, :monitor, max_targets: 100) end)
+        Application.put_env(:elixircd, :monitor, enabled: true, max_targets: 0)
+        on_exit(fn -> Application.put_env(:elixircd, :monitor, enabled: true, max_targets: 100) end)
 
         user = insert(:user, nick: "MonitorUser")
 

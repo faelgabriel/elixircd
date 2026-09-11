@@ -12,7 +12,6 @@ defmodule ElixIRCd.Commands.Who do
 
   import ElixIRCd.Utils.Network, only: [format_ip_address: 1]
 
-  alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
@@ -396,34 +395,10 @@ defmodule ElixIRCd.Commands.Who do
 
   @spec user_statuses(User.t(), User.t(), UserChannel.t() | nil) :: String.t()
   defp user_statuses(requesting_user, user_target, user_channel) do
-    use_extended_uhlist = "extended-uhlist" in requesting_user.capabilities
+    prefixes = channel_operator_symbol(user_channel) <> channel_voice_symbol(user_channel)
+    prefixes = if "multi-prefix" in requesting_user.capabilities, do: prefixes, else: String.slice(prefixes, 0, 1)
 
-    base_status =
-      user_away_status(user_target) <>
-        irc_operator_symbol(user_target) <>
-        channel_operator_symbol(user_channel) <>
-        channel_voice_symbol(user_channel)
-
-    if use_extended_uhlist do
-      base_status <> extended_user_modes(requesting_user, user_target)
-    else
-      base_status
-    end
-  end
-
-  @spec extended_user_modes(User.t(), User.t()) :: String.t()
-  defp extended_user_modes(requesting_user, %User{modes: modes}) do
-    modes_restricted_to_operators = Mode.UserModes.modes_restricted_to_operators()
-    extended_modes = modes -- ["o"]
-
-    filtered_modes =
-      if irc_operator?(requesting_user) do
-        extended_modes
-      else
-        extended_modes -- modes_restricted_to_operators
-      end
-
-    Enum.join(filtered_modes, "")
+    user_away_status(user_target) <> irc_operator_symbol(user_target) <> prefixes
   end
 
   @spec user_away_status(User.t()) :: String.t()
@@ -442,7 +417,7 @@ defmodule ElixIRCd.Commands.Who do
 
   @spec parse_query([String.t()]) :: map()
   defp parse_query(filters) do
-    whox_enabled? = Keyword.get(Application.get_env(:elixircd, :capabilities, []), :whox, false)
+    whox_enabled? = Keyword.get(Application.get_env(:elixircd, :whox, []), :enabled, false)
 
     {pre_whox_filters, whox_param, post_whox_filters} =
       if whox_enabled? do

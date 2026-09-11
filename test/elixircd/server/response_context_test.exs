@@ -170,10 +170,13 @@ defmodule ElixIRCd.Server.ResponseContextTest do
       dispatch(user, "@label=self;+example.test/tag=value #{unquote(command)} #{user.nick}#{trailing}")
       [delivered | echoed] = wire_messages()
       assert delivered.command == unquote(command)
-      assert delivered.tags == %{"+example.test/tag" => "value"}
+      msgid = delivered.tags["msgid"]
+      assert msgid =~ ~r/^[A-Za-z0-9_-]{24}$/
+      assert delivered.tags == %{"+example.test/tag" => "value", "msgid" => msgid}
 
       if unquote(echo?) do
-        assert [%Message{tags: %{"label" => "self", "+example.test/tag" => "value"}}] = echoed
+        assert [%Message{tags: tags}] = echoed
+        assert tags == Map.put(delivered.tags, "label", "self")
       else
         assert echoed == []
       end

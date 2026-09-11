@@ -10,6 +10,42 @@ defmodule ElixIRCd.Commands.WhoisTest do
   alias ElixIRCd.Message
 
   describe "handle/2" do
+    for modes <- [[], ["w", "i"], ["s", "o", "H"]] do
+      test "WHOIS shows own modes #{inspect(modes)} without capability negotiation" do
+        Memento.transaction!(fn ->
+          user = insert(:user, modes: unquote(modes), capabilities: [])
+          assert :ok = Whois.handle(user, %Message{command: "WHOIS", params: [user.nick]})
+          modes = "+" <> Enum.join(Enum.sort(unquote(modes)))
+          assert_sent_message_contains(user.pid, ":irc.test 379 #{user.nick} #{user.nick} :is using modes #{modes}\r\n")
+          assert_sent_messages_count_containing(user.pid, ~r/ 379 /, 1)
+          assert_sent_message_contains(user.pid, ~r/ 318 #{user.nick} #{user.nick} /)
+        end)
+      end
+    end
+
+    test "WHOIS shows all target modes to IRCops" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        target = insert(:user, modes: ["w", "s", "o", "H", "i"])
+        assert :ok = Whois.handle(user, %Message{command: "WHOIS", params: [target.nick]})
+        assert_sent_message_contains(user.pid, ":irc.test 379 #{user.nick} #{target.nick} :is using modes +Hiosw\r\n")
+        assert_sent_messages_count_containing(user.pid, ~r/ 379 /, 1)
+      end)
+    end
+
+    test "WHOIS does not reveal modes to channel operators even with the same account" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: [], identified_as: "shared-account")
+        target = insert(:user, modes: ["i", "w"], identified_as: "shared-account")
+        channel = insert(:channel)
+        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: target, channel: channel)
+        assert :ok = Whois.handle(user, %Message{command: "WHOIS", params: [target.nick]})
+        assert_sent_message_contains(user.pid, ~r/ 311 #{user.nick} #{target.nick} /)
+        assert_sent_messages_count_containing(user.pid, ~r/ 379 /, 0)
+      end)
+    end
+
     test "handles WHOIS command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -354,6 +390,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
           {operator.pid, ~r/:irc\.test 311 #{operator.nick} #{target_user.nick} #{target_user.ident} .+ \* :realname/},
           {operator.pid,
            ~r/:irc\.test 338 #{operator.nick} #{target_user.nick} (hostname|192\.168\.1\.100) :is actually using host/},
+          {operator.pid, ":irc.test 379 #{operator.nick} #{target_user.nick} :is using modes +x\r\n"},
           {operator.pid, ~r/:irc\.test 319 #{operator.nick} #{target_user.nick} :#{channel.name}/},
           {operator.pid, ~r/:irc\.test 312 #{operator.nick} #{target_user.nick} ElixIRCd .+ :Elixir IRC daemon/},
           {operator.pid, ~r/:irc\.test 317 #{operator.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time/},

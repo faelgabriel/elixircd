@@ -402,135 +402,45 @@ defmodule ElixIRCd.Commands.WhoTest do
       end)
     end
 
-    test "handles WHO command with EXTENDED-UHLIST capability enabled shows extended user modes" do
-      Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["extended-uhlist"])
-        channel = insert(:channel)
-        insert(:user_channel, channel: channel, user: user)
+    for {fields, numeric, trailing} <- [{nil, "352", " :0 realname"}, {"%nf", "354", ""}],
+        {capabilities, prefix} <- [{[], "@"}, {["multi-prefix"], "@+"}],
+        requester_modes <- [[], ["o"]] do
+      test "WHO flags #{inspect({fields, capabilities, requester_modes})} exclude user modes and respect multi-prefix" do
+        Memento.transaction!(fn ->
+          user = insert(:user, capabilities: unquote(capabilities), modes: unquote(requester_modes))
+          channel = insert(:channel)
+          insert(:user_channel, channel: channel, user: user)
+          target = insert(:user, nick: "target", modes: ["o", "i", "w"], away_message: "Away")
+          insert(:user_channel, channel: channel, user: target, modes: ["v", "o"])
 
-        # Create a user with additional modes (i=invisible, w=wallops)
-        target_user = insert(:user, modes: ["i", "w"], away_message: nil)
-        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+          params = [target.nick] ++ List.wrap(unquote(fields))
+          assert :ok = Who.handle(user, %Message{command: "WHO", params: params})
 
-        message = %Message{command: "WHO", params: [channel.name]}
-        assert :ok = Who.handle(user, message)
+          detail =
+            if unquote(numeric) == "352",
+              do: "#{channel.name} #{target.ident} hostname irc.test ",
+              else: ""
 
-        assert_sent_messages(
-          [
+          assert_sent_messages([
             {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H@iw :0 realname\r\n"},
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
-      end)
+             ":irc.test #{unquote(numeric)} #{user.nick} #{detail}#{target.nick} G*#{unquote(prefix)}#{unquote(trailing)}\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} #{target.nick} :End of WHO list\r\n"}
+          ])
+        end)
+      end
     end
 
-    test "handles WHO command without EXTENDED-UHLIST capability shows only standard modes" do
+    test "WHOX uses canonical field order and logged-out placeholders without CAP negotiation" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [])
-        channel = insert(:channel)
-        insert(:user_channel, channel: channel, user: user)
+        target = insert(:user, nick: "target", identified_as: nil)
 
-        # Create a user with additional modes (i=invisible, w=wallops)
-        target_user = insert(:user, modes: ["i", "w"], away_message: nil)
-        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
+        assert :ok = Who.handle(user, %Message{command: "WHO", params: [target.nick, "%aanict?,009"]})
 
-        message = %Message{command: "WHO", params: [channel.name]}
-        assert :ok = Who.handle(user, message)
-
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H@ :0 realname\r\n"},
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
-      end)
-    end
-
-    test "handles WHO command with EXTENDED-UHLIST capability filters out operator mode already shown as *" do
-      Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["extended-uhlist"])
-        channel = insert(:channel)
-        insert(:user_channel, channel: channel, user: user)
-
-        # Create an IRC operator user with additional modes (o=operator is shown as *, i=invisible, w=wallops)
-        target_user = insert(:user, modes: ["o", "i", "w"], away_message: nil)
-        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
-
-        message = %Message{command: "WHO", params: [channel.name]}
-        assert :ok = Who.handle(user, message)
-
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H*@iw :0 realname\r\n"},
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
-      end)
-    end
-
-    test "handles WHO command with EXTENDED-UHLIST capability filters operator-restricted modes for non-operators" do
-      Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["extended-uhlist"], modes: [])
-        channel = insert(:channel)
-        insert(:user_channel, channel: channel, user: user)
-
-        # Create a user with operator-restricted mode H (hidden) and other modes
-        target_user = insert(:user, modes: ["H", "i", "w"], away_message: nil)
-        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
-
-        message = %Message{command: "WHO", params: [channel.name]}
-        assert :ok = Who.handle(user, message)
-
-        # Non-operator should not see the H mode, only i and w
-        assert_sent_messages(
-          [
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{target_user.nick} H@iw :0 realname\r\n"},
-            {user.pid,
-             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
-            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
-      end)
-    end
-
-    test "handles WHO command with EXTENDED-UHLIST capability shows operator-restricted modes for operators" do
-      Memento.transaction!(fn ->
-        operator_user = insert(:user, capabilities: ["extended-uhlist"], modes: ["o"])
-        channel = insert(:channel)
-        insert(:user_channel, channel: channel, user: operator_user)
-
-        # Create a user with operator-restricted mode H (hidden) and other modes
-        target_user = insert(:user, modes: ["H", "i", "w"], away_message: nil)
-        insert(:user_channel, channel: channel, user: target_user, modes: ["o"])
-
-        message = %Message{command: "WHO", params: [channel.name]}
-        assert :ok = Who.handle(operator_user, message)
-
-        # IRC operator should see all modes including the H mode
-        assert_sent_messages(
-          [
-            {operator_user.pid,
-             ":irc.test 352 #{operator_user.nick} #{channel.name} #{operator_user.ident} hostname irc.test #{target_user.nick} H@Hiw :0 realname\r\n"},
-            {operator_user.pid,
-             ":irc.test 352 #{operator_user.nick} #{channel.name} #{operator_user.ident} hostname irc.test #{operator_user.nick} H* :0 realname\r\n"},
-            {operator_user.pid, ":irc.test 315 #{operator_user.nick} #{channel.name} :End of WHO list\r\n"}
-          ],
-          validate_order?: false
-        )
+        assert_sent_messages([
+          {user.pid, ":irc.test 354 #{user.nick} 009 * 255.255.255.255 target 0\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} #{target.nick} :End of WHO list\r\n"}
+        ])
       end)
     end
 
@@ -632,14 +542,14 @@ defmodule ElixIRCd.Commands.WhoTest do
     end
 
     test "falls back to standard WHO replies when WHOX support is disabled" do
-      original_capabilities = Application.get_env(:elixircd, :capabilities)
-      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+      original_whox = Application.get_env(:elixircd, :whox)
+      on_exit(fn -> Application.put_env(:elixircd, :whox, original_whox) end)
 
       Application.put_env(
         :elixircd,
-        :capabilities,
-        (original_capabilities || [])
-        |> Keyword.put(:whox, false)
+        :whox,
+        (original_whox || [])
+        |> Keyword.put(:enabled, false)
       )
 
       Memento.transaction!(fn ->

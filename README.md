@@ -356,6 +356,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Bot Mode**: Identification of bots in channels. ✅
 - **Changing User Properties**: Dynamic updating of user properties. ✅
 - **Listing Users**: Enhanced user information in channel queries. ✅
+- **Message IDs**: Unique identifiers for messages. ✅
 - **WebIRC**: Provision of real IP address for users connecting through gateways. ✅
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ✅
 
@@ -365,10 +366,10 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **AUTHENTICATE**: Authenticate a user using SASL mechanisms. ✅
 - **ACCOUNT**: Notify clients when a user's account status changes. ✅
 - **CHGHOST**: Forcefully change a user's ident and hostname. ✅
-- **INVITE**: Extended to optionally include account information. ✅
+- **INVITE**: Extended with account tags and channel notifications. ✅
 - **JOIN**: Extended to include account name and real name in join messages. ✅
 - **MONITOR**: Track when specific nicknames go online or offline. ✅
-- **NAMES**: Extended to include account names when supported. ✅
+- **NAMES**: Extended to include full user hostmasks in replies. ✅
 - **TAGMSG**: Send messages with tags but without text content. ✅
 - **WEBIRC**: Allow gateways to pass real client IP and hostname to the server. ✅
 - **WHO**: Extended to include additional information (WHOX). ✅
@@ -387,14 +388,10 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ✅
 - **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ✅
-- **Extended Names** (uhnames): Adds full user hostmasks to NAMES replies. ✅
-- **Extended User Mode** (extended-uhlist): Adds additional user modes in WHO and related replies. ✅
-- **Invite Extended** (invite-extended): Extended INVITE messages with account information. ✅
+- **Userhost in Names** (userhost-in-names): Adds full user hostmasks to NAMES replies. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ✅
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ✅
-- **Message IDs** (msgid): Unique identifiers for messages. ✅
 - **Message Tags** (message-tags): Additional metadata in messages. ✅
-- **Monitor** (monitor): Efficient tracking of user online/offline status. ✅
 - **Multi-Prefix** (multi-prefix): Display multiple status prefixes for users in channel responses. ✅
 - **Server Time** (server-time): Timestamp information for messages. ✅
 - **Set Name** (setname): Allow clients to change their real name during the session. ✅

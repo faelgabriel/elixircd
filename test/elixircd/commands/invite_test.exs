@@ -12,6 +12,48 @@ defmodule ElixIRCd.Commands.InviteTest do
   alias ElixIRCd.Repositories.ChannelInvites
 
   describe "handle/2" do
+    for account_enabled <- [true, false], identified_as <- [nil, "inviter-account"] do
+      test "INVITE account tags enabled=#{account_enabled} account=#{inspect(identified_as)} are filtered per recipient" do
+        original_config = Application.get_env(:elixircd, :capabilities)
+        on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+        Application.put_env(
+          :elixircd,
+          :capabilities,
+          Keyword.put(original_config, :account_tag, unquote(account_enabled))
+        )
+
+        Memento.transaction!(fn ->
+          inviter = insert(:user, identified_as: unquote(identified_as))
+          invitee = insert(:user, identified_as: "invitee-account", capabilities: ["account-tag"])
+          tagged_member = insert(:user, capabilities: ["invite-notify", "account-tag"])
+          plain_member = insert(:user, capabilities: ["invite-notify", "message-tags"])
+          silent_member = insert(:user, capabilities: ["account-tag"])
+          outsider = insert(:user, capabilities: ["invite-notify", "account-tag"])
+          channel = insert(:channel)
+          insert(:user_channel, user: inviter, channel: channel, modes: ["o"])
+
+          for member <- [tagged_member, plain_member, silent_member] do
+            insert(:user_channel, user: member, channel: channel)
+          end
+
+          assert :ok = Invite.handle(inviter, %Message{command: "INVITE", params: [invitee.nick, channel.name]})
+          tag = if unquote(account_enabled) and unquote(identified_as) != nil, do: "@account=inviter-account ", else: ""
+          invite = ":#{user_mask(inviter)} INVITE #{invitee.nick} #{channel.name}\r\n"
+
+          assert_sent_messages_amount(silent_member.pid, 0)
+          assert_sent_messages_amount(outsider.pid, 0)
+
+          assert_sent_messages([
+            {inviter.pid, ":irc.test 341 #{inviter.nick} #{invitee.nick} #{channel.name}\r\n"},
+            {invitee.pid, tag <> invite},
+            {tagged_member.pid, tag <> invite},
+            {plain_member.pid, invite}
+          ])
+        end)
+      end
+    end
+
     test "handles INVITE command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -171,10 +213,10 @@ defmodule ElixIRCd.Commands.InviteTest do
       end)
     end
 
-    test "handles INVITE command with INVITE-EXTENDED capability and authenticated user" do
+    test "handles INVITE command with ACCOUNT-TAG capability and authenticated user" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "alice")
-        target_user = insert(:user, capabilities: ["invite-extended"])
+        target_user = insert(:user, capabilities: ["account-tag"])
         channel = insert(:channel, name: "#channel")
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
@@ -183,15 +225,15 @@ defmodule ElixIRCd.Commands.InviteTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel account=alice\r\n"}
+          {target_user.pid, "@account=alice :#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
     end
 
-    test "handles INVITE command with INVITE-EXTENDED capability and unauthenticated user" do
+    test "handles INVITE command with ACCOUNT-TAG capability and unauthenticated user" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        target_user = insert(:user, capabilities: ["invite-extended"])
+        target_user = insert(:user, capabilities: ["account-tag"])
         channel = insert(:channel, name: "#channel")
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
@@ -200,7 +242,7 @@ defmodule ElixIRCd.Commands.InviteTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel account=*\r\n"}
+          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)
     end
@@ -246,10 +288,10 @@ defmodule ElixIRCd.Commands.InviteTest do
       end)
     end
 
-    test "handles INVITE command with both INVITE-NOTIFY and INVITE-EXTENDED capabilities" do
+    test "handles INVITE command with both INVITE-NOTIFY and ACCOUNT-TAG capabilities" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "alice")
-        target_user = insert(:user, capabilities: ["invite-extended"])
+        target_user = insert(:user, capabilities: ["account-tag"])
         member = insert(:user, capabilities: ["invite-notify"])
         channel = insert(:channel, name: "#channel")
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
@@ -260,7 +302,7 @@ defmodule ElixIRCd.Commands.InviteTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
-          {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel account=alice\r\n"},
+          {target_user.pid, "@account=alice :#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"},
           {member.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
       end)

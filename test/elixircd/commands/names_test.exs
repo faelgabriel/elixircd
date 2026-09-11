@@ -10,6 +10,38 @@ defmodule ElixIRCd.Commands.NamesTest do
   alias ElixIRCd.Message
 
   describe "handle/2" do
+    for {caps, prefix} <- [{["userhost-in-names"], "@"}, {["userhost-in-names", "multi-prefix"], "@+"}],
+        {channel_modes, status} <- [{[], "="}, {["s"], "@"}, {["p"], "*"}] do
+      test "NAMES honors hostmasks, prefixes and channel status #{inspect({caps, channel_modes})}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, capabilities: unquote(caps))
+
+          target =
+            insert(:user,
+              nick: "target",
+              ident: "~target",
+              hostname: "private.example",
+              cloaked_hostname: "cloak.example",
+              modes: ["x"]
+            )
+
+          channel = insert(:channel, modes: unquote(channel_modes))
+          insert(:user_channel, user: target, channel: channel, modes: ["v", "o"])
+          insert(:user_channel, user: user, channel: channel)
+          assert :ok = Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
+
+          assert_sent_message_contains(
+            user.pid,
+            ~r/:irc\.test 353 #{user.nick} #{Regex.escape(unquote(status))} #{channel.name} :/
+          )
+
+          assert_sent_message_contains(user.pid, ~r/#{Regex.escape(unquote(prefix))}target!~target@cloak\.example/)
+          assert_sent_messages_count_containing(user.pid, ~r/private\.example/, 0)
+          assert_sent_messages_count_containing(user.pid, ~r/ 366 /, 1)
+        end)
+      end
+    end
+
     test "handles NAMES command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -249,9 +281,9 @@ defmodule ElixIRCd.Commands.NamesTest do
       end)
     end
 
-    test "handles NAMES command with UHNAMES capability enabled" do
+    test "handles NAMES command with USERHOST-IN-NAMES capability enabled" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"])
+        user = insert(:user, capabilities: ["userhost-in-names"])
         channel = insert(:channel, name: "#channel")
         user1 = insert(:user, nick: "user1", ident: "~ident1", hostname: "host1.example.com")
         insert(:user_channel, user: user1, channel: channel)
@@ -266,7 +298,7 @@ defmodule ElixIRCd.Commands.NamesTest do
       end)
     end
 
-    test "handles NAMES command without UHNAMES capability" do
+    test "handles NAMES command without USERHOST-IN-NAMES capability" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [])
         channel = insert(:channel, name: "#channel2")
@@ -282,9 +314,9 @@ defmodule ElixIRCd.Commands.NamesTest do
       end)
     end
 
-    test "handles NAMES command with free users and UHNAMES capability" do
+    test "handles NAMES command with free users and USERHOST-IN-NAMES capability" do
       Memento.transaction!(fn ->
-        user = insert(:user, capabilities: ["uhnames"])
+        user = insert(:user, capabilities: ["userhost-in-names"])
         _free_user = insert(:user, nick: "free_user", ident: "~freeuser", hostname: "freehost.example.com")
         message = %Message{command: "NAMES", params: []}
         assert :ok = Names.handle(user, message)

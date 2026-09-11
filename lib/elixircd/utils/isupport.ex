@@ -6,8 +6,10 @@ defmodule ElixIRCd.Utils.Isupport do
   alias ElixIRCd.Commands.Mode.ChannelModes
   alias ElixIRCd.Commands.Mode.UserModes
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Monitor
 
   # Maximum number of feature tokens per ISUPPORT message
   @max_features_per_batch 5
@@ -17,9 +19,12 @@ defmodule ElixIRCd.Utils.Isupport do
   """
   @spec send_isupport_messages(User.t()) :: :ok
   def send_isupport_messages(user) do
-    all_features = get_all_feature_tokens()
+    send_feature_tokens(user, feature_tokens())
+  end
 
-    all_features
+  @spec send_feature_tokens(User.t(), [String.t()]) :: :ok
+  defp send_feature_tokens(user, tokens) do
+    tokens
     |> Enum.chunk_every(@max_features_per_batch)
     |> Enum.each(fn feature_batch ->
       %Message{command: :rpl_isupport, params: [user.nick | feature_batch], trailing: "are supported by this server"}
@@ -27,12 +32,15 @@ defmodule ElixIRCd.Utils.Isupport do
     end)
   end
 
-  @spec get_all_feature_tokens() :: [String.t()]
-  defp get_all_feature_tokens do
+  @doc """
+  Returns the current ISUPPORT tokens advertised by the server.
+  """
+  @spec feature_tokens() :: [String.t()]
+  def feature_tokens do
     user_config = Application.get_env(:elixircd, :user)
     channel_config = Application.get_env(:elixircd, :channel)
     server_config = Application.get_env(:elixircd, :server)
-    capabilities_config = Application.get_env(:elixircd, :capabilities)
+    whox_config = Application.get_env(:elixircd, :whox, [])
     settings_config = Application.get_env(:elixircd, :settings)
 
     [
@@ -47,9 +55,7 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:numeric, "KICKLEN", channel_config[:max_kick_message_length]),
       format_feature(:numeric, "AWAYLEN", user_config[:max_away_message_length]),
       format_feature(:string, "CHANMODES", format_chanmodes()),
-      format_feature(:boolean, "UHNAMES", capabilities_config[:extended_names]),
-      format_feature(:boolean, "EXTENDED-UHLIST", capabilities_config[:extended_uhlist]),
-      format_feature(:boolean, "WHOX", capabilities_config[:whox]),
+      format_feature(:boolean, "WHOX", Keyword.get(whox_config, :enabled, false)),
       format_feature(:string, "UMODES", format_umodes()),
       format_feature(:string, "BOT", "B"),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only]),
@@ -57,6 +63,34 @@ defmodule ElixIRCd.Utils.Isupport do
     ]
     |> Enum.reject(&is_nil/1)
   end
+
+  @doc """
+  Announces added, changed and removed ISUPPORT tokens to registered clients.
+  Removed tokens use the ISUPPORT minus prefix.
+  """
+  @spec notify_changes([String.t()]) :: :ok
+  def notify_changes(previous_tokens) do
+    current_tokens = feature_tokens()
+    current_names = MapSet.new(current_tokens, &token_name/1)
+
+    removed_tokens =
+      previous_tokens
+      |> Enum.reject(&MapSet.member?(current_names, token_name(&1)))
+      |> Enum.map(&("-" <> token_name(&1)))
+
+    changed_tokens = (current_tokens -- previous_tokens) ++ removed_tokens
+
+    if changed_tokens != [] do
+      Users.get_all()
+      |> Enum.filter(& &1.registered)
+      |> Enum.each(&send_feature_tokens(&1, changed_tokens))
+    end
+
+    :ok
+  end
+
+  @spec token_name(String.t()) :: String.t()
+  defp token_name(token), do: token |> String.split("=", parts: 2) |> hd()
 
   @spec format_umodes() :: String.t()
   defp format_umodes do
@@ -116,9 +150,7 @@ defmodule ElixIRCd.Utils.Isupport do
 
   @spec format_monitor_feature() :: String.t() | nil
   defp format_monitor_feature do
-    capabilities_config = Application.get_env(:elixircd, :capabilities, [])
-
-    if Keyword.get(capabilities_config, :monitor, false) do
+    if Monitor.enabled?() do
       monitor_config = Application.get_env(:elixircd, :monitor, [])
       max_targets = Keyword.get(monitor_config, :max_targets, 100)
 

@@ -29,12 +29,12 @@ defmodule ElixIRCd.Server.DispatcherTest do
     } do
       bot_user = insert(:user, nick: "botuser", ident: "bot", hostname: "bot.host", modes: ["B"])
       target_with_caps = insert(:user, capabilities: ["message-tags"])
-      expected_message = "@bot :botuser!bot@bot.host PRIVMSG #test :hello\r\n"
+      expected_message = ~r/^@bot;msgid=[A-Za-z0-9_-]{24} :botuser!bot@bot\.host PRIVMSG #test :hello\r\n$/
 
       Connection
       |> expect(:handle_send, fn pid, received_message ->
         assert pid === target_with_caps.pid
-        assert received_message == expected_message
+        assert received_message =~ expected_message
         :ok
       end)
 
@@ -427,12 +427,12 @@ defmodule ElixIRCd.Server.DispatcherTest do
         %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
         |> Map.put(:tags, %{"bot" => nil})
 
-      expected_with_tags = "@bot :irc.test NOTICE test :hello\r\n"
+      expected_with_tags = ~r/^@bot;msgid=[A-Za-z0-9_-]{24} :irc\.test NOTICE test :hello\r\n$/
 
       Connection
       |> expect(:handle_send, fn pid, received_message ->
         assert pid === user_with_caps.pid
-        assert received_message == expected_with_tags
+        assert received_message =~ expected_with_tags
         :ok
       end)
 
@@ -456,7 +456,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     end
 
     test "adds server time and msgid tags when capabilities are enabled" do
-      user_with_caps = insert(:user, capabilities: ["message-tags", "server-time", "msgid"])
+      user_with_caps = insert(:user, capabilities: ["message-tags", "server-time"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
@@ -561,14 +561,13 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
-    test "does not add msgid tag when MSGID capability is not negotiated" do
-      user_without_msgid = insert(:user, capabilities: ["message-tags"])
+    test "does not add msgid tags without MESSAGE-TAGS" do
+      user_without_msgid = insert(:user, capabilities: ["server-time"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
       |> expect(:handle_send, fn pid, received_message ->
         assert pid === user_without_msgid.pid
-        # Continua sem msgid= pois o usuário não negociou MSGID.
         refute String.contains?(received_message, "msgid=")
         :ok
       end)
@@ -579,8 +578,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
-    test "adds msgid tag when MSGID is negotiated without MESSAGE-TAGS" do
-      user_with_caps = insert(:user, capabilities: ["msgid"])
+    test "adds msgid tags with MESSAGE-TAGS alone" do
+      user_with_caps = insert(:user, capabilities: ["message-tags"])
       message = %Message{command: "NOTICE", params: ["test"], trailing: "hello"}
 
       Connection
@@ -597,18 +596,59 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
-    test "strips msgid tag when MSGID capability is disabled in config" do
-      original_config = Application.get_env(:elixircd, :capabilities)
-      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+    test "generates distinct IDs and preserves trusted IDs on retransmission" do
+      user = insert(:user, capabilities: ["message-tags"])
+      message = %Message{command: "PRIVMSG", params: [user.nick], trailing: "hello"}
+      parent = self()
+
+      expect(Connection, :handle_send, 3, fn _pid, wire ->
+        send(parent, {:message_id, Message.parse!(wire).tags["msgid"]})
+        :ok
+      end)
+
+      assert :ok = Dispatcher.broadcast(message, :server, user)
+      assert_receive {:message_id, first}
+      assert first =~ ~r/^[A-Za-z0-9_-]{24}$/
+      assert :ok = Dispatcher.broadcast(message, :server, user)
+      assert_receive {:message_id, second}
+      assert second =~ ~r/^[A-Za-z0-9_-]{24}$/
+      refute first == second
+      assert :ok = Dispatcher.broadcast(%{message | tags: %{"msgid" => first}}, :server, user)
+      assert_receive {:message_id, ^first}
+    end
+
+    test "filters message IDs for recipients without MESSAGE-TAGS in a mixed broadcast" do
+      tagged = insert(:user, capabilities: ["message-tags"])
+      untagged = insert(:user, capabilities: ["server-time"])
+      message = %Message{command: "NOTICE", params: ["#test"], trailing: "hello"}
+
+      expect(Connection, :handle_send, fn pid, wire ->
+        assert pid == tagged.pid
+        assert Message.parse!(wire).tags["msgid"] =~ ~r/^[A-Za-z0-9_-]{24}$/
+        :ok
+      end)
+
+      expect(Connection, :handle_send, fn pid, wire ->
+        assert pid == untagged.pid
+        refute Map.has_key?(Message.parse!(wire).tags, "msgid")
+        :ok
+      end)
+
+      assert :ok = Dispatcher.broadcast(message, :server, [tagged, untagged])
+    end
+
+    test "strips msgid tag when message IDs are disabled in config" do
+      original_config = Application.get_env(:elixircd, :message_ids)
+      on_exit(fn -> Application.put_env(:elixircd, :message_ids, original_config) end)
 
       Application.put_env(
         :elixircd,
-        :capabilities,
+        :message_ids,
         (original_config || [])
-        |> Keyword.put(:msgid, false)
+        |> Keyword.put(:enabled, false)
       )
 
-      user_with_caps = insert(:user, capabilities: ["message-tags", "msgid"])
+      user_with_caps = insert(:user, capabilities: ["message-tags"])
 
       message = %Message{
         command: "NOTICE",
@@ -687,7 +727,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
                    command: "PRIVMSG",
                    params: ["#test"],
                    trailing: "hello",
-                   tags: %{"unknown-tag" => "abc", "+draft/reply" => "123"}
+                   tags: %{"unknown-tag" => "abc", "msgid" => "forged", "+draft/reply" => "123"}
                  },
                  sender,
                  recipient
@@ -700,6 +740,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
       assert recipient_message =~ "+draft/reply=123"
       refute sender_message =~ "unknown-tag=abc"
       refute recipient_message =~ "unknown-tag=abc"
+      refute sender_message =~ "msgid=forged"
+      refute recipient_message =~ "msgid=forged"
     end
 
     test "echoes to the sender and reuses the same msgid for all recipients" do
@@ -708,10 +750,10 @@ defmodule ElixIRCd.Server.DispatcherTest do
           nick: "echoer",
           ident: "ident",
           hostname: "host.test",
-          capabilities: ["echo-message", "message-tags", "msgid"]
+          capabilities: ["echo-message", "message-tags"]
         )
 
-      recipient = insert(:user, capabilities: ["message-tags", "msgid"])
+      recipient = insert(:user, capabilities: ["message-tags"])
       sender_pid = sender.pid
       recipient_pid = recipient.pid
       parent = self()
