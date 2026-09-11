@@ -23,6 +23,7 @@ defmodule ElixIRCd.Commands.Cap do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
+  alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
 
   @supported_capabilities %{
@@ -37,6 +38,10 @@ defmodule ElixIRCd.Commands.Cap do
     "away-notify" => %{
       name: "away-notify",
       description: "Notify when users set or remove away status"
+    },
+    "batch" => %{
+      name: "batch",
+      description: "Group related server messages using BATCH and batch tags"
     },
     "cap-notify" => %{
       name: "cap-notify",
@@ -101,6 +106,10 @@ defmodule ElixIRCd.Commands.Cap do
     "monitor" => %{
       name: "monitor",
       description: "Efficient tracking of user online/offline status"
+    },
+    "labeled-response" => %{
+      name: "labeled-response",
+      description: "Associate command responses with a client-provided label"
     }
   }
 
@@ -158,14 +167,19 @@ defmodule ElixIRCd.Commands.Cap do
   @spec handle_cap_req(User.t(), String.t()) :: :ok
   defp handle_cap_req(user, capabilities_string) do
     capabilities = parse_capabilities_request(capabilities_string)
-    {acked, nacked} = validate_capabilities(capabilities)
+    {acked, nacked} = validate_capabilities(user, capabilities)
 
     case nacked do
       [] ->
-        updated_user = apply_capability_changes(user, acked)
-
         %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
-        |> Dispatcher.broadcast(:server, updated_user)
+        |> Dispatcher.broadcast(:server, user)
+
+        # IRCv3 requires the final CAP ACK to be sent before the negotiated set
+        # changes. This is also important when disabling batch or
+        # labeled-response on a labeled CAP REQ.
+        ResponseContext.flush(user)
+        apply_capability_changes(user, acked)
+        :ok
 
       _ ->
         %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
@@ -188,12 +202,14 @@ defmodule ElixIRCd.Commands.Cap do
             {:account_tag, "account-tag"},
             {:account_notify, "account-notify"},
             {:away_notify, "away-notify"},
+            {:batch, "batch"},
             {:cap_notify, "cap-notify"},
             {:chghost, "chghost"},
             {:echo_message, "echo-message"},
             {:extended_join, "extended-join"},
             {:invite_extended, "invite-extended"},
             {:invite_notify, "invite-notify"},
+            {:labeled_response, "labeled-response"},
             {:multi_prefix, "multi-prefix"},
             {:sasl, build_sasl_capability_value()},
             {:setname, "setname"},
@@ -205,12 +221,19 @@ defmodule ElixIRCd.Commands.Cap do
             {:extended_names, "uhnames"},
             {:monitor, "monitor"}
           ],
-          Keyword.get(capabilities_config, config_key, false) and name != nil do
+          capability_enabled?(capabilities_config, config_key) and name != nil do
         name
       end
 
     Enum.join(capabilities, " ")
   end
+
+  @spec capability_enabled?(keyword(), atom()) :: boolean()
+  defp capability_enabled?(config, :labeled_response) do
+    Keyword.get(config, :batch, false) and Keyword.get(config, :labeled_response, false)
+  end
+
+  defp capability_enabled?(config, key), do: Keyword.get(config, key, false)
 
   @spec build_sasl_capability_value() :: String.t() | nil
   defp build_sasl_capability_value do
@@ -293,11 +316,20 @@ defmodule ElixIRCd.Commands.Cap do
     %{action: :enable, name: capability}
   end
 
-  @spec validate_capabilities([%{action: :enable | :disable, name: String.t()}]) ::
+  @spec validate_capabilities(User.t(), [%{action: :enable | :disable, name: String.t()}]) ::
           {[%{action: :enable | :disable, name: String.t()}], [String.t()]}
-  defp validate_capabilities(capabilities) do
+  defp validate_capabilities(user, capabilities) do
+    available_capabilities =
+      user
+      |> get_capabilities_list()
+      |> String.split()
+      |> Enum.map(fn capability -> capability |> String.split("=", parts: 2) |> hd() end)
+      |> MapSet.new()
+
     Enum.split_with(capabilities, fn cap ->
-      Map.has_key?(@supported_capabilities, cap.name) and cap.name not in @non_requestable_capabilities
+      Map.has_key?(@supported_capabilities, cap.name) and
+        (cap.action == :disable or MapSet.member?(available_capabilities, cap.name)) and
+        cap.name not in @non_requestable_capabilities
     end)
   end
 

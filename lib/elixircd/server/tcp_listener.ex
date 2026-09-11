@@ -47,24 +47,31 @@ defmodule ElixIRCd.Server.TcpListener do
   end
 
   @impl ThousandIsland.Handler
+  def handle_data(_data, _socket, %{quit_reason: _reason} = state), do: {:continue, state}
+
   def handle_data(data, _socket, state) do
     case Connection.handle_receive(self(), data) do
-      :ok -> {:continue, state}
-      {:quit, reason} -> {:close, Map.put(state, :quit_reason, reason)}
+      :ok ->
+        {:continue, state}
+
+      {:quit, reason} ->
+        # Command replies are already queued in this process's mailbox.
+        send(self(), {:disconnect, reason})
+        {:continue, Map.put(state, :quit_reason, reason)}
     end
   end
 
   @impl GenServer
   def handle_info({:broadcast, message}, {socket, state}) when is_binary(message) do
     ThousandIsland.Socket.send(socket, message)
-    {:noreply, {socket, state}, socket.read_timeout}
+    {:noreply, {socket, state}}
   end
 
   def handle_info({:disconnect, reason}, {socket, state}) do
-    {:close, {socket, Map.put(state, :quit_reason, reason)}}
+    {:stop, {:shutdown, :local_closed}, {socket, Map.put(state, :quit_reason, reason)}}
   end
 
-  def handle_info({:EXIT, _pid, _type}, {socket, state}), do: {:noreply, {socket, state}, socket.read_timeout}
+  def handle_info({:EXIT, _pid, _type}, {socket, state}), do: {:noreply, {socket, state}}
 
   @impl ThousandIsland.Handler
   def handle_error(_reason, _socket, state) do

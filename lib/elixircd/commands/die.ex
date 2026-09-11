@@ -49,7 +49,7 @@ defmodule ElixIRCd.Commands.Die do
 
     Enum.each(all_users, fn user ->
       closing_link_message(user, shutdown_message)
-      send(user.pid, {:disconnect, shutdown_message})
+      Dispatcher.disconnect(user, shutdown_message)
     end)
   end
 

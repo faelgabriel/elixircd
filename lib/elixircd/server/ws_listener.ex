@@ -34,13 +34,20 @@ defmodule ElixIRCd.Server.WsListener do
   end
 
   @impl WebSock
+  def handle_in(_frame, %{quit_reason: _reason} = state), do: {:ok, state}
+
   def handle_in({data, [opcode: opcode]}, %{subprotocol: subprotocol} = state) do
     processed_data = process_incoming_data(data, opcode, subprotocol)
 
     Connection.handle_receive(self(), processed_data)
     |> case do
-      :ok -> {:ok, state}
-      {:quit, reason} -> {:stop, :normal, {1000, reason}, Map.put(state, :quit_reason, reason)}
+      :ok ->
+        {:ok, state}
+
+      {:quit, reason} ->
+        # Send queued command replies before the WebSocket close frame.
+        send(self(), {:disconnect, reason})
+        {:ok, Map.put(state, :quit_reason, reason)}
     end
   end
 

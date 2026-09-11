@@ -372,7 +372,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **TAGMSG**: Send messages with tags but without text content. ✅
 - **WEBIRC**: Allow gateways to pass real client IP and hostname to the server. ✅
 - **WHO**: Extended to include additional information (WHOX). ✅
-- **BATCH**: Group related messages for batch delivery. ❌
+- **BATCH**: Group related server messages for batch delivery. ✅
 - **SETNAME**: Allow clients to change their real name (GECOS). ✅
 
 #### Capabilities
@@ -381,7 +381,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Account Tag** (account-tag): Attach account name to messages via IRCv3 message tags. ✅
 - **Account Tracking** (account-notify): Account notifications and tagging. ✅
 - **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ✅
-- **Batches** (batch): Sending messages in batches. ❌
+- **Batches** (batch): Sending messages in batches. ✅
 - **Capability Notifications** (cap-notify): Notify clients when server capabilities change dynamically. ✅
 - **Change Host** (chghost): Real-time notifications when a user's hostname changes. ✅
 - **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
@@ -391,7 +391,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Extended User Mode** (extended-uhlist): Adds additional user modes in WHO and related replies. ✅
 - **Invite Extended** (invite-extended): Extended INVITE messages with account information. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ✅
-- **Labeled Responses** (labeled-response): Associating responses with sent commands. ❌
+- **Labeled Responses** (labeled-response): Associating responses with sent commands. ✅
 - **Message IDs** (msgid): Unique identifiers for messages. ✅
 - **Message Tags** (message-tags): Additional metadata in messages. ✅
 - **Monitor** (monitor): Efficient tracking of user online/offline status. ✅

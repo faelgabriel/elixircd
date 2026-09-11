@@ -123,6 +123,8 @@ config :elixircd,
     account_notify: true,
     # Whether to send AWAY notifications to interested clients (away-notify capability)
     away_notify: true,
+    # Whether to support IRCv3 BATCH for grouping related server messages
+    batch: true,
     # Whether to notify clients when server capabilities change dynamically (cap-notify capability)
     cap_notify: true,
     # Whether to send CHGHOST notifications when ident/hostname changes (chghost capability)
@@ -145,6 +147,8 @@ config :elixircd,
     server_time: true,
     # Whether to support the msgid capability adding msgid= tags
     msgid: true,
+    # Whether to support LABELED-RESPONSE for correlating server replies with client labels
+    labeled_response: true,
     # Whether to support Strict Transport Security (sts capability)
     sts: true,
     # Whether to support MONITOR for tracking user online/offline status (monitor capability)

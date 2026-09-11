@@ -57,15 +57,18 @@ defmodule ElixIRCd.Server.WsListenerTest do
       assert {:ok, ^state} = WsListener.handle_in({"PING :test", [opcode: :text]}, state)
     end
 
-    test "stops connection when Connection returns quit reason" do
+    test "queues closure after replies and ignores further input when Connection returns quit" do
       state = ws_state()
 
       expect(Connection, :handle_receive, fn _pid, _data ->
         {:quit, "Quit: Goodbye"}
       end)
 
-      assert {:stop, :normal, {1000, "Quit: Goodbye"}, %{quit_reason: "Quit: Goodbye"}} =
+      assert {:ok, %{quit_reason: "Quit: Goodbye"} = closing_state} =
                WsListener.handle_in({"QUIT :Goodbye", [opcode: :text]}, state)
+
+      assert_receive {:disconnect, "Quit: Goodbye"}
+      assert {:ok, ^closing_state} = WsListener.handle_in({"PING :late", [opcode: :text]}, closing_state)
     end
 
     test "handles text frames with text.ircv3.net subprotocol" do

@@ -13,18 +13,21 @@ defmodule ElixIRCd.Commands.Rehash do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
 
   @cap_mappings [
     {:account_tag, "account-tag"},
     {:account_notify, "account-notify"},
     {:away_notify, "away-notify"},
+    {:batch, "batch"},
     {:cap_notify, "cap-notify"},
     {:chghost, "chghost"},
     {:echo_message, "echo-message"},
     {:extended_join, "extended-join"},
     {:invite_extended, "invite-extended"},
     {:invite_notify, "invite-notify"},
+    {:labeled_response, "labeled-response"},
     {:multi_prefix, "multi-prefix"},
     {:sasl, "sasl"},
     {:setname, "setname"},
@@ -59,10 +62,13 @@ defmodule ElixIRCd.Commands.Rehash do
     load_configurations()
     new_caps = Application.get_env(:elixircd, :capabilities, [])
 
-    notify_config_changes(old_caps, new_caps)
-
     %Message{command: "NOTICE", params: [user.nick], trailing: "Rehashing completed"}
     |> Dispatcher.broadcast(:server, user)
+
+    # Finish the logical response under the negotiated capabilities before
+    # announcing their removal. CAP DEL must never interrupt an open batch.
+    ResponseContext.flush(user)
+    notify_config_changes(old_caps, new_caps)
   end
 
   @spec noprivileges_message(User.t()) :: :ok
@@ -76,8 +82,8 @@ defmodule ElixIRCd.Commands.Rehash do
     enabled_caps =
       @cap_mappings
       |> Enum.filter(fn {key, _name} ->
-        old_value = Keyword.get(old_caps, key, false)
-        new_value = Keyword.get(new_caps, key, false)
+        old_value = capability_enabled?(old_caps, key)
+        new_value = capability_enabled?(new_caps, key)
         !old_value and new_value
       end)
       |> Enum.map(fn {_key, name} -> name end)
@@ -85,8 +91,8 @@ defmodule ElixIRCd.Commands.Rehash do
     disabled_caps =
       @cap_mappings
       |> Enum.filter(fn {key, _name} ->
-        old_value = Keyword.get(old_caps, key, false)
-        new_value = Keyword.get(new_caps, key, false)
+        old_value = capability_enabled?(old_caps, key)
+        new_value = capability_enabled?(new_caps, key)
         old_value and !new_value
       end)
       |> Enum.map(fn {_key, name} -> name end)
@@ -101,6 +107,13 @@ defmodule ElixIRCd.Commands.Rehash do
 
     :ok
   end
+
+  @spec capability_enabled?(keyword(), atom()) :: boolean()
+  defp capability_enabled?(config, :labeled_response) do
+    Keyword.get(config, :batch, false) and Keyword.get(config, :labeled_response, false)
+  end
+
+  defp capability_enabled?(config, key), do: Keyword.get(config, key, false)
 
   @spec notify_new(String.t()) :: :ok
   defp notify_new(capabilities) when is_binary(capabilities) do

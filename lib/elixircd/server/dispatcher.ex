@@ -9,6 +9,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Connection
+  alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
 
   @type target :: pid() | User.t()
@@ -26,21 +27,35 @@ defmodule ElixIRCd.Server.Dispatcher do
     if messages == [] or targets == [] do
       :ok
     else
-      any_msgid_cap? =
-        Enum.any?(targets, fn
-          %User{capabilities: caps} -> "msgid" in caps and recipient_supports_message_tags?(MapSet.new(caps))
-          _ -> false
-        end)
+      any_msgid_cap? = Enum.any?(targets, &msgid_capable?/1)
 
       Enum.each(messages, fn message ->
-        message =
-          message
-          |> add_context(context)
-          |> maybe_put_base_msgid(any_msgid_cap?)
-
-        broadcast_to_targets(message, targets, source_user)
+        prepared = prepare_message(message, context, any_msgid_cap?)
+        Enum.each(targets, &broadcast_to_target(prepared, &1, source_user))
       end)
     end
+  end
+
+  @doc """
+  Sends an already-prepared message without consulting the active response
+  context again.
+  """
+  @spec send_prepared_message(Message.t(), User.t()) :: :ok
+  def send_prepared_message(%Message{} = message, %User{pid: pid} = user) do
+    message
+    |> filter_tags(user)
+    |> send_message(pid)
+  end
+
+  @doc """
+  Enqueues a disconnect after any buffered response for this user. Sending both
+  from the command process preserves their order in the connection mailbox.
+  """
+  @spec disconnect(User.t(), String.t()) :: :ok
+  def disconnect(%User{pid: pid} = user, reason) do
+    ResponseContext.flush(user)
+    send(pid, {:disconnect, reason})
+    :ok
   end
 
   @doc """
@@ -48,25 +63,70 @@ defmodule ElixIRCd.Server.Dispatcher do
   `echo-message` capability is enabled for that user.
   """
   @spec broadcast_with_echo(Message.t() | [Message.t()], User.t(), target() | [target()]) :: :ok
+  def broadcast_with_echo([], %User{}, _targets), do: :ok
+
   def broadcast_with_echo(messages, %User{} = sender, targets) do
-    all_targets =
+    delivery_targets =
       targets
       |> List.wrap()
-      |> maybe_include_echo_target(sender)
+      |> Enum.uniq_by(&target_pid/1)
 
-    broadcast(messages, sender, all_targets)
+    echo_enabled? = echo_message_enabled?(sender)
+
+    self_delivery? = Enum.any?(delivery_targets, &(target_pid(&1) == sender.pid))
+    separate_echo? = echo_enabled? and (not self_delivery? or labeled_request?(sender.pid))
+
+    any_msgid_cap? =
+      ((echo_enabled? or self_delivery?) and msgid_capable?(sender)) or Enum.any?(delivery_targets, &msgid_capable?/1)
+
+    Enum.each(List.wrap(messages), fn message ->
+      prepared = prepare_message(message, sender, any_msgid_cap?)
+      send_delivery_messages(prepared, delivery_targets, sender)
+
+      if separate_echo?, do: broadcast_to_target(prepared, sender, sender)
+    end)
+
+    if self_delivery?, do: ResponseContext.mark_response_satisfied(sender.pid)
+
+    :ok
   end
 
-  @spec maybe_include_echo_target([target()], User.t()) :: [target()]
-  defp maybe_include_echo_target(targets, sender) do
-    targets =
-      if echo_message_enabled?(sender) do
-        [sender | targets]
-      else
-        targets
-      end
+  @spec prepare_message(Message.t(), context(), boolean()) :: Message.t()
+  defp prepare_message(message, context, any_msgid_cap?) do
+    message
+    |> add_context(context)
+    |> maybe_put_base_msgid(any_msgid_cap?)
+  end
 
-    Enum.uniq_by(targets, &target_pid/1)
+  @spec labeled_request?(pid()) :: boolean()
+  defp labeled_request?(pid) do
+    # Legacy self-delivery already acknowledges the message. A labeled request
+    # needs a separate echo to distinguish that acknowledgment from delivery.
+    case ResponseContext.current() do
+      %{request_user: %User{pid: ^pid}, label: label, flushed?: false} when is_binary(label) -> true
+      _ -> false
+    end
+  end
+
+  @spec msgid_capable?(target()) :: boolean()
+  defp msgid_capable?(%User{capabilities: capabilities}) do
+    "msgid" in capabilities
+  end
+
+  defp msgid_capable?(_pid), do: false
+
+  @spec send_delivery_messages(Message.t(), [target()], User.t()) :: :ok
+  defp send_delivery_messages(message, targets, sender) do
+    Enum.each(targets, fn target -> send_delivery_message(message, target, sender) end)
+  end
+
+  @spec send_delivery_message(Message.t(), target(), User.t()) :: :ok
+  defp send_delivery_message(message, target, %User{pid: sender_pid} = sender) do
+    if target_pid(target) == sender_pid do
+      send_prepared_message(message, sender)
+    else
+      broadcast_to_target(message, target, sender)
+    end
   end
 
   @spec echo_message_enabled?(User.t()) :: boolean()
@@ -83,28 +143,32 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp source_user_from_context(%User{} = user), do: user
   defp source_user_from_context(_context), do: nil
 
-  @spec broadcast_to_targets(Message.t(), [target()], User.t() | nil) :: :ok
-  defp broadcast_to_targets(message, targets, source_user) do
-    Enum.each(targets, fn
-      %User{pid: pid} = user ->
-        maybe_send_to_user(message, user, pid)
-
-      pid when is_pid(pid) ->
-        case source_user do
-          %User{pid: ^pid} = user ->
-            maybe_send_to_user(message, user, pid)
-
-          _other ->
-            send_message(message, pid)
-        end
-    end)
+  @spec broadcast_to_target(Message.t(), target(), User.t() | nil) :: :ok
+  defp broadcast_to_target(message, %User{} = user, _source_user) do
+    maybe_send_to_user(message, user)
   end
 
-  @spec maybe_send_to_user(Message.t(), User.t(), pid()) :: :ok
-  defp maybe_send_to_user(message, user, pid) do
-    message
-    |> filter_tags(user)
-    |> send_message(pid)
+  defp broadcast_to_target(message, pid, source_user) when is_pid(pid) do
+    case source_user do
+      %User{pid: ^pid} = user ->
+        maybe_send_to_user(message, user)
+
+      _other ->
+        send_message(message, pid)
+    end
+  end
+
+  @spec maybe_send_to_user(Message.t(), User.t()) :: :ok
+  defp maybe_send_to_user(message, %User{capabilities: [], pid: pid}) do
+    send_message(%{message | tags: %{}}, pid)
+  end
+
+  defp maybe_send_to_user(message, %User{capabilities: capabilities} = user) do
+    if "batch" in capabilities and ResponseContext.buffer(message, user) == :buffered do
+      :ok
+    else
+      send_prepared_message(message, user)
+    end
   end
 
   @spec send_message(Message.t(), pid()) :: :ok
@@ -192,9 +256,17 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp hostname, do: Application.get_env(:elixircd, :server)[:hostname]
 
   @spec filter_tags(Message.t(), User.t()) :: Message.t()
-  defp filter_tags(message, %User{capabilities: caps}) do
-    capabilities = MapSet.new(caps)
+  defp filter_tags(message, %User{capabilities: []}), do: %{message | tags: %{}}
 
+  defp filter_tags(%Message{tags: tags} = message, %User{capabilities: caps}) when map_size(tags) == 0 do
+    if "server-time" in caps do
+      %{message | tags: maybe_put_server_time_tag(tags, caps)}
+    else
+      message
+    end
+  end
+
+  defp filter_tags(message, %User{capabilities: capabilities}) do
     if recipient_supports_message_tags?(capabilities) do
       tags =
         message.tags
@@ -202,6 +274,8 @@ defmodule ElixIRCd.Server.Dispatcher do
         |> maybe_put_server_time_tag(capabilities)
         |> maybe_filter_msgid_tag(capabilities)
         |> maybe_filter_account_tag(capabilities)
+        |> maybe_filter_batch_tag(capabilities)
+        |> maybe_filter_label_tag(capabilities)
 
       %{message | tags: tags}
     else
@@ -209,25 +283,28 @@ defmodule ElixIRCd.Server.Dispatcher do
     end
   end
 
-  @spec recipient_supports_message_tags?(MapSet.t(String.t())) :: boolean()
+  @spec recipient_supports_message_tags?([String.t()]) :: boolean()
   defp recipient_supports_message_tags?(capabilities) do
-    Enum.any?(["message-tags", "account-tag", "server-time", "msgid"], &MapSet.member?(capabilities, &1))
+    Enum.any?(
+      capabilities,
+      &(&1 in ["message-tags", "account-tag", "server-time", "msgid", "batch", "labeled-response"])
+    )
   end
 
-  @spec maybe_filter_client_only_tags(Message.tags(), MapSet.t()) :: Message.tags()
+  @spec maybe_filter_client_only_tags(Message.tags(), [String.t()]) :: Message.tags()
   defp maybe_filter_client_only_tags(tags, capabilities) do
-    if MapSet.member?(capabilities, "message-tags") do
+    if "message-tags" in capabilities do
       tags
     else
       Map.reject(tags, fn {tag_name, _value} -> String.starts_with?(tag_name, "+") end)
     end
   end
 
-  @spec maybe_put_server_time_tag(Message.tags(), MapSet.t()) :: Message.tags()
+  @spec maybe_put_server_time_tag(Message.tags(), [String.t()]) :: Message.tags()
   defp maybe_put_server_time_tag(tags, capabilities) do
     server_time_supported = Application.get_env(:elixircd, :capabilities)[:server_time] || false
 
-    if server_time_supported and MapSet.member?(capabilities, "server-time") and not Map.has_key?(tags, "time") do
+    if server_time_supported and "server-time" in capabilities and not Map.has_key?(tags, "time") do
       time =
         DateTime.utc_now()
         |> DateTime.truncate(:millisecond)
@@ -239,26 +316,44 @@ defmodule ElixIRCd.Server.Dispatcher do
     end
   end
 
-  @spec maybe_filter_msgid_tag(Message.tags(), MapSet.t()) :: Message.tags()
+  @spec maybe_filter_msgid_tag(Message.tags(), [String.t()]) :: Message.tags()
+  defp maybe_filter_msgid_tag(tags, _capabilities) when not is_map_key(tags, "msgid"), do: tags
+
   defp maybe_filter_msgid_tag(tags, capabilities) do
     msgid_supported = Application.get_env(:elixircd, :capabilities)[:msgid] || false
 
     cond do
       not msgid_supported -> Map.delete(tags, "msgid")
-      not MapSet.member?(capabilities, "msgid") -> Map.delete(tags, "msgid")
+      "msgid" not in capabilities -> Map.delete(tags, "msgid")
       true -> tags
     end
   end
 
-  @spec maybe_filter_account_tag(Message.tags(), MapSet.t()) :: Message.tags()
+  @spec maybe_filter_account_tag(Message.tags(), [String.t()]) :: Message.tags()
+  defp maybe_filter_account_tag(tags, _capabilities) when not is_map_key(tags, "account"), do: tags
+
   defp maybe_filter_account_tag(tags, capabilities) do
     account_tag_supported = Application.get_env(:elixircd, :capabilities)[:account_tag] || false
 
     cond do
       not account_tag_supported -> Map.delete(tags, "account")
-      not MapSet.member?(capabilities, "account-tag") -> Map.delete(tags, "account")
+      "account-tag" not in capabilities -> Map.delete(tags, "account")
       true -> tags
     end
+  end
+
+  @spec maybe_filter_batch_tag(Message.tags(), [String.t()]) :: Message.tags()
+  defp maybe_filter_batch_tag(tags, _capabilities) when not is_map_key(tags, "batch"), do: tags
+
+  defp maybe_filter_batch_tag(tags, capabilities) do
+    if "batch" in capabilities, do: tags, else: Map.delete(tags, "batch")
+  end
+
+  @spec maybe_filter_label_tag(Message.tags(), [String.t()]) :: Message.tags()
+  defp maybe_filter_label_tag(tags, _capabilities) when not is_map_key(tags, "label"), do: tags
+
+  defp maybe_filter_label_tag(tags, capabilities) do
+    if "labeled-response" in capabilities, do: tags, else: Map.delete(tags, "label")
   end
 
   @spec relayable_client_tags(Message.tags()) :: Message.tags()

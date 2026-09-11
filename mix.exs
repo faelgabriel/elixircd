@@ -64,7 +64,7 @@ defmodule ElixIRCd.MixProject do
       {:cidr, ">= 1.1.0"},
       {:hammer, "~> 7.0"},
       {:memento, "~> 0.4"},
-      {:thousand_island, "~> 1.3"},
+      {:thousand_island, "~> 1.5"},
       {:websock_adapter, "~> 0.5"},
 
       # Email dependencies

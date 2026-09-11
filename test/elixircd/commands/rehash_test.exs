@@ -245,5 +245,46 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert "cap-notify" in updated_client.capabilities
       end)
     end
+
+    test "announces and removes batch and labeled-response together", %{original_config: original_config} do
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || [])
+        |> Keyword.put(:batch, true)
+        |> Keyword.put(:labeled_response, true)
+      )
+
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"])
+
+        client =
+          insert(:user,
+            capabilities: ["cap-notify", "batch", "labeled-response"],
+            registered: true
+          )
+
+        System
+        |> stub(:load_configurations, fn ->
+          Application.put_env(
+            :elixircd,
+            :capabilities,
+            Application.get_env(:elixircd, :capabilities, [])
+            |> Keyword.put(:batch, false)
+            |> Keyword.put(:labeled_response, true)
+          )
+        end)
+
+        assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+
+        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*batch/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*labeled-response/)
+
+        updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+        refute "batch" in updated_client.capabilities
+        refute "labeled-response" in updated_client.capabilities
+        assert "cap-notify" in updated_client.capabilities
+      end)
+    end
   end
 end

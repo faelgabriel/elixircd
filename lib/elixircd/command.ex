@@ -8,6 +8,7 @@ defmodule ElixIRCd.Command do
   alias ElixIRCd.Commands
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
 
   @commands %{
@@ -70,10 +71,12 @@ defmodule ElixIRCd.Command do
   """
   @spec dispatch(User.t(), Message.t()) :: :ok | {:quit, String.t()}
   def dispatch(user, message) do
-    case Map.fetch(@commands, message.command) do
-      {:ok, command_module} -> command_module.handle(user, message)
-      :error -> unknown_command_message(user, message.command)
-    end
+    ResponseContext.with_command(user, message, fn ->
+      case Map.fetch(@commands, message.command) do
+        {:ok, command_module} -> command_module.handle(user, message)
+        :error -> unknown_command_message(user, message.command)
+      end
+    end)
   end
 
   @spec unknown_command_message(User.t(), String.t()) :: :ok

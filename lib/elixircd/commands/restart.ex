@@ -49,7 +49,7 @@ defmodule ElixIRCd.Commands.Restart do
 
     Enum.each(all_users, fn user ->
       closing_link_message(user, restart_message)
-      send(user.pid, {:disconnect, restart_message})
+      Dispatcher.disconnect(user, restart_message)
     end)
   end
 

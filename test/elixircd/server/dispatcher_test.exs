@@ -1,7 +1,7 @@
 defmodule ElixIRCd.Server.DispatcherTest do
   @moduledoc false
 
-  use ExUnit.Case, async: true
+  use ElixIRCd.DataCase, async: false
   use Mimic
 
   import ElixIRCd.Factory
@@ -782,6 +782,24 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
       Connection
       |> reject(:handle_send, 2)
+    end
+  end
+
+  describe "send_prepared_message/2" do
+    test "removes an account tag prepared before the capability was disabled" do
+      original_config = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+      Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :account_tag, false))
+      user = build(:user, capabilities: ["message-tags", "account-tag"])
+      message = %Message{command: "NOTICE", params: [user.nick], trailing: "hello", tags: %{"account" => "private"}}
+
+      expect(Connection, :handle_send, fn pid, wire ->
+        assert pid == user.pid
+        assert wire == "NOTICE #{user.nick} :hello\r\n"
+        :ok
+      end)
+
+      assert :ok = Dispatcher.send_prepared_message(message, user)
     end
   end
 
