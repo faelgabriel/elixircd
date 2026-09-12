@@ -398,7 +398,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02STATUS\x02       - Check authentication status of nicknames",
       "\x02GROUP\x02        - Group your current nick into your account",
       "\x02UNGROUP\x02      - Remove your current nick from your account",
-      "\x02LISTCHANS\x02    - List channels where your account has access",
+      "\x02LISTCHANS\x02    - List channels where your account is founder or successor",
       "",
       "For more information on a command, type \x02/msg NickServ HELP <command>\x02"
     ]
@@ -602,7 +602,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_listchans_help(user) do
     notify(user, [
       "Help for \x02LISTCHANS\x02:",
-      format_help("LISTCHANS", [], "Lists registered channels where your account has persisted access."),
+      format_help("LISTCHANS", [], "Lists registered channels where your account is founder or successor."),
       "",
       "This command lists channels where your NickServ account is the",
       "founder or configured successor.",

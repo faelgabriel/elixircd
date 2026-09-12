@@ -69,7 +69,7 @@ defmodule ElixIRCd.Commands.Cap do
     },
     "sasl" => %{
       name: "sasl",
-      description: "Display multiple status prefixes for users in channel responses"
+      description: "Authenticate to services using SASL"
     },
     "setname" => %{
       name: "setname",
@@ -245,8 +245,11 @@ defmodule ElixIRCd.Commands.Cap do
     end
   end
 
+  @doc """
+  Builds the STS capability string based on user connection security (port on plaintext, duration on TLS).
+  """
   @spec build_sts_capability_value(User.t()) :: String.t() | nil
-  defp build_sts_capability_value(user) do
+  def build_sts_capability_value(user) do
     sts_config = Application.get_env(:elixircd, :sts, [])
     is_secure = user.transport in [:tls, :wss]
 

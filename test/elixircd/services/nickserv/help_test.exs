@@ -224,7 +224,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
         assert :ok = Help.handle(user, ["HELP", "LISTCHANS"])
 
         assert_sent_message_contains(user.pid, ~r/Help for \x02LISTCHANS\x02/)
-        assert_sent_message_contains(user.pid, ~r/Lists registered channels where your account has persisted access/)
+        assert_sent_message_contains(user.pid, ~r/Lists registered channels where your account is founder or successor/)
       end)
     end
 

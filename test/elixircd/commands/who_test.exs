@@ -578,5 +578,64 @@ defmodule ElixIRCd.Commands.WhoTest do
         ])
       end)
     end
+
+    test "does not filter operators when WHOX is disabled and query contains field o without o flag" do
+      original_whox = Application.get_env(:elixircd, :whox)
+      on_exit(fn -> Application.put_env(:elixircd, :whox, original_whox) end)
+
+      Application.put_env(
+        :elixircd,
+        :whox,
+        (original_whox || [])
+        |> Keyword.put(:enabled, false)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "requester")
+        channel = insert(:channel)
+        insert(:user_channel, channel: channel, user: user)
+
+        regular_user =
+          insert(:user,
+            nick: "regular",
+            ident: "~user",
+            hostname: "user.example.test",
+            realname: "Regular User",
+            modes: []
+          )
+
+        insert(:user_channel, channel: channel, user: regular_user)
+
+        message = %Message{command: "WHO", params: [channel.name, "%to,7"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{user.ident} #{user.hostname} irc.test #{user.nick} H :0 #{user.realname}\r\n"},
+            {user.pid,
+             ":irc.test 352 #{user.nick} #{channel.name} #{regular_user.ident} #{regular_user.hostname} irc.test #{regular_user.nick} H :0 #{regular_user.realname}\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "does not filter operators when parameter contains letter o but is not the o flag" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "requester")
+        regular_user = insert(:user, nick: "nonoper", modes: [])
+
+        message = %Message{command: "WHO", params: ["nonoper*", "root"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} * #{regular_user.ident} hostname irc.test #{regular_user.nick} H :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} nonoper* :End of WHO list\r\n"}
+        ])
+      end)
+    end
   end
 end

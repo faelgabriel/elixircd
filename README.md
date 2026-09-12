@@ -318,7 +318,7 @@ NickServ allows users to register and manage nicknames, providing authentication
 - **STATUS**: Check the identification status of one or more nicknames. ✅
 - **GROUP**: Group a nickname with your current registered nickname. ✅
 - **UNGROUP**: Remove a nickname from your group. ✅
-- **LISTCHANS**: List channels where you have access. ✅
+- **LISTCHANS**: List channels where your account is founder or successor. ✅
 
 #### ChanServ
 

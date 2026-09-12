@@ -485,9 +485,15 @@ defmodule ElixIRCd.Commands.Who do
   @spec filter_operators?([String.t()]) :: boolean()
   defp filter_operators?(filters) do
     Enum.any?(filters, fn filter ->
-      filter
-      |> String.downcase()
-      |> String.contains?("o")
+      flags =
+        case String.split(filter, "%", parts: 2) do
+          [flags_part, _fields] -> flags_part
+          [token] -> token
+        end
+
+      flags_lower = String.downcase(flags)
+
+      flags_lower == "o" or (String.contains?(filter, "%") and String.contains?(flags_lower, "o"))
     end)
   end
 

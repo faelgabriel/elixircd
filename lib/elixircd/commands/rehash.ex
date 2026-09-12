@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.Rehash do
   import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1, user_reply: 1]
   import ElixIRCd.Utils.System, only: [load_configurations: 0]
 
+  alias ElixIRCd.Commands.Cap
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
@@ -35,7 +36,8 @@ defmodule ElixIRCd.Commands.Rehash do
     {:setname, "setname"},
     {:extended_names, "userhost-in-names"},
     {:message_tags, "message-tags"},
-    {:server_time, "server-time"}
+    {:server_time, "server-time"},
+    {:sts, "sts"}
   ]
 
   @impl true
@@ -91,16 +93,21 @@ defmodule ElixIRCd.Commands.Rehash do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  # Per the IRCv3 STS spec, servers MAY announce STS policy changes with CAP
+  # NEW but MUST NOT send CAP DEL for sts (policy removal is communicated via
+  # the duration key instead, and clients must ignore such DEL attempts).
+  @del_excluded_capabilities ["sts"]
+
   @spec notify_config_changes(keyword(), keyword()) :: :ok
   defp notify_config_changes(old_caps, new_caps) do
-    enabled_caps =
+    enabled_keys =
       @cap_mappings
       |> Enum.filter(fn {key, _name} ->
         old_value = capability_enabled?(old_caps, key)
         new_value = capability_enabled?(new_caps, key)
         !old_value and new_value
       end)
-      |> Enum.map(fn {_key, name} -> name end)
+      |> Enum.map(fn {key, _name} -> key end)
 
     disabled_caps =
       @cap_mappings
@@ -110,9 +117,10 @@ defmodule ElixIRCd.Commands.Rehash do
         old_value and !new_value
       end)
       |> Enum.map(fn {_key, name} -> name end)
+      |> Enum.reject(&(&1 in @del_excluded_capabilities))
 
-    if enabled_caps != [] do
-      notify_new(Enum.join(enabled_caps, " "))
+    if enabled_keys != [] do
+      notify_new(enabled_keys)
     end
 
     if disabled_caps != [] do
@@ -129,18 +137,32 @@ defmodule ElixIRCd.Commands.Rehash do
 
   defp capability_enabled?(config, key), do: Keyword.get(config, key, false)
 
-  @spec notify_new(String.t()) :: :ok
-  defp notify_new(capabilities) when is_binary(capabilities) do
+  @spec notify_new([atom()]) :: :ok
+  defp notify_new(enabled_keys) when is_list(enabled_keys) do
     Users.get_all()
     |> Enum.filter(&has_cap_notify?/1)
     |> Enum.each(fn user ->
-      %Message{
-        command: "CAP",
-        params: [user_reply(user), "NEW"],
-        trailing: capabilities
-      }
-      |> Dispatcher.broadcast(:server, user)
+      user_caps =
+        enabled_keys
+        |> Enum.map(&capability_value_for_user(&1, user))
+        |> Enum.reject(&is_nil/1)
+
+      if user_caps != [] do
+        %Message{
+          command: "CAP",
+          params: [user_reply(user), "NEW"],
+          trailing: Enum.join(user_caps, " ")
+        }
+        |> Dispatcher.broadcast(:server, user)
+      end
     end)
+  end
+
+  @spec capability_value_for_user(atom(), User.t()) :: String.t() | nil
+  defp capability_value_for_user(:sts, user), do: Cap.build_sts_capability_value(user)
+
+  defp capability_value_for_user(key, _user) do
+    Enum.find_value(@cap_mappings, fn {k, name} -> if k == key, do: name end)
   end
 
   @spec notify_del(String.t()) :: :ok

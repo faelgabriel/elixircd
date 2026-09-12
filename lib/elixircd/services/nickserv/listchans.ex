@@ -2,7 +2,7 @@ defmodule ElixIRCd.Services.Nickserv.Listchans do
   @moduledoc """
   This module defines the NickServ LISTCHANS command.
 
-  LISTCHANS lists registered channels where the authenticated account has persisted access.
+  LISTCHANS lists registered channels where the authenticated account is founder or successor.
   """
 
   @behaviour ElixIRCd.Service
@@ -36,7 +36,7 @@ defmodule ElixIRCd.Services.Nickserv.Listchans do
       |> Enum.sort_by(fn {channel_name, _role} -> String.downcase(channel_name) end)
 
     if Enum.empty?(channels) do
-      notify(user, "Your account has no registered channel access.")
+      notify(user, "Your account is neither founder nor successor for any registered channel.")
     else
       notify(user, "Registered channels for \x02#{user.identified_as}\x02:")
 

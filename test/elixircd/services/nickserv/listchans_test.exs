@@ -26,7 +26,7 @@ defmodule ElixIRCd.Services.Nickserv.ListchansTest do
       end)
     end
 
-    test "reports when the account has no channel access" do
+    test "reports when the account is neither founder nor successor" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "account")
 
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Services.Nickserv.ListchansTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Your account has no registered channel access.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Your account is neither founder nor successor for any registered channel.\r\n"}
         ])
       end)
     end

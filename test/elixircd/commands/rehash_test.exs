@@ -363,6 +363,82 @@ defmodule ElixIRCd.Commands.RehashTest do
       end)
     end
 
+    test "notifies plaintext clients with port when sts availability changes", %{original_config: original_config} do
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(:elixircd, :capabilities, Keyword.delete(original_config || [], :sts))
+
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"])
+        client = insert(:user, capabilities: ["cap-notify"], registered: true, transport: :tcp)
+
+        System
+        |> stub(:load_configurations, fn ->
+          Application.put_env(
+            :elixircd,
+            :capabilities,
+            Application.get_env(:elixircd, :capabilities, []) |> Keyword.put(:sts, true)
+          )
+        end)
+
+        assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :sts=port=6697/)
+      end)
+    end
+
+    test "notifies TLS clients with duration when sts availability changes", %{original_config: original_config} do
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(:elixircd, :capabilities, Keyword.delete(original_config || [], :sts))
+
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"])
+        client = insert(:user, capabilities: ["cap-notify"], registered: true, transport: :tls)
+
+        System
+        |> stub(:load_configurations, fn ->
+          Application.put_env(
+            :elixircd,
+            :capabilities,
+            Application.get_env(:elixircd, :capabilities, []) |> Keyword.put(:sts, true)
+          )
+        end)
+
+        assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :sts=duration=2592000/)
+      end)
+    end
+
+    test "does not send CAP DEL when sts is disabled", %{original_config: original_config} do
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_config || []) |> Keyword.put(:sts, true)
+      )
+
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"])
+        client = insert(:user, capabilities: ["cap-notify"], registered: true)
+
+        System
+        |> stub(:load_configurations, fn ->
+          Application.put_env(
+            :elixircd,
+            :capabilities,
+            Application.get_env(:elixircd, :capabilities, []) |> Keyword.delete(:sts)
+          )
+        end)
+
+        assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+
+        assert_sent_messages_count_containing(client.pid, ~r/CAP .* DEL/, 0)
+      end)
+    end
+
     test "announces and removes batch and labeled-response together", %{original_config: original_config} do
       Application.put_env(
         :elixircd,
