@@ -47,11 +47,15 @@ defmodule ElixIRCd.Commands.Topic do
     Channels.get_by_name(channel_name)
     |> case do
       {:ok, channel} ->
-        send_channel_topic(channel, user)
+        # Secret (+s) channels hide topic and existence from non-members, like in NAMES.
+        if "s" in channel.modes and not channel_member?(user, channel) do
+          send_nosuchchannel_error(user, channel_name)
+        else
+          send_channel_topic(channel, user)
+        end
 
       {:error, :channel_not_found} ->
-        %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
-        |> Dispatcher.broadcast(:server, user)
+        send_nosuchchannel_error(user, channel_name)
     end
   end
 
@@ -148,13 +152,27 @@ defmodule ElixIRCd.Commands.Topic do
   end
 
   defp send_channel_topic(%{topic: %{text: topic_text}} = channel, user) do
+    # Message params must be binaries; a raw integer timestamp crashes unparse.
+    topic_set_at = channel.topic.set_at |> DateTime.to_unix() |> Integer.to_string()
+
     [
       %Message{command: :rpl_topic, params: [user.nick, channel.name], trailing: topic_text},
       %Message{
         command: :rpl_topicwhotime,
-        params: [user.nick, channel.name, channel.topic.setter, DateTime.to_unix(channel.topic.set_at)]
+        params: [user.nick, channel.name, channel.topic.setter, topic_set_at]
       }
     ]
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec channel_member?(User.t(), Channel.t()) :: boolean()
+  defp channel_member?(user, channel) do
+    match?({:ok, _}, UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name))
+  end
+
+  @spec send_nosuchchannel_error(User.t(), String.t()) :: :ok
+  defp send_nosuchchannel_error(user, channel_name) do
+    %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 

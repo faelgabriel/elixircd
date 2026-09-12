@@ -102,25 +102,36 @@ defmodule ElixIRCd.Services.Chanserv.Access do
   defp handle_subcommand(user, channel, access_entries, "ADD", [nickname, level_text]) do
     with {:ok, %{account_name: account_name}} <- RegisteredNicks.get_by_nickname(nickname),
          false <- Flags.founder?(channel, account_name),
-         {:ok, flags} <- parse_level(level_text) do
+         {:ok, level} <- parse_level_number(level_text),
+         {:ok, flags} <- Flags.access_level_to_flags(level),
+         :ok <- check_founder_level(channel, user.identified_as, level) do
       current_flags = Flags.flags_for_account(channel, account_name, access_entries)
 
-      if current_flags == flags do
-        notify(
-          user,
-          "\x02#{account_name}\x02 already has access level \x02#{level_text}\x02 on \x02#{channel.name}\x02."
-        )
-      else
-        RegisteredChannelAccesses.create(%{
-          channel_name: channel.name,
-          account_name: account_name,
-          flags: flags
-        })
+      cond do
+        current_flags == flags ->
+          notify(
+            user,
+            "\x02#{account_name}\x02 already has access level \x02#{level_text}\x02 on \x02#{channel.name}\x02."
+          )
 
-        notify(
-          user,
-          "Access for \x02#{account_name}\x02 on \x02#{channel.name}\x02 is now level \x02#{level_text}\x02 (flags \x02#{flags}\x02)."
-        )
+        not Flags.may_grant?(channel, user.identified_as, current_flags, flags, access_entries) ->
+          notify(
+            user,
+            "You cannot grant access level \x02#{level_text}\x02 to \x02#{account_name}\x02 on \x02#{channel.name}\x02."
+          )
+
+        true ->
+          RegisteredChannelAccesses.create(%{
+            channel_name: channel.name,
+            account_name: account_name,
+            flags: flags
+          })
+
+          notify(
+            user,
+            "Access for \x02#{account_name}\x02 on \x02#{channel.name}\x02 is now " <>
+              "level \x02#{level_text}\x02 (flags \x02#{flags}\x02)."
+          )
       end
     else
       {:error, :registered_nick_not_found} ->
@@ -131,6 +142,9 @@ defmodule ElixIRCd.Services.Chanserv.Access do
 
       {:error, :invalid_level} ->
         notify(user, "Invalid access level. Supported levels are \x021\x02 through \x025\x02.")
+
+      {:error, :founder_level_only} ->
+        notify(user, "Only the founder can grant access level \x025\x02 on \x02#{channel.name}\x02.")
     end
   end
 
@@ -141,11 +155,18 @@ defmodule ElixIRCd.Services.Chanserv.Access do
   defp handle_subcommand(user, channel, access_entries, "DEL", [nickname]) do
     with {:ok, %{account_name: account_name}} <- RegisteredNicks.get_by_nickname(nickname),
          false <- Flags.founder?(channel, account_name) do
-      if Map.has_key?(access_entries, account_name) do
-        RegisteredChannelAccesses.delete(channel.name, account_name)
-        notify(user, "Removed \x02#{account_name}\x02 from the access list for \x02#{channel.name}\x02.")
-      else
-        notify(user, "\x02#{account_name}\x02 is not in the access list for \x02#{channel.name}\x02.")
+      current_flags = Flags.flags_for_account(channel, account_name, access_entries)
+
+      cond do
+        not Map.has_key?(access_entries, account_name) ->
+          notify(user, "\x02#{account_name}\x02 is not in the access list for \x02#{channel.name}\x02.")
+
+        not Flags.may_grant?(channel, user.identified_as, current_flags, "", access_entries) ->
+          notify(user, "You cannot remove \x02#{account_name}\x02 from the access list for \x02#{channel.name}\x02.")
+
+        true ->
+          RegisteredChannelAccesses.delete(channel.name, account_name)
+          notify(user, "Removed \x02#{account_name}\x02 from the access list for \x02#{channel.name}\x02.")
       end
     else
       {:error, :registered_nick_not_found} ->
@@ -161,13 +182,26 @@ defmodule ElixIRCd.Services.Chanserv.Access do
   end
 
   defp handle_subcommand(user, channel, access_entries, "CLEAR", _args) do
-    count = map_size(access_entries)
+    # CLEAR is a bulk DEL: entries holding flags the granter lacks are kept.
+    {clearable, kept} =
+      Enum.split_with(access_entries, fn {_account, flags} ->
+        Flags.may_grant?(channel, user.identified_as, flags, "", access_entries)
+      end)
 
-    if count == 0 do
+    if clearable == [] and kept == [] do
       notify(user, "The access list for \x02#{channel.name}\x02 is already empty.")
     else
-      RegisteredChannelAccesses.delete_by_channel_name(channel.name)
-      notify(user, "Cleared \x02#{count}\x02 access #{pluralize_entries(count)} for \x02#{channel.name}\x02.")
+      Enum.each(clearable, fn {account_name, _flags} ->
+        RegisteredChannelAccesses.delete(channel.name, account_name)
+      end)
+
+      count = length(clearable)
+      suffix = if kept == [], do: "", else: " (#{length(kept)} kept: insufficient access)"
+
+      notify(
+        user,
+        "Cleared \x02#{count}\x02 access #{pluralize_entries(count)} for \x02#{channel.name}\x02#{suffix}."
+      )
     end
   end
 
@@ -178,12 +212,12 @@ defmodule ElixIRCd.Services.Chanserv.Access do
     ])
   end
 
-  @spec parse_level(String.t()) :: {:ok, String.t()} | {:error, :invalid_level}
-  defp parse_level(level_text) do
+  @spec parse_level_number(String.t()) :: {:ok, integer()} | {:error, :invalid_level}
+  defp parse_level_number(level_text) do
     case Integer.parse(level_text) do
       {level, ""} ->
         case Flags.access_level_to_flags(level) do
-          {:ok, flags} -> {:ok, flags}
+          {:ok, _flags} -> {:ok, level}
           :error -> {:error, :invalid_level}
         end
 
@@ -191,6 +225,13 @@ defmodule ElixIRCd.Services.Chanserv.Access do
         {:error, :invalid_level}
     end
   end
+
+  @spec check_founder_level(RegisteredChannel.t(), String.t() | nil, integer()) :: :ok | {:error, :founder_level_only}
+  defp check_founder_level(channel, granter_account, 5) do
+    if Flags.founder?(channel, granter_account), do: :ok, else: {:error, :founder_level_only}
+  end
+
+  defp check_founder_level(_channel, _granter_account, _level), do: :ok
 
   @spec pluralize_entries(non_neg_integer()) :: String.t()
   defp pluralize_entries(1), do: "entry"

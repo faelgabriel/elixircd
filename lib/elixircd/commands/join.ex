@@ -140,22 +140,36 @@ defmodule ElixIRCd.Commands.Join do
       |> Dispatcher.broadcast(:server, users)
     end
 
-    {topic_reply, topic_trailing} =
-      case channel.topic do
-        nil -> {:rpl_notopic, "No topic is set"}
-        %{text: topic_text} -> {:rpl_topic, topic_text}
-      end
+    topic_messages = build_topic_messages(user, channel)
+
+    (topic_messages ++
+       [
+         %Message{
+           command: :rpl_namreply,
+           params: [user.nick, channel_status(channel), channel.name],
+           trailing: get_user_channels_nicks(user, user_channels)
+         },
+         %Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of NAMES list."}
+       ])
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  # RFC 2812: 332 is followed by 333 (who set the topic and when).
+  @spec build_topic_messages(User.t(), Channel.t()) :: [Message.t()]
+  defp build_topic_messages(user, %{topic: nil} = channel) do
+    [%Message{command: :rpl_notopic, params: [user.nick, channel.name], trailing: "No topic is set"}]
+  end
+
+  defp build_topic_messages(user, %{topic: topic} = channel) do
+    topic_set_at = topic.set_at |> DateTime.to_unix() |> Integer.to_string()
 
     [
-      %Message{command: topic_reply, params: [user.nick, channel.name], trailing: topic_trailing},
+      %Message{command: :rpl_topic, params: [user.nick, channel.name], trailing: topic.text},
       %Message{
-        command: :rpl_namreply,
-        params: [user.nick, channel_status(channel), channel.name],
-        trailing: get_user_channels_nicks(user, user_channels)
-      },
-      %Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of NAMES list."}
+        command: :rpl_topicwhotime,
+        params: [user.nick, channel.name, topic.setter, topic_set_at]
+      }
     ]
-    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_join_channel_error(mode_error() | String.t(), User.t(), String.t()) :: :ok

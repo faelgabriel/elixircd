@@ -27,7 +27,8 @@ defmodule ElixIRCd.Server.Handshake do
   """
   @spec handle(User.t()) :: :ok
   def handle(user)
-      when user.nick != nil and user.ident != nil and user.realname != nil and user.cap_negotiating != true do
+      when user.nick != nil and user.ident != nil and user.realname != nil and user.cap_negotiating != true and
+             user.registered != true do
     case check_server_password(user) do
       :ok ->
         handle_handshake(user)

@@ -22,8 +22,11 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   def handle(%{identified_as: nil} = user, [@command_name | _]),
     do: notify(user, "You must be identified with NickServ to use this command.")
 
+  @free_text_settings ["DESCRIPTION", "DESC", "URL", "EMAIL", "ENTRYMSG", "SUCCESSOR"]
+
   def handle(user, [@command_name, channel_name, setting | args]) do
     setting = String.upcase(setting)
+    args = normalize_boolean_args(setting, args)
 
     case check_channel_ownership(user, channel_name) do
       {:ok, registered_channel} ->
@@ -42,6 +45,12 @@ defmodule ElixIRCd.Services.Chanserv.Set do
       "Syntax: SET <channel> <option> [parameters]",
       "For help, type: /msg ChanServ HELP SET"
     ])
+  end
+
+  # Boolean ON/OFF toggles accept any letter case; free-text settings keep args verbatim.
+  @spec normalize_boolean_args(String.t(), [String.t()]) :: [String.t()]
+  defp normalize_boolean_args(setting, args) do
+    if setting in @free_text_settings, do: args, else: Enum.map(args, &String.upcase/1)
   end
 
   @spec check_channel_ownership(User.t(), String.t()) ::

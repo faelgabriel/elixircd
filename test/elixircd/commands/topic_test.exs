@@ -57,6 +57,24 @@ defmodule ElixIRCd.Commands.TopicTest do
       end)
     end
 
+    test "hides secret channel topics from non-members" do
+      Memento.transaction!(fn ->
+        outsider = insert(:user)
+        member = insert(:user)
+        channel = insert(:channel, modes: ["s"])
+        insert(:user_channel, user: member, channel: channel)
+
+        message = %Message{command: "TOPIC", params: [channel.name]}
+        assert :ok = Topic.handle(outsider, message)
+
+        assert_sent_messages([{outsider.pid, ":irc.test 403 #{outsider.nick} #{channel.name} :No such channel\r\n"}])
+
+        assert :ok = Topic.handle(member, message)
+
+        assert_sent_message_contains(member.pid, ~r/ 332 | 331 /)
+      end)
+    end
+
     test "handles TOPIC command without topic message for a channel without a topic" do
       Memento.transaction!(fn ->
         user = insert(:user)

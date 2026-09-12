@@ -6,7 +6,6 @@ defmodule ElixIRCd.Server.HandshakeTest do
   use Mimic
 
   import ElixIRCd.Factory
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Commands.Lusers
   alias ElixIRCd.Commands.Motd
@@ -187,7 +186,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
-      user = insert(:user, registered: true, hostname: "127.0.0.1", modes: ["Z"])
+      # Handshake runs once while unregistered; a no-op once registered.
+      user = insert(:user, registered: false, hostname: "127.0.0.1", modes: ["Z"])
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
       assert_sent_messages(
@@ -204,7 +204,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
           # LUSERS messages are mocked as we don't care about it here
           # ISUPPORT messages are mocked as we don't care about it here
           # MOTD messages are mocked as we don't care about it here
-          {user.pid, ":#{user_mask(user)} MODE #{user.nick} :+Z\r\n"}
+          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@127.0.0.1 MODE #{user.nick} :+Z\r\n"}
         ],
         validate_order?: false
       )

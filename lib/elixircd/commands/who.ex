@@ -8,7 +8,14 @@ defmodule ElixIRCd.Commands.Who do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.Protocol,
-    only: [channel_name?: 1, user_reply: 1, normalize_mask: 1, irc_operator?: 1, display_hostname: 2]
+    only: [
+      channel_name?: 1,
+      user_reply: 1,
+      normalize_mask: 1,
+      irc_operator?: 1,
+      irc_operator_visible?: 2,
+      display_hostname: 2
+    ]
 
   import ElixIRCd.Utils.Network, only: [format_ip_address: 1]
 
@@ -42,6 +49,8 @@ defmodule ElixIRCd.Commands.Who do
 
     case channel_name?(target) do
       true -> handle_who_channel(user, target, query)
+      # WHO 0 lists all visible users, like WHO * ("0" alone would normalize to the mask "0!*@*").
+      false when target == "0" -> handle_who_mask(user, "*", query)
       false -> handle_who_mask(user, target, query)
     end
 
@@ -74,9 +83,8 @@ defmodule ElixIRCd.Commands.Who do
 
       users_in_channel
       |> filter_out_hidden_channel(channel, user_shares_channel?)
-      |> filter_out_invisible_users_for_channel(user_shares_channel?)
-      |> filter_out_hidden_users_for_channel(user, user_shares_channel?)
-      |> maybe_filter_operators(query)
+      |> filter_out_invisible_users_for_channel(user, user_shares_channel?)
+      |> maybe_filter_operators(query, user)
       |> Enum.map(fn user_target ->
         user_channel = Enum.find(user_channels_list, fn uc -> uc.user_pid == user_target.pid end)
         build_message(user, user_target, user_channel, channel, channel_map, query)
@@ -92,15 +100,14 @@ defmodule ElixIRCd.Commands.Who do
     users =
       normalize_mask(mask)
       |> Users.get_by_match_mask()
-      |> filter_out_invisible_users_for_mask(user_pids_sharing_channels_keys)
-      |> filter_out_hidden_users_for_mask(user, user_pids_sharing_channels_keys)
-      |> maybe_filter_operators(query)
+      |> filter_out_invisible_users_for_mask(user, user_pids_sharing_channels_keys)
+      |> maybe_filter_operators(query, user)
 
     # Early return if no users match
     if users == [] do
       :ok
     else
-      process_mask_who(user, users, user_pids_sharing_channels_keys, query)
+      process_mask_who(user, users, query)
     end
   end
 
@@ -113,8 +120,10 @@ defmodule ElixIRCd.Commands.Who do
     |> Enum.uniq()
   end
 
-  @spec process_mask_who(User.t(), [User.t()], [pid()], map()) :: :ok
-  defp process_mask_who(user, users, user_pids_sharing_channels_keys, query) do
+  @spec process_mask_who(User.t(), [User.t()], map()) :: :ok
+  defp process_mask_who(user, users, query) do
+    viewer_channel_keys = UserChannels.get_by_user_pid(user.pid) |> Enum.map(& &1.channel_name_key)
+
     user_channels_by_pid =
       Enum.map(users, & &1.pid)
       |> UserChannels.get_by_user_pids()
@@ -125,19 +134,19 @@ defmodule ElixIRCd.Commands.Who do
     users
     |> Enum.map(fn user_target ->
       user_channel_for_mask_target =
-        get_visible_channel_for_mask(user_target, users, user_channels_by_pid, user_pids_sharing_channels_keys)
+        get_visible_channel_for_mask(user_target, users, user_channels_by_pid, viewer_channel_keys)
 
       build_message(user, user_target, user_channel_for_mask_target, nil, channel_map, query)
     end)
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec get_visible_channel_for_mask(User.t(), [User.t()], map(), [pid()]) :: UserChannel.t() | nil
-  defp get_visible_channel_for_mask(user_target, users, user_channels_by_pid, user_pids_sharing_channels_keys) do
+  @spec get_visible_channel_for_mask(User.t(), [User.t()], map(), [String.t()]) :: UserChannel.t() | nil
+  defp get_visible_channel_for_mask(user_target, users, user_channels_by_pid, viewer_channel_keys) do
     case length(users) == 1 do
       true ->
         user_channels_by_pid[user_target.pid]
-        |> filter_not_hidden_channel(user_pids_sharing_channels_keys)
+        |> filter_not_hidden_channel(viewer_channel_keys)
 
       false ->
         nil
@@ -172,34 +181,23 @@ defmodule ElixIRCd.Commands.Who do
     end
   end
 
-  @spec filter_out_invisible_users_for_channel([User.t()], boolean()) :: [User.t()]
-  defp filter_out_invisible_users_for_channel(users, user_shares_channel?) do
+  @spec filter_out_invisible_users_for_channel([User.t()], User.t(), boolean()) :: [User.t()]
+  defp filter_out_invisible_users_for_channel(users, requesting_user, user_shares_channel?) do
     users
-    |> Enum.reject(&("i" in &1.modes and !user_shares_channel?))
+    |> Enum.reject(&("i" in &1.modes and &1.pid != requesting_user.pid and !user_shares_channel?))
   end
 
-  @spec filter_out_invisible_users_for_mask([User.t()], [pid()]) :: [User.t()]
-  defp filter_out_invisible_users_for_mask(users, user_pids_sharing_channels_keys) do
-    users
-    |> Enum.reject(&("i" in &1.modes and &1.pid not in user_pids_sharing_channels_keys))
-  end
-
-  @spec filter_out_hidden_users_for_channel([User.t()], User.t(), boolean()) :: [User.t()]
-  defp filter_out_hidden_users_for_channel(users, requesting_user, user_shares_channel?) do
-    users
-    |> Enum.reject(&("H" in &1.modes and !irc_operator?(requesting_user) and !user_shares_channel?))
-  end
-
-  @spec filter_out_hidden_users_for_mask([User.t()], User.t(), [pid()]) :: [User.t()]
-  defp filter_out_hidden_users_for_mask(users, requesting_user, user_pids_sharing_channels_keys) do
+  @spec filter_out_invisible_users_for_mask([User.t()], User.t(), [pid()]) :: [User.t()]
+  defp filter_out_invisible_users_for_mask(users, requesting_user, user_pids_sharing_channels_keys) do
     users
     |> Enum.reject(
-      &("H" in &1.modes and !irc_operator?(requesting_user) and &1.pid not in user_pids_sharing_channels_keys)
+      &("i" in &1.modes and &1.pid != requesting_user.pid and &1.pid not in user_pids_sharing_channels_keys)
     )
   end
 
   @spec filter_out_hidden_channel([User.t()], Channel.t(), boolean()) :: [User.t()]
   defp filter_out_hidden_channel(users, channel, user_shares_channel?) do
+    # Direct WHO queries are allowed on private channels; secret channels remain hidden.
     if !user_shares_channel? and "s" in channel.modes do
       []
     else
@@ -207,14 +205,14 @@ defmodule ElixIRCd.Commands.Who do
     end
   end
 
-  @spec filter_not_hidden_channel([UserChannel.t()] | nil, [pid()]) :: UserChannel.t() | nil
-  defp filter_not_hidden_channel(user_channels_list, user_pids_sharing_channels_keys)
+  @spec filter_not_hidden_channel([UserChannel.t()] | nil, [String.t()]) :: UserChannel.t() | nil
+  defp filter_not_hidden_channel(user_channels_list, viewer_channel_keys)
        when user_channels_list not in [nil, []] do
     channel_map = build_channel_visibility_map(user_channels_list)
-    find_visible_channel(user_channels_list, user_pids_sharing_channels_keys, channel_map)
+    find_visible_channel(user_channels_list, viewer_channel_keys, channel_map)
   end
 
-  defp filter_not_hidden_channel(nil, _user_pids_sharing_channels_keys), do: nil
+  defp filter_not_hidden_channel(nil, _viewer_channel_keys), do: nil
 
   @spec build_channel_visibility_map([UserChannel.t()]) :: map()
   defp build_channel_visibility_map(user_channels_list) do
@@ -228,23 +226,23 @@ defmodule ElixIRCd.Commands.Who do
     |> Map.new(fn channel -> {channel.name_key, channel} end)
   end
 
-  @spec find_visible_channel([UserChannel.t()], [pid()], map()) :: UserChannel.t() | nil
-  defp find_visible_channel(user_channels_list, user_pids_sharing_channels_keys, channel_map) do
+  @spec find_visible_channel([UserChannel.t()], [String.t()], map()) :: UserChannel.t() | nil
+  defp find_visible_channel(user_channels_list, viewer_channel_keys, channel_map) do
     Enum.find(user_channels_list, fn user_channel ->
-      user_shares_channel? = user_channel.user_pid in user_pids_sharing_channels_keys
+      user_shares_channel? = user_channel.channel_name_key in viewer_channel_keys
 
       user_shares_channel? or
         case Map.get(channel_map, user_channel.channel_name_key) do
           nil -> false
-          channel -> "s" not in channel.modes
+          channel -> "s" not in channel.modes and "p" not in channel.modes
         end
     end)
   end
 
-  @spec maybe_filter_operators([User.t()], map()) :: [User.t()]
-  defp maybe_filter_operators(users, query) do
+  @spec maybe_filter_operators([User.t()], map(), User.t()) :: [User.t()]
+  defp maybe_filter_operators(users, query, requesting_user) do
     case query.operator_only do
-      true -> Enum.filter(users, &("o" in &1.modes))
+      true -> Enum.filter(users, &irc_operator_visible?(&1, requesting_user))
       false -> users
     end
   end
@@ -286,14 +284,12 @@ defmodule ElixIRCd.Commands.Who do
       query: query
     }
 
+    # IRCv3 WHOX replies always use canonical field order, regardless of query order.
     {params, trailing} =
       @whox_field_order
+      |> Enum.filter(&(&1 in query.fields))
       |> Enum.reduce({[user_reply(user)], nil}, fn field, {params_acc, trailing_acc} ->
-        if field in query.fields do
-          append_whox_field(field, params_acc, trailing_acc, context)
-        else
-          {params_acc, trailing_acc}
-        end
+        append_whox_field(field, params_acc, trailing_acc, context)
       end)
 
     %Message{
@@ -398,14 +394,14 @@ defmodule ElixIRCd.Commands.Who do
     prefixes = channel_operator_symbol(user_channel) <> channel_voice_symbol(user_channel)
     prefixes = if "multi-prefix" in requesting_user.capabilities, do: prefixes, else: String.slice(prefixes, 0, 1)
 
-    user_away_status(user_target) <> irc_operator_symbol(user_target) <> prefixes
+    user_away_status(user_target) <> irc_operator_symbol(user_target, requesting_user) <> prefixes
   end
 
   @spec user_away_status(User.t()) :: String.t()
   defp user_away_status(%User{} = user), do: if(user.away_message != nil, do: "G", else: "H")
 
-  @spec irc_operator_symbol(User.t()) :: String.t()
-  defp irc_operator_symbol(%User{modes: modes}), do: if("o" in modes, do: "*", else: "")
+  @spec irc_operator_symbol(User.t(), User.t()) :: String.t()
+  defp irc_operator_symbol(target, viewer), do: if(irc_operator_visible?(target, viewer), do: "*", else: "")
 
   @spec channel_operator_symbol(UserChannel.t() | nil) :: String.t()
   defp channel_operator_symbol(%UserChannel{modes: modes}), do: if("o" in modes, do: "@", else: "")

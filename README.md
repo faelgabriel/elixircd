@@ -247,7 +247,7 @@ These modes apply to users globally, affecting their visibility, privileges, and
 - **+i (Invisible)**: Hides the user from WHO and WHOIS searches by those not in shared channels. ✅
 - **+o (Operator)**: Provides elevated privileges for network management and oversight. ✅
 - **+p (Hide channels)**: Hides channels the user is in from WHOIS except for shared channels. ✅
-- **+r (Registered)**: Indicates the user is registered and identified with services. ✅
+- **+r (Registered)**: The current nickname is registered to the authenticated account, including grouped aliases. ✅
 - **+R (Registered Only)**: Only allows messages from registered users. ✅
 - **+s (Snomask)**: Allows reception of server notices. ✅
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅

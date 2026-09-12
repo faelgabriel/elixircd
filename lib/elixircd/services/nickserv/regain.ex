@@ -7,7 +7,8 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, get_account_nick: 1, notify: 2]
+  import ElixIRCd.Utils.Nickserv,
+    only: [belongs_to_account?: 2, get_account_nick: 1, notify: 2, sync_registered_mode: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -81,13 +82,20 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
           notify(user, "You cannot regain your own session.")
           :ok
         else
+          # The holder disconnects asynchronously; taking the nick now would duplicate it and broadcast a
+          # spurious QUIT. Kill, reserve, and let the owner claim it with /NICK instead.
           ghost_message = "Killed (#{user.nick} (REGAIN command used))"
+          # Write-lock the registration before triggering the asynchronous disconnect.
+          # NICK checks this same record in its transaction, so it cannot observe a free, unreserved nick.
+          reserve_nickname(registered_nick)
           send(target_user.pid, {:disconnect, ghost_message})
 
-          reserve_nickname(registered_nick)
-          handle_immediate_nick_change(user, registered_nick)
-
-          notify(user, "Nick \x02#{registered_nick.nickname}\x02 has been regained.")
+          notify(user, [
+            "Nick \x02#{registered_nick.nickname}\x02 has been regained and reserved for you for " <>
+              "\x02#{reservation_duration()} seconds\x02.",
+            "Use \x02/NICK #{registered_nick.nickname}\x02 to take it (identify first with " <>
+              "\x02/msg NickServ IDENTIFY #{registered_nick.nickname} <password>\x02 if needed)."
+          ])
 
           :ok
         end
@@ -117,14 +125,18 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
     %Message{command: "NICK", params: [registered_nick.nickname]}
     |> Dispatcher.broadcast(user, [updated_user | all_users])
 
+    sync_registered_mode(updated_user)
     :ok
   end
 
   @spec reserve_nickname(RegisteredNick.t()) :: RegisteredNick.t()
   defp reserve_nickname(registered_nick) do
-    reservation_duration = Application.get_env(:elixircd, :services)[:nickserv][:regain_reservation_duration] || 60
-
-    reserved_until = DateTime.add(DateTime.utc_now(), reservation_duration, :second)
+    reserved_until = DateTime.add(DateTime.utc_now(), reservation_duration(), :second)
     RegisteredNicks.update(registered_nick, %{reserved_until: reserved_until})
+  end
+
+  @spec reservation_duration() :: pos_integer()
+  defp reservation_duration do
+    Application.get_env(:elixircd, :services)[:nickserv][:regain_reservation_duration] || 60
   end
 end

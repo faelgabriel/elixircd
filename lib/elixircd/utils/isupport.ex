@@ -117,8 +117,8 @@ defmodule ElixIRCd.Utils.Isupport do
     # Type B = Modes that require parameter only when setting
     type_b = ["k"] |> Enum.filter(&(&1 in supported_modes))
 
-    # Type C = Modes requiring parameter in specific cases
-    type_c = ["j", "l"] |> Enum.filter(&(&1 in supported_modes))
+    # Type C = Modes with a parameter on set, none on unset
+    type_c = ["d", "j", "l"] |> Enum.filter(&(&1 in supported_modes))
 
     # Type D = Modes that never take a parameter
     # These are all remaining modes that aren't user-modes (o,v) and aren't in previous categories

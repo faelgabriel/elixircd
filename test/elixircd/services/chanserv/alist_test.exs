@@ -129,5 +129,22 @@ defmodule ElixIRCd.Services.Chanserv.AlistTest do
         )
       end)
     end
+
+    test "displays canonical channel names instead of normalized keys" do
+      Memento.transaction!(fn ->
+        helper = insert(:registered_nick, nickname: "Helper")
+        user = insert(:user, identified_as: helper.account_name)
+
+        insert(:registered_channel, name: "#Staff", founder: "founder")
+        insert(:registered_channel_access, channel_name: "#Staff", account_name: helper.account_name, flags: "V")
+
+        assert :ok = Alist.handle(user, ["ALIST"])
+
+        assert_sent_message_contains(
+          user.pid,
+          ~r/ChanServ.*NOTICE.*\x02#Staff\x02 level 1/
+        )
+      end)
+    end
   end
 end

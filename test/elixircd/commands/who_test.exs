@@ -9,6 +9,66 @@ defmodule ElixIRCd.Commands.WhoTest do
   alias ElixIRCd.Commands.Who
   alias ElixIRCd.Message
 
+  describe "WHOX and hidden operator regressions" do
+    setup do
+      original = Application.get_env(:elixircd, :whox)
+      on_exit(fn -> Application.put_env(:elixircd, :whox, original) end)
+      Application.put_env(:elixircd, :whox, enabled: true)
+    end
+
+    for fields <- ["%ranft,42", "%tfnar,42", "%annftr?,42"] do
+      test "returns canonical WHOX fields for #{fields}" do
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          target = insert(:user, nick: "target", identified_as: "Account", realname: "A real name")
+
+          assert :ok = Who.handle(user, %Message{command: "WHO", params: [target.nick, unquote(fields)]})
+
+          assert_sent_messages([
+            {user.pid, ":irc.test 354 #{user.nick} 42 target H Account :A real name\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} target :End of WHO list\r\n"}
+          ])
+        end)
+      end
+    end
+
+    for oper? <- [false, true], shared? <- [false, true] do
+      test "WHO hides only oper status with viewer oper=#{oper?}, shared=#{shared?}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, modes: if(unquote(oper?), do: ["o"], else: []))
+          target = insert(:user, nick: "hidden", modes: ["o", "H"])
+
+          if unquote(shared?) do
+            channel = insert(:channel)
+            insert(:user_channel, user: user, channel: channel)
+            insert(:user_channel, user: target, channel: channel)
+          end
+
+          assert :ok = Who.handle(user, %Message{command: "WHO", params: [target.nick, "%nf"]})
+          flags = if unquote(oper?), do: "H*", else: "H"
+          assert_sent_message_contains(user.pid, ":irc.test 354 #{user.nick} hidden #{flags}\r\n")
+        end)
+      end
+
+      test "WHO o respects hidden oper status with viewer oper=#{oper?}, shared=#{shared?}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, modes: if(unquote(oper?), do: ["o"], else: []))
+          target = insert(:user, nick: "hidden", modes: ["o", "H"])
+
+          if unquote(shared?) do
+            channel = insert(:channel)
+            insert(:user_channel, user: user, channel: channel)
+            insert(:user_channel, user: target, channel: channel)
+          end
+
+          assert :ok = Who.handle(user, %Message{command: "WHO", params: [target.nick, "o"]})
+          assert_sent_messages_count_containing(user.pid, ~r/ 352 /, if(unquote(oper?), do: 1, else: 0))
+          assert_sent_messages_count_containing(user.pid, ~r/ 315 /, 1)
+        end)
+      end
+    end
+  end
+
   describe "handle/2" do
     test "handles WHO command with user not registered" do
       Memento.transaction!(fn ->
@@ -437,6 +497,7 @@ defmodule ElixIRCd.Commands.WhoTest do
 
         assert :ok = Who.handle(user, %Message{command: "WHO", params: [target.nick, "%aanict?,009"]})
 
+        # Request order, duplicates and unknown fields do not change the canonical wire order.
         assert_sent_messages([
           {user.pid, ":irc.test 354 #{user.nick} 009 * 255.255.255.255 target 0\r\n"},
           {user.pid, ":irc.test 315 #{user.nick} #{target.nick} :End of WHO list\r\n"}
@@ -637,5 +698,86 @@ defmodule ElixIRCd.Commands.WhoTest do
         ])
       end)
     end
+
+    test "handles WHO 0 by listing all visible users" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target = insert(:user, nick: "whoz_target")
+
+        message = %Message{command: "WHO", params: ["0"]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages(
+          [
+            {user.pid, ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
+            {user.pid,
+             ":irc.test 352 #{user.nick} * #{target.ident} hostname irc.test #{target.nick} H :0 realname\r\n"},
+            {user.pid, ":irc.test 315 #{user.nick} 0 :End of WHO list\r\n"}
+          ],
+          validate_order?: false
+        )
+      end)
+    end
+
+    test "allows direct private channel queries while filtering invisible users" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["p"])
+        target = insert(:user, nick: "priv_target")
+        insert(:user_channel, channel: channel, user: target)
+
+        invisible = insert(:user, nick: "hidden", modes: ["i"])
+        insert(:user_channel, user: invisible, channel: channel)
+
+        message = %Message{command: "WHO", params: [channel.name]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 352 #{user.nick} #{channel.name} #{target.ident} hostname irc.test #{target.nick} H :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} #{channel.name} :End of WHO list\r\n"}
+        ])
+      end)
+    end
+
+    test "always shows the requesting user in WHO mask queries despite +i" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["i"])
+
+        message = %Message{command: "WHO", params: [user.nick]}
+        assert :ok = Who.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 352 #{user.nick} * #{user.ident} hostname irc.test #{user.nick} H :0 realname\r\n"},
+          {user.pid, ":irc.test 315 #{user.nick} #{user.nick} :End of WHO list\r\n"}
+        ])
+      end)
+    end
+  end
+
+  test "the invisible self exception preserves mask and operator filters" do
+    Memento.transaction!(fn ->
+      user = insert(:user, modes: ["i"], nick: "InvisibleSelf")
+
+      for params <- [["NobodyMatches*"], [user.nick, "o"]] do
+        Who.handle(user, %Message{command: "WHO", params: params})
+        assert_sent_messages_count_containing(user.pid, ~r/ 352 /, 0)
+        assert_sent_messages_amount(user.pid, 1)
+      end
+    end)
+  end
+
+  test "sharing a public channel does not reveal the target's private memberships" do
+    Memento.transaction!(fn ->
+      user = insert(:user)
+      target = insert(:user, nick: "PrivateMember")
+      public = insert(:channel, name: "#public")
+      private = insert(:channel, name: "#private", modes: ["p"])
+      for member <- [user, target], do: insert(:user_channel, user: member, channel: public)
+      insert(:user_channel, user: target, channel: private)
+      Who.handle(user, %Message{command: "WHO", params: [target.nick]})
+      assert_sent_messages_count_containing(user.pid, ~r/ 352 .* #private /, 0)
+      assert_sent_messages_count_containing(user.pid, ~r/ 352 .* #public /, 1)
+    end)
   end
 end

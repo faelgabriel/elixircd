@@ -14,11 +14,13 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
       get_account_nick: 1,
       grouped?: 1,
       logout_account_users: 1,
-      notify: 2
+      notify: 2,
+      sync_registered_mode: 1
     ]
 
   alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -80,6 +82,11 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
       end
 
       RegisteredNicks.delete(cleared_nickname)
+
+      case Users.get_by_nick(registered_nick.nickname) do
+        {:ok, current_user} -> sync_registered_mode(current_user)
+        {:error, :user_not_found} -> :ok
+      end
 
       notify(user, "Nick \x02#{registered_nick.nickname}\x02 has been dropped.")
     end

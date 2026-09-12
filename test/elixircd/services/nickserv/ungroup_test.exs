@@ -33,9 +33,7 @@ defmodule ElixIRCd.Services.Nickserv.UngroupTest do
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{grouped_nick.nickname}\x02 has been removed from account \x02#{account_nick.account_name}\x02.\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :It is now a separate NickServ account.\r\n"},
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Your current session is now identified for \x02#{grouped_nick.nickname}\x02.\r\n"},
-          {user.pid,
-           ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT #{grouped_nick.nickname}\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Your current session is now identified for \x02#{grouped_nick.nickname}\x02.\r\n"}
         ])
       end)
     end

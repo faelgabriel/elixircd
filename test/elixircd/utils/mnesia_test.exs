@@ -5,6 +5,8 @@ defmodule ElixIRCd.Utils.MnesiaTest do
   use Mimic
 
   alias ElixIRCd.JobQueue
+  alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Mnesia
 
   setup do
@@ -14,6 +16,42 @@ defmodule ElixIRCd.Utils.MnesiaTest do
     on_exit(fn -> Supervisor.restart_child(ElixIRCd, JobQueue) end)
 
     on_exit(fn -> Mnesia.setup_mnesia(recreate: true) end)
+  end
+
+  test "upgrades the previous User schema for CAP version tracking" do
+    user_table = User
+    current = user_table.__info__().attributes
+    old = List.delete(current, :cap_version)
+
+    transform = fn row ->
+      values = current |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new()
+      List.to_tuple([user_table | Enum.map(old, &Map.fetch!(values, &1))])
+    end
+
+    user =
+      Memento.transaction!(fn ->
+        Users.create(%{
+          pid: self(),
+          transport: :tcp,
+          ip_address: {127, 0, 0, 1},
+          port_connected: 6667,
+          nick: "ExistingUser"
+        })
+      end)
+
+    # Keep the live row while exercising the startup schema upgrade.
+    stub(Memento, :stop, fn -> :ok end)
+    stub(Memento, :start, fn -> :ok end)
+    {:atomic, :ok} = :mnesia.transform_table(user_table, transform, old)
+    Mnesia.setup_mnesia()
+    assert :mnesia.table_info(user_table, :attributes) == current
+
+    Memento.transaction!(fn ->
+      {:ok, migrated} = Users.get_by_pid(user.pid)
+      assert migrated.nick == "ExistingUser"
+      assert migrated.cap_version == 301
+      Users.delete(migrated)
+    end)
   end
 
   describe "setup_mnesia/1" do

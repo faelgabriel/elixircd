@@ -84,10 +84,14 @@ defmodule ElixIRCd.Commands.Setname do
     if setname_supported do
       watchers = Users.get_in_shared_channels_with_capability(user, "setname", true)
 
-      if watchers != [] do
-        %Message{command: "SETNAME", params: [], trailing: new_realname}
-        |> Dispatcher.broadcast(user, watchers)
-      end
+      # Include a capable sender even when they have no channels.
+      watchers_with_self =
+        [user | watchers]
+        |> Enum.filter(&("setname" in &1.capabilities))
+        |> Enum.uniq_by(& &1.pid)
+
+      %Message{command: "SETNAME", params: [], trailing: new_realname}
+      |> Dispatcher.broadcast(user, watchers_with_self)
     end
 
     :ok

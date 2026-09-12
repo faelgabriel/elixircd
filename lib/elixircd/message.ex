@@ -402,6 +402,7 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_saslmechs), do: "908"
   # Error replies
   defp numeric_reply(:err_nosuchnick), do: "401"
+  defp numeric_reply(:err_nosuchserver), do: "402"
   defp numeric_reply(:err_nosuchchannel), do: "403"
   defp numeric_reply(:err_cannotsendtochan), do: "404"
   defp numeric_reply(:err_toomanychannels), do: "405"

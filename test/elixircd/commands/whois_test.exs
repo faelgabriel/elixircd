@@ -125,10 +125,9 @@ defmodule ElixIRCd.Commands.WhoisTest do
         message = %Message{command: "WHOIS", params: ["target_nick"]}
         assert :ok = Whois.handle(user, message)
 
-        # Should still show the user but with empty channel list
+        # Should still show the user but with no 319 channel list
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
-          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :\r\n"},
           {user.pid,
            ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
@@ -169,12 +168,70 @@ defmodule ElixIRCd.Commands.WhoisTest do
     test "handles WHOIS command with user nick target, invisible target user and user does not share channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        _target_user = insert(:user, nick: "target_nick", modes: ["i"])
+        target_user = insert(:user, nick: "target_nick", modes: ["i"])
 
         message = %Message{command: "WHOIS", params: ["target_nick"]}
         assert :ok = Whois.handle(user, message)
 
-        assert_no_user_whois_message(user, "target_nick")
+        assert_user_whois_message(user, target_user, nil)
+      end)
+    end
+
+    for viewer_oper? <- [false, true], shared? <- [false, true] do
+      test "WHOIS +H with viewer oper=#{viewer_oper?}, shared=#{shared?}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, modes: if(unquote(viewer_oper?), do: ["o"], else: []))
+          target = insert(:user, nick: "hidden", modes: ["o", "H", "i"])
+
+          if unquote(shared?) do
+            channel = insert(:channel)
+            insert(:user_channel, user: user, channel: channel)
+            insert(:user_channel, user: target, channel: channel)
+          end
+
+          assert :ok = Whois.handle(user, %Message{command: "WHOIS", params: [target.nick]})
+          assert_sent_messages_count_containing(user.pid, ~r/ 311 /, 1)
+          assert_sent_messages_count_containing(user.pid, ~r/ 401 /, 0)
+          assert_sent_messages_count_containing(user.pid, ~r/ 313 /, if(unquote(viewer_oper?), do: 1, else: 0))
+        end)
+      end
+    end
+
+    test "WHOIS shows +H users without disclosing their operator status" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "hidden_nick", modes: ["o", "H"])
+
+        message = %Message{command: "WHOIS", params: ["hidden_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        assert_user_whois_message(user, target_user, nil)
+      end)
+    end
+
+    test "handles WHOIS command hiding private channels from non-members" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "target_nick")
+
+        private_channel = insert(:channel, modes: ["p"])
+        public_channel = insert(:channel, modes: [])
+
+        insert(:user_channel, user: target_user, channel: private_channel)
+        insert(:user_channel, user: target_user, channel: public_channel)
+        insert(:user_channel, user: user, channel: public_channel)
+
+        message = %Message{command: "WHOIS", params: ["target_nick"]}
+        assert :ok = Whois.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
+          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{public_channel.name}\r\n"},
+          {user.pid,
+           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
+          {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
+        ])
       end)
     end
 
@@ -203,7 +260,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
         message = %Message{command: "WHOIS", params: ["target_nick"]}
         assert :ok = Whois.handle(user, message)
 
-        assert_no_user_whois_message(user, "target_nick")
+        assert_user_whois_message(user, target_user, nil)
       end)
     end
 
@@ -330,10 +387,9 @@ defmodule ElixIRCd.Commands.WhoisTest do
         message = %Message{command: "WHOIS", params: ["target_nick"]}
         assert :ok = Whois.handle(user, message)
 
-        # Should show the user but with empty channel list
+        # Should show the user but with no 319 channel list
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
-          {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :\r\n"},
           {user.pid,
            ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
@@ -400,7 +456,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
     end
   end
 
-  @spec assert_user_whois_message(User.t(), User.t(), Channel.t()) :: :ok
+  @spec assert_user_whois_message(User.t(), User.t(), Channel.t() | nil) :: :ok
   defp assert_user_whois_message(user, target_user, channel) do
     assert_sent_messages(
       [
@@ -412,17 +468,17 @@ defmodule ElixIRCd.Commands.WhoisTest do
            ":irc.test 330 #{user.nick} #{target_user.nick} #{target_user.identified_as} :is logged in as #{target_user.identified_as}\r\n"},
         target_user.modes |> Enum.find(fn mode -> mode == "B" end) &&
           {user.pid, ":irc.test 335 #{user.nick} #{target_user.nick} :Is a bot on this server\r\n"},
-        {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
+        channel && {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
         {user.pid,
          ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
         target_user.away_message &&
           {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :#{target_user.away_message}\r\n"},
-        target_user.modes |> Enum.find(fn mode -> mode == "o" end) &&
+        ("o" in target_user.modes and ("H" not in target_user.modes or "o" in user.modes)) &&
           {user.pid, ":irc.test 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
         {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
         {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
       ]
-      |> Enum.reject(&(&1 == nil))
+      |> Enum.reject(&(&1 in [nil, false]))
     )
   end
 

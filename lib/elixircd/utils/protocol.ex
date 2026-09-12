@@ -31,6 +31,14 @@ defmodule ElixIRCd.Utils.Protocol do
   def irc_operator?(user), do: "o" in user.modes
 
   @doc """
+  Checks whether a viewer may see a user's IRC operator status, respecting +H.
+  """
+  @spec irc_operator_visible?(User.t(), User.t()) :: boolean()
+  def irc_operator_visible?(target, viewer) do
+    irc_operator?(target) and ("H" not in target.modes or target.pid == viewer.pid or irc_operator?(viewer))
+  end
+
+  @doc """
   Checks if a user is a channel operator.
   """
   @spec channel_operator?(UserChannel.t()) :: boolean()

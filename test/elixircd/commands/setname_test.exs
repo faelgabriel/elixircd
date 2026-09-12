@@ -11,6 +11,19 @@ defmodule ElixIRCd.Commands.SetnameTest do
   alias ElixIRCd.Repositories.Users
 
   describe "handle/2" do
+    test "confirms SETNAME to a capable sender with no channels" do
+      original = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original) end)
+      Application.put_env(:elixircd, :capabilities, Keyword.put(original, :setname, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["setname"], realname: "Old")
+        assert :ok = Setname.handle(user, %Message{command: "SETNAME", params: [], trailing: "New"})
+        assert_sent_message_contains(user.pid, ~r/ SETNAME :New\r\n/)
+        assert_sent_messages_amount(user.pid, 1)
+      end)
+    end
+
     test "handles SETNAME command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -161,6 +174,40 @@ defmodule ElixIRCd.Commands.SetnameTest do
           {watcher.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} SETNAME :New Name\r\n"}
         ])
 
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.realname == "New Name"
+      end)
+    end
+
+    test "sender without the setname capability changes realname silently" do
+      original_capabilities = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
+
+      Application.put_env(
+        :elixircd,
+        :capabilities,
+        (original_capabilities || [])
+        |> Keyword.put(:setname, true)
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, realname: "Old Name", capabilities: [])
+        watcher = insert(:user, capabilities: ["setname"])
+        legacy_watcher = insert(:user, capabilities: [])
+        channel = insert(:channel)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: watcher, channel: channel)
+        insert(:user_channel, user: legacy_watcher, channel: channel)
+        message = %Message{command: "SETNAME", params: [], trailing: "New Name"}
+
+        assert :ok = Setname.handle(user, message)
+
+        assert_sent_messages([
+          {watcher.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} SETNAME :New Name\r\n"}
+        ])
+
+        assert_sent_messages_amount(user.pid, 0)
+        assert_sent_messages_amount(legacy_watcher.pid, 0)
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.realname == "New Name"
       end)

@@ -30,10 +30,9 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
         assert :ok = Logout.handle(user, ["LOGOUT"])
 
-        # Expected order: MODE -r → ACCOUNT * → RPL_LOGGEDOUT (901) → NOTICE
+        # Legacy clients receive MODE -r, RPL_LOGGEDOUT (901), and NOTICE.
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
-          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":irc.test 901 #{user.nick} #{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} :You are now logged out (was: #{registered_nick.nickname})\r\n"},
           {user.pid,
@@ -53,10 +52,9 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
         assert :ok = Logout.handle(user, ["LOGOUT"])
 
-        # Expected order: MODE -r → ACCOUNT * → RPL_LOGGEDOUT (901) → NOTICE
+        # Legacy clients receive MODE -r, RPL_LOGGEDOUT (901), and NOTICE.
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
-          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":irc.test 901 #{user.nick} #{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} :You are now logged out (was: #{registered_nick.nickname})\r\n"},
           {user.pid,
@@ -82,7 +80,7 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
       end)
     end
 
-    test "sends ACCOUNT * to self even when account-notify is disabled" do
+    test "does not send ACCOUNT when account-notify is disabled" do
       original_capabilities = Application.get_env(:elixircd, :capabilities)
       on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_capabilities) end)
 
@@ -100,10 +98,9 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
         assert :ok = Logout.handle(user, ["LOGOUT"])
 
-        # ACCOUNT * should still be sent to self even if account-notify is disabled
+        # The standard logout replies still confirm success without ACCOUNT.
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
-          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":irc.test 901 #{user.nick} #{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} :You are now logged out (was: #{registered_nick.nickname})\r\n"},
           {user.pid,

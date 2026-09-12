@@ -8,14 +8,20 @@ defmodule ElixIRCd.Services.Nickserv.Group do
   @behaviour ElixIRCd.Service
 
   import ElixIRCd.Utils.Nickserv,
-    only: [belongs_to_account?: 2, get_account_nick: 1, grouped?: 1, notify: 2, notify_account_change: 2]
+    only: [
+      belongs_to_account?: 2,
+      get_account_nick: 1,
+      grouped?: 1,
+      notify: 2,
+      logout_account_users: 1,
+      sync_registered_mode: 1
+    ]
 
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
-  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.NickAccess
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
@@ -143,6 +149,8 @@ defmodule ElixIRCd.Services.Nickserv.Group do
       settings: account_nick.settings
     })
 
+    sync_registered_mode(user)
+
     notify(user, [
       "Nick \x02#{user.nick}\x02 has been grouped into account \x02#{account_nick.account_name}\x02.",
       "You can now use it as an alias for your account."
@@ -163,9 +171,15 @@ defmodule ElixIRCd.Services.Nickserv.Group do
       settings: account_nick.settings
     })
 
-    if previous_account_name != account_nick.account_name do
+    # After authenticating to the destination and verifying the source password,
+    # only a whole-account move carries access and channels over;
+    # moving a lone alias must not drain the source account.
+    if previous_account_name != account_nick.account_name and
+         RegisteredNicks.get_by_account_name(previous_account_name) == [] do
       migrate_account_state(previous_account_name, account_nick.account_name)
     end
+
+    sync_registered_mode(user)
 
     notify(user, [
       "Nick \x02#{registered_nick.nickname}\x02 has been grouped into account \x02#{account_nick.account_name}\x02.",
@@ -177,7 +191,7 @@ defmodule ElixIRCd.Services.Nickserv.Group do
   defp migrate_account_state(previous_account_name, new_account_name) do
     move_access_entries(previous_account_name, new_account_name)
     move_channel_registrations(previous_account_name, new_account_name)
-    move_identified_users(previous_account_name, new_account_name)
+    logout_account_users(previous_account_name)
     :ok
   end
 
@@ -222,17 +236,6 @@ defmodule ElixIRCd.Services.Nickserv.Group do
     |> Enum.reject(&(&1.founder == previous_account_name))
     |> Enum.each(fn channel ->
       RegisteredChannels.update(channel, %{successor: new_account_name})
-    end)
-
-    :ok
-  end
-
-  @spec move_identified_users(String.t(), String.t()) :: :ok
-  defp move_identified_users(previous_account_name, new_account_name) do
-    Users.get_by_identified_as(previous_account_name)
-    |> Enum.each(fn target_user ->
-      updated_user = Users.update(target_user, %{identified_as: new_account_name})
-      notify_account_change(updated_user, new_account_name)
     end)
 
     :ok

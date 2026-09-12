@@ -68,7 +68,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02#{user.nick}\x02 is not registered.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Authentication failed. Invalid nickname or password.\r\n"}
         ])
       end)
     end
@@ -84,7 +84,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Authentication failed. Invalid nickname or password.\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -104,9 +104,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
         assert_sent_messages([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
-          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"},
-          {user.pid,
-           ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"}
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -128,12 +126,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
-          {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Your current nickname will now be recognized with your account.\r\n"},
-          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"},
-          {user.pid,
-           ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT #{registered_nick.nickname}\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -153,7 +146,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02#{non_registered_nick}\x02 is not registered.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Authentication failed. Invalid nickname or password.\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -172,7 +165,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Password incorrect for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Authentication failed. Invalid nickname or password.\r\n"}
         ])
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
@@ -253,7 +246,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         assert_sent_messages([
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02AliasNick\x02 is not registered.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :Authentication failed. Invalid nickname or password.\r\n"}
         ])
       end)
     end
@@ -293,5 +286,22 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
         ])
       end)
     end
+  end
+
+  test "IDENTIFY sets +r only for a nickname owned by the authenticated account" do
+    Memento.transaction!(fn ->
+      insert(:registered_nick, nickname: "Account", password: "password")
+      insert(:registered_nick, nickname: "Alias", account_name: "Account")
+      insert(:registered_nick, nickname: "OtherAccount")
+
+      for {nick, expected} <- [{"aLiAs", true}, {"OtherAccount", false}, {"Unregistered", false}] do
+        user = insert(:user, nick: nick)
+        Identify.handle(user, ["IDENTIFY", "Account", "password"])
+        {:ok, updated} = Users.get_by_pid(user.pid)
+        assert updated.identified_as == "Account"
+        assert "r" in updated.modes == expected
+        assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 0)
+      end
+    end)
   end
 end

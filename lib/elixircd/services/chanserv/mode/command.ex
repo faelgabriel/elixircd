@@ -58,7 +58,7 @@ defmodule ElixIRCd.Services.Chanserv.Mode.Command do
       {:error, :user_channel_not_found} ->
         notify(user, "\x02#{target_nick}\x02 is not on \x02#{channel_name}\x02.")
 
-      {:error, :target_must_be_identifed} ->
+      {:error, :target_must_be_identified} ->
         notify(
           user,
           "Channel \x02#{channel_name}\x02 has \x02SECURE\x02 enabled; \x02#{target_nick}\x02 must be identified to receive privileges."
@@ -107,12 +107,12 @@ defmodule ElixIRCd.Services.Chanserv.Mode.Command do
   defp check_permission(channel, account_name, access_entries, :voice),
     do: Flags.can_use_voice(channel, account_name, access_entries)
 
-  @spec check_secure_setting(RegisteredChannel.t(), User.t(), action()) :: :ok | {:error, :target_must_be_identifed}
+  @spec check_secure_setting(RegisteredChannel.t(), User.t(), action()) :: :ok | {:error, :target_must_be_identified}
   defp check_secure_setting(_registered_channel, _target_user, :remove), do: :ok
 
   defp check_secure_setting(registered_channel, target_user, :add) do
     if registered_channel.settings.secure and is_nil(target_user.identified_as) do
-      {:error, :target_must_be_identifed}
+      {:error, :target_must_be_identified}
     else
       :ok
     end

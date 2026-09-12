@@ -211,21 +211,52 @@ defmodule ElixIRCd.Utils.Chanserv.Flags do
     |> permission_result()
   end
 
+  # Privilege precedence for PEACE rank and grant checks. T is deliberately low (topic-only);
+  # a lone T must never outrank a broader flag set.
+  @flag_precedence %{"V" => 1, "T" => 2, "A" => 3, "F" => 4, "S" => 5}
+  @founder_rank 100
+
   @doc """
   Returns a numeric access rank suitable for comparing privileges.
   """
   @spec access_rank(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) :: non_neg_integer()
   def access_rank(channel, account_name, access_entries) do
-    flags_for_account(channel, account_name, access_entries)
+    if founder?(channel, account_name) do
+      @founder_rank
+    else
+      known_flags =
+        flags_for_account(channel, account_name, access_entries)
+        |> String.graphemes()
+        |> Enum.filter(&Map.has_key?(@flag_precedence, &1))
+
+      highest = known_flags |> Enum.map(&@flag_precedence[&1]) |> Enum.max(fn -> 0 end)
+
+      highest * 10 + length(known_flags)
+    end
+  end
+
+  @doc """
+  Returns whether the granter may set the target's flags to the new value.
+
+  A granter can never touch an account holding flags they lack themselves,
+  nor grant flags they do not hold. Founders hold every flag implicitly.
+  """
+  @spec may_grant?(RegisteredChannel.t(), String.t() | nil, String.t(), String.t(), %{
+          optional(String.t()) => String.t()
+        }) :: boolean()
+  def may_grant?(channel, granter_account, target_current_flags, new_flags, access_entries) do
+    granter_flags = flags_for_account(channel, granter_account, access_entries)
+
+    subset?(target_current_flags, granter_flags) and subset?(new_flags, granter_flags)
+  end
+
+  @spec subset?(String.t(), String.t()) :: boolean()
+  defp subset?(flags, allowed_flags) do
+    allowed_set = MapSet.new(String.graphemes(allowed_flags))
+
+    flags
     |> String.graphemes()
-    |> Enum.reduce(0, fn
-      "V", acc -> acc + 1
-      "A", acc -> acc + 2
-      "F", acc -> acc + 4
-      "S", acc -> acc + 8
-      "T", acc -> acc + 16
-      _flag, acc -> acc
-    end)
+    |> Enum.all?(&MapSet.member?(allowed_set, &1))
   end
 
   @doc """

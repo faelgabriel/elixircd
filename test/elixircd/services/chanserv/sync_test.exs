@@ -7,6 +7,7 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Chanserv.Sync
 
   describe "handle/2" do
@@ -110,6 +111,30 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
         insert(:user_channel, user: founder, channel: channel, modes: ["o"])
         insert(:user_channel, user: voiced, channel: channel, modes: ["v"])
         insert(:user_channel, user: guest, channel: channel)
+
+        assert :ok = Sync.handle(user, ["SYNC", channel.name])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Channel \x02#{channel.name}\x02 is already synchronized.\r\n"}
+        ])
+      end)
+    end
+
+    test "skips users that quit during SYNC instead of crashing" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "helper")
+        founder = insert(:user, identified_as: "founder")
+        quitter = insert(:user)
+        channel = insert(:channel, name: "#testchannel")
+
+        insert(:registered_channel, name: channel.name, founder: "founder")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "S")
+        insert(:user_channel, user: founder, channel: channel, modes: ["o"])
+        insert(:user_channel, user: quitter, channel: channel)
+
+        # Simulate a quit racing the SYNC snapshot (membership row outlives the user row).
+        Users.delete(quitter)
 
         assert :ok = Sync.handle(user, ["SYNC", channel.name])
 

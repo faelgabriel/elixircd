@@ -9,13 +9,11 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2, sync_registered_mode: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
-  alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
-  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -66,7 +64,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
         end
 
       {:error, :registered_nick_not_found} ->
-        notify(user, "Nickname \x02#{nickname}\x02 is not registered.")
+        handle_failed_identification(user)
     end
   end
 
@@ -77,11 +75,11 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
         if Argon2.verify_pass(password, account_nick.password_hash) do
           complete_identification(user, registered_nick, account_nick)
         else
-          handle_failed_identification(user, registered_nick)
+          handle_failed_identification(user)
         end
 
       {:error, :registered_nick_not_found} ->
-        notify(user, "Nickname \x02#{registered_nick.nickname}\x02 is not registered.")
+        handle_failed_identification(user)
     end
   end
 
@@ -91,28 +89,21 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
       last_seen_at: DateTime.utc_now()
     })
 
-    new_modes = user.modes ++ ["r"]
-
     updated_user =
       Users.update(user, %{
-        identified_as: account_nick.account_name,
-        modes: new_modes
+        identified_as: account_nick.account_name
       })
 
     notify(updated_user, "You are now identified for \x02#{account_nick.account_name}\x02.")
 
-    if updated_user.nick != account_nick.account_name do
-      notify(updated_user, "Your current nickname will now be recognized with your account.")
-    end
-
-    %Message{command: "MODE", params: [updated_user.nick, "+r"]}
-    |> Dispatcher.broadcast(:server, updated_user)
+    updated_user = sync_registered_mode(updated_user)
 
     notify_account_change(updated_user, account_nick.account_name)
   end
 
-  @spec handle_failed_identification(User.t(), RegisteredNick.t()) :: :ok
-  defp handle_failed_identification(user, registered_nick) do
-    notify(user, "Password incorrect for \x02#{registered_nick.nickname}\x02.")
+  # One generic message so IDENTIFY cannot enumerate registered accounts.
+  @spec handle_failed_identification(User.t()) :: :ok
+  defp handle_failed_identification(user) do
+    notify(user, "Authentication failed. Invalid nickname or password.")
   end
 end

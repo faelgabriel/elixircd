@@ -13,6 +13,48 @@ defmodule ElixIRCd.Services.Nickserv.VerifyTest do
   alias ElixIRCd.Utils.Nickserv
 
   describe "handle/2" do
+    for enabled? <- [false, true], negotiated? <- [false, true] do
+      test "VERIFY account notifications with enabled=#{enabled?}, negotiated=#{negotiated?}" do
+        original = Application.get_env(:elixircd, :capabilities)
+        on_exit(fn -> Application.put_env(:elixircd, :capabilities, original) end)
+        Application.put_env(:elixircd, :capabilities, Keyword.put(original, :account_notify, unquote(enabled?)))
+
+        Memento.transaction!(fn ->
+          nick = insert(:registered_nick, nickname: "VerifyMe", verify_code: "code", verified_at: nil)
+
+          user =
+            insert(:user, nick: nick.nickname, capabilities: if(unquote(negotiated?), do: ["account-notify"], else: []))
+
+          watcher = insert(:user, capabilities: ["account-notify"])
+          legacy = insert(:user, capabilities: [])
+          unrelated = insert(:user, capabilities: ["account-notify"])
+          channel = insert(:channel)
+          for member <- [user, watcher, legacy], do: insert(:user_channel, user: member, channel: channel)
+
+          assert :ok = Verify.handle(user, ["VERIFY", nick.nickname, "code"])
+          {:ok, updated} = Users.get_by_pid(user.pid)
+          assert updated.identified_as == nick.account_name
+          assert "r" in updated.modes
+          assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 0)
+
+          assert_sent_messages_count_containing(
+            user.pid,
+            ~r/ ACCOUNT VerifyMe/,
+            if(unquote(negotiated?), do: 1, else: 0)
+          )
+
+          assert_sent_messages_count_containing(
+            watcher.pid,
+            ~r/ ACCOUNT VerifyMe/,
+            1
+          )
+
+          assert_sent_messages_amount(legacy.pid, 0)
+          assert_sent_messages_amount(unrelated.pid, 0)
+        end)
+      end
+    end
+
     test "handles VERIFY command with insufficient parameters" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -113,13 +155,29 @@ defmodule ElixIRCd.Services.Nickserv.VerifyTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == registered_nick.nickname
+        assert "r" in updated_user.modes
 
         assert_sent_messages([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nickname \x02#{registered_nick.nickname}\x02 has been successfully verified.\r\n"},
           {user.pid,
-           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"}
+           ":NickServ!service@irc.test NOTICE #{user.nick} :You are now identified for \x02#{registered_nick.nickname}\x02.\r\n"},
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"}
         ])
+      end)
+    end
+
+    test "identifies the user when the nick matches case-insensitively" do
+      Memento.transaction!(fn ->
+        verify_code = "verify_code"
+        registered_nick = insert(:registered_nick, nickname: "CamelNick", verify_code: verify_code, verified_at: nil)
+        user = insert(:user, nick: "camelnick")
+
+        assert :ok = Verify.handle(user, ["VERIFY", registered_nick.nickname, verify_code])
+
+        {:ok, updated_user} = Users.get_by_pid(user.pid)
+        assert updated_user.identified_as == registered_nick.account_name
+        assert "r" in updated_user.modes
       end)
     end
 

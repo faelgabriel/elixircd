@@ -39,6 +39,7 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
         assert grouped_nick.account_name == account_nick.account_name
 
         assert_sent_messages([
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{user.nick}\x02 has been grouped into account \x02#{account_nick.account_name}\x02.\r\n"},
           {user.pid,
@@ -85,6 +86,7 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
         assert updated_nick.account_name == account_nick.account_name
 
         assert_sent_messages([
+          {user.pid, ":irc.test MODE #{user.nick} +r\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{standalone_nick.nickname}\x02 has been grouped into account \x02#{account_nick.account_name}\x02.\r\n"},
           {user.pid,
@@ -131,7 +133,7 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
         assert :ok = Group.handle(user, ["GROUP", current_nick_password])
 
         {:ok, updated_identified_user} = Users.get_by_pid(identified_user.pid)
-        assert updated_identified_user.identified_as == account_nick.nickname
+        assert updated_identified_user.identified_as == nil
 
         assert NickAccesses.get_by_account_name(standalone_nick.nickname) == []
 
@@ -151,6 +153,72 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
         {:ok, updated_both_channel} = RegisteredChannels.get_by_name(both_channel.name)
         assert updated_both_channel.founder == account_nick.nickname
         assert updated_both_channel.successor == account_nick.nickname
+      end)
+    end
+
+    test "moves only the nick when grouping an alias out of a multi-nick account" do
+      Memento.transaction!(fn ->
+        target_nick = insert(:registered_nick, nickname: "TargetAcct")
+
+        _source_primary = insert(:registered_nick, nickname: "SourcePrimary", password: "source_pass")
+
+        source_alias =
+          insert(:registered_nick,
+            nickname: "SourceAlias",
+            account_name: "SourcePrimary",
+            password_hash: Argon2.hash_pwd_salt("source_pass")
+          )
+
+        insert(:nick_access, nickname: "SourcePrimary", mask: "*@source.host")
+        founder_channel = insert(:registered_channel, name: "#srckeep", founder: "SourcePrimary")
+
+        other_session = insert(:user, nick: "SourceSession", identified_as: "SourcePrimary")
+
+        user = insert(:user, nick: source_alias.nickname, identified_as: target_nick.nickname)
+
+        assert :ok = Group.handle(user, ["GROUP", "source_pass"])
+
+        assert {:ok, updated_alias} = RegisteredNicks.get_by_nickname(source_alias.nickname)
+        assert updated_alias.account_name == target_nick.account_name
+
+        assert {:ok, kept_primary} = RegisteredNicks.get_by_nickname("SourcePrimary")
+        assert kept_primary.account_name == "SourcePrimary"
+
+        assert [%{mask: "*@source.host"}] = NickAccesses.get_by_account_name("SourcePrimary")
+
+        {:ok, kept_channel} = RegisteredChannels.get_by_name(founder_channel.name)
+        assert kept_channel.founder == "SourcePrimary"
+
+        {:ok, kept_session} = Users.get_by_pid(other_session.pid)
+        assert kept_session.identified_as == "SourcePrimary"
+      end)
+    end
+
+    test "logs out other SASL sessions on a whole-account GROUP" do
+      Memento.transaction!(fn ->
+        account_nick = insert(:registered_nick, nickname: "AccountNick")
+        current_nick_password = "current_password"
+
+        standalone_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            password_hash: Argon2.hash_pwd_salt(current_nick_password)
+          )
+
+        sasl_session =
+          insert(:user,
+            nick: "SaslSession",
+            identified_as: standalone_nick.nickname,
+            sasl_authenticated: true
+          )
+
+        user = insert(:user, nick: standalone_nick.nickname, identified_as: account_nick.nickname)
+
+        assert :ok = Group.handle(user, ["GROUP", current_nick_password])
+
+        {:ok, updated_session} = Users.get_by_pid(sasl_session.pid)
+        assert updated_session.identified_as == nil
+        refute updated_session.sasl_authenticated
       end)
     end
 
@@ -318,5 +386,35 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
         ])
       end)
     end
+  end
+
+  test "GROUP logs out source sessions and only notifies eligible recipients" do
+    Memento.transaction!(fn ->
+      insert(:registered_nick, nickname: "Source", password: "password")
+      insert(:registered_nick, nickname: "Destination")
+      caller = insert(:user, nick: "Source", identified_as: "Destination")
+
+      source =
+        insert(:user,
+          identified_as: "Source",
+          sasl_authenticated: true,
+          modes: ["i", "r"],
+          capabilities: ["account-notify"]
+        )
+
+      watcher = insert(:user, capabilities: ["account-notify"])
+      legacy = insert(:user)
+      channel = insert(:channel)
+      for user <- [source, watcher, legacy], do: insert(:user_channel, user: user, channel: channel)
+      Group.handle(caller, ["GROUP", "password"])
+      {:ok, updated} = Users.get_by_pid(source.pid)
+      assert updated.identified_as == nil
+      refute updated.sasl_authenticated
+      assert updated.modes == ["i"]
+      for user <- [source, watcher], do: assert_sent_messages_count_containing(user.pid, ~r/ ACCOUNT \*\r\n$/, 1)
+      assert_sent_messages_amount(legacy.pid, 0)
+      {:ok, updated_caller} = Users.get_by_pid(caller.pid)
+      assert updated_caller.identified_as == "Destination"
+    end)
   end
 end

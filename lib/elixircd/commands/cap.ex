@@ -108,8 +108,18 @@ defmodule ElixIRCd.Commands.Cap do
   end
 
   @spec handle_cap_command(User.t(), [String.t()], String.t() | nil) :: :ok
-  defp handle_cap_command(user, ["LS"], _trailing), do: handle_cap_ls(user)
-  defp handle_cap_command(user, ["LS", _version], _trailing), do: handle_cap_ls(user)
+  defp handle_cap_command(user, ["LS"], _trailing), do: handle_cap_ls(user, 301)
+
+  defp handle_cap_command(user, ["LS", version], _trailing) do
+    version =
+      case Integer.parse(version) do
+        {number, ""} when number >= 302 -> number
+        _ -> 301
+      end
+
+    handle_cap_ls(user, version)
+  end
+
   defp handle_cap_command(user, ["LIST"], _trailing), do: handle_cap_list(user)
   defp handle_cap_command(user, ["REQ", capabilities_string], _trailing), do: handle_cap_req(user, capabilities_string)
   defp handle_cap_command(user, ["REQ"], capabilities_string), do: handle_cap_req(user, capabilities_string)
@@ -124,17 +134,12 @@ defmodule ElixIRCd.Commands.Cap do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec handle_cap_ls(User.t()) :: :ok
-  defp handle_cap_ls(%{cap_negotiating: true} = user) do
-    capabilities_list = get_capabilities_list(user)
-
-    %Message{command: "CAP", params: [user_reply(user), "LS"], trailing: capabilities_list}
-    |> Dispatcher.broadcast(:server, user)
-  end
-
-  defp handle_cap_ls(user) do
-    updated_user = Users.update(user, %{cap_negotiating: true})
-    capabilities_list = get_capabilities_list(updated_user)
+  @spec handle_cap_ls(User.t(), pos_integer()) :: :ok
+  defp handle_cap_ls(user, requested_version) do
+    version = max(user.cap_version || 301, requested_version)
+    capabilities = if version >= 302, do: Enum.uniq(user.capabilities ++ ["cap-notify"]), else: user.capabilities
+    updated_user = Users.update(user, %{cap_negotiating: true, cap_version: version, capabilities: capabilities})
+    capabilities_list = get_capabilities_list(%{updated_user | cap_version: requested_version})
 
     %Message{command: "CAP", params: [user_reply(updated_user), "LS"], trailing: capabilities_list}
     |> Dispatcher.broadcast(:server, updated_user)
@@ -150,6 +155,9 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec handle_cap_req(User.t(), String.t()) :: :ok
   defp handle_cap_req(user, capabilities_string) do
+    # IRCv3 forbids completing registration mid-negotiation; REQ must mark the session like LS does.
+    user = if user.registered, do: user, else: Users.update(user, %{cap_negotiating: true})
+
     capabilities = parse_capabilities_request(capabilities_string)
     {acked, nacked} = validate_capabilities(user, capabilities)
 
@@ -201,12 +209,24 @@ defmodule ElixIRCd.Commands.Cap do
             {:message_tags, "message-tags"},
             {:extended_names, "userhost-in-names"}
           ],
-          capability_enabled?(capabilities_config, config_key) and name != nil do
+          capability_advertised?(config_key, user, capabilities_config) and name != nil do
         name
       end
 
-    Enum.join(capabilities, " ")
+    capabilities
+    |> Enum.map_join(" ", fn capability ->
+      if (user.cap_version || 301) >= 302, do: capability, else: hd(String.split(capability, "=", parts: 2))
+    end)
   end
+
+  @spec capability_advertised?(atom(), User.t(), keyword()) :: boolean()
+  defp capability_advertised?(:cap_notify, user, config),
+    do: (user.cap_version || 301) >= 302 or capability_enabled?(config, :cap_notify)
+
+  defp capability_advertised?(:sts, user, config),
+    do: (user.cap_version || 301) >= 302 and capability_enabled?(config, :sts)
+
+  defp capability_advertised?(key, _user, config), do: capability_enabled?(config, key)
 
   @spec capability_enabled?(keyword(), atom()) :: boolean()
   defp capability_enabled?(config, :labeled_response) do
@@ -249,8 +269,8 @@ defmodule ElixIRCd.Commands.Cap do
   Builds the STS capability string based on user connection security (port on plaintext, duration on TLS).
   """
   @spec build_sts_capability_value(User.t()) :: String.t() | nil
-  def build_sts_capability_value(user) do
-    sts_config = Application.get_env(:elixircd, :sts, [])
+  @spec build_sts_capability_value(User.t(), keyword()) :: String.t() | nil
+  def build_sts_capability_value(user, sts_config \\ Application.get_env(:elixircd, :sts, [])) do
     is_secure = user.transport in [:tls, :wss]
 
     # On TLS connections: announce duration (and optionally preload)
@@ -268,6 +288,7 @@ defmodule ElixIRCd.Commands.Cap do
     preload = Keyword.get(config, :preload, false)
 
     case {duration, preload} do
+      {0, _} -> "sts=duration=0"
       {d, true} when is_integer(d) and d > 0 -> "sts=duration=#{d},preload"
       {d, false} when is_integer(d) and d > 0 -> "sts=duration=#{d}"
       _ -> nil
@@ -312,7 +333,8 @@ defmodule ElixIRCd.Commands.Cap do
     Enum.split_with(capabilities, fn cap ->
       Map.has_key?(@supported_capabilities, cap.name) and
         (cap.action == :disable or MapSet.member?(available_capabilities, cap.name)) and
-        cap.name not in @non_requestable_capabilities
+        cap.name not in @non_requestable_capabilities and
+        not (cap.name == "cap-notify" and cap.action == :disable and (user.cap_version || 301) >= 302)
     end)
   end
 

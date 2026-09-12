@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
   alias ElixIRCd.Commands.Cap
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.ResponseContext
 
@@ -44,7 +45,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -106,7 +107,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch cap-notify chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -140,7 +141,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname server-time message-tags\r\n"}
         ])
       end)
     end
@@ -196,7 +197,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} LS :sasl=PLAIN\r\n"}
+          {user.pid, ":irc.test CAP #{user.nick} LS :sasl\r\n"}
         ])
       end)
     end
@@ -346,6 +347,31 @@ defmodule ElixIRCd.Commands.CapTest do
 
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
         assert "userhost-in-names" in updated_user.capabilities
+      end)
+    end
+
+    test "CAP REQ enables cap_negotiating flag for unregistered users" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, cap_negotiating: nil, capabilities: [])
+        message = %Message{command: "CAP", params: ["REQ"], trailing: "multi-prefix"}
+
+        assert :ok = Cap.handle(user, message)
+
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert updated_user.cap_negotiating == true
+      end)
+    end
+
+    test "CAP REQ does not touch cap_negotiating flag for registered users" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: true, cap_negotiating: false, capabilities: [])
+        message = %Message{command: "CAP", params: ["REQ"], trailing: "multi-prefix"}
+
+        assert :ok = Cap.handle(user, message)
+
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        assert updated_user.cap_negotiating == false
+        assert "multi-prefix" in updated_user.capabilities
       end)
     end
 
@@ -689,6 +715,18 @@ defmodule ElixIRCd.Commands.CapTest do
         assert updated_user.registered == true
       end)
     end
+
+    test "CAP END after registration does not re-run the handshake" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: true, cap_negotiating: false)
+        message = %Message{command: "CAP", params: ["END"]}
+
+        assert :ok = Cap.handle(user, message)
+
+        # 001 and friends must be sent exactly once.
+        assert_sent_messages_amount(user.pid, 0)
+      end)
+    end
   end
 
   describe "handle/2 - Unsupported CAP commands" do
@@ -755,7 +793,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tcp)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -778,7 +816,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tls)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -800,7 +838,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tls)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -822,7 +860,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :ws)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -844,7 +882,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :wss)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -866,7 +904,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tcp)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -946,7 +984,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tls)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -955,7 +993,7 @@ defmodule ElixIRCd.Commands.CapTest do
       end)
     end
 
-    test "does not announce sts when duration is zero on TLS connections" do
+    test "announces duration zero to revoke an STS persistence policy" do
       original_caps = Application.get_env(:elixircd, :capabilities)
       original_sts = Application.get_env(:elixircd, :sts)
 
@@ -969,12 +1007,11 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tls)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
-        # Should not include sts in the response when duration is 0
-        assert_sent_messages_count_containing(user.pid, ~r/sts=/, 0)
+        assert_sent_message_contains(user.pid, ~r/sts=duration=0/)
       end)
     end
 
@@ -992,7 +1029,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tcp)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -1017,7 +1054,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
       Memento.transaction!(fn ->
         user = insert(:user)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
@@ -1078,5 +1115,31 @@ defmodule ElixIRCd.Commands.CapTest do
         assert "cap-notify" not in updated_user.capabilities
       end)
     end
+  end
+
+  test "CAP version persists, enables notifications, and controls capability values" do
+    Memento.transaction!(fn ->
+      user = insert(:user, registered: false)
+
+      for version <- ["invalid", "301", "307", "302"] do
+        {:ok, user} = Users.get_by_pid(user.pid)
+        Cap.handle(user, %Message{command: "CAP", params: ["LS", version]})
+      end
+
+      {:ok, user} = Users.get_by_pid(user.pid)
+      assert user.cap_version == 307
+      assert "cap-notify" in user.capabilities
+      assert_sent_messages_count_containing(user.pid, ~r/sasl=PLAIN/, 2)
+      assert_sent_messages_amount(user.pid, 4)
+
+      Cap.handle(user, %Message{command: "CAP", params: ["LS"]})
+      assert_sent_messages_count_containing(user.pid, ~r/sasl=/, 0)
+      {:ok, user} = Users.get_by_pid(user.pid)
+      assert user.cap_version == 307
+      Cap.handle(user, %Message{command: "CAP", params: ["REQ", "-cap-notify"]})
+      assert_sent_message_contains(user.pid, ":irc.test CAP * NAK :-cap-notify\r\n")
+      {:ok, user} = Users.get_by_pid(user.pid)
+      assert "cap-notify" in user.capabilities
+    end)
   end
 end

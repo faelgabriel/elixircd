@@ -42,6 +42,13 @@ defmodule ElixIRCd.Utils.IsupportTest do
       Application.put_env(:elixircd, :whox, Keyword.merge(original_whox_config, whox_config))
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
 
+      on_exit(fn ->
+        Application.put_env(:elixircd, :channel, original_channel_config)
+        Application.put_env(:elixircd, :user, original_user_config)
+        Application.put_env(:elixircd, :whox, original_whox_config)
+        Application.put_env(:elixircd, :settings, original_settings_config)
+      end)
+
       user = insert(:user)
       assert :ok = Isupport.send_isupport_messages(user)
 
@@ -51,14 +58,9 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz WHOX UMODES=BgHiorRswxZ BOT=B UTF8ONLY :are supported by this server\r\n"},
+         ":irc.test 005 #{user.nick} CHANMODES=beI,k,djl,CcimMnOprRstTuz WHOX UMODES=BgHiorRswxZ BOT=B UTF8ONLY :are supported by this server\r\n"},
         {user.pid, ":irc.test 005 #{user.nick} MONITOR=100 :are supported by this server\r\n"}
       ])
-
-      Application.put_env(:elixircd, :channel, original_channel_config)
-      Application.put_env(:elixircd, :user, original_user_config)
-      Application.put_env(:elixircd, :whox, original_whox_config)
-      Application.put_env(:elixircd, :settings, original_settings_config)
     end
 
     test "excludes boolean features when set to false" do
@@ -83,6 +85,12 @@ defmodule ElixIRCd.Utils.IsupportTest do
       Application.put_env(:elixircd, :whox, Keyword.merge(original_whox_config, whox_config))
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings_config, settings_config))
 
+      on_exit(fn ->
+        Application.put_env(:elixircd, :channel, original_channel_config)
+        Application.put_env(:elixircd, :whox, original_whox_config)
+        Application.put_env(:elixircd, :settings, original_settings_config)
+      end)
+
       user = insert(:user)
       assert :ok = Isupport.send_isupport_messages(user)
 
@@ -93,12 +101,8 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=beI,k,jl,CcdimMnOprRstTuz UMODES=BgHiorRswxZ BOT=B MONITOR=100 :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=beI,k,djl,CcimMnOprRstTuz UMODES=BgHiorRswxZ BOT=B MONITOR=100 :are supported by this server\r\n"}
       ])
-
-      Application.put_env(:elixircd, :channel, original_channel_config)
-      Application.put_env(:elixircd, :whox, original_whox_config)
-      Application.put_env(:elixircd, :settings, original_settings_config)
     end
   end
 end

@@ -73,8 +73,27 @@ defmodule ElixIRCd.Utils.Mnesia do
     start_mnesia(opts)
     create_tables(opts)
     wait_for_tables(opts)
+    upgrade_user_cap_version()
 
     if opts[:verbose], do: Logger.info("Mnesia database setup successfully.")
+    :ok
+  end
+
+  # User rows are transient, but their table schema survives restarts.
+  @spec upgrade_user_cap_version() :: :ok
+  defp upgrade_user_cap_version do
+    attributes = :mnesia.table_info(User, :attributes)
+    expected = User.__info__().attributes
+
+    if attributes == List.delete(expected, :cap_version) do
+      transform = fn row ->
+        values = attributes |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new() |> Map.put(:cap_version, 301)
+        List.to_tuple([User | Enum.map(expected, &Map.fetch!(values, &1))])
+      end
+
+      {:atomic, :ok} = :mnesia.transform_table(User, transform, expected)
+    end
+
     :ok
   end
 

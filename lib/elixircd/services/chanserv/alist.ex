@@ -77,7 +77,7 @@ defmodule ElixIRCd.Services.Chanserv.Alist do
 
     explicit_entries =
       RegisteredChannelAccesses.get_by_account_name(account_name)
-      |> Enum.map(fn entry -> {entry.channel_name_key, entry.flags, false} end)
+      |> Enum.map(fn entry -> {canonical_channel_name(entry.channel_name_key), entry.flags, false} end)
 
     (founder_entries ++ explicit_entries)
     |> Enum.uniq_by(fn {channel_name, _flags, _founder?} -> channel_name end)
@@ -88,5 +88,14 @@ defmodule ElixIRCd.Services.Chanserv.Alist do
   defp format_alist_entry(index, channel_name, flags, founder?) do
     suffix = if founder?, do: ", founder", else: ""
     "#{index}. \x02#{channel_name}\x02 level #{Flags.access_level_text(flags)} (flags \x02#{flags}\x02#{suffix})"
+  end
+
+  # Entries store only the normalized key; resolve the canonical display name.
+  @spec canonical_channel_name(String.t()) :: String.t()
+  defp canonical_channel_name(channel_name_key) do
+    case RegisteredChannels.get_by_name(channel_name_key) do
+      {:ok, channel} -> channel.name
+      {:error, :registered_channel_not_found} -> channel_name_key
+    end
   end
 end

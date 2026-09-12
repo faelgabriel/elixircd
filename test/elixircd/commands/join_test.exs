@@ -123,6 +123,8 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #new_channel\r\n"},
           {user.pid, ":irc.test MODE #new_channel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #new_channel :Stored topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #new_channel #{restored_topic.setter} #{DateTime.to_unix(restored_topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #new_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
         ])
@@ -149,6 +151,8 @@ defmodule ElixIRCd.Commands.JoinTest do
           {user.pid, ":#{user_mask(user)} JOIN #locked_channel\r\n"},
           {user.pid, ":irc.test MODE #locked_channel +o #{user.nick}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #locked_channel :Locked topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #locked_channel #{restored_topic.setter} #{DateTime.to_unix(restored_topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #locked_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #locked_channel :End of NAMES list.\r\n"}
         ])
@@ -252,6 +256,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -271,6 +277,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -303,6 +311,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -321,6 +331,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -339,6 +351,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -357,6 +371,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :topic\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -377,6 +393,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick} #{another_user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
           {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
@@ -532,6 +550,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -550,6 +570,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"}
         ])
@@ -570,6 +592,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid,
            ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick}!~testuser@test.example.com @another_user!~another@another.example.com\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
@@ -592,6 +616,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"},
           {user.pid, ":irc.test 332 #{user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {user.pid,
+           ":irc.test 333 #{user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #{channel.name} :#{user.nick} @another_user\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of NAMES list.\r\n"},
           {another_user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n"}
@@ -645,6 +671,8 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {joining_user.pid, ":#{user_mask(joining_user)} JOIN #{channel.name}\r\n"},
           {joining_user.pid, ":irc.test 332 #{joining_user.nick} #{channel.name} :#{channel.topic.text}\r\n"},
+          {joining_user.pid,
+           ":irc.test 333 #{joining_user.nick} #{channel.name} #{channel.topic.setter} #{DateTime.to_unix(channel.topic.set_at)}\r\n"},
           {joining_user.pid,
            ":irc.test 353 #{joining_user.nick} = #{channel.name} :#{joining_user.nick}!~joining@joining.example.com normal_user!~normal@normal.example.com +hostmask_user!~uhuser@uh.example.com\r\n"},
           {joining_user.pid, ":irc.test 366 #{joining_user.nick} #{channel.name} :End of NAMES list.\r\n"},

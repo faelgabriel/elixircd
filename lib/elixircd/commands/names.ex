@@ -62,12 +62,18 @@ defmodule ElixIRCd.Commands.Names do
         if channel_visible_to_user?(channel, user) do
           send_names_reply(user, channel)
         else
-          send_no_such_channel_error(user, channel_name)
+          send_end_of_names(user, channel_name)
         end
 
       {:error, :channel_not_found} ->
-        send_no_such_channel_error(user, channel_name)
+        send_end_of_names(user, channel_name)
     end
+  end
+
+  @spec send_end_of_names(User.t(), String.t()) :: :ok
+  defp send_end_of_names(user, channel_name) do
+    %Message{command: :rpl_endofnames, params: [user.nick, channel_name], trailing: "End of /NAMES list"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec handle_channel_names_silent(User.t(), Channel.t()) :: :ok
@@ -107,19 +113,28 @@ defmodule ElixIRCd.Commands.Names do
       get_visible_nick_pairs(user, user_channels, users_by_pid)
       |> get_sorted_nicks()
 
-    unless Enum.empty?(visible_nicks) do
-      nicks_string = Enum.join(visible_nicks, " ")
+    # 366 always terminates the reply for a visible channel; 353 is only sent with content.
+    messages =
+      if Enum.empty?(visible_nicks) do
+        []
+      else
+        nicks_string = Enum.join(visible_nicks, " ")
 
-      [
-        %Message{
-          command: :rpl_namreply,
-          params: [user.nick, get_channel_status(channel), channel.name],
-          trailing: nicks_string
-        },
-        %Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of /NAMES list"}
-      ]
-      |> Dispatcher.broadcast(:server, user)
-    end
+        [
+          %Message{
+            command: :rpl_namreply,
+            params: [user.nick, get_channel_status(channel), channel.name],
+            trailing: nicks_string
+          }
+        ]
+      end
+
+    messages =
+      messages ++
+        [%Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of /NAMES list"}]
+
+    messages
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_no_such_channel_error(User.t(), String.t()) :: :ok
@@ -147,6 +162,7 @@ defmodule ElixIRCd.Commands.Names do
   @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: [{String.t(), String.t()}]
   defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
     is_operator = "o" in user.modes
+    is_member = Enum.any?(user_channels, &(&1.user_pid == user.pid))
     use_extended_names = "userhost-in-names" in user.capabilities
     use_multi_prefix = "multi-prefix" in user.capabilities
 
@@ -154,7 +170,7 @@ defmodule ElixIRCd.Commands.Names do
     |> Enum.map(fn uc ->
       found_user = Map.get(users_by_pid, uc.user_pid)
 
-      if found_user && user_visible?(found_user, is_operator) do
+      if found_user && user_visible?(found_user, user, is_operator, is_member) do
         prefix = get_user_prefix(uc, use_multi_prefix)
         formatted_user = prefix <> format_user_display(found_user, use_extended_names)
         {formatted_user, found_user.nick}
@@ -165,11 +181,14 @@ defmodule ElixIRCd.Commands.Names do
     |> Enum.reject(&is_nil/1)
   end
 
-  @spec user_visible?(User.t(), boolean()) :: boolean()
-  defp user_visible?(user, is_operator) do
-    case is_operator do
-      true -> true
-      false -> "i" not in user.modes and "H" not in user.modes
+  @spec user_visible?(User.t(), User.t(), boolean(), boolean()) :: boolean()
+  defp user_visible?(target_user, requesting_user, is_operator, is_member) do
+    # Members see each other; +i hides users from outsiders. +H only hides oper status.
+    cond do
+      target_user.pid == requesting_user.pid -> true
+      is_operator -> true
+      is_member -> true
+      true -> "i" not in target_user.modes
     end
   end
 
@@ -195,7 +214,7 @@ defmodule ElixIRCd.Commands.Names do
       |> Enum.filter(fn target ->
         cond do
           "o" in user.modes -> true
-          "i" not in target.modes and "H" not in target.modes -> true
+          "i" not in target.modes -> true
           true -> false
         end
       end)

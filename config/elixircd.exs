@@ -167,6 +167,9 @@ config :elixircd,
     # TLS port that clients should upgrade to (announced on plaintext connections)
     port: 6697,
     # Duration in seconds for clients to cache the STS policy (announced on TLS connections)
+    # Planned withdrawal: keep STS and TLS enabled with duration: 0 so returning clients
+    # also clear cached policies. Disabling STS only notifies connected CAP 302 clients;
+    # disconnected clients retain their policy until expiration or a secure duration=0 announcement.
     # Common values: 86400 (1 day), 2592000 (30 days), 31536000 (1 year)
     duration: 2_592_000,
     # Whether to allow preloading (clients can cache policy before first connection)

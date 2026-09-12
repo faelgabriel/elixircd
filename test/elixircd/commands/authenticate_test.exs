@@ -291,8 +291,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 testnick testnick!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"},
-          {user.pid, ":* ACCOUNT testuser\r\n"}
+          {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"}
         ])
 
         # Verify session was deleted
@@ -302,7 +301,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
         assert updated_user.identified_as == "testuser"
         assert updated_user.sasl_authenticated == true
-        assert "r" in updated_user.modes
+        refute "r" in updated_user.modes
 
         # Verify registered nick was updated
         updated_nick = Memento.Query.read(ElixIRCd.Tables.RegisteredNick, registered_nick.nickname_key)
@@ -494,8 +493,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 #{user.nick} #{user.nick}!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"},
-          {user.pid, ":* ACCOUNT testuser\r\n"}
+          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"}
         ])
       end)
     end
@@ -592,8 +590,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 #{user.nick} #{user.nick}!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"},
-          {user.pid, ":* ACCOUNT testuser\r\n"}
+          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"}
         ])
       end)
     end
@@ -706,18 +703,17 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         # The ACCOUNT notification is sent with the user's nick from when notify_account_change is called
         # At that point, the user may not have completed registration yet, so nick might be *
-        # Verify ACCOUNT notification was sent to user and watcher
+        # Only the watcher negotiated account-notify; SASL numerics confirm the sender's login.
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 testnick testnick!~username@hostname testuser :You are now logged in as testuser\r\n"},
           {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"},
-          {user.pid, ":* ACCOUNT testuser\r\n"},
           {watcher.pid, ":* ACCOUNT testuser\r\n"}
         ])
       end)
     end
 
-    test "does not send ACCOUNT notification when account-notify is disabled" do
+    test "preserves negotiated ACCOUNT notifications when advertisement is disabled" do
       Application.put_env(:elixircd, :capabilities, sasl: true, account_notify: false)
 
       Memento.transaction!(fn ->
@@ -746,14 +742,34 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert :ok = Authenticate.handle(user, message)
 
-        # Verify ACCOUNT notification was sent to user but NOT to watchers (capability is disabled)
+        # SASL numerics are independent of ACCOUNT; the legacy watcher keeps its negotiated contract.
         assert_sent_messages([
           {user.pid,
            ":irc.test 900 testnick testnick!~username@hostname testuser :You are now logged in as testuser\r\n"},
           {user.pid, ":irc.test 903 testnick :SASL authentication successful\r\n"},
-          {user.pid, ":* ACCOUNT testuser\r\n"}
+          {watcher.pid, ":* ACCOUNT testuser\r\n"}
         ])
       end)
     end
+  end
+
+  test "SASL success numerics and registered mode follow the current nickname without account-notify" do
+    Memento.transaction!(fn ->
+      insert(:registered_nick, nickname: "SaslAccount", password: "password")
+      insert(:registered_nick, nickname: "SaslAlias", account_name: "SaslAccount")
+
+      for {nick, expected_mode} <- [{nil, false}, {"sAsLaCcOuNt", true}, {"SaslAlias", true}, {"Unrelated", false}] do
+        user = insert(:user, registered: false, nick: nick, capabilities: ["sasl"], cap_negotiating: true)
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+        Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [Base.encode64("\0SaslAccount\0password")]})
+        {:ok, updated} = Users.get_by_pid(user.pid)
+        assert updated.sasl_authenticated
+        assert updated.identified_as == "SaslAccount"
+        assert "r" in updated.modes == expected_mode
+        assert_sent_messages_count_containing(user.pid, ~r/ 900 /, 1)
+        assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 1)
+        assert_sent_messages_count_containing(user.pid, ~r/ ACCOUNT /, 0)
+      end
+    end)
   end
 end

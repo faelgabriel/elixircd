@@ -29,6 +29,7 @@ defmodule ElixIRCd.Tables.User do
       :sasl_attempts,
       :capabilities,
       :cap_negotiating,
+      :cap_version,
       :webirc_gateway,
       :webirc_hostname,
       :webirc_ip,
@@ -62,6 +63,7 @@ defmodule ElixIRCd.Tables.User do
           sasl_attempts: non_neg_integer() | nil,
           capabilities: [String.t()],
           cap_negotiating: boolean() | nil,
+          cap_version: pos_integer() | nil,
           webirc_gateway: String.t() | nil,
           webirc_hostname: String.t() | nil,
           webirc_ip: String.t() | nil,
@@ -92,6 +94,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:sasl_attempts) => non_neg_integer() | nil,
           optional(:capabilities) => [String.t()],
           optional(:cap_negotiating) => boolean() | nil,
+          optional(:cap_version) => pos_integer(),
           optional(:webirc_gateway) => String.t() | nil,
           optional(:webirc_hostname) => String.t() | nil,
           optional(:webirc_ip) => String.t() | nil,
@@ -112,6 +115,7 @@ defmodule ElixIRCd.Tables.User do
       |> Map.put_new(:registered, false)
       |> Map.put_new(:modes, [])
       |> Map.put_new(:capabilities, [])
+      |> Map.put_new(:cap_version, 301)
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> handle_nick_key()

@@ -147,13 +147,8 @@ defmodule ElixIRCd.Utils.NickservTest do
 
   describe "notify_account_logout/1" do
     test "notifies self and account-notify watchers" do
-      user = build(:user, nick: "test_user")
+      user = build(:user, nick: "test_user", capabilities: ["account-notify"])
       watcher = build(:user, nick: "watcher", capabilities: ["account-notify"])
-
-      Application
-      |> expect(:get_env, fn :elixircd, :capabilities ->
-        %{account_notify: true}
-      end)
 
       Users
       |> expect(:get_in_shared_channels_with_capability, fn ^user, "account-notify", true ->

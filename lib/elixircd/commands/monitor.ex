@@ -65,15 +65,15 @@ defmodule ElixIRCd.Commands.Monitor do
     handle_remove(user, targets)
   end
 
-  defp handle_enabled(user, %{command: "MONITOR", params: ["C"]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: [subcommand]}) when subcommand in ["C", "c"] do
     handle_clear(user)
   end
 
-  defp handle_enabled(user, %{command: "MONITOR", params: ["L"]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: [subcommand]}) when subcommand in ["L", "l"] do
     handle_list(user)
   end
 
-  defp handle_enabled(user, %{command: "MONITOR", params: ["S"]}) do
+  defp handle_enabled(user, %{command: "MONITOR", params: [subcommand]}) when subcommand in ["S", "s"] do
     handle_status(user)
   end
 
@@ -84,9 +84,14 @@ defmodule ElixIRCd.Commands.Monitor do
 
   @spec handle_add(User.t(), [String.t()]) :: :ok
   defp handle_add(user, targets) when is_list(targets) do
-    targets_list =
+    # Duplicates still get status replies but consume no slots and never trigger a false 734.
+    deduped_targets =
       targets
       |> Enum.flat_map(&String.split(&1, ",", trim: true))
+      |> Enum.uniq_by(&CaseMapping.normalize/1)
+
+    fresh_targets = Enum.reject(deduped_targets, &UserMonitors.exists?(user.pid, CaseMapping.normalize(&1)))
+    duplicate_targets = deduped_targets -- fresh_targets
 
     max_targets = get_max_targets()
     current_count = UserMonitors.count_by_user_pid(user.pid)
@@ -94,12 +99,12 @@ defmodule ElixIRCd.Commands.Monitor do
     {to_add, overflow} =
       if max_targets > 0 do
         available = max(0, max_targets - current_count)
-        Enum.split(targets_list, available)
+        Enum.split(fresh_targets, available)
       else
-        {targets_list, []}
+        {fresh_targets, []}
       end
 
-    {online_targets, offline_targets} = add_targets(user, to_add)
+    {online_targets, offline_targets} = add_targets(user, to_add ++ duplicate_targets)
 
     if online_targets != [] do
       online_str = Enum.join(online_targets, ",")

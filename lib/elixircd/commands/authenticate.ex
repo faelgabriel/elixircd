@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [notify_account_change: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify_account_change: 2, sync_registered_mode: 1]
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1, user_mask: 1]
 
   alias ElixIRCd.Message
@@ -352,16 +352,14 @@ defmodule ElixIRCd.Commands.Authenticate do
       last_seen_at: DateTime.utc_now()
     })
 
-    new_modes = Enum.uniq(user.modes ++ ["r"])
-
     updated_user =
       Users.update(user, %{
         identified_as: registered_nick.account_name,
         sasl_authenticated: true,
-        sasl_attempts: 0,
-        modes: new_modes
+        sasl_attempts: 0
       })
 
+    updated_user = sync_registered_mode(updated_user)
     SaslSessions.delete(user.pid)
 
     account_name = registered_nick.account_name

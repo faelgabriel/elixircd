@@ -7,12 +7,13 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2, sync_registered_mode: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
@@ -63,14 +64,29 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
     notify(user, "Nickname \x02#{registered_nick.nickname}\x02 has been successfully verified.")
 
-    if user.nick == registered_nick.nickname do
-      Users.update(user, %{identified_as: registered_nick.account_name})
-      notify(user, "You are now identified for \x02#{registered_nick.account_name}\x02.")
+    # Nick comparison is case-insensitive, like everywhere else on IRC.
+    if CaseMapping.normalize(user.nick) == registered_nick.nickname_key do
+      identify_user(user, registered_nick)
     else
       notify(
         user,
         "You can now identify for this nickname using: \x02/msg NickServ IDENTIFY #{registered_nick.nickname} your_password\x02"
       )
     end
+  end
+
+  # Mirror IDENTIFY's session effects; identified_as alone desynchronizes WHOX, WHOIS 330 and +R joins.
+  @spec identify_user(User.t(), RegisteredNick.t()) :: :ok
+  defp identify_user(user, registered_nick) do
+    updated_user =
+      Users.update(user, %{
+        identified_as: registered_nick.account_name
+      })
+
+    notify(updated_user, "You are now identified for \x02#{registered_nick.account_name}\x02.")
+
+    updated_user = sync_registered_mode(updated_user)
+
+    notify_account_change(updated_user, registered_nick.account_name)
   end
 end

@@ -85,23 +85,35 @@ defmodule ElixIRCd.Services.Chanserv.Clear do
   defp clear_flags(user, channel_name) do
     with {:ok, registered_channel} <- ChannelContext.get_registered_channel(channel_name),
          access_entries = ChannelContext.get_access_entries(registered_channel.name),
-         :ok <- Flags.can_manage_flags(registered_channel, user.identified_as, access_entries),
-         false <- access_entries == %{} do
-      RegisteredChannelAccesses.delete_by_channel_name(registered_channel.name)
+         :ok <- Flags.can_manage_flags(registered_channel, user.identified_as, access_entries) do
+      # Like ACCESS CLEAR: entries outranking the granter are kept.
+      {clearable, kept} =
+        Enum.split_with(access_entries, fn {_account, flags} ->
+          Flags.may_grant?(registered_channel, user.identified_as, flags, "", access_entries)
+        end)
 
-      notify(
-        user,
-        "Cleared \x02#{map_size(access_entries)}\x02 ChanServ flag #{pluralize_entries(map_size(access_entries))} from \x02#{registered_channel.name}\x02."
-      )
+      if clearable == [] and kept == [] do
+        notify(user, "There are no explicit ChanServ flags to clear on \x02#{registered_channel.name}\x02.")
+      else
+        Enum.each(clearable, fn {account_name, _flags} ->
+          RegisteredChannelAccesses.delete(registered_channel.name, account_name)
+        end)
+
+        count = length(clearable)
+        suffix = if kept == [], do: "", else: " (#{length(kept)} kept: insufficient access)"
+
+        notify(
+          user,
+          "Cleared \x02#{count}\x02 ChanServ flag #{pluralize_entries(count)} from " <>
+            "\x02#{registered_channel.name}\x02#{suffix}."
+        )
+      end
     else
       {:error, :registered_channel_not_found} ->
         notify(user, "Channel \x02#{channel_name}\x02 is not registered.")
 
       {:error, :access_denied} ->
         notify(user, "Access denied for \x02#{channel_name}\x02.")
-
-      true ->
-        notify(user, "There are no explicit ChanServ flags to clear on \x02#{channel_name}\x02.")
     end
   end
 

@@ -117,7 +117,7 @@ defmodule ElixIRCd.Services.Chanserv.ClearTest do
         user = insert(:user, identified_as: "manager")
         channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
 
-        insert(:registered_channel_access, channel_name: channel.name, account_name: "manager", flags: "F")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: "manager", flags: "VF")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "V")
 
         assert :ok = Clear.handle(user, ["CLEAR", channel.name, "FLAGS"])
@@ -136,6 +136,25 @@ defmodule ElixIRCd.Services.Chanserv.ClearTest do
         assert_sent_messages([
           {founder.pid,
            ":ChanServ!service@irc.test NOTICE #{founder.nick} :There are no explicit ChanServ flags to clear on \x02#{channel.name}\x02.\r\n"}
+        ])
+      end)
+    end
+
+    test "keeps flag entries that outrank the user on CLEAR FLAGS" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "manager")
+        channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: "manager", flags: "F")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "V")
+
+        assert :ok = Clear.handle(user, ["CLEAR", channel.name, "FLAGS"])
+
+        assert %{"helper" => "V"} == RegisteredChannelAccesses.get_flags_map_by_channel_name(channel.name)
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Cleared \x021\x02 ChanServ flag entry from \x02#{channel.name}\x02 (1 kept: insufficient access).\r\n"}
         ])
       end)
     end

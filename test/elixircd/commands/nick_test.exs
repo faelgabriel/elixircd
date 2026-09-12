@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.NickTest do
 
   alias ElixIRCd.Commands.Nick
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Handshake
 
   describe "handle/2" do
@@ -157,7 +158,8 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{user_mask(user)} NICK #{reserved_nick}\r\n"}
+          {user.pid, ":#{user_mask(user)} NICK #{reserved_nick}\r\n"},
+          {user.pid, ":irc.test MODE #{reserved_nick} +r\r\n"}
         ])
       end)
     end
@@ -180,7 +182,8 @@ defmodule ElixIRCd.Commands.NickTest do
         assert :ok = Nick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{user_mask(user)} NICK AliasNick\r\n"}
+          {user.pid, ":#{user_mask(user)} NICK AliasNick\r\n"},
+          {user.pid, ":irc.test MODE AliasNick +r\r\n"}
         ])
       end)
     end
@@ -219,5 +222,22 @@ defmodule ElixIRCd.Commands.NickTest do
         ])
       end)
     end
+  end
+
+  test "registered nickname mode follows account aliases across NICK changes" do
+    Memento.transaction!(fn ->
+      insert(:registered_nick, nickname: "Account")
+      insert(:registered_nick, nickname: "Alias", account_name: "Account")
+      user = insert(:user, nick: "Account", identified_as: "Account", modes: ["i", "r"])
+
+      for {nick, registered?} <- [{"Unrelated", false}, {"aLiAs", true}, {"Other", false}] do
+        {:ok, user} = Users.get_by_pid(user.pid)
+        Nick.handle(user, %Message{command: "NICK", params: [nick]})
+        {:ok, updated} = Users.get_by_pid(user.pid)
+        assert "r" in updated.modes == registered?
+        assert "i" in updated.modes
+        assert updated.identified_as == "Account"
+      end
+    end)
   end
 end

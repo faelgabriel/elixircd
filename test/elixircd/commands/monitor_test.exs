@@ -279,6 +279,36 @@ defmodule ElixIRCd.Commands.MonitorTest do
       end)
     end
 
+    test "re-adding monitored targets does not consume slots or trigger 734" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "MonitorUser")
+
+        max_targets = Application.get_env(:elixircd, :monitor, []) |> Keyword.get(:max_targets, 100)
+
+        for i <- 1..max_targets do
+          insert(:user_monitor, user: user, target_nick_key: "existing#{i}")
+        end
+
+        message = %Message{command: "MONITOR", params: ["+existing1,Existing1,existing2"]}
+        assert :ok = Monitor.handle(user, message)
+
+        assert_sent_messages_count_containing(user.pid, ~r/734/, 0)
+        assert UserMonitors.count_by_user_pid(user.pid) == max_targets
+      end)
+    end
+
+    test "accepts lowercase list subcommands" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "MonitorUser")
+        insert(:user_monitor, user: user, target_nick_key: "target")
+
+        assert :ok = Monitor.handle(user, %Message{command: "MONITOR", params: ["l"]})
+
+        assert_sent_messages_count_containing(user.pid, ~r/732 .*target/, 1)
+        assert_sent_messages_count_containing(user.pid, ~r/733.*End of MONITOR list/, 1)
+      end)
+    end
+
     test "handles MONITOR with invalid subcommand" do
       Memento.transaction!(fn ->
         user = insert(:user)

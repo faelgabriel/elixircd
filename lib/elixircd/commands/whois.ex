@@ -7,7 +7,7 @@ defmodule ElixIRCd.Commands.Whois do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_reply: 1, display_hostname: 2, irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1, display_hostname: 2, irc_operator?: 1, irc_operator_visible?: 2]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -57,7 +57,7 @@ defmodule ElixIRCd.Commands.Whois do
     |> maybe_add_whoisregnick(user, target_user)
     |> maybe_add_whoisaccount(user, target_user)
     |> maybe_add_whoisbot(user, target_user)
-    |> add_whoischannels(user, target_user, target_user_channels_display)
+    |> maybe_add_whoischannels(user, target_user, target_user_channels_display)
     |> add_whoisserver(user, target_user)
     |> maybe_add_away(user, target_user)
     |> maybe_add_whoisoperator(user, target_user)
@@ -148,8 +148,10 @@ defmodule ElixIRCd.Commands.Whois do
     end
   end
 
-  @spec add_whoischannels([Message.t()], User.t(), User.t(), [String.t()]) :: [Message.t()]
-  defp add_whoischannels(messages, user, target_user, target_user_channels_display) do
+  @spec maybe_add_whoischannels([Message.t()], User.t(), User.t(), [String.t()]) :: [Message.t()]
+  defp maybe_add_whoischannels(messages, _user, _target_user, []), do: messages
+
+  defp maybe_add_whoischannels(messages, user, target_user, target_user_channels_display) do
     messages ++
       [
         %Message{
@@ -186,7 +188,7 @@ defmodule ElixIRCd.Commands.Whois do
 
   @spec maybe_add_whoisoperator([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisoperator(messages, user, target_user) do
-    if "o" in target_user.modes do
+    if irc_operator_visible?(target_user, user) do
       messages ++
         [%Message{command: :rpl_whoisoperator, params: [user.nick, target_user.nick], trailing: "is an IRC operator"}]
     else
@@ -233,18 +235,13 @@ defmodule ElixIRCd.Commands.Whois do
     user_channels_keys = Enum.map(user_channels, & &1.channel_name_key)
     target_user_channels_keys = Enum.map(target_user_channels, & &1.channel_name_key)
 
-    if user.pid == target_user.pid or irc_operator?(user) or
-         target_user_visible?(user_channels_keys, target_user, target_user_channels_keys) do
-      # Early return if target has no channels
-      if target_user_channels_keys == [] do
-        {target_user, []}
-      else
-        channel_map = fetch_channel_map(user_channels_keys, target_user_channels_keys)
-        channel_names = filter_and_resolve_channel_names(user_channels_keys, target_user_channels_keys, channel_map)
-        {target_user, channel_names}
-      end
+    # Exact nickname WHOIS remains available with +i/+H; channel and oper details are filtered separately.
+    if target_user_channels_keys == [] do
+      {target_user, []}
     else
-      {nil, []}
+      channel_map = fetch_channel_map(user_channels_keys, target_user_channels_keys)
+      channel_names = filter_and_resolve_channel_names(user_channels_keys, target_user_channels_keys, channel_map)
+      {target_user, channel_names}
     end
   end
 
@@ -258,26 +255,7 @@ defmodule ElixIRCd.Commands.Whois do
     end
   end
 
-  @spec target_user_visible?([String.t()], User.t(), [String.t()]) :: boolean()
-  defp target_user_visible?(user_channels_keys, target_user, target_user_channels_keys) do
-    if "i" in target_user.modes do
-      # Check if users share any channels when target user is invisible
-      shared_channels =
-        MapSet.intersection(
-          MapSet.new(user_channels_keys),
-          MapSet.new(target_user_channels_keys)
-        )
-
-      not Enum.empty?(shared_channels)
-    else
-      # Target user is visible to everyone when not invisible
-      true
-    end
-  end
-
-  # Filters channel names based on visibility rules and resolves to actual channel names.
-  # Secret channels ("s" mode) are only displayed if the requesting user is also in that channel.
-  # Orphaned channel references (where the channel no longer exists) are filtered out.
+  # Secret (+s) and private (+p) channels show only to members. Orphaned references are dropped.
   @spec filter_and_resolve_channel_names([String.t()], [String.t()], map()) :: [String.t()]
   defp filter_and_resolve_channel_names(user_channels_keys, target_user_channels_keys, channel_map) do
     user_channels_set = MapSet.new(user_channels_keys)
@@ -292,9 +270,9 @@ defmodule ElixIRCd.Commands.Whois do
   @spec process_channel_visibility(String.t(), map(), MapSet.t()) :: String.t() | nil
   defp process_channel_visibility(channel_name_key, channel_map, user_channels_set) do
     channel = Map.get(channel_map, channel_name_key)
-    is_secret = "s" in channel.modes
+    is_hidden = "s" in channel.modes or "p" in channel.modes
     user_in_channel = MapSet.member?(user_channels_set, channel_name_key)
 
-    if is_secret and not user_in_channel, do: nil, else: channel.name
+    if is_hidden and not user_in_channel, do: nil, else: channel.name
   end
 end

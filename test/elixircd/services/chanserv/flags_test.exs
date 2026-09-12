@@ -235,7 +235,7 @@ defmodule ElixIRCd.Services.Chanserv.FlagsTest do
         user = insert(:user, identified_as: manager.account_name)
         channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
 
-        insert(:registered_channel_access, channel_name: channel.name, account_name: manager.account_name, flags: "VF")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: manager.account_name, flags: "VAF")
 
         assert :ok = Flags.handle(user, ["FLAGS", channel.name, helper.nickname, "VA"])
 
@@ -243,6 +243,48 @@ defmodule ElixIRCd.Services.Chanserv.FlagsTest do
           {user.pid,
            ":ChanServ!service@irc.test NOTICE #{user.nick} :Flags for \x02#{helper.account_name}\x02 on \x02#{channel.name}\x02 are now \x02VA\x02.\r\n"}
         ])
+      end)
+    end
+
+    test "denies flag grants the manager does not hold themselves" do
+      Memento.transaction!(fn ->
+        manager = insert(:registered_nick, nickname: "Manager")
+        helper = insert(:registered_nick, nickname: "Helper")
+        user = insert(:user, identified_as: manager.account_name)
+        channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: manager.account_name, flags: "F")
+
+        assert :ok = Flags.handle(user, ["FLAGS", channel.name, helper.nickname, "VA"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :You cannot change flags for \x02#{helper.account_name}\x02 on \x02#{channel.name}\x02: insufficient access.\r\n"}
+        ])
+
+        assert %{"Manager" => "F"} == RegisteredChannelAccesses.get_flags_map_by_channel_name(channel.name)
+      end)
+    end
+
+    test "denies changing flags of an account that outranks the manager" do
+      Memento.transaction!(fn ->
+        manager = insert(:registered_nick, nickname: "Manager")
+        senior = insert(:registered_nick, nickname: "Senior")
+        user = insert(:user, identified_as: manager.account_name)
+        channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: manager.account_name, flags: "VF")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: senior.account_name, flags: "VAFS")
+
+        assert :ok = Flags.handle(user, ["FLAGS", channel.name, senior.nickname, "OFF"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :You cannot change flags for \x02#{senior.account_name}\x02 on \x02#{channel.name}\x02: insufficient access.\r\n"}
+        ])
+
+        assert %{"Manager" => "VF", "Senior" => "VAFS"} ==
+                 RegisteredChannelAccesses.get_flags_map_by_channel_name(channel.name)
       end)
     end
 
@@ -260,5 +302,18 @@ defmodule ElixIRCd.Services.Chanserv.FlagsTest do
         ])
       end)
     end
+  end
+
+  test "possessing flags alone does not authorize delegation" do
+    Memento.transaction!(fn ->
+      insert(:registered_nick, nickname: "Target")
+      insert(:registered_nick, nickname: "Actor")
+      user = insert(:user, identified_as: "Actor")
+      insert(:registered_channel, name: "#delegation", founder: "Founder")
+      insert(:registered_channel_access, channel_name: "#delegation", account_name: "Actor", flags: "VS")
+      Flags.handle(user, ["FLAGS", "#delegation", "Target", "+V"])
+      assert_sent_message_contains(user.pid, ~r/Access denied/)
+      assert RegisteredChannelAccesses.get_by_channel_name("#delegation") |> length() == 1
+    end)
   end
 end

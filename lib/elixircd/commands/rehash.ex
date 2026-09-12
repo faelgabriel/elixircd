@@ -48,6 +48,23 @@ defmodule ElixIRCd.Commands.Rehash do
   end
 
   @impl true
+  def handle(user, %{command: "REHASH", params: [server_name | _]}) do
+    local_hostname = Application.get_env(:elixircd, :server)[:hostname]
+
+    cond do
+      not irc_operator?(user) ->
+        noprivileges_message(user)
+
+      String.downcase(server_name) == String.downcase(local_hostname) ->
+        process_rehashing(user)
+
+      true ->
+        %Message{command: :err_nosuchserver, params: [user.nick, server_name], trailing: "No such server"}
+        |> Dispatcher.broadcast(:server, user)
+    end
+  end
+
+  @impl true
   def handle(user, %{command: "REHASH"}) do
     case irc_operator?(user) do
       true -> process_rehashing(user)
@@ -63,6 +80,7 @@ defmodule ElixIRCd.Commands.Rehash do
     old_features = Isupport.feature_tokens()
     monitor_was_enabled = Monitor.enabled?()
     old_caps = Application.get_env(:elixircd, :capabilities, [])
+    old_sts = Application.get_env(:elixircd, :sts, [])
     load_configurations()
     new_caps = Application.get_env(:elixircd, :capabilities, [])
 
@@ -72,6 +90,7 @@ defmodule ElixIRCd.Commands.Rehash do
     # Finish the logical response under the negotiated capabilities before
     # announcing their removal. CAP DEL must never interrupt an open batch.
     ResponseContext.flush(user)
+    notify_sts_changes(old_caps, old_sts)
     notify_config_changes(old_caps, new_caps)
     clear_disabled_monitor_lists(monitor_was_enabled)
     Isupport.notify_changes(old_features)
@@ -105,7 +124,7 @@ defmodule ElixIRCd.Commands.Rehash do
       |> Enum.filter(fn {key, _name} ->
         old_value = capability_enabled?(old_caps, key)
         new_value = capability_enabled?(new_caps, key)
-        !old_value and new_value
+        key != :sts and !old_value and new_value
       end)
       |> Enum.map(fn {key, _name} -> key end)
 
@@ -159,32 +178,72 @@ defmodule ElixIRCd.Commands.Rehash do
   end
 
   @spec capability_value_for_user(atom(), User.t()) :: String.t() | nil
-  defp capability_value_for_user(:sts, user), do: Cap.build_sts_capability_value(user)
-
   defp capability_value_for_user(key, _user) do
     Enum.find_value(@cap_mappings, fn {k, name} -> if k == key, do: name end)
+  end
+
+  @spec notify_sts_changes(keyword(), keyword()) :: :ok
+  defp notify_sts_changes(old_caps, old_sts) do
+    new_caps = Application.get_env(:elixircd, :capabilities, [])
+    new_sts = Application.get_env(:elixircd, :sts, [])
+
+    Users.get_all()
+    |> Enum.filter(&(has_cap_notify?(&1) and (&1.cap_version || 301) >= 302))
+    |> Enum.each(&notify_sts_change(&1, old_caps, old_sts, new_caps, new_sts))
+  end
+
+  @spec notify_sts_change(User.t(), keyword(), keyword(), keyword(), keyword()) :: :ok
+  defp notify_sts_change(user, old_caps, old_sts, new_caps, new_sts) do
+    old_value = sts_value(user, old_caps, old_sts)
+    new_value = sts_value(user, new_caps, new_sts)
+
+    value =
+      cond do
+        old_value == new_value -> nil
+        new_value != nil -> new_value
+        old_value != nil and user.transport in [:tls, :wss] -> "sts=duration=0"
+        true -> nil
+      end
+
+    if value != nil do
+      %Message{command: "CAP", params: [user_reply(user), "NEW"], trailing: value}
+      |> Dispatcher.broadcast(:server, user)
+    end
+
+    :ok
+  end
+
+  @spec sts_value(User.t(), keyword(), keyword()) :: String.t() | nil
+  defp sts_value(user, capabilities, config) do
+    if capability_enabled?(capabilities, :sts), do: Cap.build_sts_capability_value(user, config)
   end
 
   @spec notify_del(String.t()) :: :ok
   defp notify_del(capabilities) when is_binary(capabilities) do
     Users.get_all()
     |> Enum.each(fn user ->
-      if has_cap_notify?(user) do
+      deleted = String.split(capabilities)
+      # CAP 302 makes cap-notify mandatory for the lifetime of the connection.
+      deleted = if (user.cap_version || 301) >= 302, do: List.delete(deleted, "cap-notify"), else: deleted
+
+      if has_cap_notify?(user) and deleted != [] do
         %Message{
           command: "CAP",
           params: [user_reply(user), "DEL"],
-          trailing: capabilities
+          trailing: Enum.join(deleted, " ")
         }
         |> Dispatcher.broadcast(:server, user)
       end
 
-      remove_deleted_capabilities(user, capabilities)
+      # Legacy sessions cannot observe capability withdrawal; preserve their ACCOUNT contract.
+      removed = if has_cap_notify?(user), do: deleted, else: List.delete(deleted, "account-notify")
+      remove_deleted_capabilities(user, Enum.join(removed, " "))
     end)
   end
 
   @spec has_cap_notify?(User.t()) :: boolean()
   defp has_cap_notify?(user) do
-    "cap-notify" in user.capabilities
+    "cap-notify" in user.capabilities or (user.cap_version || 301) >= 302
   end
 
   @spec remove_deleted_capabilities(User.t(), String.t()) :: User.t()

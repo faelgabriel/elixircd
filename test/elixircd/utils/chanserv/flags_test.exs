@@ -71,5 +71,29 @@ defmodule ElixIRCd.Utils.Chanserv.FlagsTest do
       refute Flags.valid_flag_string?("VFZ")
       assert Flags.access_rank(channel, "weird", %{"weird" => "Z"}) == 0
     end
+
+    test "ranks broader flag sets above a lone orthogonal flag" do
+      channel = build(:registered_channel, founder: "founder")
+
+      assert Flags.access_rank(channel, "topic", %{"topic" => "T"}) <
+               Flags.access_rank(channel, "staff", %{"staff" => "VAFS"})
+
+      assert Flags.access_rank(channel, "voice", %{"voice" => "V"}) <
+               Flags.access_rank(channel, "manager", %{"manager" => "VAF"})
+
+      assert Flags.access_rank(channel, "founder", %{}) >
+               Flags.access_rank(channel, "staff", %{"staff" => "VAFS"})
+    end
+
+    test "may_grant? enforces the can't-grant-what-you-lack rule" do
+      channel = build(:registered_channel, founder: "founder")
+      access_entries = %{"manager" => "VAF", "senior" => "VAFS"}
+
+      assert Flags.may_grant?(channel, "manager", "", "VA", access_entries)
+      assert Flags.may_grant?(channel, "manager", "V", "VAF", access_entries)
+      refute Flags.may_grant?(channel, "manager", "", "VAFS", access_entries)
+      refute Flags.may_grant?(channel, "manager", "VAFS", "", access_entries)
+      assert Flags.may_grant?(channel, "founder", "VAFS", "VAFST", access_entries)
+    end
   end
 end

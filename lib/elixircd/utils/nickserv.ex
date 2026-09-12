@@ -71,6 +71,36 @@ defmodule ElixIRCd.Utils.Nickserv do
   end
 
   @doc """
+  Synchronizes +r with ownership of the current registered nickname, including grouped aliases.
+  Account authentication alone does not make an unrelated nickname registered.
+  """
+  @spec sync_registered_mode(User.t()) :: User.t()
+  def sync_registered_mode(user) do
+    registered =
+      with nick when is_binary(nick) <- user.nick,
+           {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(nick) do
+        belongs_to_account?(registered_nick, user.identified_as)
+      else
+        _ -> false
+      end
+
+    modes = if registered, do: Enum.uniq(user.modes ++ ["r"]), else: List.delete(user.modes, "r")
+
+    if modes == user.modes do
+      user
+    else
+      updated_user = Users.update(user, %{modes: modes})
+
+      if user.registered do
+        %Message{command: "MODE", params: [user.nick, if(registered, do: "+r", else: "-r")]}
+        |> Dispatcher.broadcast(:server, updated_user)
+      end
+
+      updated_user
+    end
+  end
+
+  @doc """
   Logs out all users identified to the given account: clears session, removes +r and sends ACCOUNT *.
   """
   @spec logout_account_users(String.t()) :: :ok
@@ -90,7 +120,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   end
 
   @doc """
-  Broadcasts an ACCOUNT message to the user and optionally to watchers with the `account-notify` capability.
+  Broadcasts an ACCOUNT message only to recipients with the `account-notify` capability, including self.
   """
   @spec notify_account_change(User.t(), String.t()) :: :ok
   def notify_account_change(user, account) do
@@ -98,7 +128,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   end
 
   @doc """
-  Broadcasts ACCOUNT * to the user and optionally to watchers with the `account-notify` capability.
+  Broadcasts ACCOUNT * only to recipients with the `account-notify` capability, including self.
   """
   @spec notify_account_logout(User.t()) :: :ok
   def notify_account_logout(user) do
@@ -123,20 +153,18 @@ defmodule ElixIRCd.Utils.Nickserv do
 
   @spec broadcast_account_message(User.t(), String.t()) :: :ok
   defp broadcast_account_message(user, account) do
-    %Message{command: "ACCOUNT", params: [account]}
-    |> Dispatcher.broadcast(user, [user])
+    if "account-notify" in user.capabilities do
+      %Message{command: "ACCOUNT", params: [account]}
+      |> Dispatcher.broadcast(user, [user])
+    end
 
-    account_notify_supported = Application.get_env(:elixircd, :capabilities)[:account_notify] || false
+    watchers =
+      Users.get_in_shared_channels_with_capability(user, "account-notify", true)
+      |> Enum.reject(&(&1.pid == user.pid))
 
-    if account_notify_supported do
-      watchers =
-        Users.get_in_shared_channels_with_capability(user, "account-notify", true)
-        |> Enum.reject(&(&1.pid == user.pid))
-
-      if watchers != [] do
-        %Message{command: "ACCOUNT", params: [account]}
-        |> Dispatcher.broadcast(user, watchers)
-      end
+    if watchers != [] do
+      %Message{command: "ACCOUNT", params: [account]}
+      |> Dispatcher.broadcast(user, watchers)
     end
 
     :ok

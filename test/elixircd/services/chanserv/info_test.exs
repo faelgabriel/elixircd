@@ -209,6 +209,31 @@ defmodule ElixIRCd.Services.Chanserv.InfoTest do
       end)
     end
 
+    test "does not disclose privileged info to unprivileged users passing ALL" do
+      Memento.transaction!(fn ->
+        founder = "founder"
+        user = insert(:user, identified_as: "guest")
+
+        channel =
+          create_test_channel(
+            founder: founder,
+            settings: [
+              url: "https://example.com",
+              email: "contact@example.com",
+              mlock: "+nt"
+            ]
+          )
+
+        assert :ok = Info.handle(user, ["INFO", channel.name, "ALL"])
+
+        assert_sent_message_contains(user.pid, ~r/ChanServ.*NOTICE.*Information for channel/)
+        assert_sent_messages_count_containing(user.pid, ~r/ChanServ.*NOTICE.*Mode lock:/, 0)
+        assert_sent_messages_count_containing(user.pid, ~r/ChanServ.*NOTICE.*Entry message:/, 0)
+        assert_sent_messages_count_containing(user.pid, ~r/ChanServ.*NOTICE.*URL:/, 0)
+        assert_sent_messages_count_containing(user.pid, ~r/ChanServ.*NOTICE.*Email:/, 0)
+      end)
+    end
+
     test "displays successor in ALL info when set" do
       Memento.transaction!(fn ->
         founder = "founder"

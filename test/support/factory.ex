@@ -61,6 +61,7 @@ defmodule ElixIRCd.Factory do
       away_message: Map.get(attrs, :away_message, nil),
       capabilities: Map.get(attrs, :capabilities, []),
       cap_negotiating: Map.get(attrs, :cap_negotiating, nil),
+      cap_version: Map.get(attrs, :cap_version, 301),
       webirc_gateway: Map.get(attrs, :webirc_gateway, nil),
       webirc_hostname: Map.get(attrs, :webirc_hostname, nil),
       webirc_ip: Map.get(attrs, :webirc_ip, nil),

@@ -10,9 +10,37 @@ defmodule ElixIRCd.Commands.RehashTest do
   alias ElixIRCd.Commands.Rehash
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserMonitors
+  alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Utils.Nickserv
   alias ElixIRCd.Utils.System
 
   describe "handle/2" do
+    test "accepts the local hostname case-insensitively" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        expect(System, :load_configurations, fn -> :ok end)
+
+        assert :ok = Rehash.handle(user, %Message{command: "REHASH", params: ["IRC.TEST"]})
+        assert_sent_message_contains(user.pid, ~r/ 382 /)
+        assert_sent_message_contains(user.pid, ~r/Rehashing completed/)
+      end)
+    end
+
+    for server <- ["irc.test", "other.server"] do
+      test "checks privileges before selecting #{server}" do
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          reject(System, :load_configurations, 0)
+
+          assert :ok = Rehash.handle(user, %Message{command: "REHASH", params: [unquote(server)]})
+
+          assert_sent_messages([
+            {user.pid, ":irc.test 481 #{user.nick} :Permission Denied- You're not an IRC operator\r\n"}
+          ])
+        end)
+      end
+    end
+
     test "handles REHASH command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -50,6 +78,17 @@ defmodule ElixIRCd.Commands.RehashTest do
           {user.pid, ":irc.test 382 #{user.nick} elixircd.exs :Rehashing\r\n"},
           {user.pid, ":irc.test NOTICE #{user.nick} :Rehashing completed\r\n"}
         ])
+      end)
+    end
+
+    test "rejects REHASH command with a server argument" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: ["o"])
+        message = %Message{command: "REHASH", params: ["other.server"]}
+
+        assert :ok = Rehash.handle(user, message)
+
+        assert_sent_messages([{user.pid, ":irc.test 402 #{user.nick} other.server :No such server\r\n"}])
       end)
     end
   end
@@ -370,7 +409,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["cap-notify"], registered: true, transport: :tcp)
+        client = insert(:user, capabilities: ["cap-notify"], cap_version: 302, registered: true, transport: :tcp)
 
         System
         |> stub(:load_configurations, fn ->
@@ -394,7 +433,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
-        client = insert(:user, capabilities: ["cap-notify"], registered: true, transport: :tls)
+        client = insert(:user, capabilities: ["cap-notify"], cap_version: 302, registered: true, transport: :tls)
 
         System
         |> stub(:load_configurations, fn ->
@@ -479,5 +518,182 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert "cap-notify" in updated_client.capabilities
       end)
     end
+  end
+
+  describe "STS policy updates" do
+    setup do
+      caps = Application.get_env(:elixircd, :capabilities)
+      sts = Application.get_env(:elixircd, :sts)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, caps)
+        Application.put_env(:elixircd, :sts, sts)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, Keyword.put(caps, :sts, true))
+      Application.put_env(:elixircd, :sts, port: 6697, duration: 3600, preload: false)
+    end
+
+    for {key, value, tcp_reply, tls_reply} <- [
+          {:duration, 7200, nil, "sts=duration=7200"},
+          {:duration, 0, nil, "sts=duration=0"},
+          {:preload, true, nil, "sts=duration=3600,preload"},
+          {:port, 7000, "sts=port=7000", nil},
+          {:duration, 3600, nil, nil}
+        ] do
+      test "announces effective per-transport changes for #{key}=#{value}" do
+        Memento.transaction!(fn ->
+          oper = insert(:user, modes: ["o"])
+          legacy = insert(:user, capabilities: [], transport: :tls)
+
+          clients =
+            for transport <- [:tcp, :ws, :tls, :wss],
+                do: insert(:user, transport: transport, capabilities: ["cap-notify"], cap_version: 302)
+
+          stub(System, :load_configurations, fn ->
+            Application.put_env(
+              :elixircd,
+              :sts,
+              Keyword.put(Application.get_env(:elixircd, :sts), unquote(key), unquote(value))
+            )
+          end)
+
+          assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+          assert_sent_messages_amount(legacy.pid, 0)
+
+          Enum.each(clients, fn client ->
+            expected = if client.transport in [:tls, :wss], do: unquote(tls_reply), else: unquote(tcp_reply)
+
+            if expected do
+              assert_sent_message_contains(client.pid, ":irc.test CAP #{client.nick} NEW :#{expected}\r\n")
+              assert_sent_messages_amount(client.pid, 1)
+            else
+              assert_sent_messages_amount(client.pid, 0)
+            end
+          end)
+        end)
+      end
+    end
+
+    test "disabling STS revokes TLS policies without CAP DEL or plaintext revocation" do
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"])
+        plaintext = insert(:user, transport: :tcp, capabilities: ["cap-notify"], cap_version: 302)
+        tls = insert(:user, transport: :tls, capabilities: ["cap-notify"], cap_version: 302)
+        wss = insert(:user, transport: :wss, capabilities: ["cap-notify"], cap_version: 302)
+
+        stub(System, :load_configurations, fn ->
+          Application.put_env(
+            :elixircd,
+            :capabilities,
+            Keyword.put(Application.get_env(:elixircd, :capabilities), :sts, false)
+          )
+        end)
+
+        assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+        assert_sent_messages_amount(plaintext.pid, 0)
+
+        for client <- [tls, wss] do
+          assert_sent_message_contains(client.pid, ":irc.test CAP #{client.nick} NEW :sts=duration=0\r\n")
+          assert_sent_messages_count_containing(client.pid, ~r/ CAP .* DEL /, 0)
+          assert_sent_messages_amount(client.pid, 1)
+        end
+      end)
+    end
+  end
+
+  test "withdraws account-notify explicitly and preserves legacy negotiated sessions" do
+    original = Application.get_env(:elixircd, :capabilities)
+    on_exit(fn -> Application.put_env(:elixircd, :capabilities, original) end)
+    Application.put_env(:elixircd, :capabilities, Keyword.put(original, :account_notify, true))
+
+    Memento.transaction!(fn ->
+      oper = insert(:user, modes: ["o"])
+      subject = insert(:user)
+      modern = insert(:user, cap_version: 302, capabilities: ["cap-notify", "account-notify"])
+      notified = insert(:user, capabilities: ["cap-notify", "account-notify"])
+      legacy = insert(:user, capabilities: ["account-notify"])
+      channel = insert(:channel)
+      for user <- [subject, modern, notified, legacy], do: insert(:user_channel, user: user, channel: channel)
+
+      stub(System, :load_configurations, fn ->
+        Application.put_env(:elixircd, :capabilities, Keyword.put(original, :account_notify, false))
+      end)
+
+      Rehash.handle(oper, %Message{command: "REHASH", params: []})
+
+      for user <- [modern, notified] do
+        assert_sent_message_contains(user.pid, ":irc.test CAP #{user.nick} DEL :account-notify\r\n")
+        {:ok, updated} = Users.get_by_pid(user.pid)
+        refute "account-notify" in updated.capabilities
+      end
+
+      {:ok, updated} = Users.get_by_pid(legacy.pid)
+      assert "account-notify" in updated.capabilities
+      assert_sent_messages_amount(legacy.pid, 0)
+      Nickserv.notify_account_change(subject, "Account")
+      Nickserv.notify_account_logout(subject)
+      assert_sent_messages_count_containing(legacy.pid, ~r/ ACCOUNT /, 2)
+      for user <- [modern, notified], do: assert_sent_messages_count_containing(user.pid, ~r/ ACCOUNT /, 0)
+    end)
+  end
+
+  test "STS withdrawal requires CAP 302 even with explicitly negotiated cap-notify" do
+    caps = Application.get_env(:elixircd, :capabilities)
+    sts = Application.get_env(:elixircd, :sts)
+
+    on_exit(fn ->
+      Application.put_env(:elixircd, :capabilities, caps)
+      Application.put_env(:elixircd, :sts, sts)
+    end)
+
+    Application.put_env(:elixircd, :capabilities, Keyword.put(caps, :sts, true))
+    Application.put_env(:elixircd, :sts, duration: 3600, port: 6697)
+
+    Memento.transaction!(fn ->
+      oper = insert(:user, modes: ["o"])
+
+      clients =
+        for version <- [301, 302, 303],
+            do: insert(:user, transport: :tls, capabilities: ["cap-notify"], cap_version: version)
+
+      stub(System, :load_configurations, fn ->
+        Application.put_env(:elixircd, :capabilities, Keyword.put(caps, :sts, false))
+      end)
+
+      Rehash.handle(oper, %Message{command: "REHASH", params: []})
+
+      for user <- clients do
+        assert_sent_messages_count_containing(
+          user.pid,
+          ~r/ NEW :sts=duration=0/,
+          if(user.cap_version >= 302, do: 1, else: 0)
+        )
+
+        assert_sent_messages_count_containing(user.pid, ~r/ DEL .*sts/, 0)
+      end
+    end)
+  end
+
+  test "REHASH cannot withdraw implicit CAP 302 notifications" do
+    original = Application.get_env(:elixircd, :capabilities)
+    on_exit(fn -> Application.put_env(:elixircd, :capabilities, original) end)
+    Application.put_env(:elixircd, :capabilities, Keyword.put(original, :cap_notify, true))
+
+    Memento.transaction!(fn ->
+      oper = insert(:user, modes: ["o"])
+      modern = insert(:user, capabilities: ["cap-notify"], cap_version: 302)
+      legacy = insert(:user, capabilities: ["cap-notify"])
+
+      stub(System, :load_configurations, fn ->
+        Application.put_env(:elixircd, :capabilities, Keyword.put(original, :cap_notify, false))
+      end)
+
+      Rehash.handle(oper, %Message{command: "REHASH", params: []})
+      assert_sent_messages_amount(modern.pid, 0)
+      assert_sent_message_contains(legacy.pid, ":irc.test CAP #{legacy.nick} DEL :cap-notify\r\n")
+      {:ok, updated} = Users.get_by_pid(modern.pid)
+      assert "cap-notify" in updated.capabilities
+    end)
   end
 end

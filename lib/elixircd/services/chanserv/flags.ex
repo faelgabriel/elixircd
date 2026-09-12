@@ -62,11 +62,9 @@ defmodule ElixIRCd.Services.Chanserv.Flags do
          :ok <- ChannelFlags.can_manage_flags(channel, user.identified_as, access_entries),
          {:ok, %{account_name: account_name}} <- RegisteredNicks.get_by_nickname(nickname),
          false <- ChannelFlags.founder?(channel, account_name),
-         {:ok, updated_flags} <-
-           ChannelFlags.apply_flag_changes(
-             ChannelFlags.flags_for_account(channel, account_name, access_entries),
-             String.upcase(changes)
-           ) do
+         current_flags = ChannelFlags.flags_for_account(channel, account_name, access_entries),
+         {:ok, updated_flags} <- ChannelFlags.apply_flag_changes(current_flags, String.upcase(changes)),
+         :ok <- check_grant(channel, user.identified_as, account_name, current_flags, updated_flags, access_entries) do
       persist_flags(channel.name, account_name, updated_flags)
 
       case updated_flags do
@@ -92,6 +90,12 @@ defmodule ElixIRCd.Services.Chanserv.Flags do
 
       {:error, :access_denied} ->
         notify(user, "Access denied for \x02#{channel_name}\x02.")
+
+      {:error, :insufficient_grant, account_name} ->
+        notify(
+          user,
+          "You cannot change flags for \x02#{account_name}\x02 on \x02#{channel_name}\x02: insufficient access."
+        )
     end
   end
 
@@ -107,6 +111,22 @@ defmodule ElixIRCd.Services.Chanserv.Flags do
     channel_name
     |> RegisteredChannelAccesses.get_flags_map_by_channel_name()
     |> ChannelFlags.normalize_access_entries()
+  end
+
+  @spec check_grant(
+          RegisteredChannel.t(),
+          String.t() | nil,
+          String.t(),
+          String.t(),
+          String.t(),
+          %{optional(String.t()) => String.t()}
+        ) :: :ok | {:error, :insufficient_grant, String.t()}
+  defp check_grant(channel, granter_account, account_name, current_flags, updated_flags, access_entries) do
+    if ChannelFlags.may_grant?(channel, granter_account, current_flags, updated_flags, access_entries) do
+      :ok
+    else
+      {:error, :insufficient_grant, account_name}
+    end
   end
 
   @spec persist_flags(String.t(), String.t(), String.t()) :: :ok

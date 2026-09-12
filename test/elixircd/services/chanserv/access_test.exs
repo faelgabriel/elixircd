@@ -323,5 +323,104 @@ defmodule ElixIRCd.Services.Chanserv.AccessTest do
         ])
       end)
     end
+
+    test "denies granting an access level above the manager's own flags" do
+      Memento.transaction!(fn ->
+        manager = insert(:registered_nick, nickname: "Manager")
+        helper = insert(:registered_nick, nickname: "Helper")
+        user = insert(:user, identified_as: manager.account_name)
+        channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: manager.account_name, flags: "VA")
+
+        assert :ok = Access.handle(user, ["ACCESS", channel.name, "ADD", helper.nickname, "4"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :You cannot grant access level \x024\x02 to \x02#{helper.account_name}\x02 on \x02#{channel.name}\x02.\r\n"}
+        ])
+
+        refute Map.has_key?(RegisteredChannelAccesses.get_flags_map_by_channel_name(channel.name), helper.account_name)
+      end)
+    end
+
+    test "only the founder can grant access level 5" do
+      Memento.transaction!(fn ->
+        manager = insert(:registered_nick, nickname: "Manager")
+        helper = insert(:registered_nick, nickname: "Helper")
+        user = insert(:user, identified_as: manager.account_name)
+        channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access,
+          channel_name: channel.name,
+          account_name: manager.account_name,
+          flags: "VAFS"
+        )
+
+        assert :ok = Access.handle(user, ["ACCESS", channel.name, "ADD", helper.nickname, "5"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Only the founder can grant access level \x025\x02 on \x02#{channel.name}\x02.\r\n"}
+        ])
+      end)
+    end
+
+    test "denies deleting access entries that outrank the manager" do
+      Memento.transaction!(fn ->
+        manager = insert(:registered_nick, nickname: "Manager")
+        senior = insert(:registered_nick, nickname: "Senior")
+        user = insert(:user, identified_as: manager.account_name)
+        channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: manager.account_name, flags: "VA")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: senior.account_name, flags: "VAFS")
+
+        assert :ok = Access.handle(user, ["ACCESS", channel.name, "DEL", senior.nickname])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :You cannot remove \x02#{senior.account_name}\x02 from the access list for \x02#{channel.name}\x02.\r\n"}
+        ])
+
+        assert %{"Manager" => "VA", "Senior" => "VAFS"} ==
+                 RegisteredChannelAccesses.get_flags_map_by_channel_name(channel.name)
+      end)
+    end
+
+    test "keeps outranking entries on ACCESS CLEAR" do
+      Memento.transaction!(fn ->
+        junior = insert(:registered_nick, nickname: "Junior")
+        senior = insert(:registered_nick, nickname: "Senior")
+        user = insert(:user, identified_as: "Manager")
+        channel = insert(:registered_channel, name: "#testchannel", founder: "founder")
+
+        insert(:registered_channel_access, channel_name: channel.name, account_name: "Manager", flags: "VAF")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: junior.account_name, flags: "V")
+        insert(:registered_channel_access, channel_name: channel.name, account_name: senior.account_name, flags: "VAFS")
+
+        assert :ok = Access.handle(user, ["ACCESS", channel.name, "CLEAR"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Cleared \x022\x02 access entries for \x02#{channel.name}\x02 (1 kept: insufficient access).\r\n"}
+        ])
+
+        assert %{"Senior" => "VAFS"} == RegisteredChannelAccesses.get_flags_map_by_channel_name(channel.name)
+      end)
+    end
+  end
+
+  test "possessing flags alone does not authorize delegation" do
+    Memento.transaction!(fn ->
+      insert(:registered_nick, nickname: "Target")
+      insert(:registered_nick, nickname: "Actor")
+      user = insert(:user, identified_as: "Actor")
+      insert(:registered_channel, name: "#delegation", founder: "Founder")
+      insert(:registered_channel_access, channel_name: "#delegation", account_name: "Actor", flags: "V")
+      Access.handle(user, ["ACCESS", "#delegation", "ADD", "Target", "1"])
+      assert_sent_message_contains(user.pid, ~r/Access denied/)
+      assert RegisteredChannelAccesses.get_by_channel_name("#delegation") |> length() == 1
+    end)
   end
 end

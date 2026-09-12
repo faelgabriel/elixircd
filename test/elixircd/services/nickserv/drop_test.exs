@@ -33,7 +33,6 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
-          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
@@ -82,7 +81,6 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
-          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])
@@ -231,14 +229,19 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
         alias_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
 
-        user = insert(:user, nick: alias_nick.nickname, identified_as: primary_nick.nickname)
+        user = insert(:user, nick: alias_nick.nickname, identified_as: primary_nick.nickname, modes: ["r"])
 
         assert :ok = Drop.handle(user, ["DROP"])
 
         assert {:ok, _} = RegisteredNicks.get_by_nickname("PrimaryNick")
         assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname("AliasNick")
 
+        {:ok, updated} = Users.get_by_pid(user.pid)
+        assert updated.identified_as == primary_nick.account_name
+        refute "r" in updated.modes
+
         assert_sent_messages([
+          {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 has been dropped.\r\n"}
         ])
       end)
@@ -256,7 +259,6 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
-          {user.pid, ":#{user.nick}!#{String.slice(user.ident, 0..9)}@#{user.hostname} ACCOUNT *\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been dropped.\r\n"}
         ])

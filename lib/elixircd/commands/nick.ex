@@ -9,7 +9,7 @@ defmodule ElixIRCd.Commands.Nick do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2]
+  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, sync_registered_mode: 1]
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message
@@ -83,6 +83,7 @@ defmodule ElixIRCd.Commands.Nick do
   @spec change_nick(User.t(), String.t()) :: :ok
   defp change_nick(%{registered: false} = user, input_nick) do
     updated_user = Users.update(user, %{nick: input_nick})
+    updated_user = sync_registered_mode(updated_user)
     Handshake.handle(updated_user)
   end
 
@@ -104,6 +105,7 @@ defmodule ElixIRCd.Commands.Nick do
     %Message{command: "NICK", params: [input_nick]}
     |> Dispatcher.broadcast(user, [updated_user | all_users])
 
+    updated_user = sync_registered_mode(updated_user)
     send_nick_change_snotice(old_nick, updated_user)
 
     Monitor.notify_offline(user)

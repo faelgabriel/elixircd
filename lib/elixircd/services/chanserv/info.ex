@@ -58,8 +58,8 @@ defmodule ElixIRCd.Services.Chanserv.Info do
       "Last used: #{format_time(channel.last_used_at)}"
     ])
 
-    # Show additional information for privileged users
-    if privileged? || show_all? do
+    # Privileged details require privilege; passing ALL alone grants nothing.
+    if privileged? do
       display_privileged_info(user, channel)
     end
 

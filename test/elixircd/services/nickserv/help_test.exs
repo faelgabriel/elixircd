@@ -86,7 +86,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP", "REGAIN"])
 
-        assert_sent_messages_amount(user.pid, 14)
+        assert_sent_messages_amount(user.pid, 15)
       end)
     end
 
@@ -234,7 +234,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP", "FAQ"])
 
-        assert_sent_messages_amount(user.pid, 31)
+        assert_sent_messages_amount(user.pid, 29)
       end)
     end
 

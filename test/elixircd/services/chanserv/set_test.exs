@@ -156,6 +156,24 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
       end)
     end
 
+    test "accepts lowercase on/off values for boolean settings" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "guard", "on"])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.settings.guard == true
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "guard", "off"])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.settings.guard == false
+      end)
+    end
+
     test "handles EMAIL setting with validation" do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"

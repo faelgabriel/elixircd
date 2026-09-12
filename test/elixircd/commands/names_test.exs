@@ -116,11 +116,11 @@ defmodule ElixIRCd.Commands.NamesTest do
         assert :ok = Names.handle(user, message)
 
         # Since #channel2 is private, and the user is not a member, they should only see #channel1
-        # but also receive a "No such channel" response for #channel2
+        # and receive the end-of-list reply for #channel2
         assert_sent_messages([
           {user.pid, ":irc.test 353 #{user.nick} = #{channel1.name} :@user1\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #{channel1.name} :End of /NAMES list\r\n"},
-          {user.pid, ":irc.test 403 #{user.nick} #channel2 :No such channel\r\n"}
+          {user.pid, ":irc.test 366 #{user.nick} #channel2 :End of /NAMES list\r\n"}
         ])
       end)
     end
@@ -133,7 +133,7 @@ defmodule ElixIRCd.Commands.NamesTest do
         assert :ok = Names.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 403 #{user.nick} #nonexistent :No such channel\r\n"}
+          {user.pid, ":irc.test 366 #{user.nick} #nonexistent :End of /NAMES list\r\n"}
         ])
       end)
     end
@@ -149,6 +149,27 @@ defmodule ElixIRCd.Commands.NamesTest do
           {user.pid, ":irc.test 403 #{user.nick} invalid.channel :No such channel\r\n"}
         ])
       end)
+    end
+
+    for in_channel? <- [false, true] do
+      test "NAMES keeps +H users visible with channel membership=#{in_channel?}" do
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          target = insert(:user, nick: "hidden", modes: ["o", "H"])
+
+          params =
+            if unquote(in_channel?) do
+              channel = insert(:channel)
+              insert(:user_channel, user: target, channel: channel)
+              [channel.name]
+            else
+              []
+            end
+
+          assert :ok = Names.handle(user, %Message{command: "NAMES", params: params})
+          assert_sent_messages_count_containing(user.pid, ~r/ 353 .* :hidden\r\n$/, 1)
+        end)
+      end
     end
 
     test "handles NAMES command with invisible users" do
@@ -206,7 +227,7 @@ defmodule ElixIRCd.Commands.NamesTest do
 
         # Should not see the channel since user is not a member
         assert_sent_messages([
-          {user.pid, ":irc.test 403 #{user.nick} #secret :No such channel\r\n"}
+          {user.pid, ":irc.test 366 #{user.nick} #secret :End of /NAMES list\r\n"}
         ])
       end)
     end
@@ -226,7 +247,7 @@ defmodule ElixIRCd.Commands.NamesTest do
 
         # Should not see the channel since user is not a member
         assert_sent_messages([
-          {user.pid, ":irc.test 403 #{user.nick} #private :No such channel\r\n"}
+          {user.pid, ":irc.test 366 #{user.nick} #private :End of /NAMES list\r\n"}
         ])
       end)
     end
@@ -381,6 +402,40 @@ defmodule ElixIRCd.Commands.NamesTest do
         assert_sent_messages([
           {user.pid, ~r/:irc.test 353 #{user.nick} = #test :@#{dual_prefix_user.nick}/},
           {user.pid, ":irc.test 366 #{user.nick} #test :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "always sends 366 for visible channels even when all nicks are hidden" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#hidden_test", modes: [])
+        hidden_user = insert(:user, modes: ["i"])
+        insert(:user_channel, user: hidden_user, channel: channel)
+
+        message = %Message{command: "NAMES", params: ["#hidden_test"]}
+        assert :ok = Names.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 366 #{user.nick} #hidden_test :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "shows +i fellow members to channel members" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#member_test", modes: [])
+        hidden_member = insert(:user, nick: "hidden_member", modes: ["i"])
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: hidden_member, channel: channel)
+
+        message = %Message{command: "NAMES", params: ["#member_test"]}
+        assert :ok = Names.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ~r/:irc.test 353 #{user.nick} = #member_test :.*hidden_member/},
+          {user.pid, ":irc.test 366 #{user.nick} #member_test :End of /NAMES list\r\n"}
         ])
       end)
     end

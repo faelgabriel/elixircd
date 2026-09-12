@@ -65,24 +65,40 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
   defp sync_users(channel, registered_channel, access_entries, user_channels, channel_users) do
     users_by_pid = Map.new(channel_users, fn channel_user -> {channel_user.pid, channel_user} end)
 
+    context = %{
+      channel: channel,
+      registered_channel: registered_channel,
+      access_entries: access_entries,
+      channel_users: channel_users
+    }
+
     Enum.reduce(user_channels, 0, fn user_channel, synced_count ->
-      user = Map.fetch!(users_by_pid, user_channel.user_pid)
-      desired_modes = Flags.desired_channel_modes(registered_channel, user.identified_as, access_entries)
-      current_modes = Enum.filter(user_channel.modes, &(&1 in @managed_modes))
-
-      if Enum.sort(current_modes) == Enum.sort(desired_modes) do
-        synced_count
-      else
-        updated_modes =
-          user_channel.modes
-          |> Enum.reject(&(&1 in @managed_modes))
-          |> Kernel.++(desired_modes)
-
-        UserChannels.update(user_channel, %{modes: updated_modes})
-        broadcast_mode_diff(channel, channel_users, user, current_modes, desired_modes)
-        synced_count + 1
+      # The user may have quit after the snapshot; skip instead of crashing.
+      case Map.fetch(users_by_pid, user_channel.user_pid) do
+        {:ok, user} -> sync_user_channel(context, user_channel, user, synced_count)
+        :error -> synced_count
       end
     end)
+  end
+
+  @spec sync_user_channel(map(), UserChannel.t(), User.t(), non_neg_integer()) :: non_neg_integer()
+  defp sync_user_channel(context, user_channel, user, synced_count) do
+    %{registered_channel: registered_channel, access_entries: access_entries} = context
+    desired_modes = Flags.desired_channel_modes(registered_channel, user.identified_as, access_entries)
+    current_modes = Enum.filter(user_channel.modes, &(&1 in @managed_modes))
+
+    if Enum.sort(current_modes) == Enum.sort(desired_modes) do
+      synced_count
+    else
+      updated_modes =
+        user_channel.modes
+        |> Enum.reject(&(&1 in @managed_modes))
+        |> Kernel.++(desired_modes)
+
+      UserChannels.update(user_channel, %{modes: updated_modes})
+      broadcast_mode_diff(context.channel, context.channel_users, user, current_modes, desired_modes)
+      synced_count + 1
+    end
   end
 
   @spec broadcast_mode_diff(Channel.t(), [User.t()], User.t(), [String.t()], [String.t()]) :: :ok
