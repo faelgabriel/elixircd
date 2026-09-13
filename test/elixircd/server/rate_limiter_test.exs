@@ -49,11 +49,12 @@ defmodule ElixIRCd.Server.RateLimiterTest do
 
   setup do
     original_config = Application.get_env(:elixircd, :rate_limiter)
-    Application.put_env(:elixircd, :rate_limiter, Keyword.merge(original_config, @test_config))
 
     on_exit(fn ->
       Application.put_env(:elixircd, :rate_limiter, original_config)
     end)
+
+    Application.put_env(:elixircd, :rate_limiter, Keyword.merge(original_config, @test_config))
 
     :ok
   end
@@ -221,6 +222,21 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       assert :ok = RateLimiter.check_message(user, "")
       assert :ok = RateLimiter.check_message(user, "ANYTHING")
       assert :ok = RateLimiter.check_message(user, "ANYTHING ANYTHING")
+    end
+
+    test "shares command limits across tags, prefixes, whitespace and command casing", %{user: user} do
+      assert :ok = RateLimiter.check_message(user, "@label=first JOIN #one")
+      assert :ok = RateLimiter.check_message(user, "@label=second  :nick!ident@host join #two")
+      assert :ok = RateLimiter.check_message(user, "  :nick!ident@host   JoIn #three\r\n")
+      assert {:error, :throttled, _} = RateLimiter.check_message(user, "JOIN #four")
+      assert {:error, :throttled_exceeded} = RateLimiter.check_message(user, "@label=fifth JOIN #five")
+    end
+
+    test "handles incomplete metadata and invalid UTF-8 tags without parsing their values", %{user: user} do
+      assert :ok = RateLimiter.check_message(user, "@label=orphan")
+      assert :ok = RateLimiter.check_message(user, ":prefix")
+      assert :ok = RateLimiter.check_message(user, "@label=" <> <<255>> <> " NICK first")
+      assert {:error, :throttled, _} = RateLimiter.check_message(user, "NICK second")
     end
 
     test "allows messages from users with excepted nicknames" do

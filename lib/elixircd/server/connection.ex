@@ -22,7 +22,9 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.UserSilences
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.RateLimiter
+  alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Server.Snotice
+  alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Monitor
 
@@ -30,6 +32,7 @@ defmodule ElixIRCd.Server.Connection do
   @type connection_data :: %{ip_address: :inet.ip_address(), port_connected: :inet.port_number()}
 
   @max_client_tag_data_length 4094
+  @invalid_utf8_description "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
 
   @doc """
   Handles the connection establishment.
@@ -96,7 +99,7 @@ defmodule ElixIRCd.Server.Connection do
          :ok <- check_utf8_validity(data) do
       handle_valid_message(user, data)
     else
-      {:error, :throttled, retry_after_ms} -> handle_throttled_message(user, retry_after_ms)
+      {:error, :throttled, retry_after_ms} -> handle_throttled_message(user, data, retry_after_ms)
       {:error, :throttled_exceeded} -> handle_excess_flood(user)
       {:error, :invalid_utf8} -> handle_invalid_utf8(user, data)
     end
@@ -117,21 +120,56 @@ defmodule ElixIRCd.Server.Connection do
   defp handle_invalid_utf8(user, data) do
     Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
 
-    # Pending: When "standard-replies" is implemented and negotiated with the user, use the FAIL command.
-    # %Message{
-    #   command: "FAIL",
-    #   params: ["*", "INVALID_UTF8"],
-    #   trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
-    # }
-    # |> Dispatcher.broadcast(:server, user)
+    description = @invalid_utf8_description
+    request = rejected_request(data)
 
-    %Message{
-      command: "NOTICE",
-      params: [user_reply(user)],
-      trailing: "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
-    }
-    |> Dispatcher.broadcast(:server, user)
+    ResponseContext.with_command(user, request, fn ->
+      reply = %StandardReply{type: :fail, command: request.command, code: "INVALID_UTF8", description: description}
+      fallback = %Message{command: "NOTICE", params: [user_reply(user)], trailing: description}
+
+      Dispatcher.broadcast_standard_reply(reply, :server, user, fallback)
+    end)
   end
+
+  # Parse only to recover correlation metadata; invalid input is never dispatched.
+  @spec rejected_request(binary()) :: Message.t()
+  defp rejected_request(data) do
+    with :ok <- validate_tag_data_length(data),
+         {:ok, message} <- Message.parse(discard_invalid_tags(data)) do
+      tags = Map.filter(message.tags, fn {_key, value} -> is_binary(value) and String.valid?(value) end)
+
+      command =
+        if Regex.match?(~r/\A[a-zA-Z]+\z/, message.command) and rejected_command_fits?(message.command),
+          do: message.command,
+          else: "*"
+
+      %{message | command: command, tags: tags}
+    else
+      _ -> %Message{command: "*", params: []}
+    end
+  end
+
+  # A hostile command token may itself exceed the reply's wire budget. In that case it cannot be relayed, so Standard
+  # Replies specifies the `*` placeholder.
+  @spec rejected_command_fits?(String.t()) :: boolean()
+  defp rejected_command_fits?(command) do
+    hostname = Application.get_env(:elixircd, :server)[:hostname]
+    byte_size(":#{hostname} FAIL #{command} INVALID_UTF8 :#{@invalid_utf8_description}\r\n") <= 512
+  end
+
+  @spec discard_invalid_tags(binary()) :: binary()
+  defp discard_invalid_tags("@" <> data) do
+    case :binary.split(data, " ") do
+      [tags, rest] ->
+        valid_tags = tags |> :binary.split(";", [:global]) |> Enum.filter(&String.valid?/1) |> Enum.join(";")
+        "@" <> valid_tags <> " " <> rest
+
+      [_tags] ->
+        ""
+    end
+  end
+
+  defp discard_invalid_tags(data), do: data
 
   @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
   defp handle_valid_message(user, data) do
@@ -168,15 +206,29 @@ defmodule ElixIRCd.Server.Connection do
 
   defp validate_tag_data_length(_data), do: :ok
 
-  @spec handle_throttled_message(user :: User.t(), retry_after_ms :: non_neg_integer()) :: :ok
-  defp handle_throttled_message(user, retry_after_ms) do
-    %Message{
-      command: "NOTICE",
-      params: [user_reply(user)],
-      trailing:
-        "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
-    }
-    |> Dispatcher.broadcast(:server, user)
+  @spec handle_throttled_message(User.t(), binary(), non_neg_integer()) :: :ok
+  defp handle_throttled_message(user, data, retry_after_ms) do
+    request = rejected_request(data)
+
+    description =
+      "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
+
+    ResponseContext.with_command(user, request, fn ->
+      if request.command == "SETNAME" and user.registered and
+           Application.get_env(:elixircd, :capabilities)[:setname] do
+        reply = %StandardReply{
+          type: :fail,
+          command: "SETNAME",
+          code: "CANNOT_CHANGE_REALNAME",
+          description: description
+        }
+
+        Dispatcher.broadcast(reply, :server, user)
+      else
+        message = %Message{command: "NOTICE", params: [user_reply(user)], trailing: description}
+        Dispatcher.broadcast(message, :server, user)
+      end
+    end)
   end
 
   @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}

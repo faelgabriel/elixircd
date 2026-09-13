@@ -222,13 +222,28 @@ defmodule ElixIRCd.Server.RateLimiter do
 
   @spec extract_command(String.t()) :: String.t() | nil
   defp extract_command(data) do
-    [command | _rest] = String.split(data, " ", parts: 2)
+    [command | _rest] =
+      data
+      |> String.trim()
+      |> skip_metadata(?@)
+      |> skip_metadata(?:)
+      |> String.split(" ", parts: 2)
 
     case command do
       "" -> nil
       _ -> String.upcase(command)
     end
   end
+
+  @spec skip_metadata(binary(), byte()) :: binary()
+  defp skip_metadata(<<marker, rest::binary>>, marker) do
+    case :binary.split(rest, " ") do
+      [_metadata, message] -> String.trim_leading(message, " ")
+      [_metadata] -> ""
+    end
+  end
+
+  defp skip_metadata(data, _marker), do: data
 
   @spec calculate_token_wait_time(atom(), String.t(), number(), pos_integer(), pos_integer()) :: pos_integer()
   defp calculate_token_wait_time(table_name, rate_key, refill_rate, capacity, cost) do

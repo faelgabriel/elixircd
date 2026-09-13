@@ -45,7 +45,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch cap-notify chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch cap-notify chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -141,7 +141,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname server-time message-tags\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags\r\n"}
         ])
       end)
     end
@@ -183,6 +183,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:invite_notify, false)
         |> Keyword.put(:multi_prefix, false)
         |> Keyword.put(:setname, false)
+        |> Keyword.put(:standard_replies, false)
         |> Keyword.put(:extended_names, false)
         |> Keyword.put(:message_tags, false)
         |> Keyword.put(:server_time, false)
@@ -234,7 +235,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -283,8 +284,34 @@ defmodule ElixIRCd.Commands.CapTest do
         # SASL should not be in the list when no mechanisms are enabled
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
+      end)
+    end
+
+    test "CAP version persists, enables notifications, and controls capability values" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false)
+
+        for version <- ["invalid", "301", "307", "302"] do
+          {:ok, user} = Users.get_by_pid(user.pid)
+          Cap.handle(user, %Message{command: "CAP", params: ["LS", version]})
+        end
+
+        {:ok, user} = Users.get_by_pid(user.pid)
+        assert user.cap_version == 307
+        assert "cap-notify" in user.capabilities
+        assert_sent_messages_count_containing(user.pid, ~r/sasl=PLAIN/, 2)
+        assert_sent_messages_amount(user.pid, 4)
+
+        Cap.handle(user, %Message{command: "CAP", params: ["LS"]})
+        assert_sent_messages_count_containing(user.pid, ~r/sasl=/, 0)
+        {:ok, user} = Users.get_by_pid(user.pid)
+        assert user.cap_version == 307
+        Cap.handle(user, %Message{command: "CAP", params: ["REQ", "-cap-notify"]})
+        assert_sent_message_contains(user.pid, ":irc.test CAP * NAK :-cap-notify\r\n")
+        {:ok, user} = Users.get_by_pid(user.pid)
+        assert "cap-notify" in user.capabilities
       end)
     end
   end
@@ -663,6 +690,52 @@ defmodule ElixIRCd.Commands.CapTest do
           refute capability in Memento.Query.read(ElixIRCd.Tables.User, user.pid).capabilities
         end)
       end
+    end
+
+    test "negotiates standard-replies independently per connection through its full lifecycle" do
+      Memento.transaction!(fn ->
+        first = insert(:user, registered: false, capabilities: [])
+        second = insert(:user, capabilities: [])
+        assert :ok = Cap.handle(first, %Message{command: "CAP", params: ["LS", "302"]})
+        assert_sent_message_contains(first.pid, ~r/ LS :.* standard-replies(?: |\r)/)
+        {:ok, first} = Users.get_by_pid(first.pid)
+        assert :ok = Cap.handle(first, %Message{command: "CAP", params: ["REQ"], trailing: "standard-replies"})
+        {:ok, first} = Users.get_by_pid(first.pid)
+        assert "standard-replies" in first.capabilities
+        {:ok, second} = Users.get_by_pid(second.pid)
+        refute "standard-replies" in second.capabilities
+        assert :ok = Cap.handle(first, %Message{command: "CAP", params: ["LIST"]})
+        assert_sent_message_contains(first.pid, ":irc.test CAP * LIST :standard-replies cap-notify\r\n")
+        assert :ok = Cap.handle(first, %Message{command: "CAP", params: ["REQ"], trailing: "-standard-replies"})
+        {:ok, first} = Users.get_by_pid(first.pid)
+        refute "standard-replies" in first.capabilities
+        assert_sent_message_contains(first.pid, ":irc.test CAP * ACK :-standard-replies\r\n")
+        assert_sent_messages_amount(second.pid, 0)
+      end)
+    end
+
+    test "rejects standard-replies requests atomically when disabled" do
+      original = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original) end)
+      Application.put_env(:elixircd, :capabilities, Keyword.put(original, :standard_replies, false))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [])
+        Cap.handle(user, %Message{command: "CAP", params: ["LS"]})
+        assert_sent_messages_count_containing(user.pid, ~r/standard-replies/, 0)
+        Cap.handle(user, %Message{command: "CAP", params: ["REQ"], trailing: "setname standard-replies"})
+        assert_sent_message_contains(user.pid, ":irc.test CAP #{user.nick} NAK :setname standard-replies\r\n")
+        {:ok, updated} = Users.get_by_pid(user.pid)
+        assert updated.capabilities == []
+      end)
+    end
+
+    test "rejects noncanonical standard-replies capability names" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: [])
+        Cap.handle(user, %Message{command: "CAP", params: ["REQ"], trailing: "Standard-Replies"})
+        assert_sent_messages([{user.pid, ":irc.test CAP #{user.nick} NAK :Standard-Replies\r\n"}])
+      end)
     end
   end
 
@@ -1115,31 +1188,5 @@ defmodule ElixIRCd.Commands.CapTest do
         assert "cap-notify" not in updated_user.capabilities
       end)
     end
-  end
-
-  test "CAP version persists, enables notifications, and controls capability values" do
-    Memento.transaction!(fn ->
-      user = insert(:user, registered: false)
-
-      for version <- ["invalid", "301", "307", "302"] do
-        {:ok, user} = Users.get_by_pid(user.pid)
-        Cap.handle(user, %Message{command: "CAP", params: ["LS", version]})
-      end
-
-      {:ok, user} = Users.get_by_pid(user.pid)
-      assert user.cap_version == 307
-      assert "cap-notify" in user.capabilities
-      assert_sent_messages_count_containing(user.pid, ~r/sasl=PLAIN/, 2)
-      assert_sent_messages_amount(user.pid, 4)
-
-      Cap.handle(user, %Message{command: "CAP", params: ["LS"]})
-      assert_sent_messages_count_containing(user.pid, ~r/sasl=/, 0)
-      {:ok, user} = Users.get_by_pid(user.pid)
-      assert user.cap_version == 307
-      Cap.handle(user, %Message{command: "CAP", params: ["REQ", "-cap-notify"]})
-      assert_sent_message_contains(user.pid, ":irc.test CAP * NAK :-cap-notify\r\n")
-      {:ok, user} = Users.get_by_pid(user.pid)
-      assert "cap-notify" in user.capabilities
-    end)
   end
 end

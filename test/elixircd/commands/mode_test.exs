@@ -609,8 +609,8 @@ defmodule ElixIRCd.Commands.ModeTest do
 
     test "handles MODE command for channel when mode changes exceed the limit" do
       original_config = Application.get_env(:elixircd, :channel)
-      Application.put_env(:elixircd, :channel, original_config |> Keyword.put(:max_modes_per_command, 4))
       on_exit(fn -> Application.put_env(:elixircd, :channel, original_config) end)
+      Application.put_env(:elixircd, :channel, original_config |> Keyword.put(:max_modes_per_command, 4))
 
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -626,6 +626,35 @@ defmodule ElixIRCd.Commands.ModeTest do
            ":irc.test 472 #{user.nick} #{channel.name} :Too many channel modes in one command (maximum is 4)\r\n"}
         ])
       end)
+    end
+
+    for {mode, factory, numeric, ending} <- [
+          {"b", :channel_ban, "367", "368"},
+          {"e", :channel_except, "348", "349"},
+          {"I", :channel_invex, "346", "347"}
+        ] do
+      test "warns about truncated #{mode} lists while retaining standard numerics" do
+        original = Application.get_env(:elixircd, :channel)
+        on_exit(fn -> Application.put_env(:elixircd, :channel, original) end)
+        Application.put_env(:elixircd, :channel, Keyword.put(original, :max_list_entries, %{unquote(mode) => 1}))
+
+        Memento.transaction!(fn ->
+          user = insert(:user, capabilities: ["standard-replies"])
+          channel = insert(:channel, modes: [])
+          insert(:user_channel, user: user, channel: channel, modes: ["o"])
+          for n <- 1..2, do: insert(unquote(factory), channel: channel, mask: "user#{n}!*@*")
+          Mode.handle(user, %Message{command: "MODE", params: [channel.name, "+" <> unquote(mode)]})
+          assert_sent_messages_count_containing(user.pid, ~r/ #{unquote(numeric)} /, 1)
+          assert_sent_messages_count_containing(user.pid, ~r/ #{unquote(ending)} /, 1)
+
+          assert_sent_message_contains(
+            user.pid,
+            ~r/ WARN MODE LIST_TRUNCATED #{Regex.escape(channel.name)} #{unquote(mode)} :/
+          )
+
+          assert_sent_messages_amount(user.pid, 3)
+        end)
+      end
     end
   end
 

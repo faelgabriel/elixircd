@@ -10,6 +10,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
   alias ElixIRCd.Command
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Metrics
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Tables.Channel
@@ -123,6 +124,9 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
   describe "handle_receive/2" do
     setup do
+      settings = Application.get_env(:elixircd, :settings)
+      on_exit(fn -> Application.put_env(:elixircd, :settings, settings) end)
+      Application.put_env(:elixircd, :settings, Keyword.put(settings, :utf8_only, true))
       user = insert(:user)
       %{user: user}
     end
@@ -188,6 +192,60 @@ defmodule ElixIRCd.Server.ConnectionTest do
       ])
     end
 
+    test "preserves labels on legacy throttling feedback" do
+      user = insert(:user, capabilities: ["batch", "labeled-response"])
+      expect(RateLimiter, :check_message, fn _, _ -> {:error, :throttled, 2000} end)
+      reject(Command, :dispatch, 2)
+
+      assert :ok = Connection.handle_receive(user.pid, "@label=slow PRIVMSG #test :spam")
+      assert_sent_message_contains(user.pid, ~r/^@label=slow :irc.test NOTICE .* :Please slow down\./)
+      assert_sent_messages_amount(user.pid, 1)
+    end
+
+    test "throttled SETNAME returns the extension failure independently of negotiated capabilities" do
+      caps = Application.get_env(:elixircd, :capabilities)
+      config = Application.get_env(:elixircd, :rate_limiter)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :capabilities, caps)
+        Application.put_env(:elixircd, :rate_limiter, config)
+      end)
+
+      Application.put_env(:elixircd, :capabilities, Keyword.put(caps, :setname, true))
+      overrides = Map.put(config[:message][:command_throttle], "SETNAME", capacity: 1, refill_rate: 0.001)
+      Application.put_env(:elixircd, :rate_limiter, put_in(config, [:message, :command_throttle], overrides))
+
+      for capabilities <- [[], ["setname"], ["setname", "standard-replies"]] do
+        user = insert(:user, capabilities: capabilities ++ ["batch", "labeled-response"])
+        assert :ok = Connection.handle_receive(user.pid, "@label=first SETNAME :Accepted")
+        assert :ok = Connection.handle_receive(user.pid, "@label=second SETNAME :Rejected")
+
+        assert_sent_message_contains(
+          user.pid,
+          ~r/^@label=second :irc.test FAIL SETNAME CANNOT_CHANGE_REALNAME :Please slow down\./
+        )
+
+        assert {:ok, updated} = Memento.transaction!(fn -> Users.get_by_pid(user.pid) end)
+        assert updated.realname == "Accepted"
+        assert_sent_messages_amount(user.pid, 2)
+      end
+    end
+
+    test "throttling does not enable SETNAME for unregistered users or when disabled" do
+      caps = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, caps) end)
+      stub(RateLimiter, :check_message, fn _, _ -> {:error, :throttled, 2000} end)
+      reject(Command, :dispatch, 2)
+
+      for {registered, enabled} <- [{false, true}, {true, false}] do
+        Application.put_env(:elixircd, :capabilities, Keyword.put(caps, :setname, enabled))
+        user = insert(:user, registered: registered, capabilities: ["standard-replies"])
+        assert :ok = Connection.handle_receive(user.pid, "SETNAME :Rejected")
+        assert_sent_message_contains(user.pid, ~r/^:irc.test NOTICE .* :Please slow down\./)
+        assert_sent_messages_amount(user.pid, 1)
+      end
+    end
+
     test "sends snotice to operators with +s mode when flood occurs" do
       user = insert(:user)
       oper_with_s = insert(:user, modes: ["o", "s"])
@@ -224,8 +282,6 @@ defmodule ElixIRCd.Server.ConnectionTest do
       end)
 
       assert :ok = Connection.handle_receive(user.pid, "PRIVMSG #test :Hello world! 🌍")
-
-      Application.put_env(:elixircd, :settings, original_settings)
     end
 
     test "handles invalid UTF-8 message when utf8_only is enabled", %{user: user} do
@@ -244,8 +300,6 @@ defmodule ElixIRCd.Server.ConnectionTest do
         {user.pid,
          ":irc.test NOTICE #{user.nick} :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
       ])
-
-      Application.put_env(:elixircd, :settings, original_settings)
     end
 
     test "allows invalid UTF-8 message when utf8_only is disabled", %{user: user} do
@@ -265,8 +319,91 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
       # Should not send any error messages
       assert_sent_messages_amount(user.pid, 0)
+    end
 
-      Application.put_env(:elixircd, :settings, original_settings)
+    test "rejects invalid UTF-8 with one labeled FAIL and no state change" do
+      reject(Command, :dispatch, 2)
+      user = insert(:user, capabilities: ["standard-replies", "batch", "labeled-response"], realname: "Old")
+      assert :ok = Connection.handle_receive(user.pid, "@label=utf8 SETNAME :" <> <<255>>)
+
+      assert_sent_messages([
+        {user.pid,
+         "@label=utf8 :irc.test FAIL SETNAME INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+      ])
+
+      Memento.transaction!(fn ->
+        assert {:ok, %{realname: "Old"}} = Users.get_by_pid(user.pid)
+      end)
+    end
+
+    test "rejects invalid UTF-8 before registration and recovers a command without label negotiation" do
+      reject(Command, :dispatch, 2)
+      user = insert(:user, registered: false, capabilities: ["standard-replies"])
+      Connection.handle_receive(user.pid, "@label=ignored user a b c :" <> <<255>>)
+
+      assert_sent_messages([
+        {user.pid,
+         ":irc.test FAIL USER INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+      ])
+    end
+
+    test "uses a session reply for invalid UTF-8 with an unparseable command or oversized tags" do
+      reject(Command, :dispatch, 2)
+
+      for data <- [
+            String.duplicate("A", 512) <> " :" <> <<255>>,
+            <<255>>,
+            "@" <> <<255>>,
+            "@label=" <> String.duplicate("x", 4095) <> " PRIVMSG x :" <> <<255>>
+          ] do
+        user = insert(:user, capabilities: ["standard-replies", "batch", "labeled-response"])
+        Connection.handle_receive(user.pid, data)
+
+        assert_sent_message_contains(
+          user.pid,
+          ":irc.test FAIL * INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"
+        )
+
+        assert_sent_messages_amount(user.pid, 1)
+      end
+    end
+
+    test "ignores malformed and oversized labels on UTF-8 rejection without losing a valid command" do
+      reject(Command, :dispatch, 2)
+
+      for label <- [<<255>>, String.duplicate("x", 65)] do
+        user = insert(:user, capabilities: ["standard-replies", "batch", "labeled-response"])
+        Connection.handle_receive(user.pid, "@label=" <> label <> " PRIVMSG x :" <> <<255>>)
+
+        assert_sent_message_contains(
+          user.pid,
+          ":irc.test FAIL PRIVMSG INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"
+        )
+
+        assert_sent_messages_amount(user.pid, 1)
+      end
+    end
+
+    test "retains a valid label on UTF-8 rejection when the command cannot be relayed" do
+      reject(Command, :dispatch, 2)
+      user = insert(:user, capabilities: ["standard-replies", "batch", "labeled-response"])
+      Connection.handle_receive(user.pid, "@label=invalid " <> <<255>>)
+
+      assert_sent_messages([
+        {user.pid,
+         "@label=invalid :irc.test FAIL * INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+      ])
+    end
+
+    test "legacy UTF-8 rejection still preserves a negotiated label" do
+      reject(Command, :dispatch, 2)
+      user = insert(:user, capabilities: ["batch", "labeled-response"])
+      Connection.handle_receive(user.pid, "@label=legacy PRIVMSG x :" <> <<255>>)
+
+      assert_sent_messages([
+        {user.pid,
+         "@label=legacy :irc.test NOTICE #{user.nick} :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+      ])
     end
 
     test "rejects messages with too much tag data", %{user: user} do

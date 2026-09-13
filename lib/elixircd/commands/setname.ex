@@ -3,7 +3,7 @@ defmodule ElixIRCd.Commands.Setname do
   This module defines the SETNAME command.
 
   SETNAME allows users to change their real name (GECOS) during an active session.
-  This requires the `setname` capability to be enabled.
+  The server must enable `setname`; clients need not negotiate it to use the command.
   """
 
   @behaviour ElixIRCd.Command
@@ -13,6 +13,7 @@ defmodule ElixIRCd.Commands.Setname do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -20,6 +21,10 @@ defmodule ElixIRCd.Commands.Setname do
   def handle(%{registered: false} = user, %{command: "SETNAME"}) do
     %Message{command: :err_notregistered, params: ["*"], trailing: "You have not registered"}
     |> Dispatcher.broadcast(:server, user)
+  end
+
+  def handle(user, %{command: "SETNAME", params: [realname | _]} = message) do
+    handle(user, %{message | params: [], trailing: realname})
   end
 
   def handle(user, %{command: "SETNAME", trailing: nil}) do
@@ -40,21 +45,29 @@ defmodule ElixIRCd.Commands.Setname do
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :realname_empty} ->
-        %Message{command: "FAIL", params: ["SETNAME", "INVALID_REALNAME"], trailing: "Realname cannot be empty"}
-        |> Dispatcher.broadcast(:server, user)
+        reply = %StandardReply{
+          type: :fail,
+          command: "SETNAME",
+          code: "INVALID_REALNAME",
+          description: "Realname cannot be empty"
+        }
+
+        Dispatcher.broadcast(reply, :server, user)
 
       {:error, :realname_too_long} ->
         max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
 
-        %Message{
-          command: "FAIL",
-          params: ["SETNAME", "INVALID_REALNAME"],
-          trailing: "Realname too long (maximum #{max_realname_length} characters)"
+        reply = %StandardReply{
+          type: :fail,
+          command: "SETNAME",
+          code: "INVALID_REALNAME",
+          description: "Realname too long (maximum #{max_realname_length} characters)"
         }
-        |> Dispatcher.broadcast(:server, user)
+
+        Dispatcher.broadcast(reply, :server, user)
 
       {:changed, false} ->
-        :ok
+        notify_setname(user, new_realname)
     end
   end
 

@@ -138,6 +138,8 @@ config :elixircd,
     sasl: true,
     # Whether to allow clients to change their real name during the session (setname capability)
     setname: true,
+    # Whether to advertise optional structured FAIL/WARN/NOTE replies
+    standard_replies: true,
     # Whether to support the server-time capability adding time= tags
     server_time: true,
     # Whether to support LABELED-RESPONSE for correlating server replies with client labels

@@ -9,6 +9,8 @@ defmodule ElixIRCd.Server.DispatcherTest do
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.StandardReply
 
   describe "broadcast/3 with context" do
     setup do
@@ -22,6 +24,59 @@ defmodule ElixIRCd.Server.DispatcherTest do
          target_user: target_user,
          message: message
        }}
+    end
+
+    test "delivers extension replies without standard-replies and preserves service correlation" do
+      for capabilities <- [["batch", "labeled-response"], ["setname", "batch", "labeled-response"]] do
+        user = insert(:user, capabilities: capabilities)
+        reply = %StandardReply{type: :fail, command: "SETNAME", code: "INVALID_REALNAME", description: "Invalid"}
+        request = %Message{command: "SETNAME", params: [], tags: %{"label" => "extension"}}
+
+        setup_expectations([
+          {user.pid, "@label=extension :NickServ!service@irc.test FAIL SETNAME INVALID_REALNAME :Invalid\r\n"}
+        ])
+
+        ResponseContext.with_command(user, request, fn ->
+          assert :ok = Dispatcher.broadcast(reply, :nickserv, user)
+        end)
+      end
+    end
+
+    test "bounds standard replies with a service prefix without splitting UTF-8 or counting tags" do
+      user = insert(:user, capabilities: ["standard-replies", "server-time"])
+      message = %Message{command: "WARN", params: ["*", "LONG", "context"], trailing: String.duplicate("🌍", 200)}
+
+      Connection
+      |> expect(:handle_send, fn pid, wire ->
+        assert pid == user.pid
+        assert String.valid?(wire)
+        [tags, body] = String.split(wire, " ", parts: 2)
+        assert String.starts_with?(tags, "@time=")
+        assert byte_size(body) <= 512
+        assert byte_size(body) >= 509
+        assert body =~ ":NickServ!service@irc.test WARN * LONG context :"
+        :ok
+      end)
+
+      assert :ok = Dispatcher.broadcast(message, :nickserv, user)
+    end
+
+    test "delivers a standard reply description parsed as a middle parameter for every reply type" do
+      user = insert(:user, capabilities: ["standard-replies"])
+
+      for type <- ["FAIL", "WARN", "NOTE"] do
+        message = Message.parse!(":irc.test #{type} EXAMPLE CODE #context Description")
+        assert message.trailing == nil
+
+        Connection
+        |> expect(:handle_send, fn pid, wire ->
+          assert pid == user.pid
+          assert wire == ":irc.test #{type} EXAMPLE CODE #context :Description\r\n"
+          :ok
+        end)
+
+        assert :ok = Dispatcher.broadcast(message, :server, user)
+      end
     end
 
     test "broadcasts with User context, adding prefix and bot tag for bot user", %{
@@ -336,6 +391,26 @@ defmodule ElixIRCd.Server.DispatcherTest do
          message: message,
          raw_message: raw_message
        }}
+    end
+
+    test "broadcasts mixed messages and standard replies to user and PID targets", %{user: user, pid: pid} do
+      message = %Message{command: :rpl_rehashing, params: [user.nick, "elixircd.exs"], trailing: "Rehashing"}
+
+      reply = %StandardReply{
+        type: :note,
+        command: "REHASH",
+        code: "REHASH_COMPLETE",
+        description: "Rehashing completed"
+      }
+
+      setup_expectations([
+        {user.pid, ":irc.test 382 #{user.nick} elixircd.exs :Rehashing\r\n"},
+        {pid, ":irc.test 382 #{user.nick} elixircd.exs :Rehashing\r\n"},
+        {user.pid, ":irc.test NOTE REHASH REHASH_COMPLETE :Rehashing completed\r\n"},
+        {pid, ":irc.test NOTE REHASH REHASH_COMPLETE :Rehashing completed\r\n"}
+      ])
+
+      assert :ok = Dispatcher.broadcast([message, reply], :server, [user, pid])
     end
 
     test "broadcasts a single message to a single target", %{
@@ -697,6 +772,69 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
       Connection
       |> reject(:handle_send, 2)
+    end
+  end
+
+  describe "broadcast_standard_reply/4" do
+    test "selects exactly one optional reply according to each recipient's standard-replies capability" do
+      reply = %StandardReply{type: :fail, command: "REHASH", code: "CONFIG_BAD", description: "Invalid configuration"}
+
+      for capabilities <- [["standard-replies"], [], ["setname"]] do
+        user = insert(:user, capabilities: capabilities)
+        fallback = %Message{command: "NOTICE", params: [user.nick], trailing: "Invalid configuration"}
+
+        expected =
+          if "standard-replies" in capabilities,
+            do: ":irc.test FAIL REHASH CONFIG_BAD :Invalid configuration\r\n",
+            else: ":irc.test NOTICE #{user.nick} :Invalid configuration\r\n"
+
+        setup_expectations([{user.pid, expected}])
+        assert :ok = Dispatcher.broadcast_standard_reply(reply, :server, user, fallback)
+      end
+    end
+
+    test "retains the selected service prefix and label on legacy fallback" do
+      user = insert(:user, capabilities: ["batch", "labeled-response"])
+      reply = %StandardReply{type: :note, command: "PRIVMSG", code: "ACCOUNT_INFO", description: "Account information"}
+      fallback = %Message{command: "NOTICE", params: [user.nick], trailing: "Account information"}
+      request = %Message{command: "PRIVMSG", params: ["NickServ"], tags: %{"label" => "legacy"}}
+
+      setup_expectations([
+        {user.pid, "@label=legacy :NickServ!service@irc.test NOTICE #{user.nick} :Account information\r\n"}
+      ])
+
+      ResponseContext.with_command(user, request, fn ->
+        assert :ok = Dispatcher.broadcast_standard_reply(reply, :nickserv, user, fallback)
+      end)
+    end
+
+    test "service replies reach only the selected user and preserve labels and server-time" do
+      requester = insert(:user, capabilities: ["standard-replies", "batch", "labeled-response", "server-time"])
+      other = insert(:user, capabilities: ["standard-replies"])
+      request = %Message{command: "PRIVMSG", params: ["NickServ"], tags: %{"label" => "request42"}}
+      reply = %StandardReply{type: :note, command: "PRIVMSG", code: "ACCOUNT_INFO", description: "Account information"}
+      fallback = %Message{command: "NOTICE", params: [requester.nick], trailing: "Account information"}
+      requester_pid = requester.pid
+      other_pid = other.pid
+      parent = self()
+
+      expect(Connection, :handle_send, 2, fn pid, wire ->
+        send(parent, {:delivered, pid, wire})
+        :ok
+      end)
+
+      ResponseContext.with_command(requester, request, fn ->
+        Dispatcher.broadcast_standard_reply(reply, :nickserv, requester, fallback)
+        Dispatcher.broadcast_standard_reply(reply, :chanserv, other, fallback)
+      end)
+
+      assert_receive {:delivered, ^requester_pid, requester_message}
+      assert_receive {:delivered, ^other_pid, other_message}
+
+      assert requester_message =~
+               ~r/^@label=request42;time=\S+ :NickServ!service@irc.test NOTE PRIVMSG ACCOUNT_INFO :Account information\r\n$/
+
+      assert other_message == ":ChanServ!service@irc.test NOTE PRIVMSG ACCOUNT_INFO :Account information\r\n"
     end
   end
 

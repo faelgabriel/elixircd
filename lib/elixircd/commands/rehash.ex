@@ -7,6 +7,8 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @behaviour ElixIRCd.Command
 
+  require Logger
+
   import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1, user_reply: 1]
   import ElixIRCd.Utils.System, only: [load_configurations: 0]
 
@@ -16,6 +18,7 @@ defmodule ElixIRCd.Commands.Rehash do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Isupport
   alias ElixIRCd.Utils.Monitor
@@ -34,6 +37,7 @@ defmodule ElixIRCd.Commands.Rehash do
     {:multi_prefix, "multi-prefix"},
     {:sasl, "sasl"},
     {:setname, "setname"},
+    {:standard_replies, "standard-replies"},
     {:extended_names, "userhost-in-names"},
     {:message_tags, "message-tags"},
     {:server_time, "server-time"},
@@ -81,11 +85,43 @@ defmodule ElixIRCd.Commands.Rehash do
     monitor_was_enabled = Monitor.enabled?()
     old_caps = Application.get_env(:elixircd, :capabilities, [])
     old_sts = Application.get_env(:elixircd, :sts, [])
+
+    case reload_configurations() do
+      :ok -> complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts)
+      :error -> configuration_error(user)
+    end
+  end
+
+  @spec reload_configurations() :: :ok | :error
+  defp reload_configurations do
     load_configurations()
+  rescue
+    # Configuration evaluation can fail with file, syntax or runtime errors. Keep this boundary around loading, without
+    # masking notification failures.
+    error ->
+      Logger.error("Failed to reload configuration during REHASH:\n" <> Exception.format(:error, error, __STACKTRACE__))
+      :error
+  end
+
+  @spec configuration_error(User.t()) :: :ok
+  defp configuration_error(user) do
+    description = "Could not reload configuration. Check config/elixircd.exs and try again."
+
+    reply = %StandardReply{type: :fail, command: "REHASH", code: "CONFIG_BAD", description: description}
+    fallback = %Message{command: "NOTICE", params: [user.nick], trailing: description}
+
+    Dispatcher.broadcast_standard_reply(reply, :server, user, fallback)
+  end
+
+  @spec complete_rehashing(User.t(), [String.t()], boolean(), keyword(), keyword()) :: :ok
+  defp complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts) do
     new_caps = Application.get_env(:elixircd, :capabilities, [])
 
-    %Message{command: "NOTICE", params: [user.nick], trailing: "Rehashing completed"}
-    |> Dispatcher.broadcast(:server, user)
+    description = "Rehashing completed"
+    reply = %StandardReply{type: :note, command: "REHASH", code: "REHASH_COMPLETE", description: description}
+    fallback = %Message{command: "NOTICE", params: [user.nick], trailing: description}
+
+    Dispatcher.broadcast_standard_reply(reply, :server, user, fallback)
 
     # Finish the logical response under the negotiated capabilities before
     # announcing their removal. CAP DEL must never interrupt an open batch.

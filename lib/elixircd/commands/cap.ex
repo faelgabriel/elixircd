@@ -75,6 +75,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "setname",
       description: "Allow clients to change their real name during the session"
     },
+    "standard-replies" => %{
+      name: "standard-replies",
+      description: "Structured server errors, warnings and informational replies"
+    },
     "sts" => %{
       name: "sts",
       description: "Strict Transport Security - automatic TLS upgrade and policy persistence"
@@ -204,6 +208,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:multi_prefix, "multi-prefix"},
             {:sasl, build_sasl_capability_value()},
             {:setname, "setname"},
+            {:standard_replies, "standard-replies"},
             {:sts, build_sts_capability_value(user)},
             {:server_time, "server-time"},
             {:message_tags, "message-tags"},

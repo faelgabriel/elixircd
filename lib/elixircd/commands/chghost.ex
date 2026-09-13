@@ -13,6 +13,7 @@ defmodule ElixIRCd.Commands.Chghost do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -91,25 +92,29 @@ defmodule ElixIRCd.Commands.Chghost do
         |> Dispatcher.broadcast(:server, operator)
 
       {:error, :hostname_empty} ->
-        %Message{command: "NOTICE", params: [user_reply(operator)], trailing: "Invalid hostname: cannot be empty"}
-        |> Dispatcher.broadcast(:server, operator)
+        invalid_hostname(operator, target_user, "Invalid hostname: cannot be empty")
 
       {:error, :hostname_too_long} ->
-        %Message{
-          command: "NOTICE",
-          params: [user_reply(operator)],
-          trailing: "Invalid hostname: too long (maximum 253 characters)"
-        }
-        |> Dispatcher.broadcast(:server, operator)
+        invalid_hostname(operator, target_user, "Invalid hostname: too long (maximum 253 characters)")
 
       {:error, :hostname_invalid_chars} ->
-        %Message{
-          command: "NOTICE",
-          params: [user_reply(operator)],
-          trailing: "Invalid hostname: contains invalid characters"
-        }
-        |> Dispatcher.broadcast(:server, operator)
+        invalid_hostname(operator, target_user, "Invalid hostname: contains invalid characters")
     end
+  end
+
+  @spec invalid_hostname(User.t(), User.t(), String.t()) :: :ok
+  defp invalid_hostname(operator, target_user, description) do
+    reply = %StandardReply{
+      type: :fail,
+      command: "CHGHOST",
+      code: "INVALID_HOSTNAME",
+      context: [target_user.nick],
+      description: description
+    }
+
+    fallback = %Message{command: "NOTICE", params: [user_reply(operator)], trailing: description}
+
+    Dispatcher.broadcast_standard_reply(reply, :server, operator, fallback)
   end
 
   @spec validate_ident(String.t()) :: :ok | {:error, :ident_empty | :ident_too_long | :ident_invalid_chars}

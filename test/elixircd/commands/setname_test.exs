@@ -212,5 +212,56 @@ defmodule ElixIRCd.Commands.SetnameTest do
         assert updated_user.realname == "New Name"
       end)
     end
+
+    test "extension failures are independent of standard-replies and keep labels" do
+      original = Application.get_env(:elixircd, :capabilities)
+      on_exit(fn -> Application.put_env(:elixircd, :capabilities, original) end)
+      Application.put_env(:elixircd, :capabilities, Keyword.merge(original, setname: true, standard_replies: false))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, realname: "Old", capabilities: ["setname", "batch", "labeled-response"])
+        request = %Message{command: "SETNAME", params: [], trailing: "", tags: %{"label" => "name"}}
+        ElixIRCd.Command.dispatch(user, request)
+
+        assert_sent_messages([
+          {user.pid, "@label=name :irc.test FAIL SETNAME INVALID_REALNAME :Realname cannot be empty\r\n"}
+        ])
+
+        assert {:ok, %{realname: "Old"}} = Users.get_by_pid(user.pid)
+      end)
+    end
+
+    test "standard replies do not replace missing-parameter numerics" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["standard-replies"])
+        Setname.handle(user, %Message{command: "SETNAME", params: []})
+        assert_sent_messages([{user.pid, ":irc.test 461 #{user.nick} SETNAME :Not enough parameters\r\n"}])
+      end)
+    end
+
+    test "accepts a single middle parameter and confirms an unchanged name" do
+      Memento.transaction!(fn ->
+        user = insert(:user, realname: "Same", capabilities: ["setname", "standard-replies"])
+        Setname.handle(user, %Message{command: "SETNAME", params: ["Same"]})
+        assert_sent_message_contains(user.pid, ~r/ SETNAME :Same\r\n$/)
+        assert_sent_messages_amount(user.pid, 1)
+        assert {:ok, %{realname: "Same"}} = Users.get_by_pid(user.pid)
+      end)
+    end
+
+    test "uses the first parameter when extra middle or trailing parameters are present" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["setname"])
+
+        for input <- ["SETNAME Alice Bob", "SETNAME Alice :Bob", "SETNAME Alice :"] do
+          message = Message.parse!(input)
+          assert :ok = Setname.handle(user, message)
+          assert {:ok, updated} = Users.get_by_pid(user.pid)
+          assert updated.realname == "Alice"
+          assert_sent_message_contains(user.pid, ~r/ SETNAME :Alice\r\n$/)
+          assert_sent_messages_amount(user.pid, 1)
+        end
+      end)
+    end
   end
 end

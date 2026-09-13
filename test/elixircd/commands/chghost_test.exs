@@ -6,6 +6,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Command
   alias ElixIRCd.Commands.Chghost
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
@@ -207,6 +208,36 @@ defmodule ElixIRCd.Commands.ChghostTest do
         assert_sent_messages([
           {operator.pid, ":irc.test NOTICE #{operator.nick} :Invalid hostname: contains invalid characters\r\n"}
         ])
+      end)
+    end
+
+    test "uses labeled standard replies for hostname failures without changing the target" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, modes: ["o"], capabilities: ["standard-replies", "batch", "labeled-response"])
+        target = insert(:user)
+
+        for {hostname, reason} <- [
+              {"", "cannot be empty"},
+              {String.duplicate("a", 254), "too long (maximum 253 characters)"},
+              {"invalid@host", "contains invalid characters"}
+            ] do
+          message = %Message{
+            command: "CHGHOST",
+            params: [target.nick, "newident", hostname],
+            tags: %{"label" => "host"}
+          }
+
+          assert :ok = Command.dispatch(operator, message)
+
+          assert_sent_message_contains(
+            operator.pid,
+            "@label=host :irc.test FAIL CHGHOST INVALID_HOSTNAME #{target.nick} :Invalid hostname: #{reason}\r\n"
+          )
+        end
+
+        assert {:ok, ^target} = Users.get_by_pid(target.pid)
+        assert_sent_messages_amount(operator.pid, 3)
+        assert_sent_messages_amount(target.pid, 0)
       end)
     end
   end

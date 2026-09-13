@@ -395,7 +395,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Multi-Prefix** (multi-prefix): Display multiple status prefixes for users in channel responses. ✅
 - **Server Time** (server-time): Timestamp information for messages. ✅
 - **Set Name** (setname): Allow clients to change their real name during the session. ✅
-- **Standard Replies** (standard-replies): Standardized format for server and client replies. ❌
+- **Standard Replies** (standard-replies): Standardized format for server and client replies. ✅
 - **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ✅
 - **UTF-8 Only** (utf8only): Configurable support for UTF-8 only traffic. ✅
 

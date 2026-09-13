@@ -10,15 +10,20 @@ defmodule ElixIRCd.Server.Dispatcher do
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
 
   @type target :: pid() | User.t()
   @type context :: :server | :chanserv | :nickserv | User.t() | nil
+  @type message :: Message.t() | StandardReply.t()
 
   @doc """
   Broadcasts messages with context to the given targets.
+
+  Standard replies are converted to messages before preparation. This function does not require `standard-replies`, so
+  extension-mandated replies can use it.
   """
-  @spec broadcast(Message.t() | [Message.t()], context(), target() | [target()]) :: :ok
+  @spec broadcast(message() | [message()], context(), target() | [target()]) :: :ok
   def broadcast(messages, context, targets) do
     messages = List.wrap(messages)
     targets = List.wrap(targets)
@@ -34,6 +39,17 @@ defmodule ElixIRCd.Server.Dispatcher do
         Enum.each(targets, &broadcast_to_target(prepared, &1, source_user))
       end)
     end
+  end
+
+  @doc """
+  Sends an optional standard reply when the user negotiated `standard-replies`, or the supplied legacy fallback
+  otherwise. Uses the same context and delivery path for both replies. REHASH updates the user's negotiated capabilities
+  when support is withdrawn. Extension-mandated replies use `broadcast/3` instead.
+  """
+  @spec broadcast_standard_reply(StandardReply.t(), context(), User.t(), Message.t()) :: :ok
+  def broadcast_standard_reply(%StandardReply{} = reply, context, %User{} = user, %Message{} = fallback) do
+    message = if "standard-replies" in user.capabilities, do: reply, else: fallback
+    broadcast(message, context, user)
   end
 
   @doc """
@@ -92,10 +108,17 @@ defmodule ElixIRCd.Server.Dispatcher do
     :ok
   end
 
-  @spec prepare_message(Message.t(), context(), boolean()) :: Message.t()
+  @spec prepare_message(message(), context(), boolean()) :: Message.t()
+  defp prepare_message(%StandardReply{} = reply, context, any_message_tags?) do
+    reply
+    |> StandardReply.to_message()
+    |> prepare_message(context, any_message_tags?)
+  end
+
   defp prepare_message(message, context, any_message_tags?) do
     message
     |> add_context(context)
+    |> StandardReply.fit_message()
     |> maybe_put_base_msgid(any_message_tags?)
   end
 

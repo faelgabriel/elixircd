@@ -19,6 +19,7 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -147,12 +148,9 @@ defmodule ElixIRCd.Commands.Mode do
     end)
 
     if total_entries > max_entries do
-      %Message{
-        command: "NOTICE",
-        params: [user.nick],
-        trailing: "Ban list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
-      }
-      |> Dispatcher.broadcast(:server, user)
+      description = "Ban list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+
+      send_list_truncated(user, channel, "b", description)
     end
 
     %Message{command: :rpl_endofbanlist, params: [user.nick, channel.name], trailing: "End of channel ban list"}
@@ -182,12 +180,9 @@ defmodule ElixIRCd.Commands.Mode do
     end)
 
     if total_entries > max_entries do
-      %Message{
-        command: "NOTICE",
-        params: [user.nick],
-        trailing: "Except list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
-      }
-      |> Dispatcher.broadcast(:server, user)
+      description = "Except list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+
+      send_list_truncated(user, channel, "e", description)
     end
 
     %Message{command: :rpl_endofexceptlist, params: [user.nick, channel.name], trailing: "End of channel except list"}
@@ -217,16 +212,28 @@ defmodule ElixIRCd.Commands.Mode do
     end)
 
     if total_entries > max_entries do
-      %Message{
-        command: "NOTICE",
-        params: [user.nick],
-        trailing: "Invex list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
-      }
-      |> Dispatcher.broadcast(:server, user)
+      description = "Invex list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+
+      send_list_truncated(user, channel, "I", description)
     end
 
     %Message{command: :rpl_endofinvexlist, params: [user.nick, channel.name], trailing: "End of channel invex list"}
     |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec send_list_truncated(User.t(), Channel.t(), String.t(), String.t()) :: :ok
+  defp send_list_truncated(user, channel, mode, description) do
+    reply = %StandardReply{
+      type: :warn,
+      command: "MODE",
+      code: "LIST_TRUNCATED",
+      context: [channel.name, mode],
+      description: description
+    }
+
+    fallback = %Message{command: "NOTICE", params: [user.nick], trailing: description}
+
+    Dispatcher.broadcast_standard_reply(reply, :server, user, fallback)
   end
 
   @spec send_channel_mode_error(channel_mode_errors(), User.t(), String.t()) :: :ok
