@@ -362,7 +362,7 @@ defmodule ElixIRCd.JobQueue do
         })
       end)
 
-      if length(stuck_jobs) > 0 do
+      if stuck_jobs != [] do
         Logger.info("Recovered #{length(stuck_jobs)} stuck jobs")
       end
     end)

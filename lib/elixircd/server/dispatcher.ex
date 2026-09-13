@@ -3,8 +3,6 @@ defmodule ElixIRCd.Server.Dispatcher do
   Module for dispatching messages to users.
   """
 
-  require Logger
-
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message

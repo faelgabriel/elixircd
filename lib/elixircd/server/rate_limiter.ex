@@ -98,7 +98,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   @spec check_connection_max_per_ip(:inet.ip_address(), keyword()) :: :ok | {:error, :max_connections_exceeded}
   defp check_connection_max_per_ip(ip, config) do
     max_connections_per_ip = Keyword.get(config, :max_connections_per_ip)
-    current_connections = Users.count_by_ip_address(ip)
+    current_connections = Memento.transaction!(fn -> Users.count_by_ip_address(ip) end)
 
     if current_connections < max_connections_per_ip do
       :ok
@@ -123,12 +123,11 @@ defmodule ElixIRCd.Server.RateLimiter do
     capacity = throttle[:capacity]
     cost = throttle[:cost]
 
-    case Connection.hit(rate_key, refill_rate, capacity, cost) do
+    case token_bucket_hit(Connection, rate_key, refill_rate, capacity, cost) do
       {:allow, _count} ->
         :ok
 
-      {:deny, _timeout} ->
-        retry_ms = calculate_token_wait_time(Connection, rate_key, refill_rate, capacity, cost)
+      {:deny, retry_ms} ->
         handle_connection_violation(ip_string, throttle, retry_ms)
     end
   end
@@ -178,12 +177,11 @@ defmodule ElixIRCd.Server.RateLimiter do
     window_ms = throttle[:window_ms]
     disconnect_threshold = throttle[:disconnect_threshold]
 
-    case Message.hit(rate_key, refill_rate, capacity, cost) do
+    case token_bucket_hit(Message, rate_key, refill_rate, capacity, cost) do
       {:allow, _count} ->
         :ok
 
-      {:deny, _timeout} ->
-        retry_ms = calculate_token_wait_time(Message, rate_key, refill_rate, capacity, cost)
+      {:deny, retry_ms} ->
         handle_throttle_violation(violation_key, window_ms, disconnect_threshold, retry_ms)
     end
   end
@@ -245,26 +243,15 @@ defmodule ElixIRCd.Server.RateLimiter do
 
   defp skip_metadata(data, _marker), do: data
 
-  @spec calculate_token_wait_time(atom(), String.t(), number(), pos_integer(), pos_integer()) :: pos_integer()
-  defp calculate_token_wait_time(table_name, rate_key, refill_rate, capacity, cost) do
-    now = System.system_time(:second)
+  @spec token_bucket_hit(module(), String.t(), number(), pos_integer(), non_neg_integer()) ::
+          {:allow, non_neg_integer()} | {:deny, non_neg_integer()}
+  defp token_bucket_hit(limiter, key, refill_rate, capacity, cost) when is_float(refill_rate) do
+    # Scale fractional rates to integer tokens; key by scale to keep REHASH units separate.
+    {rate, scale} = Float.ratio(refill_rate)
+    limiter.hit({key, scale}, rate, capacity * scale, cost * scale)
+  end
 
-    case :ets.lookup(table_name, rate_key) do
-      [{^rate_key, stored_level, last_update}] ->
-        # Calculate current tokens (exact same logic as hit/5)
-        new_tokens = trunc((now - last_update) * refill_rate)
-        current_tokens = min(capacity, stored_level + new_tokens)
-
-        # Calculate how many more tokens we need
-        tokens_needed = cost - current_tokens
-
-        if tokens_needed <= 0 do
-          # We have enough tokens now
-          0
-        else
-          # Calculate time to accumulate the needed tokens
-          trunc(tokens_needed * 1000 / refill_rate)
-        end
-    end
+  defp token_bucket_hit(limiter, key, refill_rate, capacity, cost) do
+    limiter.hit({key, 1}, refill_rate, capacity, cost)
   end
 end

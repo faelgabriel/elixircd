@@ -3,8 +3,6 @@ defmodule ElixIRCd.Utils.Nickserv do
   Utility functions for NickServ service.
   """
 
-  require Logger
-
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message

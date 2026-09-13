@@ -18,7 +18,7 @@ defmodule ElixIRCd.Services.Nickserv.Status do
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
-  def handle(user, ["STATUS" | nicks]) when length(nicks) > 0 do
+  def handle(user, ["STATUS" | nicks]) when nicks != [] do
     Enum.each(nicks, fn nick ->
       status_code = calculate_status_for_nick(nick)
       notify(user, "STATUS #{nick} #{status_code}")

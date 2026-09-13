@@ -71,26 +71,30 @@ defmodule ElixIRCd.Commands.Mode do
          :ok <- check_mode_limit(validated_modes) do
       {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
 
-      if length(missing_value_modes) > 0 do
+      if missing_value_modes != [] do
         send_needmoreparams_error(user)
       else
         {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
 
-        if length(applied_changes) > 0 do
-          channel_users = UserChannels.get_by_channel_name(updated_channel.name)
-          user_pids = Enum.map(channel_users, & &1.user_pid)
-          users = Users.get_by_pids(user_pids)
-
-          %Message{command: "MODE", params: [updated_channel.name, ChannelModes.display_mode_changes(applied_changes)]}
-          |> Dispatcher.broadcast(user, users)
-        end
-
+        broadcast_channel_mode_changes(user, updated_channel, applied_changes)
         send_channel_mode_listing(listing_modes, user, updated_channel)
         send_invalid_modes(invalid_modes, user)
       end
     else
       {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
     end
+  end
+
+  @spec broadcast_channel_mode_changes(User.t(), Channel.t(), [ChannelModes.mode_change()]) :: :ok
+  defp broadcast_channel_mode_changes(_user, _channel, []), do: :ok
+
+  defp broadcast_channel_mode_changes(user, channel, applied_changes) do
+    channel_users = UserChannels.get_by_channel_name(channel.name)
+    user_pids = Enum.map(channel_users, & &1.user_pid)
+    users = Users.get_by_pids(user_pids)
+
+    %Message{command: "MODE", params: [channel.name, ChannelModes.display_mode_changes(applied_changes)]}
+    |> Dispatcher.broadcast(user, users)
   end
 
   @spec check_user_permission(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
@@ -291,7 +295,7 @@ defmodule ElixIRCd.Commands.Mode do
     {validated_modes, invalid_modes} = UserModes.parse_mode_changes(mode_string)
     {updated_user, applied_changes, unauthorized_modes} = UserModes.apply_mode_changes(user, validated_modes)
 
-    if length(applied_changes) > 0 do
+    if applied_changes != [] do
       mode_changes_display = UserModes.display_mode_changes(applied_changes)
       send_user_mode_change(updated_user, updated_user.nick, mode_changes_display, updated_user)
     end

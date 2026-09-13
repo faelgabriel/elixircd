@@ -82,6 +82,10 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       end)
     end
 
+    test "checks non-excepted connections outside a caller transaction" do
+      assert :ok = RateLimiter.check_connection({192, 168, 1, 104})
+    end
+
     test "throttles non-excepted IP when rate limit is exceeded" do
       Memento.transaction!(fn ->
         test_ip = {192, 168, 1, 101}
@@ -141,6 +145,17 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Hello third")
     end
 
+    test "accepts integer refill rates and returns the Hammer retry delay", %{user: user} do
+      config = Application.fetch_env!(:elixircd, :rate_limiter)
+      config = put_in(config, [:message, :throttle, :refill_rate], 1)
+      config = put_in(config, [:message, :throttle, :capacity], 1)
+      Application.put_env(:elixircd, :rate_limiter, config)
+
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :First")
+      assert {:error, :throttled, retry_ms} = RateLimiter.check_message(user, "PRIVMSG #test :Second")
+      assert retry_ms in 1..1000
+    end
+
     test "throttles message when token bucket is exhausted", %{user: user} do
       # Exhaust the capacity (5 tokens)
       for i <- 1..5 do
@@ -153,6 +168,22 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       assert is_integer(retry_ms) and retry_ms > 0
       # With refill_rate 2.0 tokens/sec and cost 1, should be around 500ms
       assert retry_ms <= 1000
+    end
+
+    test "does not mix token units when a configuration reload changes a fractional rate", %{user: user} do
+      config = Application.fetch_env!(:elixircd, :rate_limiter)
+      config = put_in(config, [:message, :throttle, :refill_rate], 0.5)
+      config = put_in(config, [:message, :throttle, :capacity], 1)
+      Application.put_env(:elixircd, :rate_limiter, config)
+
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :Fractional rate")
+      assert {:error, :throttled, _} = RateLimiter.check_message(user, "PRIVMSG #test :Exhausted")
+
+      Application.put_env(:elixircd, :rate_limiter, put_in(config, [:message, :throttle, :refill_rate], 1))
+
+      assert :ok = RateLimiter.check_message(user, "PRIVMSG #test :New token units")
+      assert {:error, :throttled, retry_ms} = RateLimiter.check_message(user, "PRIVMSG #test :Exhausted again")
+      assert retry_ms in 1..1000
     end
 
     test "disconnects user after repeated violations", %{user: user} do

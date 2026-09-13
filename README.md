@@ -412,7 +412,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 ## Development
 
-ElixIRCd is written in Elixir, so you'll need to have Elixir and Erlang installed on your machine. We recommend using [asdf](https://asdf-vm.com/) to easily install and manage Elixir and Erlang versions. Additionally, you need to have Git installed to clone the repository.
+ElixIRCd is written in Elixir and requires Erlang. We recommend using [asdf](https://asdf-vm.com/) to install the versions in `.tool-versions`. You also need Git, a C compiler, and Make.
 
 ### Setting Up Your Environment
 
@@ -434,19 +434,18 @@ If you don't have `asdf` installed, follow the instructions on the [asdf website
 Add the necessary plugins and install the required versions:
 
 ```bash
-# Add the Erlang plugin to asdf
-asdf plugin-add erlang
-# Add the Elixir plugin to asdf
-asdf plugin-add elixir
-# Install the versions specified in the .tool-versions file
+asdf plugin add erlang
+asdf plugin add elixir
 asdf install
 ```
 
 #### Install Dependencies
 
-To install the project dependencies, run:
+To install Hex, Rebar, and the project dependencies, run:
 
 ```bash
+mix local.hex --force
+mix local.rebar --force
 mix deps.get
 ```
 

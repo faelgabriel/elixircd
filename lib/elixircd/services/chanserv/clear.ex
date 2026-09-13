@@ -92,22 +92,7 @@ defmodule ElixIRCd.Services.Chanserv.Clear do
           Flags.may_grant?(registered_channel, user.identified_as, flags, "", access_entries)
         end)
 
-      if clearable == [] and kept == [] do
-        notify(user, "There are no explicit ChanServ flags to clear on \x02#{registered_channel.name}\x02.")
-      else
-        Enum.each(clearable, fn {account_name, _flags} ->
-          RegisteredChannelAccesses.delete(registered_channel.name, account_name)
-        end)
-
-        count = length(clearable)
-        suffix = if kept == [], do: "", else: " (#{length(kept)} kept: insufficient access)"
-
-        notify(
-          user,
-          "Cleared \x02#{count}\x02 ChanServ flag #{pluralize_entries(count)} from " <>
-            "\x02#{registered_channel.name}\x02#{suffix}."
-        )
-      end
+      clear_flag_entries(user, registered_channel.name, clearable, kept)
     else
       {:error, :registered_channel_not_found} ->
         notify(user, "Channel \x02#{channel_name}\x02 is not registered.")
@@ -115,6 +100,26 @@ defmodule ElixIRCd.Services.Chanserv.Clear do
       {:error, :access_denied} ->
         notify(user, "Access denied for \x02#{channel_name}\x02.")
     end
+  end
+
+  @spec clear_flag_entries(User.t(), String.t(), [{String.t(), String.t()}], [{String.t(), String.t()}]) :: :ok
+  defp clear_flag_entries(user, channel_name, [], []) do
+    notify(user, "There are no explicit ChanServ flags to clear on \x02#{channel_name}\x02.")
+  end
+
+  defp clear_flag_entries(user, channel_name, clearable, kept) do
+    Enum.each(clearable, fn {account_name, _flags} ->
+      RegisteredChannelAccesses.delete(channel_name, account_name)
+    end)
+
+    count = length(clearable)
+    suffix = if kept == [], do: "", else: " (#{length(kept)} kept: insufficient access)"
+
+    notify(
+      user,
+      "Cleared \x02#{count}\x02 ChanServ flag #{pluralize_entries(count)} from " <>
+        "\x02#{channel_name}\x02#{suffix}."
+    )
   end
 
   @spec clear_users(User.t(), String.t()) :: :ok

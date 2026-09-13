@@ -26,9 +26,9 @@ defmodule ElixIRCd.Repositories.HistoricalUsers do
 
   def get_by_nick(nick, limit) do
     nick_key = CaseMapping.normalize(nick)
-    # Issue: fix the "limit" option in Memento.Query.select/3, which is currently not working
+    # Mnesia treats the requested limit as a suggested chunk size and may return more
+    # records than requested. Enum.take/2 enforces the maximum number of results.
     Memento.Query.select(HistoricalUser, {:==, :nick_key, nick_key}, limit: limit)
-    # Enum.take can be removed once Memento.Query.select/3 supports the above "limit" option
     |> Enum.take(limit)
   end
 end

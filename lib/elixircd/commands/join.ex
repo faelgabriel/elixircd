@@ -7,8 +7,6 @@ defmodule ElixIRCd.Commands.Join do
 
   @behaviour ElixIRCd.Command
 
-  require Logger
-
   import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
 
   import ElixIRCd.Utils.Protocol,

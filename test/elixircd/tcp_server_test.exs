@@ -214,8 +214,11 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     end
 
     for labeled? <- [false, true] do
-      test "real TCP preserves WHOIS and orderly self KILL with labeled responses #{labeled?}", %{socket: socket} do
-        labeled? = unquote(labeled?)
+      @tag labeled_response: labeled?
+      test "real TCP preserves WHOIS and orderly self KILL with labeled responses #{labeled?}", %{
+        socket: socket,
+        labeled_response: labeled?
+      } do
         :ok = :gen_tcp.send(socket, "CAP LS 302\r\n")
         read_until(socket, &(&1.command == "CAP"))
 

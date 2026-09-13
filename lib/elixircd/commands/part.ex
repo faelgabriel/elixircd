@@ -7,8 +7,6 @@ defmodule ElixIRCd.Commands.Part do
 
   @behaviour ElixIRCd.Command
 
-  require Logger
-
   import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
 
   alias ElixIRCd.Message

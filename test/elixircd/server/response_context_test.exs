@@ -315,8 +315,10 @@ defmodule ElixIRCd.Server.ResponseContextTest do
   end
 
   for label <- [nil, "nested-stream"] do
-    test "streams nested manual batches and automatically closes them with label #{inspect(label)}" do
-      label = unquote(label)
+    @tag response_label: label
+    test "streams nested manual batches and automatically closes them with label #{inspect(label)}", %{
+      response_label: label
+    } do
       user = build(:user, pid: self(), capabilities: ["batch", "labeled-response"])
       request = %Message{command: "LIST", params: [], tags: if(label, do: %{"label" => label}, else: %{})}
 

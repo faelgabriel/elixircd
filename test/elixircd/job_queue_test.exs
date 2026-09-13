@@ -561,7 +561,7 @@ defmodule ElixIRCd.JobQueueTest do
           j.id != job.id and j.module == RegisteredNickExpiration
         end)
 
-      assert length(recurring_jobs) >= 1
+      assert recurring_jobs != []
       recurring_job = hd(recurring_jobs)
       assert recurring_job.repeat_interval_ms == 1000
     end

@@ -14,8 +14,6 @@ defmodule ElixIRCd.Utils.Certificate do
   proper certificate, for example from [Let's Encrypt](https://letsencrypt.org).
   """
 
-  require Logger
-
   @default_path "data/cert/selfsigned"
   @default_name "Self-signed test certificate"
   @default_hostnames ["localhost"]

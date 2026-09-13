@@ -7,8 +7,6 @@ defmodule ElixIRCd.Commands.Nick do
 
   @behaviour ElixIRCd.Command
 
-  require Logger
-
   import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, sync_registered_mode: 1]
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 

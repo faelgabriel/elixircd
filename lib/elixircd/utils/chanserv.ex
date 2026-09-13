@@ -3,8 +3,6 @@ defmodule ElixIRCd.Utils.Chanserv do
   Utility functions for ChanServ service.
   """
 
-  require Logger
-
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message

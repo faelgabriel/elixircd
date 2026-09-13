@@ -141,8 +141,8 @@ defmodule ElixIRCd.Commands.Webirc do
 
   @spec match_bits?(bitstring(), bitstring(), non_neg_integer()) :: boolean()
   defp match_bits?(ip_bits, cidr_bits, prefix_len) do
-    <<ip_prefix::bitstring-size(prefix_len), _::bitstring>> = ip_bits
-    <<cidr_prefix::bitstring-size(prefix_len), _::bitstring>> = cidr_bits
+    <<ip_prefix::bitstring-size(^prefix_len), _::bitstring>> = ip_bits
+    <<cidr_prefix::bitstring-size(^prefix_len), _::bitstring>> = cidr_bits
     ip_prefix == cidr_prefix
   end
 

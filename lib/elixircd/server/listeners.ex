@@ -5,8 +5,6 @@ defmodule ElixIRCd.Server.Listeners do
 
   use Supervisor
 
-  require Logger
-
   import ElixIRCd.Utils.System, only: [logger_with_time: 3]
 
   @type scheme_tcp_transport :: :tcp | :tls

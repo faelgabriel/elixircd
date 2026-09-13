@@ -6,7 +6,7 @@ defmodule ElixIRCd.MixProject do
     [
       app: :elixircd,
       version: app_version() || "0.0.0-dev",
-      elixir: "~> 1.19",
+      elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       aliases: aliases(),
@@ -59,26 +59,26 @@ defmodule ElixIRCd.MixProject do
   defp deps do
     [
       # Core dependencies
-      {:argon2_elixir, "~> 4.0"},
-      {:bandit, "~> 1.5"},
-      {:cidr, ">= 1.1.0"},
-      {:hammer, "~> 7.0"},
-      {:memento, "~> 0.4"},
+      {:argon2_elixir, "~> 4.1"},
+      {:bandit, "~> 1.12"},
+      {:cidr, "~> 1.2"},
+      {:hammer, "~> 7.5"},
+      {:memento, "~> 0.6"},
       {:thousand_island, "~> 1.5"},
-      {:websock_adapter, "~> 0.5"},
+      {:websock_adapter, "~> 0.6"},
 
       # Email dependencies
-      {:bamboo, "~> 2.4"},
+      {:bamboo, "~> 2.5"},
       {:bamboo_mua, "~> 0.2"},
 
       # Development and testing tools
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev], runtime: false},
-      {:doctor, "~> 0.21", only: :dev},
+      {:doctor, "~> 0.23", only: :dev},
       {:excoveralls, "~> 0.18", only: :test},
-      {:mimic, "~> 2.1.1", only: [:dev, :test]},
+      {:mimic, "~> 2.4", only: [:dev, :test]},
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
-      {:sobelow, "~> 0.13", only: [:dev, :test], runtime: false}
+      {:sobelow, "~> 0.15", only: [:dev, :test], runtime: false}
     ]
   end
 

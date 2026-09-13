@@ -722,7 +722,9 @@ defmodule ElixIRCd.Commands.RehashTest do
           {:port, 7000, "sts=port=7000", nil},
           {:duration, 3600, nil, nil}
         ] do
-      test "announces effective per-transport changes for #{key}=#{value}" do
+      @tag sts_change: {key, value, tcp_reply, tls_reply}
+      test "announces effective per-transport changes for #{key}=#{value}",
+           %{sts_change: {key, value, tcp_reply, tls_reply}} do
         Memento.transaction!(fn ->
           oper = insert(:user, modes: ["o"])
           legacy = insert(:user, capabilities: [], transport: :tls)
@@ -735,7 +737,7 @@ defmodule ElixIRCd.Commands.RehashTest do
             Application.put_env(
               :elixircd,
               :sts,
-              Keyword.put(Application.get_env(:elixircd, :sts), unquote(key), unquote(value))
+              Keyword.put(Application.get_env(:elixircd, :sts), key, value)
             )
           end)
 
@@ -743,7 +745,7 @@ defmodule ElixIRCd.Commands.RehashTest do
           assert_sent_messages_amount(legacy.pid, 0)
 
           Enum.each(clients, fn client ->
-            expected = if client.transport in [:tls, :wss], do: unquote(tls_reply), else: unquote(tcp_reply)
+            expected = if client.transport in [:tls, :wss], do: tls_reply, else: tcp_reply
 
             if expected do
               assert_sent_message_contains(client.pid, ":irc.test CAP #{client.nick} NEW :#{expected}\r\n")

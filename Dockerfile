@@ -1,9 +1,12 @@
-# Build Application Stage: Builds the application by compiling the source code and generating a release.
-FROM elixir:1.19.3-otp-28-alpine AS build
+ARG ELIXIR_IMAGE=hexpm/elixir:1.20.4-erlang-29.0.6-alpine-3.24.1
+
+# Build release
+FROM ${ELIXIR_IMAGE} AS build
 
 ENV LANG=C.UTF-8
 
-RUN apk add --no-cache make gcc musl-dev
+RUN apk upgrade --no-cache && \
+    apk add --no-cache make gcc musl-dev
 
 WORKDIR /app
 
@@ -14,20 +17,24 @@ ENV APP_VERSION=${APP_VERSION}
 
 ENV MIX_ENV=prod
 
-RUN mix deps.get && \
+RUN mix local.hex --force && \
+    mix local.rebar --force && \
+    mix deps.get --check-locked && \
     mix deps.compile
 
 COPY config config/
 COPY lib lib/
 
-RUN mix do compile, release
+RUN mix compile --warnings-as-errors && \
+    mix release
 
-# Runtime Application Stage: Sets up the environment to run the built application with a minimal image size.
-FROM elixir:1.19.3-otp-28-alpine AS runtime
+# Run release
+FROM ${ELIXIR_IMAGE} AS runtime
 
 WORKDIR /app
-RUN mkdir -p /app/data
-RUN chown -Rf nobody /app
+RUN apk upgrade --no-cache && \
+    mkdir -p /app/data && \
+    chown -Rf nobody /app
 
 COPY --from=build --chown=nobody:root /app/_build/prod/rel/elixircd /app
 

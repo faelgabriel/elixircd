@@ -362,5 +362,5 @@ config :elixircd,
 # Mailer Configuration
 config :elixircd, ElixIRCd.Utils.Mailer,
   # See shipped adapters at https://github.com/beam-community/bamboo#available-adapters
-  # For SMTP, use Bamboo.MuaAdapter which is included with ElixIRCd: https://hexdocs.pm/bamboo_mua/Bamboo.Mua.html
+  # SMTP: Bamboo.Mua (https://hexdocs.pm/bamboo_mua/Bamboo.Mua.html)
   adapter: Bamboo.LocalAdapter
