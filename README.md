@@ -44,11 +44,14 @@ The ElixIRCd demo server is a live instance of the server, allowing you to test 
 
 ### Quick Start with Docker
 
-To quickly start the ElixIRCd server using [Docker](https://docs.docker.com/get-docker/) with the official [ElixIRCd image](https://hub.docker.com/r/faelgabriel/elixircd), run the following command:
+To quickly start the ElixIRCd server using [Docker](https://docs.docker.com/get-docker/) with the official [ElixIRCd image](https://hub.docker.com/r/faelgabriel/elixircd), run the command below.
+
+On Linux (including WSL with a Linux data directory), run `sudo chown 65534:65534 ./data` so the container's `nobody` user can write to the data directory.
 
 ```bash
 docker run \
   -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
+  -v ./data:/app/data \
   faelgabriel/elixircd
 ```
 
@@ -73,6 +76,7 @@ You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it int
    ```bash
    docker run \
      -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
+     -v ./data:/app/data \
      -v ./elixircd.exs:/app/config/elixircd.exs \
      faelgabriel/elixircd
    ```
@@ -109,6 +113,7 @@ For production environments, you should configure SSL listeners with a valid cer
    ```bash
    docker run \
      -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
+     -v ./data:/app/data \
      -v ./elixircd.exs:/app/config/elixircd.exs \
      -v ./cert/:/app/data/cert/ \
      faelgabriel/elixircd
