@@ -7,6 +7,7 @@ defmodule ElixIRCd.Server.HttpPlug do
 
   import Plug.Conn
 
+  alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.WsListener
 
   @doc """
@@ -42,7 +43,9 @@ defmodule ElixIRCd.Server.HttpPlug do
     conn
     |> maybe_response_protocol(subprotocol)
     |> WebSockAdapter.upgrade(WsListener, %{conn: conn, subprotocol: subprotocol, transport: transport},
-      timeout: timeout
+      timeout: timeout,
+      # Bandit's frame limit includes up to 14 bytes of headers.
+      max_frame_size: Connection.max_wire_length() + 14
     )
     |> halt()
   end

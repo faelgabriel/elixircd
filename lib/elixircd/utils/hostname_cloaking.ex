@@ -5,6 +5,55 @@ defmodule ElixIRCd.Utils.HostnameCloaking do
 
   import ElixIRCd.Utils.Network, only: [format_ip_address: 1]
 
+  require Logger
+
+  @doc """
+  Loads the cloak key file into memory, creating a private file if it does not exist.
+  """
+  @spec load_key(String.t()) :: :ok
+  def load_key(path) do
+    key = read_key(path)
+    :persistent_term.put(__MODULE__, key)
+  end
+
+  # The path comes from operator configuration, not IRC input.
+  # sobelow_skip ["Traversal.FileModule"]
+  @spec read_key(String.t()) :: String.t()
+  defp read_key(path) do
+    case File.read(path) do
+      {:ok, key} -> key
+      {:error, :enoent} -> create_key(path)
+      {:error, reason} -> raise File.Error, reason: reason, action: "read cloak key", path: path
+    end
+  end
+
+  # The path comes from operator configuration, not IRC input.
+  # sobelow_skip ["Traversal.FileModule"]
+  @spec create_key(String.t()) :: String.t()
+  defp create_key(path) do
+    File.mkdir_p!(Path.dirname(path))
+
+    case File.open(path, [:write, :binary, :exclusive]) do
+      {:ok, file} ->
+        try do
+          File.chmod!(path, 0o600)
+          key = :crypto.strong_rand_bytes(32) |> Base.encode64()
+          :ok = IO.binwrite(file, key)
+          :ok = :file.sync(file)
+          Logger.warning("Generated hostname cloak key at #{path}; keep this file private and backed up")
+          key
+        after
+          File.close(file)
+        end
+
+      {:error, :eexist} ->
+        File.read!(path)
+
+      {:error, reason} ->
+        raise File.Error, reason: reason, action: "create cloak key", path: path
+    end
+  end
+
   @doc """
   Generates a cloaked hostname based on IP address and hostname.
   """
@@ -85,8 +134,7 @@ defmodule ElixIRCd.Utils.HostnameCloaking do
 
   @spec hash_data(String.t()) :: String.t()
   defp hash_data(data) do
-    keys = get_cloak_keys()
-    secret_key = List.first(keys) || ""
+    secret_key = :persistent_term.get(__MODULE__)
 
     :crypto.mac(:hmac, :sha256, secret_key, data)
     |> Base.encode16()
@@ -97,10 +145,5 @@ defmodule ElixIRCd.Utils.HostnameCloaking do
   defp format_ipv6_segment(segment) do
     Integer.to_string(segment, 16)
     |> String.downcase()
-  end
-
-  @spec get_cloak_keys() :: [String.t()]
-  defp get_cloak_keys do
-    Application.get_env(:elixircd, :cloaking)[:cloak_keys]
   end
 end

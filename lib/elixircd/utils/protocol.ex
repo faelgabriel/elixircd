@@ -55,14 +55,17 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec match_user_mask?(User.t(), String.t()) :: boolean()
   def match_user_mask?(user, mask) do
-    mask
-    |> String.replace(".", "\\.")
-    |> String.replace("@", "\\@")
-    |> String.replace("!", "\\!")
-    |> String.replace("*", ".*")
-    |> Regex.compile!()
-    |> Regex.match?(user_mask(user))
+    match_mask(mask, user_mask(user), nil)
   end
+
+  # Match literal IRC globs, retaining only the last star to avoid exponential backtracking.
+  @spec match_mask(binary(), binary(), {binary(), binary()} | nil) :: boolean()
+  defp match_mask("*" <> mask, value, _retry), do: match_mask(mask, value, {mask, value})
+  defp match_mask("", "", _retry), do: true
+  defp match_mask("?" <> mask, <<_byte, value::binary>>, retry), do: match_mask(mask, value, retry)
+  defp match_mask(<<byte, mask::binary>>, <<byte, value::binary>>, retry), do: match_mask(mask, value, retry)
+  defp match_mask(_mask, _value, {mask, <<_byte, value::binary>>}), do: match_mask(mask, value, {mask, value})
+  defp match_mask(_mask, _value, _retry), do: false
 
   @doc """
   Gets the user's reply to a message.

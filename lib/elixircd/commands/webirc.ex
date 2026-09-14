@@ -150,7 +150,10 @@ defmodule ElixIRCd.Commands.Webirc do
   defp validate_password(provided_password, gateway_config) do
     expected_password = Map.get(gateway_config, :password)
 
-    if provided_password == expected_password do
+    provided_hash = :crypto.hash(:sha256, provided_password)
+    expected_hash = :crypto.hash(:sha256, expected_password)
+
+    if Plug.Crypto.secure_compare(provided_hash, expected_hash) do
       :ok
     else
       {:error, :invalid_password}
@@ -193,7 +196,7 @@ defmodule ElixIRCd.Commands.Webirc do
       String.trim(hostname) == "" ->
         {:error, :invalid_hostname}
 
-      # If verification is enabled, do reverse DNS lookup
+      # If verification is enabled, require the hostname to resolve to the supplied IP.
       verify_hostname ->
         verify_hostname_resolution(hostname, ip)
 
@@ -207,7 +210,9 @@ defmodule ElixIRCd.Commands.Webirc do
   defp verify_hostname_resolution(hostname, ip) do
     hostname_charlist = String.to_charlist(hostname)
 
-    case :inet.gethostbyname(hostname_charlist) do
+    family = if tuple_size(ip) == 8, do: :inet6, else: :inet
+
+    case :inet.gethostbyname(hostname_charlist, family) do
       {:ok, {:hostent, _, _, _, _, addresses}} ->
         if ip in addresses do
           :ok
@@ -216,7 +221,7 @@ defmodule ElixIRCd.Commands.Webirc do
         end
 
       {:error, _} ->
-        :ok
+        {:error, :invalid_hostname}
     end
   end
 

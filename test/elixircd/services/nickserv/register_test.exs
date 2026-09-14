@@ -10,11 +10,43 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Server.Connection
   alias ElixIRCd.Services.Nickserv.Register
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
+    test "handles concurrent REGISTER commands without replacing the first password" do
+      user = insert(:user, created_at: DateTime.add(DateTime.utc_now(), -3600))
+      parent = self()
+
+      tasks =
+        Enum.map(["password123", "password456"], fn password ->
+          Task.async(fn ->
+            Mimic.allow(Connection, parent, self())
+
+            receive do
+              :register ->
+                Memento.transaction!(fn ->
+                  assert :ok = Register.handle(user, ["REGISTER", password])
+                  {:ok, registered_nick} = RegisteredNicks.get_by_nickname(user.nick)
+                  {password, Argon2.verify_pass(password, registered_nick.password_hash)}
+                end)
+            end
+          end)
+        end)
+
+      Enum.each(tasks, &send(&1.pid, :register))
+      assert [{password, true}] = tasks |> Task.await_many() |> Enum.filter(&elem(&1, 1))
+
+      Memento.transaction!(fn ->
+        {:ok, registered_nick} = RegisteredNicks.get_by_nickname(user.nick)
+        assert Argon2.verify_pass(password, registered_nick.password_hash)
+        assert_sent_messages_count_containing(user.pid, ~r/This nick is already registered/, 1)
+        assert_sent_messages_count_containing(user.pid, ~r/has been successfully registered/, 1)
+      end)
+    end
+
     test "handles REGISTER command with insufficient parameters" do
       Memento.transaction!(fn ->
         user = insert(:user)

@@ -14,6 +14,22 @@ defmodule ElixIRCd.Commands.JoinTest do
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
+    test "handles JOIN command with regex metacharacters in channel masks" do
+      Memento.transaction!(fn ->
+        operator = insert(:user)
+        user = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        assert :ok = Mode.handle(operator, %Message{command: "MODE", params: [channel.name, "+b", "*!*@(["]})
+        insert(:channel_ban, channel: channel, mask: "*!*@host(")
+        insert(:channel_except, channel: channel, mask: "*!*@[")
+        insert(:channel_invex, channel: channel, mask: "*!*@(")
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+        assert {:ok, _membership} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+      end)
+    end
+
     for {caps, prefix} <- [{["userhost-in-names"], "@"}, {["userhost-in-names", "multi-prefix"], "@+"}],
         {channel_modes, status} <- [{[], "="}, {["s"], "@"}, {["p"], "*"}] do
       test "JOIN NAMES honors hostmasks, prefixes and channel status #{inspect({caps, channel_modes})}" do

@@ -347,14 +347,13 @@ defmodule ElixIRCd.Server.ConnectionTest do
       ])
     end
 
-    test "uses a session reply for invalid UTF-8 with an unparseable command or oversized tags" do
+    test "uses a session reply for invalid UTF-8 with an unparseable command" do
       reject(Command, :dispatch, 2)
 
       for data <- [
-            String.duplicate("A", 512) <> " :" <> <<255>>,
+            String.duplicate("A", 480) <> " :" <> <<255>>,
             <<255>>,
-            "@" <> <<255>>,
-            "@label=" <> String.duplicate("x", 4095) <> " PRIVMSG x :" <> <<255>>
+            "@" <> <<255>>
           ] do
         user = insert(:user, capabilities: ["standard-replies", "batch", "labeled-response"])
         Connection.handle_receive(user.pid, data)
@@ -431,6 +430,46 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
       assert :ok = Connection.handle_receive(user.pid, "@#{max_sized_tags} PRIVMSG #test :hello")
       assert_sent_messages_amount(user.pid, 0)
+    end
+
+    test "accepts exactly 512 wire bytes independently of the tag budget", %{user: user} do
+      body = "PRIVMSG #test :" <> String.duplicate("a", 495)
+      assert byte_size(body) == 510
+      tags = "@" <> String.duplicate("a", 4094) <> " "
+
+      expect(Command, :dispatch, 6, fn _, message ->
+        assert message.command == "PRIVMSG"
+        :ok
+      end)
+
+      for prefix <- ["", tags], ending <- ["", "\n", "\r\n"] do
+        assert :ok = Connection.handle_receive(user.pid, prefix <> body <> ending)
+      end
+
+      assert_sent_messages_amount(user.pid, 0)
+    end
+
+    test "rejects oversized message bodies before parsing or broadcasting", %{user: user} do
+      reject(Command, :dispatch, 2)
+
+      for input <- [
+            String.duplicate("x", 511),
+            "PRIVMSG #test :" <> String.duplicate("é", 249),
+            "@a=b " <> String.duplicate("x", 511) <> "\r\n",
+            String.duplicate("x", 1_000_000)
+          ] do
+        assert :ok = Connection.handle_receive(user.pid, input)
+        assert_sent_messages([{user.pid, ":irc.test 417 #{user.nick} :Input line was too long\r\n"}])
+      end
+    end
+
+    test "applies flood protection to oversized messages", %{user: user} do
+      input = "PRIVMSG #test :" <> String.duplicate("x", 510)
+      expect(RateLimiter, :check_message, fn ^user, ^input -> {:error, :throttled_exceeded} end)
+      reject(Command, :dispatch, 2)
+
+      assert {:quit, "Excess flood"} = Connection.handle_receive(user.pid, input)
+      assert_sent_messages([{user.pid, "ERROR :Excess flood\r\n"}])
     end
 
     test "prioritizes the tag data limit for malformed messages", %{user: user} do

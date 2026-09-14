@@ -15,7 +15,11 @@ defmodule ElixIRCd.Server.TcpListenerTest do
       socket = tcp_socket()
 
       expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
-      expect(Socket, :setopts, fn _socket, _opts -> :ok end)
+
+      expect(Socket, :setopts, fn ^socket, opts ->
+        assert opts == [packet: :line, packet_size: 4608]
+        :ok
+      end)
 
       expect(Connection, :handle_connect, fn _pid, transport, data ->
         assert transport == :tcp
@@ -31,7 +35,11 @@ defmodule ElixIRCd.Server.TcpListenerTest do
       socket = tls_socket()
 
       expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
-      expect(Socket, :setopts, fn _socket, _opts -> :ok end)
+
+      expect(Socket, :setopts, fn ^socket, opts ->
+        assert opts == [packet: :line, packet_size: 4608]
+        :ok
+      end)
 
       expect(Connection, :handle_connect, fn _pid, transport, data ->
         assert transport == :tls

@@ -14,11 +14,9 @@
 # If the VM crashes, it generates a dump, let's ignore it too.
 erl_crash.dump
 
-# Mnesia database files
-/data/mnesia/
-
-# Certificate files
-/data/cert/
+# Runtime data
+/data/*
+!/data/.gitkeep
 
 # Temporary files, for example, from tests.
 /tmp/

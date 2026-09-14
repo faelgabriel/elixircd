@@ -11,9 +11,38 @@ defmodule ElixIRCd.Commands.NickTest do
   alias ElixIRCd.Commands.Nick
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Handshake
 
   describe "handle/2" do
+    test "handles concurrent NICK commands for case-equivalent nicknames" do
+      users = Memento.transaction!(fn -> [insert(:user), insert(:user)] end)
+      parent = self()
+
+      tasks =
+        Enum.zip_with(users, ["Claim[", "cLAIM{"], fn user, nickname ->
+          Task.async(fn ->
+            Mimic.allow(Connection, parent, self())
+
+            receive do
+              :claim -> Memento.transaction!(fn -> Nick.handle(user, %Message{command: "NICK", params: [nickname]}) end)
+            end
+          end)
+        end)
+
+      Enum.each(tasks, &send(&1.pid, :claim))
+      assert Task.await_many(tasks) == [:ok, :ok]
+
+      Memento.transaction!(fn ->
+        assert {:ok, winner} = Users.get_by_nick("Claim[")
+        loser = Enum.find(users, &(&1.pid != winner.pid))
+        assert Enum.count(Users.get_all(), &(&1.nick_key == winner.nick_key)) == 1
+        assert {:ok, ^loser} = Users.get_by_pid(loser.pid)
+        assert_sent_messages_count_containing(loser.pid, ~r/ 433 /, 1)
+        assert_sent_messages_count_containing(winner.pid, ~r/ NICK /, 1)
+      end)
+    end
+
     test "handles NICK command with not enough parameters" do
       Memento.transaction!(fn ->
         user = insert(:user)

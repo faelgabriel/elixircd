@@ -7,7 +7,7 @@ defmodule ElixIRCd.Commands.Trace do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1, user_mask: 1]
   import ElixIRCd.Utils.Network, only: [format_ip_address: 1]
 
   alias ElixIRCd.Message
@@ -30,7 +30,8 @@ defmodule ElixIRCd.Commands.Trace do
   @impl true
   def handle(user, %{command: "TRACE", params: [target_nick | _rest]}) do
     case Users.get_by_nick(target_nick) do
-      {:ok, target_user} -> send_trace(user, target_user)
+      {:ok, %{registered: true} = target_user} -> send_trace(user, target_user)
+      {:ok, _target_user} -> send_target_not_found(user, target_nick)
       {:error, :user_not_found} -> send_target_not_found(user, target_nick)
     end
   end
@@ -38,7 +39,10 @@ defmodule ElixIRCd.Commands.Trace do
   @spec send_trace(User.t(), User.t()) :: :ok
   defp send_trace(user, target_user) do
     mask = user_mask(target_user)
-    formatted_ip_address = format_ip_address(target_user.ip_address)
+
+    formatted_ip_address =
+      if irc_operator?(user), do: format_ip_address(target_user.ip_address), else: "255.255.255.255"
+
     idle_seconds = (:erlang.system_time(:second) - target_user.last_activity) |> to_string()
     signon_seconds = DateTime.diff(DateTime.utc_now(), target_user.registered_at, :second) |> to_string()
 

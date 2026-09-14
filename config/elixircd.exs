@@ -89,15 +89,10 @@ config :elixircd,
   cloaking: [
     # Enable or disable hostname cloaking feature
     enabled: true,
-    # Secret keys for hostname cloaking (MUST be unique per network and kept secret)
-    # Generate secure keys with: :crypto.strong_rand_bytes(32) |> Base.encode64()
-    # Use at least 3 keys and keep them at least 30 characters each
-    # Multiple keys allow key rotation without breaking existing bans
-    cloak_keys: [
-      "SecretKey1Random30PlusCharactersGoesHere!!",
-      "SecretKey2Random30PlusCharactersGoesHere!!",
-      "SecretKey3Random30PlusCharactersGoesHere!!"
-    ],
+    # Secret key file, loaded at startup and REHASH; generated automatically if missing with owner-only permissions.
+    # Keep it private and preserve it in backups and Docker volumes. File errors abort the configuration reload.
+    # Replacing the key changes cloaks; restart and review cloak-based bans after rotation.
+    cloak_key_file: "data/cloak.key",
     # Prefix for cloaked hostnames (e.g., "elixir-ABC123.provider.com")
     cloak_prefix: "elixir",
     # Automatically enable cloaking (+x mode) when users connect
@@ -335,8 +330,8 @@ config :elixircd,
       #   name: "KiwiIRC Gateway"                 # Gateway identifier
       # }
     ],
-    # Whether to perform reverse DNS validation on provided hostnames
-    # When true, server will verify that hostname resolves back to IP
+    # Verify the gateway-provided hostname against its supplied IP; reject WEBIRC on DNS failure or mismatch.
+    # When false, trust the gateway hostname. This does not control hostname lookup during the connection handshake.
     verify_hostname: false,
     # Whether to allow IPv6 addresses
     allow_ipv6: true

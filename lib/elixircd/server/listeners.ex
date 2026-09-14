@@ -7,6 +7,8 @@ defmodule ElixIRCd.Server.Listeners do
 
   import ElixIRCd.Utils.System, only: [logger_with_time: 3]
 
+  alias ElixIRCd.Server.Connection
+
   @type scheme_tcp_transport :: :tcp | :tls
   @type scheme_http_transport :: :http | :https
   @type scheme_transport :: scheme_tcp_transport() | scheme_http_transport()
@@ -50,12 +52,18 @@ defmodule ElixIRCd.Server.Listeners do
   end
 
   defp create_child_spec({scheme_transport, server_opts}) when scheme_transport in [:http, :https] do
+    websocket_options =
+      server_opts
+      |> Keyword.get(:websocket_options, [])
+      |> Keyword.put(:max_fragmented_message_size, Connection.max_wire_length())
+
     options =
       server_opts
       |> Keyword.put_new(:plug, ElixIRCd.Server.HttpPlug)
       |> Keyword.put_new(:otp_app, :elixircd)
       |> Keyword.put_new(:scheme, scheme_transport)
       |> Keyword.put_new(:startup_log, false)
+      |> Keyword.put(:websocket_options, websocket_options)
 
     {Bandit, options}
   end

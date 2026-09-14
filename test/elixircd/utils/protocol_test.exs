@@ -73,6 +73,25 @@ defmodule ElixIRCd.Utils.ProtocolTest do
   end
 
   describe "match_user_mask?/2" do
+    test "treats regex metacharacters in masks literally" do
+      user = build(:user, nick: "nick", ident: "user", hostname: "host")
+
+      for mask <- ["*!*@([", "*!*@h(st", "*!*@host|other", "*!*@host$", "*!*@h[oa]st", "*!*@host\\"] do
+        refute Protocol.match_user_mask?(user, mask)
+      end
+
+      literal_user = build(:user, nick: "[nick]", ident: "user", hostname: "([")
+      assert Protocol.match_user_mask?(literal_user, "[nick]!*@([")
+    end
+
+    test "anchors masks and supports question marks and repeated stars" do
+      user = build(:user, nick: "nick", ident: "user", hostname: "host")
+      refute Protocol.match_user_mask?(user, "ick!user@hos")
+      assert Protocol.match_user_mask?(user, "n?ck!**@h??t")
+      assert Protocol.match_user_mask?(user, "*")
+      refute Protocol.match_user_mask?(user, String.duplicate("*a", 100) <> "b")
+    end
+
     test "matches user mask" do
       user = build(:user, nick: "nick", ident: "~user", hostname: "host")
 

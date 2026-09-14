@@ -27,6 +27,7 @@ defmodule ElixIRCd.Server.HttpPlugTest do
         assert state.transport == :ws
         assert state.subprotocol == nil
         assert opts[:timeout] == 180_000
+        assert opts[:max_frame_size] == 4622
 
         conn
         |> Plug.Conn.assign(:upgraded, true)
@@ -43,8 +44,9 @@ defmodule ElixIRCd.Server.HttpPlugTest do
     end
 
     test "handles secure websocket connections" do
-      expect(WebSockAdapter, :upgrade, fn conn, _handler, state, _opts ->
+      expect(WebSockAdapter, :upgrade, fn conn, _handler, state, opts ->
         assert state.transport == :wss
+        assert opts[:max_frame_size] == 4622
 
         conn
         |> Plug.Conn.assign(:upgraded, true)

@@ -38,7 +38,7 @@ defmodule ElixIRCd.Server.TcpListener do
 
     case Connection.handle_connect(pid, transport, connection_data) do
       :ok ->
-        ThousandIsland.Socket.setopts(socket, [{:packet, :line}])
+        ThousandIsland.Socket.setopts(socket, packet: :line, packet_size: Connection.max_wire_length())
         {:continue, state, {:persistent, timeout}}
 
       :close ->

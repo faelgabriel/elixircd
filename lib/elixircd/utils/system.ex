@@ -5,6 +5,8 @@ defmodule ElixIRCd.Utils.System do
 
   require Logger
 
+  alias ElixIRCd.Utils.HostnameCloaking
+
   @doc """
   Loads ElixIRCd configuration file and sets values as application environment variables.
 
@@ -15,13 +17,17 @@ defmodule ElixIRCd.Utils.System do
   """
   @spec load_configurations :: :ok
   def load_configurations do
-    Path.join(["config", "elixircd.exs"])
-    |> Config.Reader.read!()
-    |> Enum.each(fn {app, custom_app_config} ->
-      current_app_config = Application.get_all_env(app)
-      merged_app_config = Config.Reader.merge([{app, current_app_config}], [{app, custom_app_config}])
-      Application.put_all_env(merged_app_config)
-    end)
+    configurations = Config.Reader.read!(Path.join(["config", "elixircd.exs"]))
+
+    merged =
+      Enum.flat_map(configurations, fn {app, custom_app_config} ->
+        current_app_config = Application.get_all_env(app)
+        Config.Reader.merge([{app, current_app_config}], [{app, custom_app_config}])
+      end)
+
+    # Load the key before applying configuration changes.
+    HostnameCloaking.load_key(merged[:elixircd][:cloaking][:cloak_key_file])
+    Application.put_all_env(merged)
   end
 
   @doc """

@@ -31,8 +31,17 @@ defmodule ElixIRCd.Server.Connection do
   @type transport :: :tcp | :tls | :ws | :wss
   @type connection_data :: %{ip_address: :inet.ip_address(), port_connected: :inet.port_number()}
 
+  # IRCv3 message-tags limits; the 512-byte message budget includes CRLF.
   @max_client_tag_data_length 4094
+  @max_message_length 512
+  @max_wire_length @max_client_tag_data_length + 2 + @max_message_length
   @invalid_utf8_description "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
+
+  @doc """
+  Maximum client wire size, including IRCv3 tags and CRLF.
+  """
+  @spec max_wire_length() :: pos_integer()
+  def max_wire_length, do: @max_wire_length
 
   @doc """
   Handles the connection establishment.
@@ -83,7 +92,7 @@ defmodule ElixIRCd.Server.Connection do
   """
   @spec handle_receive(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
   def handle_receive(pid, data) do
-    Logger.debug("<- #{inspect(data)}")
+    Logger.debug("<- #{byte_size(data)} bytes")
 
     Memento.transaction!(fn ->
       case Users.get_by_pid(pid) do
@@ -96,12 +105,14 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_check_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
   defp handle_check_message(user, data) do
     with :ok <- RateLimiter.check_message(user, data),
+         :ok <- validate_input_length(data),
          :ok <- check_utf8_validity(data) do
       handle_valid_message(user, data)
     else
       {:error, :throttled, retry_after_ms} -> handle_throttled_message(user, data, retry_after_ms)
       {:error, :throttled_exceeded} -> handle_excess_flood(user)
       {:error, :invalid_utf8} -> handle_invalid_utf8(user, data)
+      {:error, :input_too_long} -> handle_input_too_long(user)
     end
   end
 
@@ -134,7 +145,7 @@ defmodule ElixIRCd.Server.Connection do
   # Parse only to recover correlation metadata; invalid input is never dispatched.
   @spec rejected_request(binary()) :: Message.t()
   defp rejected_request(data) do
-    with :ok <- validate_tag_data_length(data),
+    with :ok <- validate_input_length(data),
          {:ok, message} <- Message.parse(discard_invalid_tags(data)) do
       tags = Map.filter(message.tags, fn {_key, value} -> is_binary(value) and String.valid?(value) end)
 
@@ -173,20 +184,49 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
   defp handle_valid_message(user, data) do
-    parsed_message = Message.parse(data)
-
-    with :ok <- validate_tag_data_length(data),
-         {:ok, message} <- parsed_message do
-      updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
-      Command.dispatch(updated_user, message)
-    else
-      {:error, :input_too_long} ->
-        %Message{command: :err_inputtoolong, params: [user_reply(user)], trailing: "Input line was too long"}
-        |> Dispatcher.broadcast(:server, user)
+    case Message.parse(data) do
+      {:ok, message} ->
+        updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
+        Command.dispatch(updated_user, message)
 
       {:error, error} ->
         Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
     end
+  end
+
+  @spec handle_input_too_long(User.t()) :: :ok
+  defp handle_input_too_long(user) do
+    %Message{command: :err_inputtoolong, params: [user_reply(user)], trailing: "Input line was too long"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec validate_input_length(binary()) :: :ok | {:error, :input_too_long}
+  defp validate_input_length(data) when byte_size(data) > @max_wire_length, do: {:error, :input_too_long}
+
+  defp validate_input_length("@" <> data = input) do
+    with :ok <- validate_tag_data_length(input) do
+      case :binary.split(data, " ") do
+        [_tags, message] -> validate_message_length(message)
+        [_tags] -> :ok
+      end
+    end
+  end
+
+  defp validate_input_length(data), do: validate_message_length(data)
+
+  @spec validate_message_length(binary()) :: :ok | {:error, :input_too_long}
+  defp validate_message_length(data) do
+    # Reserve CRLF space even for WebSocket messages and TCP lines ending in LF.
+    length = byte_size(data)
+
+    ending_length =
+      cond do
+        length >= 2 and binary_part(data, length - 2, 2) == "\r\n" -> 2
+        length >= 1 and binary_part(data, length - 1, 1) == "\n" -> 1
+        true -> 0
+      end
+
+    if length - ending_length <= @max_message_length - 2, do: :ok, else: {:error, :input_too_long}
   end
 
   @spec validate_tag_data_length(String.t()) :: :ok | {:error, :input_too_long}
@@ -203,8 +243,6 @@ defmodule ElixIRCd.Server.Connection do
       :ok
     end
   end
-
-  defp validate_tag_data_length(_data), do: :ok
 
   @spec handle_throttled_message(User.t(), binary(), non_neg_integer()) :: :ok
   defp handle_throttled_message(user, data, retry_after_ms) do

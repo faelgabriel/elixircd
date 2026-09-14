@@ -600,6 +600,16 @@ defmodule ElixIRCd.Commands.WebircTest do
       end)
     end
 
+    test "accepts WEBIRC command when the hostname resolves to the supplied IPv6 address" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, ip_address: {127, 0, 0, 1})
+        message = %Message{command: "WEBIRC", params: ["test_password", "TestGW", "::1", "::1"]}
+        assert :ok = Webirc.handle(user, message)
+        assert {:ok, updated} = Users.get_by_pid(user.pid)
+        assert updated.ip_address == {0, 0, 0, 0, 0, 0, 0, 1}
+      end)
+    end
+
     test "rejects hostname when DNS resolution succeeds but IP does not match" do
       log =
         capture_log(fn ->
@@ -618,7 +628,8 @@ defmodule ElixIRCd.Commands.WebircTest do
       assert log =~ "WEBIRC: Failed authentication from 127.0.0.1 - invalid hostname"
     end
 
-    test "accepts hostname when DNS resolution fails" do
+    @tag :capture_log
+    test "rejects hostname when DNS resolution fails without changing the peer identity" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false, ip_address: {127, 0, 0, 1})
 
@@ -628,9 +639,9 @@ defmodule ElixIRCd.Commands.WebircTest do
             params: ["test_password", "TestGW", "non-existent-domain-xyz123.invalid", "1.2.3.4"]
           }
 
-        assert :ok = Webirc.handle(user, message)
-
-        assert_sent_messages([])
+        assert {:quit, "Invalid hostname"} = Webirc.handle(user, message)
+        assert_sent_messages([{user.pid, ":irc.test ERROR :Invalid hostname\r\n"}])
+        assert {:ok, ^user} = Users.get_by_pid(user.pid)
       end)
     end
   end

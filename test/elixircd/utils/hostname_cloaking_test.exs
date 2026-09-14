@@ -1,28 +1,65 @@
 defmodule ElixIRCd.Utils.HostnameCloakingTest do
   @moduledoc false
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
+  use Mimic
 
   alias ElixIRCd.Utils.HostnameCloaking
 
-  setup do
+  @moduletag :tmp_dir
+
+  setup %{tmp_dir: dir} do
     original_config = Application.get_env(:elixircd, :cloaking, [])
+    path = Path.join(dir, "test-cloak.key")
+    File.write!(path, "TestKey1MinimumThirtyCharactersLong123")
 
     Application.put_env(:elixircd, :cloaking,
-      cloak_keys: [
-        "TestKey1MinimumThirtyCharactersLong123",
-        "TestKey2MinimumThirtyCharactersLong456",
-        "TestKey3MinimumThirtyCharactersLong789"
-      ],
+      cloak_key_file: path,
       cloak_prefix: "test",
       cloak_domain_parts: 2
     )
 
     on_exit(fn ->
       Application.put_env(:elixircd, :cloaking, original_config)
+      HostnameCloaking.load_key(original_config[:cloak_key_file])
     end)
 
-    :ok
+    HostnameCloaking.load_key(path)
+    {:ok, key_file: path}
+  end
+
+  describe "load_key/1" do
+    @tag :capture_log
+    test "generates a private persistent key and reuses it", %{tmp_dir: dir} do
+      path = Path.join(dir, "cloak.key")
+
+      assert :ok = HostnameCloaking.load_key(path)
+      key = File.read!(path)
+      assert byte_size(Base.decode64!(key)) == 32
+      assert Bitwise.band(File.stat!(path).mode, 0o777) == 0o600
+      assert :ok = HostnameCloaking.load_key(path)
+      assert File.read!(path) == key
+    end
+
+    test "raises when the key file cannot be read", %{tmp_dir: dir} do
+      assert_raise File.Error, fn -> HostnameCloaking.load_key(dir) end
+    end
+
+    test "loads an existing key if exclusive creation fails because the file already exists", %{tmp_dir: dir} do
+      path = Path.join(dir, "cloak.key")
+      key = Base.encode64(:crypto.strong_rand_bytes(32))
+      File.write!(path, key)
+      expect(File, :read, fn ^path -> {:error, :enoent} end)
+      assert :ok = HostnameCloaking.load_key(path)
+      assert File.read!(path) == key
+    end
+
+    test "raises when the key file cannot be created", %{tmp_dir: dir} do
+      path = Path.join(dir, "cloak.key")
+      expect(File, :open, fn ^path, [:write, :binary, :exclusive] -> {:error, :eacces} end)
+      assert_raise File.Error, fn -> HostnameCloaking.load_key(path) end
+      refute File.exists?(path)
+    end
   end
 
   describe "cloak/2" do
@@ -159,22 +196,17 @@ defmodule ElixIRCd.Utils.HostnameCloakingTest do
     end
   end
 
-  describe "cloak consistency with different keys" do
-    test "different keys produce different cloaks for same input" do
+  describe "cloak/2 with a reloaded key file" do
+    test "uses the cached file contents until the key file is reloaded", %{key_file: path} do
       ip = {192, 168, 1, 100}
       hostname = "user.cable.example.com"
 
       result1 = HostnameCloaking.cloak(ip, hostname)
 
-      Application.put_env(:elixircd, :cloaking,
-        cloak_keys: [
-          "DifferentKey1MinimumThirtyCharacters1",
-          "DifferentKey2MinimumThirtyCharacters2",
-          "DifferentKey3MinimumThirtyCharacters3"
-        ],
-        cloak_prefix: "test",
-        cloak_domain_parts: 2
-      )
+      File.write!(path, "DifferentKey1MinimumThirtyCharacters1")
+      assert HostnameCloaking.cloak(ip, hostname) == result1
+
+      assert :ok = HostnameCloaking.load_key(path)
 
       result2 = HostnameCloaking.cloak(ip, hostname)
 

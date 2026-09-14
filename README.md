@@ -227,7 +227,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **STATS**: Provide server statistics. ✅
 - **INFO**: Provide information about the server. ✅
 - **TIME**: Provide the server's local time. ✅
-- **TRACE**: Trace routes to a specific server or user. ✅
+- **TRACE**: Show user connection information. ✅
 - **ADMIN**: Provide information about the server administrator. ✅
 - **OPER**: Allow operators to gain elevated privileges on the server. ✅
 - **WALLOPS**: Allow operators to distribute messages to users with 'wallop' privileges. ✅
