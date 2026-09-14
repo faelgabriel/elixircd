@@ -33,7 +33,7 @@ defmodule ElixIRCd.Commands.Away do
 
   @impl true
   def handle(user, %{command: "AWAY", trailing: reason}) do
-    max_away_length = Application.get_env(:elixircd, :user)[:max_away_message_length]
+    max_away_length = Application.fetch_env!(:elixircd, :user)[:max_away_message_length]
 
     if String.length(reason) > max_away_length do
       %Message{
@@ -56,7 +56,7 @@ defmodule ElixIRCd.Commands.Away do
 
   @spec notify_away_change(User.t()) :: :ok
   defp notify_away_change(user) do
-    away_notify_supported = Application.get_env(:elixircd, :capabilities)[:away_notify] || false
+    away_notify_supported = Application.fetch_env!(:elixircd, :capabilities)[:away_notify]
 
     if away_notify_supported do
       watchers = Users.get_in_shared_channels_with_capability(user, "away-notify", false)

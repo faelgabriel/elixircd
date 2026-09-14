@@ -5,53 +5,15 @@ defmodule ElixIRCd.Utils.HostnameCloaking do
 
   import ElixIRCd.Utils.Network, only: [format_ip_address: 1]
 
-  require Logger
+  alias ElixIRCd.Config.Resources
 
   @doc """
   Loads the cloak key file into memory, creating a private file if it does not exist.
   """
   @spec load_key(String.t()) :: :ok
   def load_key(path) do
-    key = read_key(path)
+    key = Resources.cloak_key!(path)
     :persistent_term.put(__MODULE__, key)
-  end
-
-  # The path comes from operator configuration, not IRC input.
-  # sobelow_skip ["Traversal.FileModule"]
-  @spec read_key(String.t()) :: String.t()
-  defp read_key(path) do
-    case File.read(path) do
-      {:ok, key} -> key
-      {:error, :enoent} -> create_key(path)
-      {:error, reason} -> raise File.Error, reason: reason, action: "read cloak key", path: path
-    end
-  end
-
-  # The path comes from operator configuration, not IRC input.
-  # sobelow_skip ["Traversal.FileModule"]
-  @spec create_key(String.t()) :: String.t()
-  defp create_key(path) do
-    File.mkdir_p!(Path.dirname(path))
-
-    case File.open(path, [:write, :binary, :exclusive]) do
-      {:ok, file} ->
-        try do
-          File.chmod!(path, 0o600)
-          key = :crypto.strong_rand_bytes(32) |> Base.encode64()
-          :ok = IO.binwrite(file, key)
-          :ok = :file.sync(file)
-          Logger.warning("Generated hostname cloak key at #{path}; keep this file private and backed up")
-          key
-        after
-          File.close(file)
-        end
-
-      {:error, :eexist} ->
-        File.read!(path)
-
-      {:error, reason} ->
-        raise File.Error, reason: reason, action: "create cloak key", path: path
-    end
   end
 
   @doc """
@@ -76,13 +38,13 @@ defmodule ElixIRCd.Utils.HostnameCloaking do
   @spec cloak_hostname(String.t()) :: String.t()
   defp cloak_hostname(hostname) when is_binary(hostname) do
     parts = String.split(hostname, ".")
-    domain_parts_to_keep = Application.get_env(:elixircd, :cloaking)[:cloak_domain_parts]
+    domain_parts_to_keep = Application.fetch_env!(:elixircd, :cloaking)[:cloak_domain_parts]
 
     case length(parts) do
       n when n > domain_parts_to_keep ->
         {to_hash, to_keep} = Enum.split(parts, -domain_parts_to_keep)
         hashed = hash_hostname_segments(to_hash)
-        prefix = Application.get_env(:elixircd, :cloaking)[:cloak_prefix]
+        prefix = Application.fetch_env!(:elixircd, :cloaking)[:cloak_prefix]
         "#{prefix}-#{hashed}.#{Enum.join(to_keep, ".")}"
 
       _ ->

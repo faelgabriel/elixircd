@@ -265,7 +265,7 @@ defmodule ElixIRCd.Commands.Who do
         resolve_channel_name(user_channel, channel, channel_map),
         user_target.ident,
         display_hostname(user_target, user),
-        Application.get_env(:elixircd, :server)[:hostname],
+        Application.fetch_env!(:elixircd, :server)[:hostname],
         user_target.nick,
         user_statuses(user, user_target, user_channel)
       ],
@@ -340,7 +340,7 @@ defmodule ElixIRCd.Commands.Who do
     display_hostname(user_target, requesting_user)
   end
 
-  defp whox_field_value("s", _context), do: Application.get_env(:elixircd, :server)[:hostname]
+  defp whox_field_value("s", _context), do: Application.fetch_env!(:elixircd, :server)[:hostname]
 
   defp whox_field_value("n", %{user_target: user_target}), do: user_target.nick
 
@@ -413,7 +413,7 @@ defmodule ElixIRCd.Commands.Who do
 
   @spec parse_query([String.t()]) :: map()
   defp parse_query(filters) do
-    whox_enabled? = Keyword.get(Application.get_env(:elixircd, :whox, []), :enabled, false)
+    whox_enabled? = Keyword.fetch!(Application.fetch_env!(:elixircd, :whox), :enabled)
 
     {pre_whox_filters, whox_param, post_whox_filters} =
       if whox_enabled? do

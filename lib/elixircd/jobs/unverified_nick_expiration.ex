@@ -76,7 +76,7 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpiration do
 
   @spec get_unverified_expire_seconds() :: pos_integer()
   defp get_unverified_expire_seconds do
-    unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
+    unverified_expire_days = Application.fetch_env!(:elixircd, :services)[:nickserv][:unverified_expire_days]
     unverified_expire_days * 24 * 60 * 60
   end
 end

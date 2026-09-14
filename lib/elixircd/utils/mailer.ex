@@ -29,8 +29,7 @@ defmodule ElixIRCd.Utils.Mailer do
 
   @spec sender_email() :: String.t()
   defp sender_email do
-    host = Application.get_env(:elixircd, :server)[:hostname]
-    Application.get_env(:elixircd, :services)[:email][:from_address] || "noreply@#{host}"
+    Application.fetch_env!(:elixircd, :services)[:email][:from_address]
   end
 
   @spec verification_email_html(String.t(), String.t()) :: String.t()

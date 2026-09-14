@@ -39,7 +39,7 @@ defmodule ElixIRCd.Utils.Network do
   # coveralls-ignore-start
   @spec query_identd(:inet.ip_address(), integer()) :: {:ok, String.t()} | {:error, String.t()}
   def query_identd(ip_address, irc_server_port) do
-    timeout = Application.get_env(:elixircd, :ident_service)[:timeout]
+    timeout = Application.fetch_env!(:elixircd, :ident_service)[:timeout]
 
     with {:ok, socket} <- :gen_tcp.connect(ip_address, 113, [:binary, {:active, false}], timeout),
          :ok <- :gen_tcp.send(socket, "#{irc_server_port}, 113\r\n"),

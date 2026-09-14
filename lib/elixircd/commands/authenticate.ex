@@ -114,8 +114,8 @@ defmodule ElixIRCd.Commands.Authenticate do
   @spec handle_mechanism_selection(User.t(), String.t()) :: :ok
   defp handle_mechanism_selection(user, mechanism) do
     normalized_mechanism = String.upcase(mechanism)
-    sasl_config = Application.get_env(:elixircd, :sasl, [])
-    max_attempts = Keyword.get(sasl_config, :max_attempts_per_connection, 3)
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+    max_attempts = Keyword.fetch!(sasl_config, :max_attempts_per_connection)
     current_attempts = user.sasl_attempts || 0
 
     cond do
@@ -172,8 +172,8 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec mechanism_enabled?(String.t()) :: boolean()
   defp mechanism_enabled?("PLAIN") do
-    sasl_config = Application.get_env(:elixircd, :sasl, [])
-    Keyword.get(sasl_config[:plain] || [], :enabled, true)
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+    Keyword.fetch!(sasl_config[:plain], :enabled)
   end
 
   @spec start_sasl_session(User.t(), String.t()) :: :ok
@@ -230,8 +230,8 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec process_plain_auth(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
   defp process_plain_auth(user, session) do
-    sasl_config = Application.get_env(:elixircd, :sasl, [])
-    require_tls = Keyword.get(sasl_config[:plain] || [], :require_tls, true)
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+    require_tls = Keyword.fetch!(sasl_config[:plain], :require_tls)
 
     if require_tls and user.transport not in [:tls, :wss] do
       %Message{
@@ -440,7 +440,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec sasl_enabled?() :: boolean()
   defp sasl_enabled? do
-    Application.get_env(:elixircd, :capabilities)[:sasl] || false
+    Application.fetch_env!(:elixircd, :capabilities)[:sasl]
   end
 
   @spec nick_or_asterisk(User.t()) :: String.t()

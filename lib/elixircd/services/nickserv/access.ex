@@ -178,7 +178,7 @@ defmodule ElixIRCd.Services.Nickserv.Access do
 
   @spec get_max_access_entries() :: integer()
   defp get_max_access_entries do
-    Application.get_env(:elixircd, :services)[:nickserv][:max_access_entries] || 10
+    Application.fetch_env!(:elixircd, :services)[:nickserv][:max_access_entries]
   end
 
   @spec format_datetime(DateTime.t()) :: String.t()

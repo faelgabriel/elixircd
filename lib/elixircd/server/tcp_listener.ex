@@ -17,7 +17,7 @@ defmodule ElixIRCd.Server.TcpListener do
   @impl ThousandIsland.Handler
   def handle_connection(socket, _state) do
     pid = self()
-    timeout = Application.get_env(:elixircd, :user)[:inactivity_timeout_ms]
+    timeout = Application.fetch_env!(:elixircd, :user)[:inactivity_timeout_ms]
 
     transport =
       case socket do
@@ -27,22 +27,15 @@ defmodule ElixIRCd.Server.TcpListener do
 
     Logger.debug("New connection: #{inspect(pid)} (#{transport})")
 
-    {:ok, {remote_ip, port}} = ThousandIsland.Socket.sockname(socket)
-
-    connection_data = %{
-      ip_address: remote_ip,
-      port_connected: port
-    }
-
     state = %{transport: transport}
 
-    case Connection.handle_connect(pid, transport, connection_data) do
-      :ok ->
-        ThousandIsland.Socket.setopts(socket, packet: :line, packet_size: Connection.max_wire_length())
-        {:continue, state, {:persistent, timeout}}
-
-      :close ->
-        {:close, state}
+    with {:ok, {remote_ip, port}} <- ThousandIsland.Socket.sockname(socket),
+         :ok <- Connection.handle_connect(pid, transport, %{ip_address: remote_ip, port_connected: port}),
+         :ok <- ThousandIsland.Socket.setopts(socket, packet: :line, packet_size: Connection.max_wire_length()) do
+      {:continue, state, {:persistent, timeout}}
+    else
+      :close -> {:close, state}
+      {:error, _reason} -> {:close, state}
     end
   end
 
@@ -74,21 +67,30 @@ defmodule ElixIRCd.Server.TcpListener do
   def handle_info({:EXIT, _pid, _type}, {socket, state}), do: {:noreply, {socket, state}}
 
   @impl ThousandIsland.Handler
+  # TLS can fail before handle_connection/2 initializes the IRC session state.
+  def handle_error(_reason, _socket, []), do: :ok
+
   def handle_error(_reason, _socket, state) do
     Connection.handle_disconnect(self(), state.transport, "Connection Error")
   end
 
   @impl ThousandIsland.Handler
+  def handle_timeout(_socket, []), do: :ok
+
   def handle_timeout(_socket, state) do
     Connection.handle_disconnect(self(), state.transport, "Connection Timeout")
   end
 
   @impl ThousandIsland.Handler
+  def handle_shutdown(_socket, []), do: :ok
+
   def handle_shutdown(_socket, state) do
     Connection.handle_disconnect(self(), state.transport, "Server Shutdown")
   end
 
   @impl ThousandIsland.Handler
+  def handle_close(_socket, []), do: :ok
+
   def handle_close(_socket, state) do
     Connection.handle_disconnect(self(), state.transport, state[:quit_reason] || "Connection Closed")
   end

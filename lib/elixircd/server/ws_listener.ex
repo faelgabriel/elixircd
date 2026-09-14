@@ -106,7 +106,7 @@ defmodule ElixIRCd.Server.WsListener do
 
   @spec ensure_utf8_valid(binary()) :: binary()
   defp ensure_utf8_valid(data) do
-    utf8_only_enabled? = Application.get_env(:elixircd, :settings)[:utf8_only] || false
+    utf8_only_enabled? = Application.fetch_env!(:elixircd, :settings)[:utf8_only]
 
     # Skip validation here if utf8_only is enabled, since invalid UTF-8 will be handled in the Connection module.
     # Otherwise, sanitize the data by replacing invalid UTF-8 sequences.

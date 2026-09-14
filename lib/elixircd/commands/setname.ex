@@ -33,7 +33,7 @@ defmodule ElixIRCd.Commands.Setname do
   end
 
   def handle(user, %{command: "SETNAME", trailing: new_realname}) do
-    setname_supported = Application.get_env(:elixircd, :capabilities)[:setname] || false
+    setname_supported = Application.fetch_env!(:elixircd, :capabilities)[:setname]
 
     with {:capability, true} <- {:capability, setname_supported},
          :ok <- validate_realname(new_realname),
@@ -55,7 +55,7 @@ defmodule ElixIRCd.Commands.Setname do
         Dispatcher.broadcast(reply, :server, user)
 
       {:error, :realname_too_long} ->
-        max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
+        max_realname_length = Application.fetch_env!(:elixircd, :user)[:max_realname_length]
 
         reply = %StandardReply{
           type: :fail,
@@ -73,7 +73,7 @@ defmodule ElixIRCd.Commands.Setname do
 
   @spec validate_realname(String.t()) :: :ok | {:error, :realname_empty | :realname_too_long}
   defp validate_realname(realname) do
-    max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
+    max_realname_length = Application.fetch_env!(:elixircd, :user)[:max_realname_length]
 
     cond do
       String.length(realname) == 0 -> {:error, :realname_empty}
@@ -92,7 +92,7 @@ defmodule ElixIRCd.Commands.Setname do
 
   @spec notify_setname(User.t(), String.t()) :: :ok
   defp notify_setname(user, new_realname) do
-    setname_supported = Application.get_env(:elixircd, :capabilities)[:setname] || false
+    setname_supported = Application.fetch_env!(:elixircd, :capabilities)[:setname]
 
     if setname_supported do
       watchers = Users.get_in_shared_channels_with_capability(user, "setname", true)

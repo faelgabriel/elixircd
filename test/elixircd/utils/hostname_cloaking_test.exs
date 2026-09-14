@@ -42,14 +42,14 @@ defmodule ElixIRCd.Utils.HostnameCloakingTest do
     end
 
     test "raises when the key file cannot be read", %{tmp_dir: dir} do
-      assert_raise File.Error, fn -> HostnameCloaking.load_key(dir) end
+      assert_raise ElixIRCd.Config.Error, fn -> HostnameCloaking.load_key(dir) end
     end
 
-    test "loads an existing key if exclusive creation fails because the file already exists", %{tmp_dir: dir} do
+    test "loads an existing key without attempting to create it", %{tmp_dir: dir} do
       path = Path.join(dir, "cloak.key")
       key = Base.encode64(:crypto.strong_rand_bytes(32))
       File.write!(path, key)
-      expect(File, :read, fn ^path -> {:error, :enoent} end)
+      reject(File, :open, 2)
       assert :ok = HostnameCloaking.load_key(path)
       assert File.read!(path) == key
     end

@@ -61,6 +61,10 @@ defmodule ElixIRCd.Command do
     "WHOWAS" => Commands.Whowas
   }
 
+  @doc "Returns supported IRC command names."
+  @spec names() :: [String.t()]
+  def names, do: @commands |> Map.keys() |> Enum.sort()
+
   @doc """
   Defines the behaviour for handling incoming IRC commands.
   """

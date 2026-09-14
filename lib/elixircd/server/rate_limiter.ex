@@ -59,7 +59,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   """
   @spec check_connection(:inet.ip_address()) :: burst_result() | {:error, :max_connections_exceeded}
   def check_connection(ip) do
-    config = Application.get_env(:elixircd, :rate_limiter)[:connection]
+    config = Application.fetch_env!(:elixircd, :rate_limiter)[:connection]
 
     if ip_exception?(ip, config) do
       :ok
@@ -73,16 +73,16 @@ defmodule ElixIRCd.Server.RateLimiter do
 
   @spec ip_exception?(:inet.ip_address(), keyword()) :: boolean()
   defp ip_exception?(ip, config) do
-    exceptions = Keyword.get(config, :exceptions, [])
+    exceptions = Keyword.fetch!(config, :exceptions)
 
     # Pending: Use a configuration builder that parses the IP and CIDR,
     # so that it does not need to be parsed every call here
     exception_ips =
-      Keyword.get(exceptions, :ips, [])
+      Keyword.fetch!(exceptions, :ips)
       |> Enum.map(fn ip -> ip |> String.to_charlist() |> :inet.parse_address() |> elem(1) end)
 
     exception_cidrs =
-      Keyword.get(exceptions, :cidrs, [])
+      Keyword.fetch!(exceptions, :cidrs)
       |> Enum.map(fn cidr -> cidr |> CIDR.parse() end)
 
     cond do
@@ -152,7 +152,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   """
   @spec check_message(User.t(), String.t()) :: burst_result()
   def check_message(user, data) do
-    config = Application.get_env(:elixircd, :rate_limiter)[:message]
+    config = Application.fetch_env!(:elixircd, :rate_limiter)[:message]
 
     if message_exception?(user, config) do
       :ok
@@ -165,8 +165,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   defp check_message_throttle(user, data, config) do
     command = extract_command(data)
     pid_string = inspect(user.pid)
-    override = Map.get(config[:command_throttle] || %{}, command, [])
-    throttle = Keyword.merge(config[:throttle], override)
+    throttle = Map.get(config[:command_throttle], command, config[:throttle])
 
     rate_key = "#{pid_string}:#{command || "*"}"
     violation_key = "disconnect:#{rate_key}"
@@ -196,15 +195,15 @@ defmodule ElixIRCd.Server.RateLimiter do
 
   @spec message_exception?(User.t(), keyword()) :: boolean()
   defp message_exception?(user, config) do
-    exceptions = Keyword.get(config, :exceptions, [])
+    exceptions = Keyword.fetch!(config, :exceptions)
 
     # Pending: Use a configuration builder that normalizes the nicknames
     exception_nicknames =
-      Keyword.get(exceptions, :nicknames, [])
+      Keyword.fetch!(exceptions, :nicknames)
       |> Enum.map(fn nickname -> CaseMapping.normalize(nickname) end)
 
-    exception_umodes = Keyword.get(exceptions, :umodes, [])
-    exception_masks = Keyword.get(exceptions, :masks, [])
+    exception_umodes = Keyword.fetch!(exceptions, :umodes)
+    exception_masks = Keyword.fetch!(exceptions, :masks)
 
     cond do
       # Check if identified user's nickname is in the exceptions list

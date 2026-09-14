@@ -37,11 +37,11 @@ defmodule ElixIRCd.Utils.Isupport do
   """
   @spec feature_tokens() :: [String.t()]
   def feature_tokens do
-    user_config = Application.get_env(:elixircd, :user)
-    channel_config = Application.get_env(:elixircd, :channel)
-    server_config = Application.get_env(:elixircd, :server)
-    whox_config = Application.get_env(:elixircd, :whox, [])
-    settings_config = Application.get_env(:elixircd, :settings)
+    user_config = Application.fetch_env!(:elixircd, :user)
+    channel_config = Application.fetch_env!(:elixircd, :channel)
+    server_config = Application.fetch_env!(:elixircd, :server)
+    whox_config = Application.fetch_env!(:elixircd, :whox)
+    settings_config = Application.fetch_env!(:elixircd, :settings)
 
     [
       format_feature(:numeric, "MODES", channel_config[:max_modes_per_command]),
@@ -55,7 +55,7 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:numeric, "KICKLEN", channel_config[:max_kick_message_length]),
       format_feature(:numeric, "AWAYLEN", user_config[:max_away_message_length]),
       format_feature(:string, "CHANMODES", format_chanmodes()),
-      format_feature(:boolean, "WHOX", Keyword.get(whox_config, :enabled, false)),
+      format_feature(:boolean, "WHOX", Keyword.fetch!(whox_config, :enabled)),
       format_feature(:string, "UMODES", format_umodes()),
       format_feature(:string, "BOT", "B"),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only]),
@@ -151,8 +151,8 @@ defmodule ElixIRCd.Utils.Isupport do
   @spec format_monitor_feature() :: String.t() | nil
   defp format_monitor_feature do
     if Monitor.enabled?() do
-      monitor_config = Application.get_env(:elixircd, :monitor, [])
-      max_targets = Keyword.get(monitor_config, :max_targets, 100)
+      monitor_config = Application.fetch_env!(:elixircd, :monitor)
+      max_targets = Keyword.fetch!(monitor_config, :max_targets)
 
       if max_targets > 0 do
         "MONITOR=#{max_targets}"

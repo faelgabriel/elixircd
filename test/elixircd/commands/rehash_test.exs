@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.RehashTest do
   import ExUnit.CaptureLog
 
   alias ElixIRCd.Commands.Rehash
+  alias ElixIRCd.Config.Error
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
@@ -143,6 +144,22 @@ defmodule ElixIRCd.Commands.RehashTest do
           assert_sent_messages_amount(oper.pid, 4)
         end)
       end
+    end
+
+    test "reports schema field errors to the operator without notifying observers" do
+      expect(System, :load_configurations, fn ->
+        raise Error, path: "config/elixircd.exs", errors: ["elixircd.user.max_nick_length: expected integer"]
+      end)
+
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: ["o"], capabilities: ["standard-replies"])
+        observer = insert(:user, capabilities: ["cap-notify"])
+        capture_log(fn -> assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []}) end)
+        assert_sent_message_contains(oper.pid, ~r/FAIL REHASH CONFIG_BAD/)
+        assert_sent_message_contains(oper.pid, ~r/NOTICE .*elixircd.user.max_nick_length: expected integer/)
+        assert_sent_messages_count_containing(oper.pid, ~r/REHASH_COMPLETE/, 0)
+        assert_sent_messages_amount(observer.pid, 0)
+      end)
     end
 
     test "does not misreport notification errors as configuration loading failures" do
@@ -473,7 +490,7 @@ defmodule ElixIRCd.Commands.RehashTest do
     test "notifies plaintext clients with port when sts availability changes", %{original_config: original_config} do
       on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
 
-      Application.put_env(:elixircd, :capabilities, Keyword.delete(original_config || [], :sts))
+      Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :sts, false))
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
@@ -497,7 +514,7 @@ defmodule ElixIRCd.Commands.RehashTest do
     test "notifies TLS clients with duration when sts availability changes", %{original_config: original_config} do
       on_exit(fn -> Application.put_env(:elixircd, :capabilities, original_config) end)
 
-      Application.put_env(:elixircd, :capabilities, Keyword.delete(original_config || [], :sts))
+      Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :sts, false))
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])
@@ -536,7 +553,7 @@ defmodule ElixIRCd.Commands.RehashTest do
           Application.put_env(
             :elixircd,
             :capabilities,
-            Application.get_env(:elixircd, :capabilities, []) |> Keyword.delete(:sts)
+            Application.get_env(:elixircd, :capabilities, []) |> Keyword.put(:sts, false)
           )
         end)
 
@@ -788,7 +805,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       caps = Application.get_env(:elixircd, :capabilities)
 
       Application.put_env(:elixircd, :capabilities, Keyword.put(caps, :sts, true))
-      Application.put_env(:elixircd, :sts, duration: 3600, port: 6697)
+      Application.put_env(:elixircd, :sts, duration: 3600, port: 6697, preload: false)
 
       Memento.transaction!(fn ->
         oper = insert(:user, modes: ["o"])

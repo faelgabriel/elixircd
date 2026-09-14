@@ -153,7 +153,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   @spec echo_message_enabled?(User.t()) :: boolean()
   defp echo_message_enabled?(%User{capabilities: capabilities}) do
-    echo_message_supported = Application.get_env(:elixircd, :capabilities)[:echo_message] || false
+    echo_message_supported = Application.fetch_env!(:elixircd, :capabilities)[:echo_message]
     echo_message_supported and "echo-message" in capabilities
   end
 
@@ -248,7 +248,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp maybe_put_account_tag(%Message{} = message, %User{identified_as: nil}), do: message
 
   defp maybe_put_account_tag(%Message{} = message, %User{identified_as: account}) do
-    account_tag_supported = Application.get_env(:elixircd, :capabilities)[:account_tag] || false
+    account_tag_supported = Application.fetch_env!(:elixircd, :capabilities)[:account_tag]
 
     if account_tag_supported do
       %{message | tags: Map.put(message.tags, "account", account)}
@@ -264,7 +264,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp maybe_put_base_msgid(%Message{} = message, false), do: message
 
   defp maybe_put_base_msgid(%Message{tags: tags} = message, true) do
-    msgid_supported = Application.get_env(:elixircd, :message_ids, [])[:enabled] || false
+    msgid_supported = Application.fetch_env!(:elixircd, :message_ids)[:enabled]
 
     if msgid_supported and not Map.has_key?(tags, "msgid") do
       msgid =
@@ -278,7 +278,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   end
 
   @spec hostname() :: String.t()
-  defp hostname, do: Application.get_env(:elixircd, :server)[:hostname]
+  defp hostname, do: Application.fetch_env!(:elixircd, :server)[:hostname]
 
   @spec filter_tags(Message.t(), User.t()) :: Message.t()
   defp filter_tags(message, %User{capabilities: []}), do: %{message | tags: %{}}
@@ -327,7 +327,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   @spec maybe_put_server_time_tag(Message.tags(), [String.t()]) :: Message.tags()
   defp maybe_put_server_time_tag(tags, capabilities) do
-    server_time_supported = Application.get_env(:elixircd, :capabilities)[:server_time] || false
+    server_time_supported = Application.fetch_env!(:elixircd, :capabilities)[:server_time]
 
     if server_time_supported and "server-time" in capabilities and not Map.has_key?(tags, "time") do
       time =
@@ -345,7 +345,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp maybe_filter_msgid_tag(tags, _capabilities) when not is_map_key(tags, "msgid"), do: tags
 
   defp maybe_filter_msgid_tag(tags, capabilities) do
-    msgid_supported = Application.get_env(:elixircd, :message_ids, [])[:enabled] || false
+    msgid_supported = Application.fetch_env!(:elixircd, :message_ids)[:enabled]
 
     cond do
       not msgid_supported -> Map.delete(tags, "msgid")
@@ -358,7 +358,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp maybe_filter_account_tag(tags, _capabilities) when not is_map_key(tags, "account"), do: tags
 
   defp maybe_filter_account_tag(tags, capabilities) do
-    account_tag_supported = Application.get_env(:elixircd, :capabilities)[:account_tag] || false
+    account_tag_supported = Application.fetch_env!(:elixircd, :capabilities)[:account_tag]
 
     cond do
       not account_tag_supported -> Map.delete(tags, "account")

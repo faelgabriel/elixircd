@@ -20,9 +20,9 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   def handle(user, ["REGISTER", password | rest_params]) do
     email = Enum.at(rest_params, 0)
 
-    min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
-    email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
-    wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
+    min_password_length = Application.fetch_env!(:elixircd, :services)[:nickserv][:min_password_length]
+    email_required? = Application.fetch_env!(:elixircd, :services)[:nickserv][:email_required]
+    wait_register_time = Application.fetch_env!(:elixircd, :services)[:nickserv][:wait_register_time]
 
     case RegisteredNicks.get_by_nickname(user.nick) do
       {:ok, _registered_nick} ->
@@ -34,7 +34,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   end
 
   def handle(user, ["REGISTER" | _command_params]) do
-    email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
+    email_required? = Application.fetch_env!(:elixircd, :services)[:nickserv][:email_required]
 
     notify(user, [
       "Insufficient parameters for \x02REGISTER\x02.",
@@ -136,7 +136,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
         retry_delay_ms: 30_000
       )
 
-      unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
+      unverified_expire_days = Application.fetch_env!(:elixircd, :services)[:nickserv][:unverified_expire_days]
 
       notify(
         user,

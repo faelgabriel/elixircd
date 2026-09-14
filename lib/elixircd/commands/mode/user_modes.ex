@@ -119,7 +119,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
 
   @spec validate_removable_modes([mode_change()]) :: {[mode_change()], [mode_change()]}
   defp validate_removable_modes(mode_changes) do
-    case Application.get_env(:elixircd, :cloaking)[:cloak_allow_disable] do
+    case Application.fetch_env!(:elixircd, :cloaking)[:cloak_allow_disable] do
       false -> Enum.split_with(mode_changes, &valid_when_cloak_disabled?/1)
       _ -> {mode_changes, []}
     end

@@ -54,9 +54,9 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec send_register_help(User.t()) :: :ok
   defp send_register_help(user) do
-    min_password_length = Application.get_env(:elixircd, :services)[:nickserv][:min_password_length] || 6
-    email_required? = Application.get_env(:elixircd, :services)[:nickserv][:email_required] || false
-    wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
+    min_password_length = Application.fetch_env!(:elixircd, :services)[:nickserv][:min_password_length]
+    email_required? = Application.fetch_env!(:elixircd, :services)[:nickserv][:email_required]
+    wait_register_time = Application.fetch_env!(:elixircd, :services)[:nickserv][:wait_register_time]
 
     notify(user, [
       "Help for \x02REGISTER\x02:",
@@ -229,7 +229,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   @spec send_recover_help(User.t()) :: :ok
   defp send_recover_help(user) do
     recover_reservation_duration =
-      Application.get_env(:elixircd, :services)[:nickserv][:recover_reservation_duration] || 60
+      Application.fetch_env!(:elixircd, :services)[:nickserv][:recover_reservation_duration]
 
     notify(user, [
       "Help for \x02RECOVER\x02:",
@@ -313,8 +313,8 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
-    unverified_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:unverified_expire_days] || 1
-    wait_register_time = Application.get_env(:elixircd, :services)[:nickserv][:wait_register_time] || 0
+    unverified_expire_days = Application.fetch_env!(:elixircd, :services)[:nickserv][:unverified_expire_days]
+    wait_register_time = Application.fetch_env!(:elixircd, :services)[:nickserv][:wait_register_time]
 
     notify(user, [
       "Help for \x02FAQ\x02:",
@@ -331,7 +331,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "Q: My nickname has expired. Can I get it back?",
       "A: If your nickname has expired due to inactivity, you can",
       "   simply register it again. Nicknames expire after",
-      "   #{Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90} days of inactivity."
+      "   #{Application.fetch_env!(:elixircd, :services)[:nickserv][:nick_expire_days]} days of inactivity."
     ])
 
     # Add information about unverified nickname expiration if enabled
@@ -374,7 +374,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec general_help() :: [String.t()]
   defp general_help do
-    nick_expire_days = Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90
+    nick_expire_days = Application.fetch_env!(:elixircd, :services)[:nickserv][:nick_expire_days]
 
     [
       "NickServ allows you to register and manage your nickname.",
@@ -459,7 +459,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
 
   @spec send_access_help(User.t()) :: :ok
   defp send_access_help(user) do
-    max_access_entries = Application.get_env(:elixircd, :services)[:nickserv][:max_access_entries] || 10
+    max_access_entries = Application.fetch_env!(:elixircd, :services)[:nickserv][:max_access_entries]
 
     notify(user, [
       "Help for \x02ACCESS\x02:",

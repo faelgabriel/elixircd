@@ -212,7 +212,16 @@ defmodule ElixIRCd.Server.ConnectionTest do
       end)
 
       Application.put_env(:elixircd, :capabilities, Keyword.put(caps, :setname, true))
-      overrides = Map.put(config[:message][:command_throttle], "SETNAME", capacity: 1, refill_rate: 0.001)
+
+      overrides =
+        Map.put(config[:message][:command_throttle], "SETNAME",
+          capacity: 1,
+          refill_rate: 0.001,
+          cost: 1,
+          window_ms: 60_000,
+          disconnect_threshold: 10
+        )
+
       Application.put_env(:elixircd, :rate_limiter, put_in(config, [:message, :command_throttle], overrides))
 
       for capabilities <- [[], ["setname"], ["setname", "standard-replies"]] do

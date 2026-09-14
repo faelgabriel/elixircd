@@ -118,7 +118,7 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec check_utf8_validity(data :: String.t()) :: :ok | {:error, :invalid_utf8}
   defp check_utf8_validity(data) do
-    utf8_only_enabled? = Application.get_env(:elixircd, :settings)[:utf8_only] || false
+    utf8_only_enabled? = Application.fetch_env!(:elixircd, :settings)[:utf8_only]
 
     if utf8_only_enabled? and not String.valid?(data) do
       {:error, :invalid_utf8}
@@ -164,7 +164,7 @@ defmodule ElixIRCd.Server.Connection do
   # Replies specifies the `*` placeholder.
   @spec rejected_command_fits?(String.t()) :: boolean()
   defp rejected_command_fits?(command) do
-    hostname = Application.get_env(:elixircd, :server)[:hostname]
+    hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
     byte_size(":#{hostname} FAIL #{command} INVALID_UTF8 :#{@invalid_utf8_description}\r\n") <= 512
   end
 
@@ -253,7 +253,7 @@ defmodule ElixIRCd.Server.Connection do
 
     ResponseContext.with_command(user, request, fn ->
       if request.command == "SETNAME" and user.registered and
-           Application.get_env(:elixircd, :capabilities)[:setname] do
+           Application.fetch_env!(:elixircd, :capabilities)[:setname] do
         reply = %StandardReply{
           type: :fail,
           command: "SETNAME",

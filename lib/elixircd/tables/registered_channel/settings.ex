@@ -111,9 +111,9 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
 
   @spec get_config_settings() :: keyword()
   defp get_config_settings do
-    Application.get_env(:elixircd, :services, [])
-    |> Keyword.get(:chanserv, [])
-    |> Keyword.get(:settings, [])
+    Application.fetch_env!(:elixircd, :services)
+    |> Keyword.fetch!(:chanserv)
+    |> Keyword.fetch!(:settings)
   end
 
   @spec init_channel_info(t_attrs(), keyword()) :: t_attrs()
@@ -128,26 +128,26 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
   @spec init_topic_control(t_attrs(), keyword()) :: t_attrs()
   defp init_topic_control(attrs, config_settings) do
     attrs
-    |> Map.put_new(:keeptopic, config_settings[:keeptopic] || true)
+    |> Map.put_new(:keeptopic, config_settings[:keeptopic])
     |> Map.put_new(:persistent_topic, nil)
-    |> Map.put_new(:topiclock, config_settings[:topiclock] || false)
+    |> Map.put_new(:topiclock, config_settings[:topiclock])
   end
 
   @spec init_security_behavior(t_attrs(), keyword()) :: t_attrs()
   defp init_security_behavior(attrs, config_settings) do
     attrs
-    |> Map.put_new(:opnotice, config_settings[:opnotice] || true)
-    |> Map.put_new(:peace, config_settings[:peace] || false)
-    |> Map.put_new(:private, config_settings[:private] || false)
-    |> Map.put_new(:restricted, config_settings[:restricted] || false)
-    |> Map.put_new(:secure, config_settings[:secure] || false)
+    |> Map.put_new(:opnotice, config_settings[:opnotice])
+    |> Map.put_new(:peace, config_settings[:peace])
+    |> Map.put_new(:private, config_settings[:private])
+    |> Map.put_new(:restricted, config_settings[:restricted])
+    |> Map.put_new(:secure, config_settings[:secure])
   end
 
   @spec init_bot_presence(t_attrs(), keyword()) :: t_attrs()
   defp init_bot_presence(attrs, config_settings) do
     attrs
-    |> Map.put_new(:fantasy, config_settings[:fantasy] || true)
-    |> Map.put_new(:guard, config_settings[:guard] || true)
+    |> Map.put_new(:fantasy, config_settings[:fantasy])
+    |> Map.put_new(:guard, config_settings[:guard])
   end
 
   @spec init_mode_control(t_attrs(), keyword()) :: t_attrs()

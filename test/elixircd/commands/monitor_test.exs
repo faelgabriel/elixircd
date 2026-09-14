@@ -14,7 +14,7 @@ defmodule ElixIRCd.Commands.MonitorTest do
   alias ElixIRCd.Utils.Monitor, as: MonitorUtils
 
   describe "handle/2" do
-    for config <- [[enabled: false, max_targets: 100], []] do
+    for config <- [[enabled: false, max_targets: 100], [enabled: false, max_targets: 0]] do
       test "MONITOR disabled with #{inspect(config)} rejects commands and suppresses notifications" do
         original_config = Application.get_env(:elixircd, :monitor)
         on_exit(fn -> Application.put_env(:elixircd, :monitor, original_config) end)

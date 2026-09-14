@@ -11,7 +11,7 @@ defmodule ElixIRCd.Utils.CertificateTest do
 
   test "write certificate and key files" do
     in_tmp("certificate_test", fn ->
-      Certificate.create_self_signed_certificate()
+      Certificate.create_self_signed_certificate(certificate_options())
 
       assert_file("data/cert/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
       assert_file("data/cert/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
@@ -20,7 +20,12 @@ defmodule ElixIRCd.Utils.CertificateTest do
 
   test "write certificate and key with custom filename" do
     in_tmp("certificate_test", fn ->
-      Certificate.create_self_signed_certificate(output: "data/cert/localhost")
+      Certificate.create_self_signed_certificate(
+        Keyword.merge(certificate_options(),
+          keyfile: "data/cert/localhost_key.pem",
+          certfile: "data/cert/localhost.pem"
+        )
+      )
 
       assert_file("data/cert/localhost_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
       assert_file("data/cert/localhost.pem", "-----BEGIN CERTIFICATE-----")
@@ -29,7 +34,9 @@ defmodule ElixIRCd.Utils.CertificateTest do
 
   test "write certificate and key with custom hostnames" do
     in_tmp("certificate_test", fn ->
-      Certificate.create_self_signed_certificate(hostnames: ["my-app", "my-app.local"])
+      Certificate.create_self_signed_certificate(
+        Keyword.put(certificate_options(), :hostnames, ["my-app", "my-app.local"])
+      )
 
       assert_file("data/cert/selfsigned_key.pem", "-----BEGIN RSA PRIVATE KEY-----")
       assert_file("data/cert/selfsigned.pem", "-----BEGIN CERTIFICATE-----")
@@ -40,7 +47,7 @@ defmodule ElixIRCd.Utils.CertificateTest do
     Application.ensure_all_started(:ssl)
 
     in_tmp("certificate_test", fn ->
-      Certificate.create_self_signed_certificate()
+      Certificate.create_self_signed_certificate(certificate_options())
 
       assert {:ok, server} =
                :ssl.listen(
@@ -64,6 +71,17 @@ defmodule ElixIRCd.Utils.CertificateTest do
       :ssl.close(client)
       :ssl.close(server)
     end)
+  end
+
+  defp certificate_options do
+    [
+      keyfile: "data/cert/selfsigned_key.pem",
+      certfile: "data/cert/selfsigned.pem",
+      name: "Test",
+      hostnames: ["localhost"],
+      key_size: 2048,
+      validity_days: 365
+    ]
   end
 
   @spec assert_file(binary()) :: true

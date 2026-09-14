@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.Time do
 
   @impl true
   def handle(user, %{command: "TIME"}) do
-    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+    server_hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
     current_time = DateTime.utc_now() |> Calendar.strftime("%A %B %d %Y -- %H:%M:%S %Z")
 
     %Message{command: :rpl_time, params: [user.nick, server_hostname], trailing: current_time}

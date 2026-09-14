@@ -74,15 +74,15 @@ defmodule ElixIRCd.Commands.Webirc do
 
   @spec webirc_enabled?() :: boolean()
   defp webirc_enabled? do
-    Application.get_env(:elixircd, :webirc)[:enabled] == true
+    Application.fetch_env!(:elixircd, :webirc)[:enabled] == true
   end
 
   @spec find_gateway_config(:inet.ip_address()) :: {:ok, map()} | {:error, :unauthorized_gateway}
   defp find_gateway_config(gateway_ip) do
-    gateways = Application.get_env(:elixircd, :webirc)[:gateways] || []
+    gateways = Application.fetch_env!(:elixircd, :webirc)[:gateways]
 
     case Enum.find(gateways, fn gateway ->
-           ips = Map.get(gateway, :ips, [])
+           ips = Map.fetch!(gateway, :ips)
            ip_in_allowed_list?(gateway_ip, ips)
          end) do
       nil -> {:error, :unauthorized_gateway}
@@ -178,7 +178,7 @@ defmodule ElixIRCd.Commands.Webirc do
 
   @spec validate_ip_allowed(:inet.ip_address()) :: :ok | {:error, :ipv6_not_allowed}
   defp validate_ip_allowed(ip) do
-    allow_ipv6 = Application.get_env(:elixircd, :webirc)[:allow_ipv6] != false
+    allow_ipv6 = Application.fetch_env!(:elixircd, :webirc)[:allow_ipv6] != false
 
     case ip do
       {_, _, _, _} -> :ok
@@ -189,7 +189,7 @@ defmodule ElixIRCd.Commands.Webirc do
 
   @spec validate_hostname(String.t(), :inet.ip_address()) :: :ok | {:error, :invalid_hostname}
   defp validate_hostname(hostname, ip) do
-    verify_hostname = Application.get_env(:elixircd, :webirc)[:verify_hostname] == true
+    verify_hostname = Application.fetch_env!(:elixircd, :webirc)[:verify_hostname] == true
 
     cond do
       # Basic validation: hostname should not be empty

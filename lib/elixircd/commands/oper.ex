@@ -57,7 +57,7 @@ defmodule ElixIRCd.Commands.Oper do
 
   @spec valid_irc_operator_credential?(String.t(), String.t()) :: boolean()
   defp valid_irc_operator_credential?(username, password) do
-    Application.get_env(:elixircd, :operators)
+    Application.fetch_env!(:elixircd, :operators)
     |> Enum.any?(fn {oper_username, oper_password} ->
       oper_username == username and Argon2.verify_pass(password, oper_password)
     end)

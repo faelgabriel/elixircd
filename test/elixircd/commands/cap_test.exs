@@ -818,7 +818,7 @@ defmodule ElixIRCd.Commands.CapTest do
   end
 
   describe "SASL mechanism handling" do
-    test "handles SASL when no config is provided for PLAIN" do
+    test "handles SASL with explicitly enabled PLAIN" do
       original_caps = Application.get_env(:elixircd, :capabilities)
       original_sasl = Application.get_env(:elixircd, :sasl)
 
@@ -835,18 +835,20 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:sasl, true)
       )
 
-      # Set SASL config to empty list (will use defaults - PLAIN enabled by default)
-      Application.put_env(:elixircd, :sasl, [])
+      # Provide the complete SASL configuration.
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: true],
+        session_timeout_ms: 60_000,
+        max_attempts_per_connection: 3
+      )
 
       Memento.transaction!(fn ->
         user = insert(:user)
-        message = %Message{command: "CAP", params: ["LS"]}
+        message = %Message{command: "CAP", params: ["LS", "302"]}
 
         assert :ok = Cap.handle(user, message)
 
-        # Just verify the command executed successfully
-        # The line we need to cover is the nil case in maybe_add_mechanism
-        :ok
+        assert_sent_message_contains(user.pid, ~r/sasl=PLAIN/)
       end)
     end
   end

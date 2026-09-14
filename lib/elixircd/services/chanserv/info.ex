@@ -140,7 +140,7 @@ defmodule ElixIRCd.Services.Chanserv.Info do
 
   @spec calculate_expiry_info(RegisteredChannel.t()) :: String.t()
   defp calculate_expiry_info(channel) do
-    channel_expire_days = Application.get_env(:elixircd, :services)[:chanserv][:channel_expire_days] || 60
+    channel_expire_days = Application.fetch_env!(:elixircd, :services)[:chanserv][:channel_expire_days]
     expire_at = DateTime.add(channel.last_used_at, channel_expire_days, :day)
 
     "Expires: #{format_time(expire_at)}"

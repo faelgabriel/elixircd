@@ -191,7 +191,7 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec get_capabilities_list(User.t()) :: String.t()
   defp get_capabilities_list(user) do
-    capabilities_config = Application.get_env(:elixircd, :capabilities, [])
+    capabilities_config = Application.fetch_env!(:elixircd, :capabilities)
 
     capabilities =
       for {config_key, name} <- [
@@ -235,14 +235,14 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec capability_enabled?(keyword(), atom()) :: boolean()
   defp capability_enabled?(config, :labeled_response) do
-    Keyword.get(config, :batch, false) and Keyword.get(config, :labeled_response, false)
+    Keyword.fetch!(config, :batch) and Keyword.fetch!(config, :labeled_response)
   end
 
-  defp capability_enabled?(config, key), do: Keyword.get(config, key, false)
+  defp capability_enabled?(config, key), do: Keyword.fetch!(config, key)
 
   @spec build_sasl_capability_value() :: String.t() | nil
   defp build_sasl_capability_value do
-    sasl_config = Application.get_env(:elixircd, :sasl, [])
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
     mechanisms = get_enabled_sasl_mechanisms(sasl_config)
 
     case mechanisms do
@@ -258,12 +258,8 @@ defmodule ElixIRCd.Commands.Cap do
   end
 
   @spec maybe_add_mechanism([String.t()], keyword() | nil, String.t()) :: [String.t()]
-  defp maybe_add_mechanism(mechanisms, nil, mechanism_name) do
-    mechanisms ++ [mechanism_name]
-  end
-
   defp maybe_add_mechanism(mechanisms, config, mechanism_name) do
-    if Keyword.get(config, :enabled, true) do
+    if Keyword.fetch!(config, :enabled) do
       mechanisms ++ [mechanism_name]
     else
       mechanisms
@@ -275,7 +271,7 @@ defmodule ElixIRCd.Commands.Cap do
   """
   @spec build_sts_capability_value(User.t()) :: String.t() | nil
   @spec build_sts_capability_value(User.t(), keyword()) :: String.t() | nil
-  def build_sts_capability_value(user, sts_config \\ Application.get_env(:elixircd, :sts, [])) do
+  def build_sts_capability_value(user, sts_config \\ Application.fetch_env!(:elixircd, :sts)) do
     is_secure = user.transport in [:tls, :wss]
 
     # On TLS connections: announce duration (and optionally preload)
@@ -290,7 +286,7 @@ defmodule ElixIRCd.Commands.Cap do
   @spec build_sts_duration_value(keyword()) :: String.t() | nil
   defp build_sts_duration_value(config) do
     duration = Keyword.get(config, :duration)
-    preload = Keyword.get(config, :preload, false)
+    preload = Keyword.fetch!(config, :preload)
 
     case {duration, preload} do
       {0, _} -> "sts=duration=0"

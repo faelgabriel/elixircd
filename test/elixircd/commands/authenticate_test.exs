@@ -195,7 +195,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
     end
 
     test "rejects authentication when mechanism is disabled" do
-      Application.put_env(:elixircd, :sasl, plain: [enabled: false])
+      Application.put_env(:elixircd, :sasl, put_in(Application.fetch_env!(:elixircd, :sasl), [:plain, :enabled], false))
 
       Memento.transaction!(fn ->
         user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)

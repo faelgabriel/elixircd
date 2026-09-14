@@ -14,45 +14,24 @@ defmodule ElixIRCd.Utils.Certificate do
   proper certificate, for example from [Let's Encrypt](https://letsencrypt.org).
   """
 
-  @default_path "data/cert/selfsigned"
-  @default_name "Self-signed test certificate"
-  @default_hostnames ["localhost"]
+  alias ElixIRCd.Config.Resources
 
-  @doc """
-  Generates a self-signed certificate for SSL testing.
-
-  ## Options
-
-    * `:output`: the path and base filename for the certificate and
-      key (default: #{@default_path})
-    * `:name`: the Common Name value in certificate's subject
-      (default: "#{@default_name}")
-    * `:hostnames`: a list of hostnames for the certificate (default: ["localhost"])
-
-  Requires OTP 21.3 or later.
-  """
+  @doc "Generates a local certificate using explicit keyfile, certfile, name, hostnames key_size and validity_days options."
   @spec create_self_signed_certificate(keyword()) :: :ok
-  def create_self_signed_certificate(opts \\ []) do
-    path = opts[:output] || @default_path
-    name = opts[:name] || @default_name
-    hostnames = opts[:hostnames] || @default_hostnames
+  def create_self_signed_certificate(opts) do
+    {certificate, private_key} =
+      certificate_and_key(
+        Keyword.fetch!(opts, :key_size),
+        Keyword.fetch!(opts, :name),
+        Keyword.fetch!(opts, :hostnames),
+        Keyword.fetch!(opts, :validity_days)
+      )
 
-    {certificate, private_key} = certificate_and_key(2048, name, hostnames)
-
-    keyfile = path <> "_key.pem"
-    certfile = path <> ".pem"
-
-    create_file(
-      keyfile,
-      :public_key.pem_encode([:public_key.pem_entry_encode(:RSAPrivateKey, private_key)])
-    )
-
-    create_file(
-      certfile,
-      :public_key.pem_encode([{:Certificate, certificate, :not_encrypted}])
-    )
-
-    :ok
+    Resources.write!([
+      {Keyword.fetch!(opts, :keyfile),
+       :public_key.pem_encode([:public_key.pem_entry_encode(:RSAPrivateKey, private_key)])},
+      {Keyword.fetch!(opts, :certfile), :public_key.pem_encode([{:Certificate, certificate, :not_encrypted}])}
+    ])
   end
 
   @doc """
@@ -66,19 +45,20 @@ defmodule ElixIRCd.Utils.Certificate do
     * `key_size` - The size of the RSA key in bits
     * `name` - The common name to use in the certificate
     * `hostnames` - A list of hostnames to include in the subject alternative name extension
+    * `validity_days` - Number of days the certificate remains valid
 
   ## Returns
 
   A tuple containing the certificate and private key.
   """
-  @spec certificate_and_key(integer(), String.t(), [String.t()]) :: {term(), term()}
-  def certificate_and_key(key_size, name, hostnames) do
+  @spec certificate_and_key(integer(), String.t(), [String.t()], pos_integer()) :: {term(), term()}
+  def certificate_and_key(key_size, name, hostnames, validity_days) do
     private_key = :public_key.generate_key({:rsa, key_size, 65_537})
     public_key = extract_public_key(private_key)
 
     certificate =
       public_key
-      |> new_cert(name, hostnames)
+      |> new_cert(name, hostnames, validity_days)
       |> :public_key.pkix_sign(private_key)
 
     {certificate, private_key}
@@ -171,8 +151,8 @@ defmodule ElixIRCd.Utils.Certificate do
   @server_auth {1, 3, 6, 1, 5, 5, 7, 3, 1}
   @client_auth {1, 3, 6, 1, 5, 5, 7, 3, 2}
 
-  @spec new_cert(term(), String.t(), [String.t()]) :: term()
-  defp new_cert(public_key, common_name, hostnames) do
+  @spec new_cert(term(), String.t(), [String.t()], pos_integer()) :: term()
+  defp new_cert(public_key, common_name, hostnames, validity_days) do
     <<serial::unsigned-64>> = :crypto.strong_rand_bytes(8)
 
     today = Date.utc_today()
@@ -184,7 +164,7 @@ defmodule ElixIRCd.Utils.Certificate do
 
     not_after =
       today
-      |> Date.add(365)
+      |> Date.add(validity_days)
       |> Date.to_iso8601(:basic)
       |> String.slice(2, 6)
 
@@ -251,13 +231,5 @@ defmodule ElixIRCd.Utils.Certificate do
   @spec key_identifier(term()) :: binary()
   defp key_identifier(public_key) do
     :crypto.hash(:sha, :public_key.der_encode(:RSAPublicKey, public_key))
-  end
-
-  # sobelow_skip ["Traversal.FileModule"]
-  @spec create_file(String.t(), iodata()) :: true
-  defp create_file(path, contents) do
-    File.mkdir_p!(Path.dirname(path))
-    File.write!(path, contents)
-    true
   end
 end

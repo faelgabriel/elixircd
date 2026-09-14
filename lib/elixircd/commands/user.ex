@@ -37,8 +37,8 @@ defmodule ElixIRCd.Commands.User do
 
   @spec process_user_command(User.t(), String.t(), String.t()) :: :ok
   defp process_user_command(user, username, realname) do
-    max_ident_length = Application.get_env(:elixircd, :user)[:max_ident_length]
-    max_realname_length = Application.get_env(:elixircd, :user)[:max_realname_length]
+    max_ident_length = Application.fetch_env!(:elixircd, :user)[:max_ident_length]
+    max_realname_length = Application.fetch_env!(:elixircd, :user)[:max_realname_length]
 
     if String.length(username) > max_ident_length do
       %Message{

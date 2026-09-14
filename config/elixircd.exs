@@ -9,8 +9,9 @@ config :elixircd,
     hostname: "irc.test",
     # Optional server password; set to `nil` if not required
     password: nil,
-    # Message of the Day
-    motd: File.read("config/motd.txt")
+    # Message of the Day: nil to disable, text, or File.read!("config/motd.txt").
+    # A configured file must exist and be readable.
+    motd: nil
   ],
   # Rate Limiting Configuration
   rate_limiter: [
@@ -63,7 +64,8 @@ config :elixircd,
         disconnect_threshold: 10
       ],
       # Override the global throttle message rate limits for specific commands
-      # Example: %{"JOIN" => [refill_rate: 0.5, capacity: 20, cost: 5, disconnect_threshold: 5]}
+      # Each command entry must contain every throttle field (no partial overrides).
+      # Example: %{"JOIN" => [refill_rate: 0.5, capacity: 20, cost: 5, window_ms: 60_000, disconnect_threshold: 5]}
       command_throttle: %{},
       # Exceptions for any message rate limiting
       exceptions: [
@@ -200,11 +202,13 @@ config :elixircd,
        ]
      ]},
     # HTTP port (WebSocket)
-    {:http, [port: 8080]},
+    {:http, [port: 8080, startup_log: false, websocket_options: [compress: false]]},
     # HTTPS port (WebSocket SSL)
     {:https,
      [
        port: 8443,
+       startup_log: false,
+       websocket_options: [compress: false],
        keyfile: Path.expand("data/cert/selfsigned_key.pem"),
        certfile: Path.expand("data/cert/selfsigned.pem")
      ]}
@@ -233,7 +237,7 @@ config :elixircd,
     channel_join_limits: %{"#" => 20, "&" => 5},
     # Maximum entries for each list mode (bans, exceptions, etc)
     # Format: {"mode": max_count, ...}
-    max_list_entries: %{"b" => 100},
+    max_list_entries: %{"b" => 100, "e" => 100, "I" => 100},
     # Maximum length of a kick message
     max_kick_message_length: 255,
     # Maximum mode changes per MODE command
@@ -243,6 +247,7 @@ config :elixircd,
   ],
   # IRC Bot Services Configuration
   services: [
+    email: [from_address: "noreply@irc.test"],
     # NickServ Configuration
     nickserv: [
       # Enable/Disable NickServ service
@@ -288,6 +293,8 @@ config :elixircd,
       settings: [
         # Default for: SET ENTRYMSG <message>
         entrymsg: nil,
+        # Initial mode-lock text displayed by ChanServ INFO, or nil for none
+        mlock: nil,
         # Default for: SET KEEPTOPIC {ON|OFF}
         keeptopic: true,
         # Default for: SET OPNOTICE {ON|OFF}

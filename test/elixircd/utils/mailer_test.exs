@@ -34,9 +34,11 @@ defmodule ElixIRCd.Utils.MailerTest do
     end
 
     test "uses configured sender email when available" do
+      mailer_config = Application.fetch_env!(:elixircd, Mailer)
+
       Application
-      |> expect(:get_env, fn :elixircd, :server -> %{hostname: "irc.test"} end)
-      |> expect(:get_env, fn :elixircd, :services -> %{email: %{from_address: "custom@example.com"}} end)
+      |> expect(:fetch_env!, fn :elixircd, :services -> %{email: %{from_address: "custom@example.com"}} end)
+      |> expect(:fetch_env!, fn :elixircd, Mailer -> mailer_config end)
 
       BambooMailer
       |> expect(:deliver_now, fn _adapter, email, _config, _opts ->
@@ -50,21 +52,13 @@ defmodule ElixIRCd.Utils.MailerTest do
       assert {:ok, _email} = result
     end
 
-    test "uses default sender email when configuration is missing" do
-      Application
-      |> expect(:get_env, fn :elixircd, :server -> %{hostname: "irc.test"} end)
-      |> expect(:get_env, fn :elixircd, :services -> nil end)
-
-      BambooMailer
-      |> expect(:deliver_now, fn _adapter, email, _config, _opts ->
-        # Verify the default from address is used
-        assert email.from == "noreply@irc.test"
-
-        {:ok, email}
+    test "requires the configured sender instead of inventing an address" do
+      expect(Application, :fetch_env!, fn :elixircd, :services ->
+        raise ArgumentError, "missing services configuration"
       end)
 
-      result = Mailer.send_verification_email("test@example.com", "test_nick", "ABC123")
-      assert {:ok, _email} = result
+      reject(BambooMailer, :deliver_now, 4)
+      assert_raise ArgumentError, fn -> Mailer.send_verification_email("test@example.com", "test_nick", "ABC123") end
     end
   end
 end

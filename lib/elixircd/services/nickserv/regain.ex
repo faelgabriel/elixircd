@@ -137,6 +137,6 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
 
   @spec reservation_duration() :: pos_integer()
   defp reservation_duration do
-    Application.get_env(:elixircd, :services)[:nickserv][:regain_reservation_duration] || 60
+    Application.fetch_env!(:elixircd, :services)[:nickserv][:regain_reservation_duration]
   end
 end

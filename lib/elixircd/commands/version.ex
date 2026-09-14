@@ -21,7 +21,7 @@ defmodule ElixIRCd.Commands.Version do
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(user, %{command: "VERSION"}) do
-    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+    server_hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
     elixircd_version = Application.spec(:elixircd, :vsn)
 
     %Message{command: :rpl_version, params: [user.nick, "ElixIRCd-#{elixircd_version}", server_hostname]}

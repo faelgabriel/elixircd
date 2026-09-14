@@ -191,7 +191,7 @@ defmodule ElixIRCd.Commands.Join do
 
   defp send_join_channel_error(:channel_limit_per_prefix_reached, user, channel_name) do
     prefix = String.first(channel_name)
-    channel_join_limits = Application.get_env(:elixircd, :channel)[:channel_join_limits] || %{"#" => 20, "&" => 10}
+    channel_join_limits = Application.fetch_env!(:elixircd, :channel)[:channel_join_limits]
     max_channels = Map.get(channel_join_limits, prefix)
 
     %Message{
@@ -263,8 +263,8 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec validate_channel_name(String.t()) :: :ok | {:error, String.t()}
   defp validate_channel_name(channel_name) do
-    chantypes = Application.get_env(:elixircd, :channel)[:channel_prefixes] || ["#", "&"]
-    name_length = Application.get_env(:elixircd, :channel)[:max_channel_name_length] || 64
+    chantypes = Application.fetch_env!(:elixircd, :channel)[:channel_prefixes]
+    name_length = Application.fetch_env!(:elixircd, :channel)[:max_channel_name_length]
 
     cond do
       !channel_name?(channel_name) ->
@@ -429,7 +429,7 @@ defmodule ElixIRCd.Commands.Join do
   @spec check_user_channel_limit(User.t(), String.t()) :: :ok | {:error, :channel_limit_per_prefix_reached}
   defp check_user_channel_limit(user, channel_name) do
     prefix = String.first(channel_name)
-    channel_join_limits = Application.get_env(:elixircd, :channel)[:channel_join_limits] || %{"#" => 20, "&" => 10}
+    channel_join_limits = Application.fetch_env!(:elixircd, :channel)[:channel_join_limits]
 
     channels_with_prefix =
       UserChannels.get_by_user_pid(user.pid)

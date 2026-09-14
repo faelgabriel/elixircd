@@ -126,7 +126,7 @@ defmodule ElixIRCd.Commands.Topic do
   defp check_topic_length(""), do: :ok
 
   defp check_topic_length(topic_text) do
-    max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
+    max_topic_length = Application.fetch_env!(:elixircd, :channel)[:max_topic_length]
 
     case String.length(topic_text) > max_topic_length do
       true -> {:error, :topic_too_long}
@@ -215,7 +215,7 @@ defmodule ElixIRCd.Commands.Topic do
   end
 
   defp send_channel_topic_error(:topic_too_long, user, _channel_name) do
-    max_topic_length = Application.get_env(:elixircd, :channel)[:max_topic_length]
+    max_topic_length = Application.fetch_env!(:elixircd, :channel)[:max_topic_length]
 
     %Message{
       command: :err_inputtoolong,

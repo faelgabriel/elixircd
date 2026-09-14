@@ -24,22 +24,22 @@ defmodule ElixIRCd.Commands.Admin do
       %Message{
         command: :rpl_adminme,
         params: [user.nick],
-        trailing: "Administrative info about #{Application.get_env(:elixircd, :admin_info)[:server]}"
+        trailing: "Administrative info about #{Application.fetch_env!(:elixircd, :admin_info)[:server]}"
       },
       %Message{
         command: :rpl_adminloc1,
         params: [user.nick],
-        trailing: Application.get_env(:elixircd, :admin_info)[:location]
+        trailing: Application.fetch_env!(:elixircd, :admin_info)[:location]
       },
       %Message{
         command: :rpl_adminloc2,
         params: [user.nick],
-        trailing: Application.get_env(:elixircd, :admin_info)[:organization]
+        trailing: Application.fetch_env!(:elixircd, :admin_info)[:organization]
       },
       %Message{
         command: :rpl_adminemail,
         params: [user.nick],
-        trailing: Application.get_env(:elixircd, :admin_info)[:email]
+        trailing: Application.fetch_env!(:elixircd, :admin_info)[:email]
       }
     ]
     |> Dispatcher.broadcast(:server, user)

@@ -16,7 +16,7 @@ defmodule ElixIRCd.Utils.Monitor do
   Returns whether nickname monitoring is enabled.
   """
   @spec enabled?() :: boolean()
-  def enabled?, do: Keyword.get(Application.get_env(:elixircd, :monitor, []), :enabled, false)
+  def enabled?, do: Keyword.fetch!(Application.fetch_env!(:elixircd, :monitor), :enabled)
 
   @doc """
   Notifies all users monitoring this nick that the user is now online.

@@ -110,7 +110,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
   @spec get_reservation_duration() :: integer()
   defp get_reservation_duration do
-    Application.get_env(:elixircd, :services)[:nickserv][:recover_reservation_duration] || 60
+    Application.fetch_env!(:elixircd, :services)[:nickserv][:recover_reservation_duration]
   end
 
   @spec reserve_nickname(RegisteredNick.t(), integer()) :: RegisteredNick.t()

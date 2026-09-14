@@ -37,7 +37,7 @@ defmodule ElixIRCd.Server.HttpPlug do
       |> List.first()
       |> maybe_select_protocol()
 
-    timeout = Application.get_env(:elixircd, :user)[:inactivity_timeout_ms]
+    timeout = Application.fetch_env!(:elixircd, :user)[:inactivity_timeout_ms]
     transport = if conn.scheme == :http, do: :ws, else: :wss
 
     conn

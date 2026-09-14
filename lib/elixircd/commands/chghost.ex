@@ -74,7 +74,7 @@ defmodule ElixIRCd.Commands.Chghost do
         |> Dispatcher.broadcast(:server, operator)
 
       {:error, :ident_too_long} ->
-        max_ident_length = Application.get_env(:elixircd, :user)[:max_ident_length]
+        max_ident_length = Application.fetch_env!(:elixircd, :user)[:max_ident_length]
 
         %Message{
           command: :err_invalidusername,
@@ -119,7 +119,7 @@ defmodule ElixIRCd.Commands.Chghost do
 
   @spec validate_ident(String.t()) :: :ok | {:error, :ident_empty | :ident_too_long | :ident_invalid_chars}
   defp validate_ident(ident) do
-    max_ident_length = Application.get_env(:elixircd, :user)[:max_ident_length]
+    max_ident_length = Application.fetch_env!(:elixircd, :user)[:max_ident_length]
 
     cond do
       String.length(ident) == 0 -> {:error, :ident_empty}
@@ -155,7 +155,7 @@ defmodule ElixIRCd.Commands.Chghost do
 
   @spec notify_chghost(User.t(), String.t(), String.t(), String.t(), String.t()) :: :ok
   defp notify_chghost(user, old_ident, old_host, new_ident, new_host) do
-    chghost_supported = Application.get_env(:elixircd, :capabilities)[:chghost] || false
+    chghost_supported = Application.fetch_env!(:elixircd, :capabilities)[:chghost]
 
     if chghost_supported do
       watchers = Users.get_in_shared_channels_with_capability(user, "chghost", true)

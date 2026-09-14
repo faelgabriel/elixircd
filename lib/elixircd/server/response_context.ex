@@ -448,7 +448,7 @@ defmodule ElixIRCd.Server.ResponseContext do
   defp restore(context), do: put_context(context)
 
   @spec hostname() :: String.t()
-  defp hostname, do: Application.get_env(:elixircd, :server)[:hostname]
+  defp hostname, do: Application.fetch_env!(:elixircd, :server)[:hostname]
 
   @spec new_batch_ref() :: String.t()
   defp new_batch_ref do

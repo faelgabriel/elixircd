@@ -34,10 +34,10 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       ],
       command_throttle: %{
         "JOIN" => [refill_rate: 1.0, capacity: 3, cost: 1, window_ms: 10_000, disconnect_threshold: 2],
-        "PING" => [refill_rate: 2.0, capacity: 10, cost: 0],
-        "NICK" => [refill_rate: 0.5, capacity: 5, cost: 5, disconnect_threshold: 5],
-        "WHO" => [refill_rate: 1.0, capacity: 2, cost: 1],
-        "WHOIS" => [refill_rate: 1.0, capacity: 2, cost: 1]
+        "PING" => [refill_rate: 2.0, capacity: 10, cost: 0, window_ms: 60_000, disconnect_threshold: 5],
+        "NICK" => [refill_rate: 0.5, capacity: 5, cost: 5, window_ms: 60_000, disconnect_threshold: 5],
+        "WHO" => [refill_rate: 1.0, capacity: 2, cost: 1, window_ms: 60_000, disconnect_threshold: 5],
+        "WHOIS" => [refill_rate: 1.0, capacity: 2, cost: 1, window_ms: 60_000, disconnect_threshold: 5]
       },
       exceptions: [
         nicknames: ["Admin", "ServiceBot"],

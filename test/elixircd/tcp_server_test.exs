@@ -10,6 +10,27 @@ defmodule ElixIRCd.Server.TcpListenerTest do
   alias ElixIRCd.Server.TcpListener
   alias ThousandIsland.Socket
 
+  test "termination before the TLS handshake creates no IRC disconnect" do
+    reject(Connection, :handle_disconnect, 3)
+    assert :ok = TcpListener.handle_error(:closed, nil, [])
+    assert :ok = TcpListener.handle_timeout(nil, [])
+    assert :ok = TcpListener.handle_shutdown(nil, [])
+    assert :ok = TcpListener.handle_close(nil, [])
+  end
+
+  test "closes cleanly when the peer disconnects before socket inspection" do
+    expect(Socket, :sockname, fn _socket -> {:error, :einval} end)
+    reject(Connection, :handle_connect, 3)
+    assert {:close, %{transport: :tcp}} = TcpListener.handle_connection(tcp_socket(), [])
+  end
+
+  test "closes cleanly when the peer disconnects before socket options are applied" do
+    expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
+    expect(Connection, :handle_connect, fn _pid, :tcp, _data -> :ok end)
+    expect(Socket, :setopts, fn _socket, _opts -> {:error, :closed} end)
+    assert {:close, %{transport: :tcp}} = TcpListener.handle_connection(tcp_socket(), [])
+  end
+
   describe "handle_connection/2" do
     test "initializes connection with TCP transport" do
       socket = tcp_socket()

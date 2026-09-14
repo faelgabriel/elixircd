@@ -19,7 +19,7 @@ defmodule ElixIRCd.Server.Listeners do
   @spec start_link(keyword()) :: Supervisor.on_start()
   def start_link(_opts) do
     :persistent_term.put(:server_start_time, DateTime.utc_now())
-    Supervisor.start_link(__MODULE__, Application.get_env(:elixircd, :listeners), name: __MODULE__)
+    Supervisor.start_link(__MODULE__, Application.fetch_env!(:elixircd, :listeners), name: __MODULE__)
   end
 
   @impl true
@@ -45,8 +45,8 @@ defmodule ElixIRCd.Server.Listeners do
 
     options =
       server_opts
-      |> Keyword.put_new(:handler_module, ElixIRCd.Server.TcpListener)
-      |> Keyword.put_new(:transport_module, transport_module)
+      |> Keyword.put(:handler_module, ElixIRCd.Server.TcpListener)
+      |> Keyword.put(:transport_module, transport_module)
 
     {ThousandIsland, options}
   end
@@ -54,17 +54,33 @@ defmodule ElixIRCd.Server.Listeners do
   defp create_child_spec({scheme_transport, server_opts}) when scheme_transport in [:http, :https] do
     websocket_options =
       server_opts
-      |> Keyword.get(:websocket_options, [])
+      |> Keyword.fetch!(:websocket_options)
       |> Keyword.put(:max_fragmented_message_size, Connection.max_wire_length())
 
     options =
       server_opts
-      |> Keyword.put_new(:plug, ElixIRCd.Server.HttpPlug)
-      |> Keyword.put_new(:otp_app, :elixircd)
-      |> Keyword.put_new(:scheme, scheme_transport)
-      |> Keyword.put_new(:startup_log, false)
+      |> route_tls_options()
+      |> Keyword.put(:plug, ElixIRCd.Server.HttpPlug)
+      |> Keyword.put(:otp_app, :elixircd)
+      |> Keyword.put(:scheme, scheme_transport)
       |> Keyword.put(:websocket_options, websocket_options)
 
     {Bandit, options}
+  end
+
+  @spec route_tls_options(keyword()) :: keyword()
+  defp route_tls_options(opts) do
+    {tls, opts} = Keyword.split(opts, [:cacertfile, :versions])
+
+    if tls == [] do
+      opts
+    else
+      Keyword.update(
+        opts,
+        :thousand_island_options,
+        [transport_options: tls],
+        &Keyword.put(&1, :transport_options, tls)
+      )
+    end
   end
 end

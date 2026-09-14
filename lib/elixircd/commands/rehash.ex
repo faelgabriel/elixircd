@@ -13,6 +13,7 @@ defmodule ElixIRCd.Commands.Rehash do
   import ElixIRCd.Utils.System, only: [load_configurations: 0]
 
   alias ElixIRCd.Commands.Cap
+  alias ElixIRCd.Config.Error
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
@@ -53,7 +54,7 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @impl true
   def handle(user, %{command: "REHASH", params: [server_name | _]}) do
-    local_hostname = Application.get_env(:elixircd, :server)[:hostname]
+    local_hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
 
     cond do
       not irc_operator?(user) ->
@@ -83,19 +84,24 @@ defmodule ElixIRCd.Commands.Rehash do
 
     old_features = Isupport.feature_tokens()
     monitor_was_enabled = Monitor.enabled?()
-    old_caps = Application.get_env(:elixircd, :capabilities, [])
-    old_sts = Application.get_env(:elixircd, :sts, [])
+    old_caps = Application.fetch_env!(:elixircd, :capabilities)
+    old_sts = Application.fetch_env!(:elixircd, :sts)
 
     case reload_configurations() do
       :ok -> complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts)
       :error -> configuration_error(user)
+      {:error, error} -> configuration_error(user, error)
     end
   end
 
-  @spec reload_configurations() :: :ok | :error
+  @spec reload_configurations() :: :ok | :error | {:error, Error.t()}
   defp reload_configurations do
     load_configurations()
   rescue
+    error in Error ->
+      Logger.error("Failed to reload configuration during REHASH:\n" <> Exception.message(error))
+      {:error, error}
+
     # Configuration evaluation can fail with file, syntax or runtime errors. Keep this boundary around loading, without
     # masking notification failures.
     error ->
@@ -113,9 +119,23 @@ defmodule ElixIRCd.Commands.Rehash do
     Dispatcher.broadcast_standard_reply(reply, :server, user, fallback)
   end
 
+  @spec configuration_error(User.t(), Error.t()) :: :ok
+  defp configuration_error(user, error) do
+    configuration_error(user)
+
+    error.errors
+    |> Enum.take(5)
+    |> Enum.each(fn detail ->
+      description = detail |> String.replace(~r/[\r\n\x00]/, " ") |> String.slice(0, 300)
+
+      %Message{command: "NOTICE", params: [user.nick], trailing: description}
+      |> Dispatcher.broadcast(:server, user)
+    end)
+  end
+
   @spec complete_rehashing(User.t(), [String.t()], boolean(), keyword(), keyword()) :: :ok
   defp complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts) do
-    new_caps = Application.get_env(:elixircd, :capabilities, [])
+    new_caps = Application.fetch_env!(:elixircd, :capabilities)
 
     description = "Rehashing completed"
     reply = %StandardReply{type: :note, command: "REHASH", code: "REHASH_COMPLETE", description: description}
@@ -187,10 +207,10 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec capability_enabled?(keyword(), atom()) :: boolean()
   defp capability_enabled?(config, :labeled_response) do
-    Keyword.get(config, :batch, false) and Keyword.get(config, :labeled_response, false)
+    Keyword.fetch!(config, :batch) and Keyword.fetch!(config, :labeled_response)
   end
 
-  defp capability_enabled?(config, key), do: Keyword.get(config, key, false)
+  defp capability_enabled?(config, key), do: Keyword.fetch!(config, key)
 
   @spec notify_new([atom()]) :: :ok
   defp notify_new(enabled_keys) when is_list(enabled_keys) do
@@ -220,8 +240,8 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec notify_sts_changes(keyword(), keyword()) :: :ok
   defp notify_sts_changes(old_caps, old_sts) do
-    new_caps = Application.get_env(:elixircd, :capabilities, [])
-    new_sts = Application.get_env(:elixircd, :sts, [])
+    new_caps = Application.fetch_env!(:elixircd, :capabilities)
+    new_sts = Application.fetch_env!(:elixircd, :sts)
 
     Users.get_all()
     |> Enum.filter(&(has_cap_notify?(&1) and (&1.cap_version || 301) >= 302))

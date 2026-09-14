@@ -160,7 +160,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
 
   @spec send_register_help(User.t()) :: :ok
   defp send_register_help(user) do
-    min_password_length = Application.get_env(:elixircd, :services)[:chanserv][:min_password_length] || 8
+    min_password_length = Application.fetch_env!(:elixircd, :services)[:chanserv][:min_password_length]
 
     notify(user, [
       "Help for \x02REGISTER\x02:",

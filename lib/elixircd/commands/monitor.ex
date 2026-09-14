@@ -224,7 +224,7 @@ defmodule ElixIRCd.Commands.Monitor do
 
   @spec get_max_targets() :: non_neg_integer()
   defp get_max_targets do
-    Application.get_env(:elixircd, :monitor, [])
-    |> Keyword.get(:max_targets, 100)
+    Application.fetch_env!(:elixircd, :monitor)
+    |> Keyword.fetch!(:max_targets)
   end
 end

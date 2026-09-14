@@ -107,7 +107,7 @@ defmodule ElixIRCd.Commands.Mode do
 
   @spec check_mode_limit([ChannelModes.mode_change()]) :: :ok | {:error, :too_many_modes}
   defp check_mode_limit(validated_modes) do
-    max_modes_limit = Application.get_env(:elixircd, :channel)[:max_modes_per_command] || 20
+    max_modes_limit = Application.fetch_env!(:elixircd, :channel)[:max_modes_per_command]
 
     if length(validated_modes) > max_modes_limit do
       {:error, :too_many_modes}
@@ -136,8 +136,8 @@ defmodule ElixIRCd.Commands.Mode do
       |> DateTime.to_unix()
       |> Integer.to_string()
 
-    max_list_entries = Application.get_env(:elixircd, :channel)[:max_list_entries] || %{}
-    max_entries = Map.get(max_list_entries, "b", 100)
+    max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
+    max_entries = Map.fetch!(max_list_entries, "b")
 
     channel_bans = ChannelBans.get_by_channel_name_key(channel.name_key)
     total_entries = length(channel_bans)
@@ -168,8 +168,8 @@ defmodule ElixIRCd.Commands.Mode do
       |> DateTime.to_unix()
       |> Integer.to_string()
 
-    max_list_entries = Application.get_env(:elixircd, :channel)[:max_list_entries] || %{}
-    max_entries = Map.get(max_list_entries, "e", 100)
+    max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
+    max_entries = Map.fetch!(max_list_entries, "e")
 
     channel_excepts = ChannelExcepts.get_by_channel_name_key(channel.name_key)
     total_entries = length(channel_excepts)
@@ -200,8 +200,8 @@ defmodule ElixIRCd.Commands.Mode do
       |> DateTime.to_unix()
       |> Integer.to_string()
 
-    max_list_entries = Application.get_env(:elixircd, :channel)[:max_list_entries] || %{}
-    max_entries = Map.get(max_list_entries, "I", 100)
+    max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
+    max_entries = Map.fetch!(max_list_entries, "I")
 
     channel_invexes = ChannelInvexes.get_by_channel_name_key(channel.name_key)
     total_entries = length(channel_invexes)
@@ -261,7 +261,7 @@ defmodule ElixIRCd.Commands.Mode do
   end
 
   defp send_channel_mode_error(:too_many_modes, user, channel_name) do
-    max_modes_limit = Application.get_env(:elixircd, :channel)[:max_modes_per_command] || 20
+    max_modes_limit = Application.fetch_env!(:elixircd, :channel)[:max_modes_per_command]
 
     %Message{
       command: :err_unknownmode,

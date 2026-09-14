@@ -102,6 +102,8 @@ For production environments, you should configure SSL listeners with a valid cer
     ]}
     {:https, [
       port: 8443,
+      startup_log: false,
+      websocket_options: [compress: false],
       keyfile: Path.expand("data/cert/privkey.pem"),
       certfile: Path.expand("data/cert/fullchain.pem")
     ]}
@@ -123,7 +125,7 @@ For production environments, you should configure SSL listeners with a valid cer
 
 ElixIRCd uses [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland.html) for TCP and TLS listeners, and [Bandit](https://hexdocs.pm/bandit/Bandit.html) for HTTP (WS) and HTTPS (WSS) listeners.
 
-- **TCP and TLS Listeners** (`:tcp` and `:tls`): These use [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland.html) as the underlying server implementation. You can configure additional options as documented in the [ThousandIsland documentation](https://hexdocs.pm/thousand_island/ThousandIsland.html#t:options/0).
+- **TCP and TLS Listeners** (`:tcp` and `:tls`): These use [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland.html) as the underlying server implementation. You can configure additional options supported by [the configuration schema](lib/elixircd/config/schema.ex), as documented in the [ThousandIsland documentation](https://hexdocs.pm/thousand_island/ThousandIsland.html#t:options/0).
 
   ```elixir
   {:tcp, [
@@ -134,11 +136,13 @@ ElixIRCd uses [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland
   ]}
   ```
 
-- **HTTP and HTTPS Listeners** (`:http` and `:https`): These use [Bandit](https://hexdocs.pm/bandit/Bandit.html) as the underlying server implementation. You can configure additional options as documented in the [Bandit documentation](https://hexdocs.pm/bandit/Bandit.html#t:options/0).
+- **HTTP and HTTPS Listeners** (`:http` and `:https`): These use [Bandit](https://hexdocs.pm/bandit/Bandit.html) as the underlying server implementation. You can configure additional options supported by [the configuration schema](lib/elixircd/config/schema.ex), as documented in the [Bandit documentation](https://hexdocs.pm/bandit/Bandit.html#t:options/0).
 
   ```elixir
   {:http, [
     port: 8080,
+    startup_log: false,
+    websocket_options: [compress: false],
     # Additional Bandit options
     thousand_island_options: [
       num_acceptors: 100,
@@ -149,7 +153,7 @@ ElixIRCd uses [ThousandIsland](https://hexdocs.pm/thousand_island/ThousandIsland
 
 #### MOTD (Message of the Day)
 
-You can set the Message of the Day by creating a `motd.txt` file mounting it into the Docker container at `/app/config/`.
+You can set the Message of the Day by creating a `motd.txt` file, mounting it into the Docker container at `/app/config/`, and setting `server.motd` to `File.read!("config/motd.txt")`.
 
 1. Create a `motd.txt` file with your desired message of the day.
 

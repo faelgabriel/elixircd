@@ -7,9 +7,10 @@ defmodule ElixIRCd do
 
   require Logger
 
-  import ElixIRCd.Utils.Certificate, only: [create_self_signed_certificate: 0]
   import ElixIRCd.Utils.Mnesia, only: [setup_mnesia: 0]
-  import ElixIRCd.Utils.System, only: [load_configurations: 0, logger_with_time: 3, should_generate_certificate?: 0]
+  import ElixIRCd.Utils.System, only: [logger_with_time: 3]
+
+  alias ElixIRCd.Config.Loader
 
   @impl true
   def start(_type, _args) do
@@ -18,7 +19,6 @@ defmodule ElixIRCd do
 
     init_config()
     init_database()
-    ensure_certificate_exists()
 
     :persistent_term.put(:app_start_time, DateTime.utc_now())
 
@@ -36,7 +36,7 @@ defmodule ElixIRCd do
   @spec init_config :: :ok
   defp init_config do
     logger_with_time(:info, "loading configurations", fn ->
-      load_configurations()
+      Loader.load!("config/elixircd.exs", :boot)
     end)
   end
 
@@ -45,20 +45,5 @@ defmodule ElixIRCd do
     logger_with_time(:info, "loading database", fn ->
       setup_mnesia()
     end)
-  end
-
-  # generates self-signed certificate if it is configured and does not exist yet
-  # this is for development and testing purposes only; for real-world use, you should use a trusted certificate
-  @spec ensure_certificate_exists :: :ok
-  defp ensure_certificate_exists do
-    # Self-signed certificate generation is already tested in the Certificate module.
-    # coveralls-ignore-start
-    if should_generate_certificate?() do
-      logger_with_time(:info, "generating self-signed certificate", fn ->
-        create_self_signed_certificate()
-      end)
-    end
-
-    # coveralls-ignore-stop
   end
 end

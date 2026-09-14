@@ -166,7 +166,7 @@ defmodule ElixIRCd.Tables.User do
 
   @spec cloaking_enabled?() :: boolean()
   defp cloaking_enabled? do
-    Application.get_env(:elixircd, :cloaking)[:enabled] == true
+    Application.fetch_env!(:elixircd, :cloaking)[:enabled] == true
   end
 
   @spec should_generate_cloak?(t_attrs()) :: boolean()

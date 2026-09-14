@@ -17,10 +17,28 @@ defmodule ElixIRCd.Server.ListenersTest do
       end
     end
 
-    test "sets the fragmented message limit in the child spec without existing WebSocket options" do
-      assert {:ok, {_flags, [child]}} = Listeners.init(http: [port: 8080])
+    test "routes HTTPS CA and TLS versions to Bandit's transport options" do
+      server_opts = [
+        port: 8443,
+        startup_log: false,
+        websocket_options: [compress: false],
+        keyfile: "/key.pem",
+        certfile: "/cert.pem",
+        cacertfile: "/ca.pem",
+        versions: [:"tlsv1.3"],
+        thousand_island_options: [num_acceptors: 10]
+      ]
+
+      assert {:ok, {_flags, [child]}} = Listeners.init(https: server_opts)
       assert {Bandit, :start_link, [opts]} = child.start
-      assert opts[:websocket_options] == [max_fragmented_message_size: 4608]
+      refute Keyword.has_key?(opts, :cacertfile)
+      refute Keyword.has_key?(opts, :versions)
+      assert opts[:thousand_island_options][:num_acceptors] == 10
+      assert opts[:thousand_island_options][:transport_options] == [cacertfile: "/ca.pem", versions: [:"tlsv1.3"]]
+    end
+
+    test "requires explicit WebSocket options" do
+      assert_raise KeyError, fn -> Listeners.init(http: [port: 8080]) end
     end
   end
 end

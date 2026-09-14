@@ -148,53 +148,32 @@ defmodule ElixIRCd.Tables.RegisteredNick.Settings do
   @spec init_user_information(t_attrs(), keyword()) :: t_attrs()
   defp init_user_information(attrs, _config_settings) do
     attrs
-    # |> Map.put_new(:email, nil)
-    # |> Map.put_new(:url, nil)
-    # |> Map.put_new(:language, config_settings[:language] || "en")
-    # |> Map.put_new(:property, %{})
-    # |> Map.put_new(:display, nil)
   end
 
   @spec init_hide_information(t_attrs(), keyword()) :: t_attrs()
   defp init_hide_information(attrs, config_settings) do
     attrs
-    |> Map.put_new(:hide_email, config_settings[:hide_email] || false)
-
-    # |> Map.put_new(:hide_status, config_settings[:hide_status] || false)
-    # |> Map.put_new(:hide_usermask, config_settings[:hide_usermask] || false)
-    # |> Map.put_new(:hide_quit, config_settings[:hide_quit] || false)
-    # |> Map.put_new(:private, config_settings[:private] || false)
+    |> Map.put_new(:hide_email, config_settings[:hide_email])
   end
 
   @spec init_enforcement(t_attrs(), keyword()) :: t_attrs()
   defp init_enforcement(attrs, _config_settings) do
     attrs
-    # |> Map.put_new(:enforce, config_settings[:enforce] || true)
-    # |> Map.put_new(:enforce_time, config_settings[:enforce_time])
-    # |> Map.put_new(:kill, config_settings[:kill] || :on)
-    # |> Map.put_new(:secure, config_settings[:secure] || false)
   end
 
   @spec init_interaction(t_attrs(), keyword()) :: t_attrs()
   defp init_interaction(attrs, _config_settings) do
     attrs
-    # |> Map.put_new(:email_memos, config_settings[:email_memos] || :off)
-    # |> Map.put_new(:msg, config_settings[:msg] || false)
-    # |> Map.put_new(:no_greet, config_settings[:no_greet] || false)
-    # |> Map.put_new(:quiet_chg, config_settings[:quiet_chg] || false)
   end
 
   @spec init_permissions_grouping(t_attrs(), keyword()) :: t_attrs()
   defp init_permissions_grouping(attrs, _config_settings) do
     attrs
-    # |> Map.put_new(:never_op, config_settings[:never_op] || false)
-    # |> Map.put_new(:never_group, config_settings[:never_group] || false)
   end
 
   @spec init_authentication(t_attrs(), keyword()) :: t_attrs()
   defp init_authentication(attrs, _config_settings) do
     attrs
-    # |> Map.put_new(:pubkey, nil)
   end
 
   @doc """
@@ -207,8 +186,8 @@ defmodule ElixIRCd.Tables.RegisteredNick.Settings do
 
   @spec get_config_settings() :: keyword()
   defp get_config_settings do
-    Application.get_env(:elixircd, :services, [])
-    |> Keyword.get(:nickserv, [])
-    |> Keyword.get(:settings, [])
+    Application.fetch_env!(:elixircd, :services)
+    |> Keyword.fetch!(:nickserv)
+    |> Keyword.fetch!(:settings)
   end
 end

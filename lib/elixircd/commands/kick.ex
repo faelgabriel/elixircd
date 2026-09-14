@@ -71,7 +71,7 @@ defmodule ElixIRCd.Commands.Kick do
   defp check_message_length(nil), do: :ok
 
   defp check_message_length(reason) do
-    max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
+    max_kick_message_length = Application.fetch_env!(:elixircd, :channel)[:max_kick_message_length]
 
     if String.length(reason) > max_kick_message_length do
       {:error, :kick_message_too_long}
@@ -123,7 +123,7 @@ defmodule ElixIRCd.Commands.Kick do
   end
 
   defp send_user_kick_error(:kick_message_too_long, user, channel_name, _target_nick) do
-    max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
+    max_kick_message_length = Application.fetch_env!(:elixircd, :channel)[:max_kick_message_length]
 
     %Message{
       command: :err_inputtoolong,

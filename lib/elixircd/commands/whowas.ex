@@ -63,7 +63,7 @@ defmodule ElixIRCd.Commands.Whowas do
   end
 
   defp whowasuser_message(user, historical_users, _target_nick) do
-    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+    server_hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
 
     Enum.each(historical_users, fn historical_user ->
       created_at_time = historical_user.created_at |> Calendar.strftime("%A %B %d %Y -- %H:%M:%S %Z")

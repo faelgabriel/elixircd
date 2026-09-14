@@ -69,6 +69,6 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpiration do
 
   @spec get_channel_expire_days() :: pos_integer()
   defp get_channel_expire_days do
-    Application.get_env(:elixircd, :services)[:chanserv][:channel_expire_days] || 90
+    Application.fetch_env!(:elixircd, :services)[:chanserv][:channel_expire_days]
   end
 end

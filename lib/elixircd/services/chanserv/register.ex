@@ -49,12 +49,12 @@ defmodule ElixIRCd.Services.Chanserv.Register do
 
   @spec get_chanserv_config() :: map()
   defp get_chanserv_config do
-    chanserv_config = Application.get_env(:elixircd, :services)[:chanserv]
+    chanserv_config = Application.fetch_env!(:elixircd, :services)[:chanserv]
 
     %{
-      min_password_length: chanserv_config[:min_password_length] || 8,
-      max_channels_per_user: chanserv_config[:max_registered_channels_per_user] || 10,
-      forbidden_channels: chanserv_config[:forbidden_channel_names] || []
+      min_password_length: chanserv_config[:min_password_length],
+      max_channels_per_user: chanserv_config[:max_registered_channels_per_user],
+      forbidden_channels: chanserv_config[:forbidden_channel_names]
     }
   end
 

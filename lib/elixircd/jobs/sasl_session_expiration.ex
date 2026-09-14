@@ -48,8 +48,8 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
 
   @spec check_and_cleanup_expired_sessions() :: integer()
   defp check_and_cleanup_expired_sessions do
-    sasl_config = Application.get_env(:elixircd, :sasl, [])
-    timeout_ms = Keyword.get(sasl_config, :session_timeout_ms, 60_000)
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+    timeout_ms = Keyword.fetch!(sasl_config, :session_timeout_ms)
     cutoff_time = DateTime.add(DateTime.utc_now(), -timeout_ms, :millisecond)
 
     Memento.transaction!(fn ->

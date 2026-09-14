@@ -76,7 +76,7 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec apply_handshake_modes([String.t()]) :: [String.t()]
   defp apply_handshake_modes(existing_modes) do
-    case Application.get_env(:elixircd, :cloaking)[:cloak_on_connect] do
+    case Application.fetch_env!(:elixircd, :cloaking)[:cloak_on_connect] do
       true -> Enum.uniq(existing_modes ++ ["x"])
       _ -> existing_modes
     end
@@ -84,7 +84,7 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec check_server_password(User.t()) :: :ok | {:error, :bad_password}
   defp check_server_password(%User{password: password}) do
-    case Application.get_env(:elixircd, :server)[:password] do
+    case Application.fetch_env!(:elixircd, :server)[:password] do
       nil -> :ok
       ^password -> :ok
       _other -> {:error, :bad_password}
@@ -103,7 +103,7 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec check_ident(User.t()) :: String.t() | nil
   defp check_ident(user) do
-    case Application.get_env(:elixircd, :ident_service)[:enabled] do
+    case Application.fetch_env!(:elixircd, :ident_service)[:enabled] do
       true -> request_ident(user)
       _ -> nil
     end
@@ -158,8 +158,8 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec send_welcome(User.t()) :: :ok
   defp send_welcome(user) do
-    server_name = Application.get_env(:elixircd, :server)[:name]
-    server_hostname = Application.get_env(:elixircd, :server)[:hostname]
+    server_name = Application.fetch_env!(:elixircd, :server)[:name]
+    server_hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
     app_version = "ElixIRCd-#{Application.spec(:elixircd, :vsn)}"
     server_start_date = :persistent_term.get(:server_start_time) |> Calendar.strftime("%Y-%m-%d")
     usermodes = Mode.UserModes.modes() |> Enum.join("")

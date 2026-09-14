@@ -101,6 +101,6 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
 
   @spec get_nick_expire_days() :: pos_integer()
   defp get_nick_expire_days do
-    Application.get_env(:elixircd, :services)[:nickserv][:nick_expire_days] || 90
+    Application.fetch_env!(:elixircd, :services)[:nickserv][:nick_expire_days]
   end
 end
