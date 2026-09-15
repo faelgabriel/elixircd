@@ -7,7 +7,7 @@ defmodule ElixIRCd.Commands.Names do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -33,7 +33,7 @@ defmodule ElixIRCd.Commands.Names do
     channel_names
     |> String.split(",")
     |> Enum.map(&String.trim/1)
-    |> Enum.each(&handle_single_channel_names_with_validation(user, &1))
+    |> Enum.each(&handle_single_channel_names(user, &1))
   end
 
   @spec handle_all_names(User.t()) :: :ok
@@ -42,17 +42,6 @@ defmodule ElixIRCd.Commands.Names do
     |> Enum.each(fn channel -> handle_channel_names_silent(user, channel) end)
 
     handle_free_users(user)
-  end
-
-  @spec handle_single_channel_names_with_validation(User.t(), String.t()) :: :ok
-  defp handle_single_channel_names_with_validation(user, channel_name) do
-    case channel_name?(channel_name) do
-      true ->
-        handle_single_channel_names(user, channel_name)
-
-      false ->
-        send_no_such_channel_error(user, channel_name)
-    end
   end
 
   @spec handle_single_channel_names(User.t(), String.t()) :: :ok
@@ -134,12 +123,6 @@ defmodule ElixIRCd.Commands.Names do
         [%Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of /NAMES list"}]
 
     messages
-    |> Dispatcher.broadcast(:server, user)
-  end
-
-  @spec send_no_such_channel_error(User.t(), String.t()) :: :ok
-  defp send_no_such_channel_error(user, channel_name) do
-    %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 

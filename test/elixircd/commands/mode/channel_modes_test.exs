@@ -231,7 +231,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
     test "handles remove multiple modes with single minus sign" do
       mode_string = "-lntsimpkb"
-      values = ["nick!*@mask"]
+      values = ["password", "nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -243,7 +243,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
                {:remove, "i"},
                {:remove, "m"},
                {:remove, "p"},
-               {:remove, "k"},
+               {:remove, {"k", "password"}},
                {:remove, {"b", "nick!*@mask"}}
              ]
 
@@ -252,7 +252,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
     test "handles remove multiple modes with multiple minus signs" do
       mode_string = "-l-n-t-s-i-m-p-k-b"
-      values = ["nick!*@mask"]
+      values = ["password", "nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -264,7 +264,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
                {:remove, "i"},
                {:remove, "m"},
                {:remove, "p"},
-               {:remove, "k"},
+               {:remove, {"k", "password"}},
                {:remove, {"b", "nick!*@mask"}}
              ]
 
@@ -273,7 +273,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
     test "handles add and remove same modes" do
       mode_string = "+lntsimpkb-lntsimpkb"
-      values = ["10", "password", "nick!*@mask", "nick!*@mask"]
+      values = ["10", "password", "nick!*@mask", "password", "nick!*@mask"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -294,7 +294,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
                {:remove, "i"},
                {:remove, "m"},
                {:remove, "p"},
-               {:remove, "k"},
+               {:remove, {"k", "password"}},
                {:remove, {"b", "nick!*@mask"}}
              ]
 
@@ -330,13 +330,13 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
     test "handles remove modes with value" do
       mode_string = "-lkbov"
-      values = ["nick!*@mask", "nick_operator", "nick_voice"]
+      values = ["password", "nick!*@mask", "nick_operator", "nick_voice"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
       assert validated_modes == [
                {:remove, "l"},
-               {:remove, "k"},
+               {:remove, {"k", "password"}},
                {:remove, {"b", "nick!*@mask"}},
                {:remove, {"o", "nick_operator"}},
                {:remove, {"v", "nick_voice"}}
@@ -377,7 +377,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
     test "handles add and remove modes with invalid modes" do
       mode_string = "+l-n+t-w+m-p-k+a"
-      values = ["20"]
+      values = ["20", "password"]
 
       {validated_modes, invalid_modes} = ChannelModes.parse_mode_changes(mode_string, values)
 
@@ -387,7 +387,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
                {:add, "t"},
                {:add, "m"},
                {:remove, "p"},
-               {:remove, "k"}
+               {:remove, {"k", "password"}}
              ]
 
       assert invalid_modes == ["w", "a"]

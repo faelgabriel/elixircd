@@ -74,6 +74,7 @@ defmodule ElixIRCd.Utils.Mnesia do
     create_tables(opts)
     wait_for_tables(opts)
     upgrade_user_cap_version()
+    upgrade_monitor_nickname()
 
     if opts[:verbose], do: Logger.info("Mnesia database setup successfully.")
     :ok
@@ -92,6 +93,25 @@ defmodule ElixIRCd.Utils.Mnesia do
       end
 
       {:atomic, :ok} = :mnesia.transform_table(User, transform, expected)
+    end
+
+    :ok
+  end
+
+  # MONITOR subscriptions are transient, but their schema persists across restarts.
+  @spec upgrade_monitor_nickname() :: :ok
+  defp upgrade_monitor_nickname do
+    expected = UserMonitor.__info__().attributes
+    attributes = :mnesia.table_info(UserMonitor, :attributes)
+
+    if attributes == List.delete(expected, :target_nick) do
+      transform = fn row ->
+        values = attributes |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new()
+        values = Map.put(values, :target_nick, values.target_nick_key)
+        List.to_tuple([UserMonitor | Enum.map(expected, &Map.fetch!(values, &1))])
+      end
+
+      {:atomic, :ok} = :mnesia.transform_table(UserMonitor, transform, expected)
     end
 
     :ok

@@ -10,10 +10,65 @@ defmodule ElixIRCd.Commands.JoinTest do
   alias ElixIRCd.Commands.Join
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
+    for list_mode <- [:channel_ban, :channel_except, :channel_invex] do
+      test "JOIN does not equate ident caret and tilde in #{list_mode}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, ident: "~user", hostname: "host")
+          channel = insert(:channel, modes: if(unquote(list_mode) == :channel_invex, do: ["i"], else: []))
+          if unquote(list_mode) == :channel_except, do: insert(:channel_ban, channel: channel, mask: "*!*@*")
+          insert(unquote(list_mode), channel: channel, mask: "*!^user@host")
+          assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+          if unquote(list_mode) == :channel_ban do
+            assert {:ok, _} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+          else
+            assert {:error, :user_channel_not_found} =
+                     UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+
+            numeric = if unquote(list_mode) == :channel_except, do: "474", else: "473"
+            assert_sent_message_contains(user.pid, Regex.compile!(" #{numeric} "))
+          end
+        end)
+      end
+    end
+
+    test "repeated JOIN preserves membership modes even after channel restrictions change" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["i", {"k", "secret"}, {"l", "1"}])
+        membership = insert(:user_channel, user: user, channel: channel, modes: ["o", "v"])
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [String.upcase(channel.name)]})
+        assert UserChannels.get_by_user_pid(user.pid) == [membership]
+        assert_sent_messages_amount(user.pid, 0)
+      end)
+    end
+
+    for list_mode <- [:channel_ban, :channel_except, :channel_invex] do
+      test "JOIN applies IRC case mapping to #{list_mode}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, nick: "Bar[", ident: "~User", hostname: "Host.Example")
+          channel = insert(:channel, modes: if(unquote(list_mode) == :channel_invex, do: ["i"], else: []))
+          if unquote(list_mode) == :channel_except, do: insert(:channel_ban, channel: channel, mask: "*!*@*")
+          insert(unquote(list_mode), channel: channel, mask: "bAR{!~uSER@hOST.example")
+          assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+          if unquote(list_mode) == :channel_ban do
+            assert {:error, :user_channel_not_found} =
+                     UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+
+            assert_sent_message_contains(user.pid, ~r/ 474 /)
+          else
+            assert {:ok, _} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+          end
+        end)
+      end
+    end
+
     test "handles JOIN command with regex metacharacters in channel masks" do
       Memento.transaction!(fn ->
         operator = insert(:user)
@@ -91,13 +146,13 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with invalid channel name" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        message = %Message{command: "JOIN", params: ["#invalid.channel.name"]}
+        message = %Message{command: "JOIN", params: ["#invalid:channel"]}
 
         assert :ok = Join.handle(user, message)
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test 476 #{user.nick} #invalid.channel.name :Cannot join channel - invalid channel name format\r\n"}
+           ":irc.test 476 #{user.nick} #invalid:channel :Cannot join channel - invalid channel name format\r\n"}
         ])
       end)
     end
@@ -112,7 +167,6 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #new_channel\r\n"},
           {user.pid, ":irc.test MODE #new_channel +o #{user.nick}\r\n"},
-          {user.pid, ":irc.test 331 #{user.nick} #new_channel :No topic is set\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #new_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #new_channel :End of NAMES list.\r\n"}
         ])
@@ -194,7 +248,6 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #plain_channel\r\n"},
           {user.pid, ":irc.test MODE #plain_channel +o #{user.nick}\r\n"},
-          {user.pid, ":irc.test 331 #{user.nick} #plain_channel :No topic is set\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #plain_channel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #plain_channel :End of NAMES list.\r\n"}
         ])
@@ -240,6 +293,68 @@ defmodule ElixIRCd.Commands.JoinTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 471 #{user.nick} #{channel.name} :Cannot join channel (+l) - channel is full\r\n"}
+        ])
+      end)
+    end
+
+    test "allows a user to join while the channel remains below its limit" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [{"l", "2"}])
+        insert(:user_channel, channel: channel)
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+        assert_sent_message_contains(user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n")
+      end)
+    end
+
+    test "allows a directly invited user to join a full channel and consumes the invite" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [{"l", "1"}])
+        insert(:user_channel, channel: channel)
+        insert(:channel_invite, channel: channel, user: user)
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+
+        assert {:error, :channel_invite_not_found} =
+                 ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name)
+
+        assert_sent_message_contains(user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n")
+      end)
+    end
+
+    test "does not let an invite exception bypass a full channel" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: ["i", {"l", "1"}])
+        insert(:user_channel, channel: channel)
+        insert(:channel_invex, channel: channel, mask: "#{user.nick}!*@*")
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 471 #{user.nick} #{channel.name} :Cannot join channel (+l) - channel is full\r\n"}
+        ])
+      end)
+    end
+
+    test "does not let a direct invite bypass a channel ban" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, modes: [{"l", "1"}])
+        insert(:user_channel, channel: channel)
+        insert(:channel_ban, channel: channel, mask: "#{user.nick}!*@*")
+        insert(:channel_invite, channel: channel, user: user)
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 474 #{user.nick} #{channel.name} :Cannot join channel (+b) - you are banned\r\n"}
         ])
       end)
     end
@@ -466,7 +581,6 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN &local\r\n"},
           {user.pid, ":irc.test MODE &local +o #{user.nick}\r\n"},
-          {user.pid, ":irc.test 331 #{user.nick} &local :No topic is set\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = &local :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} &local :End of NAMES list.\r\n"}
         ])
@@ -523,7 +637,6 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN +customchannel\r\n"},
           {user.pid, ":irc.test MODE +customchannel +o #{user.nick}\r\n"},
-          {user.pid, ":irc.test 331 #{user.nick} +customchannel :No topic is set\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = +customchannel :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} +customchannel :End of NAMES list.\r\n"}
         ])
@@ -651,7 +764,6 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #newchannel\r\n"},
           {user.pid, ":irc.test MODE #newchannel +o #{user.nick}\r\n"},
-          {user.pid, ":irc.test 331 #{user.nick} #newchannel :No topic is set\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #newchannel :@#{user.nick}!~creator@creator.example.com\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #newchannel :End of NAMES list.\r\n"}
         ])
@@ -875,7 +987,6 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #test * :John Doe\r\n"},
           {user.pid, ":irc.test MODE #test +o #{user.nick}\r\n"},
-          {user.pid, ":irc.test 331 #{user.nick} #test :No topic is set\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #test :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #test :End of NAMES list.\r\n"}
         ])
@@ -892,7 +1003,6 @@ defmodule ElixIRCd.Commands.JoinTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} JOIN #test john123 :John Doe\r\n"},
           {user.pid, ":irc.test MODE #test +o #{user.nick}\r\n"},
-          {user.pid, ":irc.test 331 #{user.nick} #test :No topic is set\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} = #test :@#{user.nick}\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} #test :End of NAMES list.\r\n"}
         ])

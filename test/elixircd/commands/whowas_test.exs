@@ -61,13 +61,13 @@ defmodule ElixIRCd.Commands.WhowasTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} * :#{historical_user1.realname}\r\n"},
           {user.pid,
-           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test :\w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
           {user.pid,
-           ":irc.test 314 #{user.nick} #{historical_user2.nick} #{historical_user2.ident} #{historical_user2.hostname} #{historical_user2.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user2.nick} #{historical_user2.ident} #{historical_user2.hostname} * :#{historical_user2.realname}\r\n"},
           {user.pid,
-           ~r/^:irc\.test 312 #{user.nick} #{historical_user2.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user2.nick} irc.test :\w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
           {user.pid, ":irc.test 369 #{user.nick} nick :End of WHOWAS list\r\n"}
         ])
       end)
@@ -75,8 +75,8 @@ defmodule ElixIRCd.Commands.WhowasTest do
 
     test "handles WHOWAS command with target nick and max replies" do
       Memento.transaction!(fn ->
+        _older = insert(:historical_user, nick: "nick")
         historical_user1 = insert(:historical_user, nick: "nick")
-        _historical_user2 = insert(:historical_user, nick: "nick")
         user = insert(:user)
         message = %Message{command: "WHOWAS", params: ["nick", "1"]}
 
@@ -84,9 +84,9 @@ defmodule ElixIRCd.Commands.WhowasTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} * :#{historical_user1.realname}\r\n"},
           {user.pid,
-           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test :\w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
           {user.pid, ":irc.test 369 #{user.nick} nick :End of WHOWAS list\r\n"}
         ])
       end)
@@ -102,9 +102,9 @@ defmodule ElixIRCd.Commands.WhowasTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} #{historical_user1.realname}\r\n"},
+           ":irc.test 314 #{user.nick} #{historical_user1.nick} #{historical_user1.ident} #{historical_user1.hostname} * :#{historical_user1.realname}\r\n"},
           {user.pid,
-           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test \w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
+           ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test :\w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
           {user.pid, ":irc.test 369 #{user.nick} nick :End of WHOWAS list\r\n"}
         ])
       end)

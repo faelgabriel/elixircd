@@ -5,7 +5,6 @@ defmodule ElixIRCd.Commands.UserhostTest do
   use ElixIRCd.MessageCase
 
   import ElixIRCd.Factory
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.Commands.Userhost
   alias ElixIRCd.Message
@@ -57,7 +56,8 @@ defmodule ElixIRCd.Commands.UserhostTest do
         assert :ok = Userhost.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 302 #{user.nick} :#{target_user.nick}=#{user_mask(target_user)}\r\n"}
+          {user.pid,
+           ":irc.test 302 #{user.nick} :#{target_user.nick}=+#{target_user.ident}@#{target_user.hostname}\r\n"}
         ])
       end)
     end
@@ -73,7 +73,34 @@ defmodule ElixIRCd.Commands.UserhostTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test 302 #{user.nick} :#{target_user.nick}=#{user_mask(target_user)} #{target_user2.nick}=#{user_mask(target_user2)}\r\n"}
+           ":irc.test 302 #{user.nick} :#{target_user.nick}=+#{target_user.ident}@#{target_user.hostname} #{target_user2.nick}=+#{target_user2.ident}@#{target_user2.hostname}\r\n"}
+        ])
+      end)
+    end
+
+    test "formats away, operator, truncated ident, and viewer-visible hostname fields" do
+      Memento.transaction!(fn ->
+        viewer = insert(:user)
+        operator_viewer = insert(:user, modes: ["o"])
+
+        target_user =
+          insert(:user,
+            nick: "target_nick",
+            ident: "longusername",
+            hostname: "real.host",
+            cloaked_hostname: "cloak.host",
+            modes: ["o", "H", "x"],
+            away_message: "Away"
+          )
+
+        message = %Message{command: "USERHOST", params: [target_user.nick]}
+
+        assert :ok = Userhost.handle(viewer, message)
+        assert :ok = Userhost.handle(operator_viewer, message)
+
+        assert_sent_messages([
+          {viewer.pid, ":irc.test 302 #{viewer.nick} :#{target_user.nick}=-longuserna@cloak.host\r\n"},
+          {operator_viewer.pid, ":irc.test 302 #{operator_viewer.nick} :#{target_user.nick}*=-longuserna@real.host\r\n"}
         ])
       end)
     end

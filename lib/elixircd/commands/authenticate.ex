@@ -22,7 +22,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   require Logger
 
   import ElixIRCd.Utils.Nickserv, only: [notify_account_change: 2, sync_registered_mode: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_reply: 1, user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1, user_mask: 1, user_mask: 2]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -33,6 +33,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @supported_mechanisms ["PLAIN"]
   @max_authenticate_length 400
+  @max_sasl_length 16_384
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -189,12 +190,22 @@ defmodule ElixIRCd.Commands.Authenticate do
   end
 
   @spec handle_auth_data(User.t(), String.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
-  defp handle_auth_data(user, data, _session)
-       when byte_size(data) > @max_authenticate_length do
+  defp handle_auth_data(user, data, _session) when byte_size(data) > @max_authenticate_length do
     %Message{
       command: :err_sasltoolong,
       params: [user_reply(user)],
       trailing: "SASL message too long"
+    }
+    |> Dispatcher.broadcast(:server, user)
+
+    SaslSessions.delete(user.pid)
+  end
+
+  defp handle_auth_data(user, data, session) when byte_size(session.buffer) + byte_size(data) > @max_sasl_length do
+    %Message{
+      command: :err_saslfail,
+      params: [user_reply(user)],
+      trailing: "SASL authentication failed: Response exceeds server limit"
     }
     |> Dispatcher.broadcast(:server, user)
 
@@ -208,14 +219,13 @@ defmodule ElixIRCd.Commands.Authenticate do
   defp handle_auth_data(user, data, session) do
     accumulated_buffer = session.buffer <> data
 
-    if String.ends_with?(data, "=") or String.length(data) < @max_authenticate_length do
+    if byte_size(data) < @max_authenticate_length do
       updated_session = SaslSessions.update(session, %{buffer: accumulated_buffer})
       process_sasl_data(user, updated_session)
     else
       SaslSessions.update(session, %{buffer: accumulated_buffer})
 
-      %Message{command: "AUTHENTICATE", params: ["+"]}
-      |> Dispatcher.broadcast(:server, user)
+      :ok
     end
   end
 
@@ -364,9 +374,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
     account_name = registered_nick.account_name
 
-    hostname = if user.cloaked_hostname, do: user.cloaked_hostname, else: user.hostname
-    ident = String.slice(user.ident, 0..9)
-    mask = if user.nick, do: "#{user.nick}!#{ident}@#{hostname}", else: "*"
+    mask = user_mask(user, :registration)
 
     %Message{
       command: :rpl_loggedin,

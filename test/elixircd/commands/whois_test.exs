@@ -128,8 +128,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
         # Should still show the user but with no 319 channel list
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
-          {user.pid,
-           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
           {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
         ])
@@ -157,8 +156,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
           {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{public_channel.name}\r\n"},
-          {user.pid,
-           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
           {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
         ])
@@ -227,8 +225,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
           {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{public_channel.name}\r\n"},
-          {user.pid,
-           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
           {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
         ])
@@ -307,8 +304,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
           {user.pid, ":irc.test 307 #{user.nick} #{target_user.nick} :has identified for this nick\r\n"},
           {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
-          {user.pid,
-           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
           {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
         ])
@@ -329,8 +325,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
           {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
-          {user.pid,
-           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
           {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
         ])
@@ -390,8 +385,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
         # Should show the user but with no 319 channel list
         assert_sent_messages([
           {user.pid, ":irc.test 311 #{user.nick} #{target_user.nick} #{user.ident} hostname * :realname\r\n"},
-          {user.pid,
-           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
           {user.pid, ":irc.test 318 #{user.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
         ])
@@ -422,8 +416,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
           {user.pid, ":irc.test 330 #{user.nick} #{target_user.nick} TestAccount :is logged in as TestAccount\r\n"},
           {user.pid, ":irc.test 335 #{user.nick} #{target_user.nick} :Is a bot on this server\r\n"},
           {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
-          {user.pid,
-           ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+          {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
           {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :Busy coding\r\n"},
           {user.pid, ":irc.test 313 #{user.nick} #{target_user.nick} :is an IRC operator\r\n"},
           {user.pid, ~r/^:irc\.test 317 #{user.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time\r\n$/},
@@ -448,7 +441,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
            ~r/:irc\.test 338 #{operator.nick} #{target_user.nick} (hostname|192\.168\.1\.100) :is actually using host/},
           {operator.pid, ":irc.test 379 #{operator.nick} #{target_user.nick} :is using modes +x\r\n"},
           {operator.pid, ~r/:irc\.test 319 #{operator.nick} #{target_user.nick} :#{channel.name}/},
-          {operator.pid, ~r/:irc\.test 312 #{operator.nick} #{target_user.nick} ElixIRCd .+ :Elixir IRC daemon/},
+          {operator.pid, ~r/:irc\.test 312 #{operator.nick} #{target_user.nick} irc.test :Elixir IRC daemon/},
           {operator.pid, ~r/:irc\.test 317 #{operator.nick} #{target_user.nick} \d+ \d+ :seconds idle, signon time/},
           {operator.pid, ":irc.test 318 #{operator.nick} #{target_user.nick} :End of /WHOIS list.\r\n"}
         ])
@@ -469,8 +462,7 @@ defmodule ElixIRCd.Commands.WhoisTest do
         target_user.modes |> Enum.find(fn mode -> mode == "B" end) &&
           {user.pid, ":irc.test 335 #{user.nick} #{target_user.nick} :Is a bot on this server\r\n"},
         channel && {user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :#{channel.name}\r\n"},
-        {user.pid,
-         ":irc.test 312 #{user.nick} #{target_user.nick} ElixIRCd #{Application.spec(:elixircd, :vsn)} :Elixir IRC daemon\r\n"},
+        {user.pid, ":irc.test 312 #{user.nick} #{target_user.nick} irc.test :Elixir IRC daemon\r\n"},
         target_user.away_message &&
           {user.pid, ":irc.test 301 #{user.nick} #{target_user.nick} :#{target_user.away_message}\r\n"},
         ("o" in target_user.modes and ("H" not in target_user.modes or "o" in user.modes)) &&

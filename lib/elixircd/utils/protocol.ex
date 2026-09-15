@@ -6,6 +6,7 @@ defmodule ElixIRCd.Utils.Protocol do
   alias ElixIRCd.Service
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Determines if a target is a channel name.
@@ -54,8 +55,21 @@ defmodule ElixIRCd.Utils.Protocol do
   Determines if a user mask matches a user.
   """
   @spec match_user_mask?(User.t(), String.t()) :: boolean()
+  def match_user_mask?(%{registered: false}, mask), do: match_mask(mask, "*", nil)
+
   def match_user_mask?(user, mask) do
-    match_mask(mask, user_mask(user), nil)
+    {nick, ident, host} = mask |> normalize_mask() |> parse_mask_parts()
+    {user_nick, user_ident, user_host} = user |> user_mask() |> parse_mask_parts()
+
+    match_mask(CaseMapping.normalize(nick), CaseMapping.normalize(user_nick), nil) and
+      match_mask(ascii_lower(ident), ascii_lower(user_ident), nil) and
+      match_mask(ascii_lower(host), ascii_lower(user_host), nil)
+  end
+
+  # Nickname equivalences such as ^/~ must not change ident or hostname matching.
+  @spec ascii_lower(binary()) :: binary()
+  defp ascii_lower(value) do
+    for <<byte <- value>>, into: <<>>, do: <<if(byte in ?A..?Z, do: byte + 32, else: byte)>>
   end
 
   # Match literal IRC globs, retaining only the last star to avoid exponential backtracking.
@@ -79,11 +93,35 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec user_mask(User.t()) :: String.t()
   def user_mask(%{registered: true} = user) when user.nick != nil and user.ident != nil and user.hostname != nil do
-    hostname = display_hostname(user)
-    "#{user.nick}!#{String.slice(user.ident, 0..9)}@#{hostname}"
+    format_user_mask(user.nick, user.ident, display_hostname(user))
   end
 
   def user_mask(%{registered: false}), do: "*"
+
+  @doc """
+  Gets the user mask for registration replies, filling unavailable components
+  with wildcards. A precomputed cloak is preferred so registration does not
+  disclose a hostname that will be hidden when the connection completes.
+  """
+  @spec user_mask(User.t(), :registration) :: String.t()
+  def user_mask(user, :registration) do
+    format_user_mask(user.nick || "*", user.ident || "*", user.cloaked_hostname || user.hostname || "*")
+  end
+
+  @doc """
+  Gets the ident and visible hostname portion of a registered user's mask.
+  """
+  @spec user_host(User.t(), User.t() | nil) :: String.t()
+  def user_host(%{registered: true} = user, viewer \\ nil)
+      when user.ident != nil and user.hostname != nil do
+    format_user_host(user.ident, display_hostname(user, viewer))
+  end
+
+  @spec format_user_mask(String.t(), String.t(), String.t()) :: String.t()
+  defp format_user_mask(nick, ident, hostname), do: "#{nick}!#{format_user_host(ident, hostname)}"
+
+  @spec format_user_host(String.t(), String.t()) :: String.t()
+  defp format_user_host(ident, hostname), do: "#{String.slice(ident, 0..9)}@#{hostname}"
 
   @doc """
   Gets the hostname to display for a user based on +x mode and viewer permissions.

@@ -298,7 +298,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
       end
     end
 
-    test "a labeled QUIT sends its ACK before closing the socket", %{socket: socket} do
+    test "a labeled QUIT sends its ERROR before closing the socket", %{socket: socket} do
       :ok = :gen_tcp.send(socket, "CAP LS 302\r\n")
       read_until(socket, &(&1.command == "CAP"))
       :ok = :gen_tcp.send(socket, "CAP REQ :batch labeled-response\r\n")
@@ -307,7 +307,9 @@ defmodule ElixIRCd.Server.TcpListenerTest do
       read_until(socket, &(&1.command == "376"))
 
       :ok = :gen_tcp.send(socket, "@label=quit QUIT :done\r\n")
-      assert [%Message{command: "ACK", tags: %{"label" => "quit"}}] = read_until_closed(socket)
+
+      assert [%Message{command: "ERROR", tags: %{"label" => "quit"}, trailing: "Closing connection: done"}] =
+               read_until_closed(socket)
     end
   end
 

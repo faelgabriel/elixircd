@@ -15,6 +15,8 @@ defmodule ElixIRCd.Commands.Whois do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @command "WHOIS"
 
@@ -32,7 +34,19 @@ defmodule ElixIRCd.Commands.Whois do
   end
 
   @impl true
-  def handle(user, %{command: @command, params: [target_nick | _rest]}) do
+  def handle(user, %{command: @command, params: [server, target_nick | _rest]}) do
+    hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
+
+    if CaseMapping.normalize(server) == CaseMapping.normalize(hostname) or
+         match?({:ok, %{registered: true}}, Users.get_by_nick(server)) do
+      handle(user, %Message{command: @command, params: [target_nick]})
+    else
+      %Message{command: :err_nosuchserver, params: [user.nick, server], trailing: "No such server"}
+      |> Dispatcher.broadcast(:server, user)
+    end
+  end
+
+  def handle(user, %{command: @command, params: [target_nick]}) do
     {target_user, target_user_channels_display} = get_target_user(user, target_nick)
 
     whois_message(user, target_nick, target_user, target_user_channels_display)
@@ -164,13 +178,13 @@ defmodule ElixIRCd.Commands.Whois do
 
   @spec add_whoisserver([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp add_whoisserver(messages, user, target_user) do
-    version = Application.spec(:elixircd, :vsn) || "dev"
+    hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
 
     messages ++
       [
         %Message{
           command: :rpl_whoisserver,
-          params: [user.nick, target_user.nick, "ElixIRCd", version],
+          params: [user.nick, target_user.nick, hostname],
           trailing: "Elixir IRC daemon"
         }
       ]
@@ -241,7 +255,27 @@ defmodule ElixIRCd.Commands.Whois do
     else
       channel_map = fetch_channel_map(user_channels_keys, target_user_channels_keys)
       channel_names = filter_and_resolve_channel_names(user_channels_keys, target_user_channels_keys, channel_map)
-      {target_user, channel_names}
+
+      displayed =
+        Enum.map(channel_names, fn name ->
+          membership =
+            Enum.find(target_user_channels, &(&1.channel_name_key == CaseMapping.normalize(name)))
+
+          prefix = membership_prefix(membership)
+
+          prefix <> name
+        end)
+
+      {target_user, displayed}
+    end
+  end
+
+  @spec membership_prefix(UserChannel.t()) :: String.t()
+  defp membership_prefix(membership) do
+    cond do
+      "o" in membership.modes -> "@"
+      "v" in membership.modes -> "+"
+      true -> ""
     end
   end
 

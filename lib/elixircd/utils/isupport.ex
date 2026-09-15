@@ -104,34 +104,11 @@ defmodule ElixIRCd.Utils.Isupport do
 
   @spec format_chanmodes() :: String.t()
   defp format_chanmodes do
-    user_channel_modes = ["o", "v"]
-
-    supported_modes =
-      ChannelModes.modes()
-      |> Enum.filter(&(&1 not in user_channel_modes))
-
-    # Categorize according to IRC spec:
-    # Type A = List modes (always require a parameter for both set/unset)
-    type_a = ["b", "e", "I"] |> Enum.filter(&(&1 in supported_modes))
-
-    # Type B = Modes that require parameter only when setting
-    type_b = ["k"] |> Enum.filter(&(&1 in supported_modes))
-
-    # Type C = Modes with a parameter on set, none on unset
-    type_c = ["d", "j", "l"] |> Enum.filter(&(&1 in supported_modes))
-
-    # Type D = Modes that never take a parameter
-    # These are all remaining modes that aren't user-modes (o,v) and aren't in previous categories
-    type_d = supported_modes -- (type_a ++ type_b ++ type_c)
-
-    # Format the output as A,B,C,D
-    # IRC spec requires the categories be separated by commas, with modes concatenated within each category
-    type_a_str = Enum.join(type_a, "")
-    type_b_str = Enum.join(type_b, "")
-    type_c_str = Enum.join(type_c, "")
-    type_d_str = Enum.join(type_d, "")
-
-    "#{type_a_str},#{type_b_str},#{type_c_str},#{type_d_str}"
+    Enum.map_join([:a, :b, :c, :d], ",", fn type ->
+      ChannelModes.mode_types()
+      |> Enum.filter(fn {_mode, mode_type} -> mode_type == type end)
+      |> Enum.map_join(fn {mode, _type} -> mode end)
+    end)
   end
 
   @spec format_feature(atom(), String.t(), any()) :: String.t() | nil

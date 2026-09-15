@@ -7,7 +7,7 @@ defmodule ElixIRCd.Commands.Userhost do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [irc_operator_visible?: 2, user_host: 2, user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
@@ -33,7 +33,7 @@ defmodule ElixIRCd.Commands.Userhost do
   def handle(user, %{command: @command, params: target_nicks}) do
     userhosts_detailed =
       target_nicks
-      |> Enum.map(&fetch_userhost_info/1)
+      |> Enum.map(&fetch_userhost_info(&1, user))
       |> Enum.reject(&is_nil/1)
       |> Enum.join(" ")
 
@@ -41,11 +41,16 @@ defmodule ElixIRCd.Commands.Userhost do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec fetch_userhost_info(String.t()) :: String.t() | nil
-  defp fetch_userhost_info(target_nick) do
+  @spec fetch_userhost_info(String.t(), User.t()) :: String.t() | nil
+  defp fetch_userhost_info(target_nick, viewer) do
     case Users.get_by_nick(target_nick) do
-      {:ok, user} -> "#{user.nick}=#{user_mask(user)}"
-      {:error, :user_not_found} -> nil
+      {:ok, user} ->
+        oper = if irc_operator_visible?(user, viewer), do: "*", else: ""
+        presence = if user.away_message, do: "-", else: "+"
+        "#{user.nick}#{oper}=#{presence}#{user_host(user, viewer)}"
+
+      {:error, :user_not_found} ->
+        nil
     end
   end
 end

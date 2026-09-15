@@ -39,7 +39,9 @@ defmodule ElixIRCd.Commands.Mode do
   end
 
   @impl true
-  def handle(user, %{command: "MODE", params: [target | rest]}) do
+  def handle(user, %{command: "MODE", params: [target | rest], trailing: trailing}) do
+    rest = if trailing != nil, do: rest ++ [trailing], else: rest
+
     [mode_string, values] =
       case rest do
         [] -> [nil, nil]
@@ -56,8 +58,20 @@ defmodule ElixIRCd.Commands.Mode do
   defp handle_channel_mode(user, channel_name, nil, nil) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
-      %Message{command: "MODE", params: [channel.name, ChannelModes.display_modes(channel.modes)]}
-      |> Dispatcher.broadcast(user, user)
+      mode_params =
+        case ChannelModes.display_modes(channel.modes) do
+          "" -> ["+"]
+          modes -> String.split(modes, " ")
+        end
+
+      [
+        %Message{command: :rpl_channelmodeis, params: [user.nick, channel.name | mode_params]},
+        %Message{
+          command: :rpl_creationtime,
+          params: [user.nick, channel.name, to_string(DateTime.to_unix(channel.created_at))]
+        }
+      ]
+      |> Dispatcher.broadcast(:server, user)
     else
       {:error, error} -> send_channel_mode_error(error, user, channel_name)
     end
@@ -69,17 +83,14 @@ defmodule ElixIRCd.Commands.Mode do
          :ok <- check_user_permission(user_channel),
          {validated_modes, invalid_modes} <- ChannelModes.parse_mode_changes(mode_string, values),
          :ok <- check_mode_limit(validated_modes) do
-      {validated_filtered_modes, listing_modes, missing_value_modes} = ChannelModes.filter_mode_changes(validated_modes)
+      {validated_filtered_modes, listing_modes, _missing_value_modes} =
+        ChannelModes.filter_mode_changes(validated_modes)
 
-      if missing_value_modes != [] do
-        send_needmoreparams_error(user)
-      else
-        {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
+      {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
 
-        broadcast_channel_mode_changes(user, updated_channel, applied_changes)
-        send_channel_mode_listing(listing_modes, user, updated_channel)
-        send_invalid_modes(invalid_modes, user)
-      end
+      broadcast_channel_mode_changes(user, updated_channel, applied_changes)
+      send_channel_mode_listing(listing_modes, user, updated_channel)
+      send_invalid_modes(invalid_modes, user)
     else
       {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
     end

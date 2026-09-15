@@ -146,7 +146,7 @@ defmodule ElixIRCd.Commands.NamesTest do
         assert :ok = Names.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 403 #{user.nick} invalid.channel :No such channel\r\n"}
+          {user.pid, ":irc.test 366 #{user.nick} invalid.channel :End of /NAMES list\r\n"}
         ])
       end)
     end

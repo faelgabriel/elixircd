@@ -36,8 +36,8 @@ defmodule ElixIRCd.Server.WsListener do
   @impl WebSock
   def handle_in(_frame, %{quit_reason: _reason} = state), do: {:ok, state}
 
-  def handle_in({data, [opcode: opcode]}, %{subprotocol: subprotocol} = state) do
-    processed_data = process_incoming_data(data, opcode, subprotocol)
+  def handle_in({data, [opcode: opcode]}, state) do
+    processed_data = process_incoming_data(data, opcode)
 
     Connection.handle_receive(self(), processed_data)
     |> case do
@@ -76,41 +76,48 @@ defmodule ElixIRCd.Server.WsListener do
     Connection.handle_disconnect(self(), transport, disconnect_reason)
   end
 
-  @spec process_incoming_data(binary(), :text | :binary, nil | String.t()) :: binary()
-  defp process_incoming_data(data, opcode, subprotocol) do
-    case {opcode, subprotocol} do
-      {:text, "text.ircv3.net"} ->
-        ensure_utf8_valid(data)
-
-      {:binary, "binary.ircv3.net"} ->
-        data
-
-      # No subprotocol negotiated or mismatched frame type for negotiated subprotocol - use data as-is
-      _ ->
-        case opcode do
-          :text -> ensure_utf8_valid(data)
-          :binary -> data
-        end
-    end
+  @spec process_incoming_data(binary(), :text | :binary) :: binary()
+  defp process_incoming_data(data, :text) do
+    if Application.fetch_env!(:elixircd, :settings)[:utf8_only], do: data, else: ensure_utf8_valid(data)
   end
+
+  defp process_incoming_data(data, :binary), do: data
 
   @spec create_outgoing_frame(binary(), nil | String.t()) :: {:text, binary()} | {:binary, binary()}
   defp create_outgoing_frame(message, subprotocol) do
+    message = String.trim_trailing(message, "\r\n")
+
     case subprotocol do
-      "text.ircv3.net" -> {:text, ensure_utf8_valid(message)}
+      "text.ircv3.net" -> {:text, text_frame(message)}
       "binary.ircv3.net" -> {:binary, message}
       # No subprotocol or unknown subprotocol - default to text for compatibility with legacy clients
-      _ -> {:text, ensure_utf8_valid(message)}
+      _ -> {:text, text_frame(message)}
     end
+  end
+
+  @spec text_frame(binary()) :: String.t()
+  defp text_frame(message) do
+    message |> ensure_utf8_valid() |> fit_text_frame()
+  end
+
+  # Tags have a separate wire budget. Bound the data after its final encoding conversion.
+  @spec fit_text_frame(String.t()) :: String.t()
+  defp fit_text_frame("@" <> rest) do
+    [tags, data] = String.split(rest, " ", parts: 2)
+    "@" <> tags <> " " <> fit_text_frame(data)
+  end
+
+  defp fit_text_frame(data) when byte_size(data) <= 510, do: data
+  defp fit_text_frame(data), do: data |> binary_part(0, 510) |> trim_partial_codepoint()
+
+  @spec trim_partial_codepoint(binary()) :: String.t()
+  defp trim_partial_codepoint(data) do
+    if String.valid?(data), do: data, else: trim_partial_codepoint(binary_part(data, 0, byte_size(data) - 1))
   end
 
   @spec ensure_utf8_valid(binary()) :: binary()
   defp ensure_utf8_valid(data) do
-    utf8_only_enabled? = Application.fetch_env!(:elixircd, :settings)[:utf8_only]
-
-    # Skip validation here if utf8_only is enabled, since invalid UTF-8 will be handled in the Connection module.
-    # Otherwise, sanitize the data by replacing invalid UTF-8 sequences.
-    if utf8_only_enabled? or String.valid?(data) do
+    if String.valid?(data) do
       data
     else
       replace_invalid_utf8(data, <<>>)

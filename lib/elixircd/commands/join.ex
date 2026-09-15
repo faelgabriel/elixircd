@@ -53,12 +53,13 @@ defmodule ElixIRCd.Commands.Join do
 
   @impl true
   def handle(user, %{command: "JOIN", params: [channel_names | values]}) do
+    keys = values |> List.first("") |> String.split(",")
+
     channel_names
     |> String.split(",")
-    |> Enum.map(&String.trim/1)
     |> Enum.with_index()
     |> Enum.each(fn {channel_name, index} ->
-      join_value = Enum.at(values, index, nil)
+      join_value = Enum.at(keys, index, nil)
       handle_join_channel(user, channel_name, join_value)
     end)
   end
@@ -66,6 +67,7 @@ defmodule ElixIRCd.Commands.Join do
   @spec handle_join_channel(User.t(), String.t(), String.t() | nil) :: :ok
   defp handle_join_channel(user, channel_name, join_value) do
     with :ok <- validate_channel_name(channel_name),
+         {:error, :user_channel_not_found} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name),
          :ok <- check_user_channel_limit(user, channel_name),
          {channel_state, channel} <- get_or_create_channel(channel_name),
          :ok <- check_modes(channel_state, channel, user, join_value) do
@@ -76,8 +78,10 @@ defmodule ElixIRCd.Commands.Join do
           modes: determine_user_channel_modes(channel_state)
         })
 
+      ChannelInvites.delete_by_user_pid_and_channel_name(user.pid, channel.name)
       send_join_channel(user, channel, user_channel)
     else
+      {:ok, _existing_membership} -> :ok
       {:error, error} -> send_join_channel_error(error, user, channel_name)
     end
   end
@@ -138,6 +142,13 @@ defmodule ElixIRCd.Commands.Join do
       |> Dispatcher.broadcast(:server, users)
     end
 
+    if user.away_message != nil do
+      watchers = Enum.filter(users, &("away-notify" in &1.capabilities and &1.pid != user.pid))
+
+      %Message{command: "AWAY", params: [], trailing: user.away_message}
+      |> Dispatcher.broadcast(user, watchers)
+    end
+
     topic_messages = build_topic_messages(user, channel)
 
     (topic_messages ++
@@ -154,9 +165,7 @@ defmodule ElixIRCd.Commands.Join do
 
   # RFC 2812: 332 is followed by 333 (who set the topic and when).
   @spec build_topic_messages(User.t(), Channel.t()) :: [Message.t()]
-  defp build_topic_messages(user, %{topic: nil} = channel) do
-    [%Message{command: :rpl_notopic, params: [user.nick, channel.name], trailing: "No topic is set"}]
-  end
+  defp build_topic_messages(_user, %{topic: nil}), do: []
 
   defp build_topic_messages(user, %{topic: topic} = channel) do
     topic_set_at = topic.set_at |> DateTime.to_unix() |> Integer.to_string()
@@ -285,7 +294,7 @@ defmodule ElixIRCd.Commands.Join do
   @spec valid_name_format?(String.t()) :: boolean()
   defp valid_name_format?(channel_name) do
     normalized_channel_name = String.slice(channel_name, 1..-1//1)
-    Regex.match?(~r/^[a-zA-Z0-9_\-]+$/, normalized_channel_name)
+    normalized_channel_name != "" and not String.contains?(channel_name, [" ", ",", ":", "\0", "\a", "\r", "\n"])
   end
 
   @spec valid_name_length?(String.t(), non_neg_integer()) :: boolean()
@@ -329,14 +338,11 @@ defmodule ElixIRCd.Commands.Join do
   @spec check_user_invited(Channel.t(), User.t()) :: :ok | {:error, :user_not_invited}
   defp check_user_invited(channel, user) do
     if "i" in channel.modes do
-      has_direct_invite =
-        match?({:ok, _}, ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name))
-
       has_invex_exception =
         ChannelInvexes.get_by_channel_name_key(channel.name_key)
         |> Enum.any?(&match_user_mask?(user, &1.mask))
 
-      if has_direct_invite or has_invex_exception do
+      if directly_invited?(channel, user) or has_invex_exception do
         :ok
       else
         {:error, :user_not_invited}
@@ -361,22 +367,24 @@ defmodule ElixIRCd.Commands.Join do
   end
 
   @spec check_channel_limit(Channel.t(), User.t()) :: :ok | {:error, :channel_limit_reached}
-  defp check_channel_limit(channel, _user) do
-    channel.modes
-    |> Enum.find_value(fn
-      {"l", value} -> String.to_integer(value)
-      _ -> nil
-    end)
-    |> case do
-      nil ->
-        :ok
+  defp check_channel_limit(channel, user) do
+    channel_limit =
+      Enum.find_value(channel.modes, fn
+        {"l", value} -> String.to_integer(value)
+        _ -> nil
+      end)
 
-      channel_limit ->
-        case UserChannels.count_users_by_channel_name(channel.name) do
-          channel_count when channel_count >= channel_limit -> {:error, :channel_limit_reached}
-          _ -> :ok
-        end
+    cond do
+      directly_invited?(channel, user) -> :ok
+      is_nil(channel_limit) -> :ok
+      UserChannels.count_users_by_channel_name(channel.name) >= channel_limit -> {:error, :channel_limit_reached}
+      true -> :ok
     end
+  end
+
+  @spec directly_invited?(Channel.t(), User.t()) :: boolean()
+  defp directly_invited?(channel, user) do
+    match?({:ok, _}, ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name))
   end
 
   @spec get_user_channels_nicks(User.t(), [UserChannel.t()]) :: String.t()

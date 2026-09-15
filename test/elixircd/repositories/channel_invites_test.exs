@@ -24,6 +24,27 @@ defmodule ElixIRCd.Repositories.ChannelInvitesTest do
       assert channel_invite.channel_name_key == "#elixircd"
       assert channel_invite.setter == "setter!setter@host"
     end
+
+    test "replaces an existing invite for the same user and channel" do
+      user = insert(:user)
+      channel = insert(:channel)
+
+      Memento.transaction!(fn ->
+        ChannelInvites.create(%{
+          user_pid: user.pid,
+          channel_name_key: channel.name_key,
+          setter: "first!setter@host"
+        })
+
+        ChannelInvites.create(%{
+          user_pid: user.pid,
+          channel_name_key: channel.name_key,
+          setter: "second!setter@host"
+        })
+
+        assert [%ChannelInvite{setter: "second!setter@host"}] = ChannelInvites.get_by_user_pid(user.pid)
+      end)
+    end
   end
 
   describe "delete_by_channel_name/1" do
@@ -53,6 +74,25 @@ defmodule ElixIRCd.Repositories.ChannelInvitesTest do
                Memento.transaction!(fn ->
                  Memento.Query.select(ChannelInvite, {:==, :user_pid, user.pid})
                end)
+    end
+  end
+
+  describe "delete_by_user_pid_and_channel_name/2" do
+    test "deletes only the matching channel invite" do
+      user = insert(:user)
+      selected_channel = insert(:channel, name: "#selected")
+      remaining_channel = insert(:channel, name: "#remaining")
+      insert(:channel_invite, user: user, channel: selected_channel)
+      remaining_invite = insert(:channel_invite, user: user, channel: remaining_channel)
+
+      Memento.transaction!(fn ->
+        assert :ok = ChannelInvites.delete_by_user_pid_and_channel_name(user.pid, "#SELECTED")
+
+        assert {:error, :channel_invite_not_found} =
+                 ChannelInvites.get_by_user_pid_and_channel_name(user.pid, selected_channel.name)
+
+        assert [remaining_invite] == ChannelInvites.get_by_user_pid(user.pid)
+      end)
     end
   end
 

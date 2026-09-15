@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.Away do
   end
 
   @impl true
-  def handle(user, %{command: "AWAY", trailing: nil}) do
+  def handle(user, %{command: "AWAY", trailing: reason}) when reason in [nil, ""] do
     updated_user = Users.update(user, %{away_message: nil})
 
     %Message{command: :rpl_unaway, params: [updated_user.nick], trailing: "You are no longer marked as being away"}

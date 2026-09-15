@@ -15,6 +15,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.HistoricalUsers
   alias ElixIRCd.Repositories.Metrics
+  alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.UserMonitors
@@ -136,9 +137,7 @@ defmodule ElixIRCd.Server.Connection do
 
     ResponseContext.with_command(user, request, fn ->
       reply = %StandardReply{type: :fail, command: request.command, code: "INVALID_UTF8", description: description}
-      fallback = %Message{command: "NOTICE", params: [user_reply(user)], trailing: description}
-
-      Dispatcher.broadcast_standard_reply(reply, :server, user, fallback)
+      Dispatcher.broadcast(reply, :server, user)
     end)
   end
 
@@ -271,6 +270,13 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}
   defp handle_excess_flood(user) do
+    if SaslSessions.exists?(user.pid) do
+      SaslSessions.delete(user.pid)
+
+      %Message{command: :err_saslfail, params: [user_reply(user)], trailing: "SASL authentication failed: Excess flood"}
+      |> Dispatcher.broadcast(:server, user)
+    end
+
     %Message{command: "ERROR", params: [], trailing: "Excess flood"}
     |> Dispatcher.broadcast(nil, user)
 

@@ -133,7 +133,7 @@ defmodule ElixIRCd.Server.WsListenerTest do
       Application.put_env(:elixircd, :settings, original_settings)
     end
 
-    test "passes through invalid UTF-8 in text frames when utf8_only is enabled" do
+    test "passes through invalid UTF-8 input for UTF8ONLY rejection" do
       original_settings = Application.get_env(:elixircd, :settings)
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings, utf8_only: true))
 
@@ -223,6 +223,42 @@ defmodule ElixIRCd.Server.WsListenerTest do
   end
 
   describe "handle_info/2" do
+    for subprotocol <- [nil, "text.ircv3.net"] do
+      test "bounds the final UTF-8 frame after sanitization for #{inspect(subprotocol)}" do
+        state = ws_state(:ws, unquote(subprotocol))
+        prefix = ":sender!~ident@host PRIVMSG recipient :"
+        message = prefix <> :binary.copy(<<255>>, 450) <> "\r\n"
+        assert byte_size(message) <= 512
+        assert {:push, {:text, frame}, ^state} = WsListener.handle_info({:broadcast, message}, state)
+        expected = prefix <> String.duplicate("�", div(510 - byte_size(prefix), 3))
+        assert frame == expected
+        assert String.valid?(frame)
+        assert byte_size(frame) <= 510
+      end
+    end
+
+    test "budgets the serialized user prefix separately from tags and preserves codepoints" do
+      state = ws_state(:ws, "text.ircv3.net")
+      tags = "@+example/tag=" <> String.duplicate("a", 600)
+      prefix = ":sender!~ident@host PRIVMSG recipient :"
+      body = prefix <> String.duplicate("😊", 130)
+
+      assert {:push, {:text, frame}, ^state} =
+               WsListener.handle_info({:broadcast, tags <> " " <> body <> "\r\n"}, state)
+
+      assert [^tags, data] = String.split(frame, " ", parts: 2)
+      assert data == prefix <> String.duplicate("😊", div(510 - byte_size(prefix), 4))
+      assert String.valid?(data)
+      assert byte_size(data) <= 510
+    end
+
+    test "preserves a full binary IRC payload without UTF-8 expansion" do
+      state = ws_state(:ws, "binary.ircv3.net")
+      prefix = ":sender!~ident@host PRIVMSG recipient :"
+      body = prefix <> :binary.copy(<<255>>, 510 - byte_size(prefix))
+      assert {:push, {:binary, ^body}, ^state} = WsListener.handle_info({:broadcast, body <> "\r\n"}, state)
+    end
+
     test "handles broadcast messages with no subprotocol (defaults to text)" do
       state = ws_state()
 
@@ -256,7 +292,7 @@ defmodule ElixIRCd.Server.WsListenerTest do
       Application.put_env(:elixircd, :settings, original_settings)
     end
 
-    test "passes through invalid UTF-8 in text frames when utf8_only is enabled" do
+    test "sanitizes invalid UTF-8 in text frames when utf8_only is enabled" do
       original_settings = Application.get_env(:elixircd, :settings)
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings, utf8_only: true))
 
@@ -265,9 +301,18 @@ defmodule ElixIRCd.Server.WsListenerTest do
 
       {:push, {:text, result}, ^state} = WsListener.handle_info({:broadcast, invalid_utf8}, state)
 
-      assert result == invalid_utf8
+      assert result == "MESSAGE��"
 
       Application.put_env(:elixircd, :settings, original_settings)
+    end
+
+    for {protocol, opcode} <- [{"text.ircv3.net", :text}, {"binary.ircv3.net", :binary}, {nil, :text}] do
+      test "omits IRC line terminators in #{inspect(protocol)} frames" do
+        state = ws_state(:ws, unquote(protocol))
+
+        assert {:push, {unquote(opcode), "NOTICE AUTH :hello"}, ^state} =
+                 WsListener.handle_info({:broadcast, "NOTICE AUTH :hello\r\n"}, state)
+      end
     end
 
     test "preserves binary data in binary frames" do

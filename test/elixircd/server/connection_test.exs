@@ -10,6 +10,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
   alias ElixIRCd.Command
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Metrics
+  alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.RateLimiter
@@ -192,6 +193,25 @@ defmodule ElixIRCd.Server.ConnectionTest do
       ])
     end
 
+    test "aborts active SASL before closing a flooded connection" do
+      user = insert(:user, registered: false)
+      Memento.transaction!(fn -> SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: "partial"}) end)
+      expect(RateLimiter, :check_message, fn _, _ -> {:error, :throttled_exceeded} end)
+      reject(Command, :dispatch, 2)
+
+      assert {:quit, "Excess flood"} = Connection.handle_receive(user.pid, "AUTHENTICATE payload")
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 904 * :SASL authentication failed: Excess flood\r\n"},
+        {user.pid, "ERROR :Excess flood\r\n"}
+      ])
+
+      Memento.transaction!(fn ->
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+        assert {:ok, %{registered: false}} = Users.get_by_pid(user.pid)
+      end)
+    end
+
     test "preserves labels on legacy throttling feedback" do
       user = insert(:user, capabilities: ["batch", "labeled-response"])
       expect(RateLimiter, :check_message, fn _, _ -> {:error, :throttled, 2000} end)
@@ -307,7 +327,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
       assert_sent_messages([
         {user.pid,
-         ":irc.test NOTICE #{user.nick} :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+         ":irc.test FAIL PRIVMSG INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
       ])
     end
 
@@ -347,7 +367,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
     test "rejects invalid UTF-8 before registration and recovers a command without label negotiation" do
       reject(Command, :dispatch, 2)
-      user = insert(:user, registered: false, capabilities: ["standard-replies"])
+      user = insert(:user, registered: false, capabilities: [])
       Connection.handle_receive(user.pid, "@label=ignored user a b c :" <> <<255>>)
 
       assert_sent_messages([
@@ -403,14 +423,14 @@ defmodule ElixIRCd.Server.ConnectionTest do
       ])
     end
 
-    test "legacy UTF-8 rejection still preserves a negotiated label" do
+    test "UTF-8 rejection preserves a negotiated label without standard-replies" do
       reject(Command, :dispatch, 2)
       user = insert(:user, capabilities: ["batch", "labeled-response"])
       Connection.handle_receive(user.pid, "@label=legacy PRIVMSG x :" <> <<255>>)
 
       assert_sent_messages([
         {user.pid,
-         "@label=legacy :irc.test NOTICE #{user.nick} :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
+         "@label=legacy :irc.test FAIL PRIVMSG INVALID_UTF8 :Message rejected, your IRC software MUST use UTF-8 encoding on this network\r\n"}
       ])
     end
 

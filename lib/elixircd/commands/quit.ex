@@ -8,11 +8,17 @@ defmodule ElixIRCd.Commands.Quit do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
 
   @impl true
   @spec handle(User.t(), Message.t()) :: {:quit, String.t()}
-  def handle(_user, %{command: "QUIT", trailing: quit_message}) do
-    {:quit, quit_message}
+  def handle(user, %{command: "QUIT", trailing: quit_message}) do
+    reason = quit_message || "Client Quit"
+
+    %Message{command: "ERROR", params: [], trailing: "Closing connection: #{reason}"}
+    |> Dispatcher.broadcast(:server, user)
+
+    {:quit, reason}
   end
 end

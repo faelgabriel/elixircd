@@ -64,7 +64,7 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 441 #{user.nick} #channel :You're not on that channel\r\n"}
+          {user.pid, ":irc.test 442 #{user.nick} #channel :You're not on that channel\r\n"}
         ])
       end)
     end
@@ -171,8 +171,8 @@ defmodule ElixIRCd.Commands.KickTest do
         assert :ok = Kick.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{user_mask(user)} KICK #channel target\r\n"},
-          {target_user.pid, ":#{user_mask(user)} KICK #channel target\r\n"}
+          {user.pid, ":#{user_mask(user)} KICK #channel target :#{user.nick}\r\n"},
+          {target_user.pid, ":#{user_mask(user)} KICK #channel target :#{user.nick}\r\n"}
         ])
       end)
     end

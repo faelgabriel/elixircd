@@ -18,6 +18,7 @@ defmodule ElixIRCd.Commands.Nick do
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Server.Snotice
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Monitor
 
   @impl true
@@ -36,7 +37,7 @@ defmodule ElixIRCd.Commands.Nick do
   def handle(user, %{command: "NICK", params: [input_nick | _rest]}) do
     with :ok <- validate_nick(input_nick),
          :ok <- check_reserved_nick(user, input_nick),
-         :ok <- check_nick_in_use(input_nick) do
+         :ok <- check_nick_in_use(user, input_nick) do
       change_nick(user, input_nick)
     else
       {:error, :nick_reserved} ->
@@ -79,6 +80,8 @@ defmodule ElixIRCd.Commands.Nick do
   end
 
   @spec change_nick(User.t(), String.t()) :: :ok
+  defp change_nick(%{nick: nick}, nick), do: :ok
+
   defp change_nick(%{registered: false} = user, input_nick) do
     updated_user = Users.update(user, %{nick: input_nick})
     updated_user = sync_registered_mode(updated_user)
@@ -106,8 +109,12 @@ defmodule ElixIRCd.Commands.Nick do
     updated_user = sync_registered_mode(updated_user)
     send_nick_change_snotice(old_nick, updated_user)
 
-    Monitor.notify_offline(user)
-    Monitor.notify_online(updated_user)
+    if CaseMapping.normalize(old_nick) != updated_user.nick_key do
+      Monitor.notify_offline(user)
+      Monitor.notify_online(updated_user)
+    end
+
+    :ok
   end
 
   @spec send_nick_change_snotice(String.t(), User.t()) :: :ok
@@ -116,9 +123,10 @@ defmodule ElixIRCd.Commands.Nick do
     Snotice.broadcast(:nick, "Nick change: #{old_nick} -> #{user.nick} (#{user_info})")
   end
 
-  @spec check_nick_in_use(String.t()) :: :ok | {:error, :nick_in_use}
-  defp check_nick_in_use(input_nick) do
+  @spec check_nick_in_use(User.t(), String.t()) :: :ok | {:error, :nick_in_use}
+  defp check_nick_in_use(user, input_nick) do
     case Users.get_by_nick(input_nick) do
+      {:ok, %{pid: pid}} when pid == user.pid -> :ok
       {:ok, _user} -> {:error, :nick_in_use}
       {:error, :user_not_found} -> :ok
     end

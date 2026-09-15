@@ -92,6 +92,7 @@ defmodule ElixIRCd.Factory do
     %UserMonitor{
       user_pid: Map.get(attrs, :user_pid, new_pid()),
       target_nick_key: Map.get(attrs, :target_nick_key, target_nick_key),
+      target_nick: Map.get(attrs, :target_nick, Map.get(attrs, :target_nick_key, target_nick)),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end

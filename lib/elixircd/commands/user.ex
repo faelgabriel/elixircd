@@ -22,7 +22,8 @@ defmodule ElixIRCd.Commands.User do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  def handle(user, %{command: "USER", params: [username, _, _ | _], trailing: realname}) when is_binary(realname) do
+  def handle(user, %{command: "USER", params: [username, _, _ | _], trailing: realname})
+      when is_binary(realname) and realname != "" do
     process_user_command(user, username, realname)
   end
 

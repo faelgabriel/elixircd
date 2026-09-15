@@ -163,6 +163,30 @@ defmodule ElixIRCd.MessageTest do
   end
 
   describe "unparse/1" do
+    for command <- ["PRIVMSG", "NOTICE"] do
+      test "bounds relayed #{command} to 512 bytes while preserving tags and UTF-8" do
+        message = %Message{
+          prefix: "nick!user@host",
+          command: unquote(command),
+          params: ["target"],
+          trailing: String.duplicate("é", 300),
+          tags: %{"label" => "keep"}
+        }
+
+        {:ok, wire} = Message.unparse(message)
+        [tags, body] = String.split(wire, " ", parts: 2)
+        assert tags == "@label=keep"
+        assert byte_size(body) <= 512
+        assert byte_size(body) >= 511
+        assert String.valid?(wire)
+        assert String.ends_with?(wire, "\r\n")
+        parsed = Message.parse!(wire)
+        assert parsed.command == unquote(command)
+        assert parsed.params == ["target"]
+        assert String.starts_with?(message.trailing, parsed.trailing)
+      end
+    end
+
     test "unparses a message with a prefix" do
       message = %Message{prefix: "irc.example.com", command: "NOTICE", params: ["user"], trailing: "Server restarting"}
 

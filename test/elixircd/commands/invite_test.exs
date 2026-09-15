@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.InviteTest do
   alias ElixIRCd.Commands.Invite
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelInvites
+  alias ElixIRCd.Repositories.Channels
 
   describe "handle/2" do
     for account_enabled <- [true, false], identified_as <- [nil, "inviter-account"] do
@@ -71,15 +72,50 @@ defmodule ElixIRCd.Commands.InviteTest do
       Memento.transaction!(fn ->
         user = insert(:user)
 
-        message = %Message{command: "INVITE", params: []}
-        assert :ok = Invite.handle(user, message)
-
         message = %Message{command: "INVITE", params: ["#only_channel_name"]}
         assert :ok = Invite.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 461 #{user.nick} INVITE :Not enough parameters\r\n"},
           {user.pid, ":irc.test 461 #{user.nick} INVITE :Not enough parameters\r\n"}
+        ])
+      end)
+    end
+
+    test "lists active invitations and always terminates the list" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        first_channel = insert(:channel, name: "#First")
+        second_channel = insert(:channel, name: "#Second")
+        stale_channel = insert(:channel, name: "#Stale")
+
+        insert(:channel_invite,
+          user: user,
+          channel: second_channel,
+          created_at: DateTime.add(DateTime.utc_now(), -10, :second)
+        )
+
+        insert(:channel_invite,
+          user: user,
+          channel: first_channel,
+          created_at: DateTime.add(DateTime.utc_now(), -20, :second)
+        )
+
+        insert(:channel_invite, user: user, channel: stale_channel)
+        Channels.delete(stale_channel)
+
+        assert :ok = Invite.handle(user, %Message{command: "INVITE", params: []})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 336 #{user.nick} #First\r\n"},
+          {user.pid, ":irc.test 336 #{user.nick} #Second\r\n"},
+          {user.pid, ":irc.test 337 #{user.nick} :End of /INVITE list\r\n"}
+        ])
+
+        other_user = insert(:user)
+        assert :ok = Invite.handle(other_user, %Message{command: "INVITE", params: []})
+
+        assert_sent_messages([
+          {other_user.pid, ":irc.test 337 #{other_user.nick} :End of /INVITE list\r\n"}
         ])
       end)
     end
@@ -173,6 +209,9 @@ defmodule ElixIRCd.Commands.InviteTest do
           {user.pid, ":irc.test 341 #{user.nick} #{target_user.nick} #channel\r\n"},
           {target_user.pid, ":#{user_mask(user)} INVITE #{target_user.nick} #channel\r\n"}
         ])
+
+        assert {:ok, _channel_invite} =
+                 ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name)
       end)
     end
 

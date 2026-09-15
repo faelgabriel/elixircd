@@ -40,4 +40,13 @@ defmodule ElixIRCd.Utils.MessageText do
   def ctcp_message?(message_text) do
     String.starts_with?(message_text, "\x01") and String.ends_with?(message_text, "\x01")
   end
+
+  @doc """
+  Checks for a CTCP ACTION, which remains allowed by channel mode +C.
+  """
+  @spec ctcp_action?(String.t()) :: boolean()
+  def ctcp_action?(message_text) do
+    (String.starts_with?(message_text, "\x01ACTION ") or message_text == "\x01ACTION\x01") and
+      ctcp_message?(message_text)
+  end
 end

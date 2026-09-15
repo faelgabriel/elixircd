@@ -29,9 +29,12 @@ defmodule ElixIRCd.Commands.Oper do
   @impl true
   def handle(user, %{command: "OPER", params: [username, password | _rest]}) do
     if valid_irc_operator_credential?(username, password) do
-      updated_user = Users.update(user, %{modes: ["o" | user.modes]})
+      updated_user = Users.update(user, %{modes: Enum.uniq(["o" | user.modes])})
 
       %Message{command: :rpl_youreoper, params: [updated_user.nick], trailing: "You are now an IRC operator"}
+      |> Dispatcher.broadcast(:server, updated_user)
+
+      %Message{command: "MODE", params: [updated_user.nick, "+o"]}
       |> Dispatcher.broadcast(:server, updated_user)
 
       send_oper_success_snotice(updated_user, username)

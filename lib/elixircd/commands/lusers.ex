@@ -31,11 +31,12 @@ defmodule ElixIRCd.Commands.Lusers do
   """
   @spec send_lusers(User.t()) :: :ok
   def send_lusers(user) do
-    %{visible: visible, invisible: invisible, operators: operators, unknown: unknown, total: total_users} =
+    %{visible: visible, invisible: invisible, operators: operators, unknown: unknown} =
       Users.count_all_states()
 
+    total_users = visible + invisible
     total_channels = Channels.count_all()
-    highest_connections = Metrics.get(:highest_connections)
+    highest_users = max(total_users, Metrics.get(:highest_users))
 
     [
       %Message{
@@ -53,13 +54,13 @@ defmodule ElixIRCd.Commands.Lusers do
       %Message{command: :rpl_luserme, params: [user.nick], trailing: "I have #{total_users} clients and 0 servers"},
       %Message{
         command: :rpl_localusers,
-        params: [user.nick, to_string(total_users), to_string(highest_connections)],
-        trailing: "Current local users #{total_users}, max #{highest_connections}"
+        params: [user.nick, to_string(total_users), to_string(highest_users)],
+        trailing: "Current local users #{total_users}, max #{highest_users}"
       },
       %Message{
         command: :rpl_globalusers,
-        params: [user.nick, to_string(total_users), to_string(highest_connections)],
-        trailing: "Current global users #{total_users}, max #{highest_connections}"
+        params: [user.nick, to_string(total_users), to_string(highest_users)],
+        trailing: "Current global users #{total_users}, max #{highest_users}"
       }
     ]
     |> Dispatcher.broadcast(:server, user)

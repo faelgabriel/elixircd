@@ -27,6 +27,7 @@ defmodule ElixIRCd.Commands.Who do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @whox_field_order ~w(t c u i h s n f d l a o r)
 
@@ -100,7 +101,7 @@ defmodule ElixIRCd.Commands.Who do
     users =
       normalize_mask(mask)
       |> Users.get_by_match_mask()
-      |> filter_out_invisible_users_for_mask(user, user_pids_sharing_channels_keys)
+      |> filter_out_invisible_users_for_mask(user, user_pids_sharing_channels_keys, mask)
       |> maybe_filter_operators(query, user)
 
     # Early return if no users match
@@ -187,11 +188,12 @@ defmodule ElixIRCd.Commands.Who do
     |> Enum.reject(&("i" in &1.modes and &1.pid != requesting_user.pid and !user_shares_channel?))
   end
 
-  @spec filter_out_invisible_users_for_mask([User.t()], User.t(), [pid()]) :: [User.t()]
-  defp filter_out_invisible_users_for_mask(users, requesting_user, user_pids_sharing_channels_keys) do
+  @spec filter_out_invisible_users_for_mask([User.t()], User.t(), [pid()], String.t()) :: [User.t()]
+  defp filter_out_invisible_users_for_mask(users, requesting_user, user_pids_sharing_channels_keys, mask) do
     users
     |> Enum.reject(
-      &("i" in &1.modes and &1.pid != requesting_user.pid and &1.pid not in user_pids_sharing_channels_keys)
+      &("i" in &1.modes and &1.pid != requesting_user.pid and &1.pid not in user_pids_sharing_channels_keys and
+          &1.nick_key != CaseMapping.normalize(mask))
     )
   end
 
@@ -394,7 +396,8 @@ defmodule ElixIRCd.Commands.Who do
     prefixes = channel_operator_symbol(user_channel) <> channel_voice_symbol(user_channel)
     prefixes = if "multi-prefix" in requesting_user.capabilities, do: prefixes, else: String.slice(prefixes, 0, 1)
 
-    user_away_status(user_target) <> irc_operator_symbol(user_target, requesting_user) <> prefixes
+    bot = if "B" in user_target.modes, do: "B", else: ""
+    user_away_status(user_target) <> irc_operator_symbol(user_target, requesting_user) <> bot <> prefixes
   end
 
   @spec user_away_status(User.t()) :: String.t()

@@ -58,7 +58,8 @@ defmodule ElixIRCd.Commands.OperTest do
         assert :ok = Oper.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 381 #{user.nick} :You are now an IRC operator\r\n"}
+          {user.pid, ":irc.test 381 #{user.nick} :You are now an IRC operator\r\n"},
+          {user.pid, ":irc.test MODE #{user.nick} +o\r\n"}
         ])
       end)
     end
@@ -97,6 +98,7 @@ defmodule ElixIRCd.Commands.OperTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 381 #{user.nick} :You are now an IRC operator\r\n"},
+          {user.pid, ":irc.test MODE #{user.nick} +o\r\n"},
           {oper_with_s.pid, expected_snotice}
         ])
       end)

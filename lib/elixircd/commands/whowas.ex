@@ -49,7 +49,7 @@ defmodule ElixIRCd.Commands.Whowas do
   defp extract_parameters([target_nick, max_replies | _rest]) do
     max_replies =
       case Integer.parse(max_replies) do
-        {num, ""} when num >= 0 -> num
+        {num, ""} when num > 0 -> num
         _ -> nil
       end
 
@@ -76,10 +76,15 @@ defmodule ElixIRCd.Commands.Whowas do
             historical_user.nick,
             historical_user.ident,
             historical_user.hostname,
-            historical_user.realname
-          ]
+            "*"
+          ],
+          trailing: historical_user.realname
         },
-        %Message{command: :rpl_whoisserver, params: [user.nick, historical_user.nick, server_hostname, created_at_time]}
+        %Message{
+          command: :rpl_whoisserver,
+          params: [user.nick, historical_user.nick, server_hostname],
+          trailing: created_at_time
+        }
       ]
       |> Dispatcher.broadcast(:server, user)
     end)

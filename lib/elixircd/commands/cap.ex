@@ -131,9 +131,9 @@ defmodule ElixIRCd.Commands.Cap do
 
   defp handle_cap_command(user, params, _trailing) do
     %Message{
-      command: "CAP",
-      params: [user_reply(user), "NAK"],
-      trailing: "Unsupported CAP command: #{Enum.join(params, " ")}"
+      command: :err_invalidcapcmd,
+      params: [user_reply(user), List.first(params, "*")],
+      trailing: "Invalid CAP subcommand"
     }
     |> Dispatcher.broadcast(:server, user)
   end

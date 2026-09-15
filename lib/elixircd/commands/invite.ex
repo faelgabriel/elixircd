@@ -34,7 +34,14 @@ defmodule ElixIRCd.Commands.Invite do
   end
 
   @impl true
-  def handle(user, %{command: "INVITE", params: params}) when length(params) <= 1 do
+  def handle(user, %{command: "INVITE", params: []}) do
+    user
+    |> invite_list_messages()
+    |> Enum.each(&Dispatcher.broadcast(&1, :server, user))
+  end
+
+  @impl true
+  def handle(user, %{command: "INVITE", params: [_target_nick]}) do
     %Message{command: :err_needmoreparams, params: [user.nick, "INVITE"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
@@ -46,7 +53,7 @@ defmodule ElixIRCd.Commands.Invite do
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
          :ok <- check_target_user_on_channel(target_user, channel) do
-      maybe_add_channel_invite(user, target_user, channel)
+      add_channel_invite(user, target_user, channel)
       send_user_invite_success(user, target_user, channel)
     else
       {:error, error} -> send_user_invite_error(error, user, target_nick, channel_name)
@@ -78,13 +85,26 @@ defmodule ElixIRCd.Commands.Invite do
     end
   end
 
-  @spec maybe_add_channel_invite(User.t(), User.t(), Channel.t()) :: :ok
-  defp maybe_add_channel_invite(user, target_user, channel) do
-    if "i" in channel.modes do
-      ChannelInvites.create(%{user_pid: target_user.pid, channel_name_key: channel.name_key, setter: user_mask(user)})
-    end
-
+  @spec add_channel_invite(User.t(), User.t(), Channel.t()) :: :ok
+  defp add_channel_invite(user, target_user, channel) do
+    ChannelInvites.create(%{user_pid: target_user.pid, channel_name_key: channel.name_key, setter: user_mask(user)})
     :ok
+  end
+
+  @spec invite_list_messages(User.t()) :: [Message.t()]
+  defp invite_list_messages(user) do
+    invite_messages =
+      user.pid
+      |> ChannelInvites.get_by_user_pid()
+      |> Enum.flat_map(fn invite ->
+        case Channels.get_by_name(invite.channel_name_key) do
+          {:ok, channel} -> [%Message{command: :rpl_invitelist, params: [user.nick, channel.name]}]
+          {:error, :channel_not_found} -> []
+        end
+      end)
+
+    invite_messages ++
+      [%Message{command: :rpl_endofinvitelist, params: [user.nick], trailing: "End of /INVITE list"}]
   end
 
   @spec send_user_invite_success(User.t(), User.t(), Channel.t()) :: :ok

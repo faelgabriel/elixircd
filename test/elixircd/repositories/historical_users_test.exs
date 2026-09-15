@@ -31,6 +31,19 @@ defmodule ElixIRCd.Repositories.HistoricalUsersTest do
   end
 
   describe "get_by_nick/2" do
+    test "sorts all matching rows before limiting, including committed history" do
+      older = insert(:historical_user, nick: "Test", created_at: ~U[2026-09-14 00:00:00Z])
+      newest = insert(:historical_user, nick: "Test", created_at: ~U[2026-09-14 00:00:02Z])
+      middle = insert(:historical_user, nick: "Test", created_at: ~U[2026-09-14 00:00:01Z])
+
+      Memento.transaction!(fn ->
+        assert HistoricalUsers.get_by_nick("TEST", 1) == [newest]
+        assert HistoricalUsers.get_by_nick("test", 2) == [newest, middle]
+        assert HistoricalUsers.get_by_nick("test", nil) == [newest, middle, older]
+        assert HistoricalUsers.get_by_nick("test", 0) == []
+      end)
+    end
+
     test "returns historical users by nick" do
       insert(:historical_user, nick: "Test")
       insert(:historical_user, nick: "Test")

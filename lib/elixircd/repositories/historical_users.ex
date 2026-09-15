@@ -21,14 +21,17 @@ defmodule ElixIRCd.Repositories.HistoricalUsers do
   @spec get_by_nick(String.t(), non_neg_integer() | nil) :: [HistoricalUser.t()]
   def get_by_nick(nick, nil) do
     nick_key = CaseMapping.normalize(nick)
+
     Memento.Query.select(HistoricalUser, {:==, :nick_key, nick_key})
+    |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
   end
 
-  def get_by_nick(nick, limit) do
-    nick_key = CaseMapping.normalize(nick)
-    # Mnesia treats the requested limit as a suggested chunk size and may return more
-    # records than requested. Enum.take/2 enforces the maximum number of results.
-    Memento.Query.select(HistoricalUser, {:==, :nick_key, nick_key}, limit: limit)
+  def get_by_nick(_nick, 0), do: []
+
+  def get_by_nick(nick, limit) when limit > 0 do
+    # Select and sort the complete history before enforcing the result limit.
+    # Mnesia's select limit is a chunk size and does not select the newest rows.
+    get_by_nick(nick, nil)
     |> Enum.take(limit)
   end
 end

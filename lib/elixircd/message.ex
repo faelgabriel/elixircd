@@ -185,13 +185,13 @@ defmodule ElixIRCd.Message do
 
   def unparse(%__MODULE__{tags: tags, prefix: nil, command: command, params: params, trailing: trailing}) do
     base = [command | params]
-    message_str = unparse_message(base, trailing)
+    message_str = unparse_message(base, relay_trailing(command, base, trailing))
     {:ok, prepend_tags(tags, message_str) <> "\r\n"}
   end
 
   def unparse(%__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}) do
     base = [":" <> prefix, command | params]
-    message_str = unparse_message(base, trailing)
+    message_str = unparse_message(base, relay_trailing(command, base, trailing))
     {:ok, prepend_tags(tags, message_str) <> "\r\n"}
   end
 
@@ -305,6 +305,25 @@ defmodule ElixIRCd.Message do
   end
 
   # Joins the base and trailing parts into a single message.
+  @spec relay_trailing(String.t(), [String.t()], String.t() | nil) :: String.t() | nil
+  defp relay_trailing(command, base, trailing) when command in ["PRIVMSG", "NOTICE"] and is_binary(trailing) do
+    budget = max(0, 510 - byte_size(Enum.join(base, " ")) - 2)
+
+    if byte_size(trailing) > budget do
+      truncated = binary_part(trailing, 0, budget)
+      if String.valid?(trailing), do: trim_partial_utf8(truncated), else: truncated
+    else
+      trailing
+    end
+  end
+
+  defp relay_trailing(_command, _base, trailing), do: trailing
+
+  @spec trim_partial_utf8(binary()) :: binary()
+  defp trim_partial_utf8(text) do
+    if String.valid?(text), do: text, else: trim_partial_utf8(binary_part(text, 0, byte_size(text) - 1))
+  end
+
   @spec unparse_message([String.t()], String.t() | nil) :: String.t()
   defp unparse_message(base, nil), do: Enum.join(base, " ")
   defp unparse_message(base, trailing), do: Enum.join(base ++ [":" <> trailing], " ")
@@ -315,6 +334,11 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_yourhost), do: "002"
   defp numeric_reply(:rpl_created), do: "003"
   defp numeric_reply(:rpl_myinfo), do: "004"
+  defp numeric_reply(:err_invalidcapcmd), do: "410"
+  defp numeric_reply(:err_notexttosend), do: "412"
+  defp numeric_reply(:rpl_channelmodeis), do: "324"
+  defp numeric_reply(:rpl_creationtime), do: "329"
+  defp numeric_reply(:err_invalidmodeparam), do: "696"
   defp numeric_reply(:rpl_isupport), do: "005"
   defp numeric_reply(:rpl_traceuser), do: "205"
   defp numeric_reply(:rpl_traceend), do: "262"
@@ -361,6 +385,8 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_topic), do: "332"
   defp numeric_reply(:rpl_topicwhotime), do: "333"
   defp numeric_reply(:rpl_whoisbot), do: "335"
+  defp numeric_reply(:rpl_invitelist), do: "336"
+  defp numeric_reply(:rpl_endofinvitelist), do: "337"
   defp numeric_reply(:rpl_whoisactually), do: "338"
   defp numeric_reply(:rpl_inviting), do: "341"
   defp numeric_reply(:rpl_invexlist), do: "346"

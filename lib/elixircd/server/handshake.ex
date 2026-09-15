@@ -12,6 +12,7 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Commands.Motd
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Snotice
@@ -58,9 +59,11 @@ defmodule ElixIRCd.Server.Handshake do
         registered_at: DateTime.utc_now()
       })
 
+    states = Users.count_all_states()
+    Metrics.record_user_peak(states.visible + states.invisible)
     send_welcome(updated_user)
-    Lusers.send_lusers(updated_user)
     Isupport.send_isupport_messages(updated_user)
+    Lusers.send_lusers(updated_user)
     Motd.send_motd(updated_user)
     send_user_modes(updated_user)
     send_connect_snotice(updated_user)
@@ -179,8 +182,7 @@ defmodule ElixIRCd.Server.Handshake do
       %Message{command: :rpl_created, params: [user.nick], trailing: "This server was created #{server_start_date}"},
       %Message{
         command: :rpl_myinfo,
-        params: [user.nick],
-        trailing: "#{server_hostname} #{app_version} #{usermodes} #{channelmodes}"
+        params: [user.nick, server_hostname, app_version, usermodes, channelmodes]
       }
     ]
     |> Dispatcher.broadcast(:server, user)

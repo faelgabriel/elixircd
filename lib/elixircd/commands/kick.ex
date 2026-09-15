@@ -102,7 +102,7 @@ defmodule ElixIRCd.Commands.Kick do
     user_pids = Enum.map(user_channels, & &1.user_pid)
     users = Users.get_by_pids(user_pids)
 
-    %Message{command: "KICK", params: [channel.name, target_user.nick], trailing: reason}
+    %Message{command: "KICK", params: [channel.name, target_user.nick], trailing: reason || user.nick}
     |> Dispatcher.broadcast(user, users)
   end
 
@@ -113,7 +113,7 @@ defmodule ElixIRCd.Commands.Kick do
   end
 
   defp send_user_kick_error(:user_channel_not_found, user, channel_name, _target_nick) do
-    %Message{command: :err_usernotinchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
+    %Message{command: :err_notonchannel, params: [user.nick, channel_name], trailing: "You're not on that channel"}
     |> Dispatcher.broadcast(:server, user)
   end
 

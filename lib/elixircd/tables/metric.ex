@@ -16,5 +16,5 @@ defmodule ElixIRCd.Tables.Metric do
           value: integer()
         }
 
-  @type key :: :highest_connections | :total_connections
+  @type key :: :highest_connections | :total_connections | :highest_users
 end

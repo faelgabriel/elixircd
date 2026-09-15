@@ -15,19 +15,25 @@ defmodule ElixIRCd.Commands.Ping do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(user, %{command: "PING", trailing: trailing}) when not is_nil(trailing) do
-    %Message{command: "PONG", params: [], trailing: trailing}
-    |> Dispatcher.broadcast(:server, user)
+  def handle(user, %{command: "PING", params: [token | _]}) do
+    send_pong(user, token)
   end
 
-  def handle(user, %{command: "PING", params: params}) when params != [] do
-    %Message{command: "PONG", params: params}
-    |> Dispatcher.broadcast(:server, user)
+  def handle(user, %{command: "PING", trailing: token}) when is_binary(token) do
+    send_pong(user, token)
   end
 
   @impl true
   def handle(user, %{command: "PING"}) do
     %Message{command: :err_needmoreparams, params: [user_reply(user), "PING"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec send_pong(User.t(), String.t()) :: :ok
+  defp send_pong(user, token) do
+    hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
+
+    %Message{command: "PONG", params: [hostname], trailing: token}
     |> Dispatcher.broadcast(:server, user)
   end
 end

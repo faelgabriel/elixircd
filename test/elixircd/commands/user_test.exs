@@ -9,9 +9,28 @@ defmodule ElixIRCd.Commands.UserTest do
 
   alias ElixIRCd.Commands.User
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Handshake
 
   describe "handle/2" do
+    test "rejects an empty realname without changing registration and allows retry" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, ident: nil, realname: nil)
+        message = %Message{command: "USER", params: ["username", "0", "*"], trailing: ""}
+        assert :ok = User.handle(user, message)
+        assert {:ok, %{registered: false, ident: nil, realname: nil}} = Users.get_by_pid(user.pid)
+        assert_sent_messages([{user.pid, ":irc.test 461 * USER :Not enough parameters\r\n"}])
+
+        expect(Handshake, :handle, fn updated_user ->
+          assert updated_user.realname == "Real name"
+          assert updated_user.ident == "~username"
+          :ok
+        end)
+
+        assert :ok = User.handle(user, %{message | trailing: "Real name"})
+      end)
+    end
+
     test "handles USER command with not enough parameters for user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)

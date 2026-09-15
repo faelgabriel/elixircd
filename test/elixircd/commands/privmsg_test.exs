@@ -39,7 +39,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"},
-          {user.pid, ":irc.test 461 #{user.nick} PRIVMSG :Not enough parameters\r\n"}
+          {user.pid, ":irc.test 412 #{user.nick} :No text to send\r\n"}
         ])
       end)
     end
@@ -304,7 +304,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
       end)
     end
 
-    test "broadcasts empty fantasy-enabled channel messages normally" do
+    test "rejects empty fantasy-enabled channel messages without delivering them" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "helper")
         another_user = insert(:user)
@@ -319,7 +319,27 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
-          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :\r\n"}
+          {user.pid, ":irc.test 412 #{user.nick} :No text to send\r\n"}
+        ])
+      end)
+    end
+
+    test "delivers whitespace-only fantasy channel messages without interpreting them as commands" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "helper")
+        another_user = insert(:user)
+        channel = insert(:channel, name: "#testchannel")
+        settings = Settings.new(%{guard: true, fantasy: true})
+
+        insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:user_channel, user: another_user, channel: channel)
+
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "   "}
+        assert :ok = Privmsg.handle(user, message)
+
+        assert_sent_messages([
+          {another_user.pid, ":#{user_mask(user)} PRIVMSG #{channel.name} :   \r\n"}
         ])
       end)
     end
@@ -490,7 +510,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         channel = insert(:channel, modes: ["C"])
         insert(:user_channel, user: another_user, channel: channel)
 
-        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01VERSION\x01"}
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([
@@ -507,7 +527,7 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
-        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "\x01VERSION\x01"}
         assert :ok = Privmsg.handle(user, message)
 
         assert_sent_messages([

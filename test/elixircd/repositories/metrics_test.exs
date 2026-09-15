@@ -7,6 +7,21 @@ defmodule ElixIRCd.Repositories.MetricsTest do
 
   alias ElixIRCd.Repositories.Metrics
 
+  test "registered-user peak remains monotonic and rolls back with registration" do
+    Memento.transaction!(fn -> Metrics.record_user_peak(3) end)
+    Memento.transaction!(fn -> Metrics.record_user_peak(1) end)
+    assert Metrics.get(:highest_users) == 3
+
+    assert {:error, {:transaction_aborted, :cancelled}} =
+             Memento.transaction(fn ->
+               Metrics.record_user_peak(8)
+               Memento.Transaction.abort(:cancelled)
+             end)
+
+    assert Metrics.get(:highest_users) == 3
+    assert Metrics.get(:highest_connections) == 0
+  end
+
   describe "get/1" do
     test "returns 0 for non-existent metric on database" do
       assert Metrics.get(:highest_connections) == 0

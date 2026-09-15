@@ -622,6 +622,75 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       end)
     end
 
+    for {nick, ident} <- [{nil, nil}, {"testnick", nil}, {nil, "~username"}] do
+      test "authenticates before registration fields #{inspect({nick, ident})}" do
+        Memento.transaction!(fn ->
+          user =
+            insert(:user,
+              registered: false,
+              nick: unquote(nick),
+              ident: unquote(ident),
+              capabilities: ["sasl"],
+              cap_negotiating: true
+            )
+
+          insert(:registered_nick, nickname: "testuser", password_hash: Argon2.hash_pwd_salt("password"))
+          SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+
+          assert :ok =
+                   Authenticate.handle(user, %Message{
+                     command: "AUTHENTICATE",
+                     params: [Base.encode64("\0testuser\0password")]
+                   })
+
+          {:ok, authenticated} = Users.get_by_pid(user.pid)
+          assert authenticated.sasl_authenticated
+          assert authenticated.identified_as == "testuser"
+
+          assert_sent_message_contains(
+            user.pid,
+            Regex.compile!(
+              Regex.escape("900 #{user.nick || "*"} #{user.nick || "*"}!#{user.ident || "*"}@hostname testuser")
+            )
+          )
+
+          assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 1)
+        end)
+      end
+    end
+
+    test "limits total SASL data across individually valid chunks" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+        chunk = %Message{command: "AUTHENTICATE", params: [String.duplicate("A", 400)]}
+        for _ <- 1..40, do: assert(:ok = Authenticate.handle(user, chunk))
+        assert_sent_messages_amount(user.pid, 0)
+        {:ok, session} = SaslSessions.get(user.pid)
+        assert byte_size(session.buffer) == 16_000
+        assert :ok = Authenticate.handle(user, chunk)
+        assert_sent_messages_count_containing(user.pid, ~r/ 904 /, 1)
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+      end)
+    end
+
+    test "waits for terminator after a padded 400-byte chunk" do
+      Memento.transaction!(fn ->
+        password = String.duplicate("p", 288)
+        payload = Base.encode64("\0testuser\0" <> password)
+        assert byte_size(payload) == 400
+        assert String.ends_with?(payload, "=")
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        insert(:registered_nick, nickname: "testuser", password_hash: Argon2.hash_pwd_salt(password))
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [payload]})
+        assert_sent_messages_amount(user.pid, 0)
+        assert {:ok, _} = SaslSessions.get(user.pid)
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: ["+"]})
+        assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 1)
+      end)
+    end
+
     test "handles fragmented message requiring continuation" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
@@ -639,10 +708,8 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert :ok = Authenticate.handle(user, message1)
 
-        # Server should send + to request more data (line 380-383 coverage)
-        assert_sent_messages([
-          {user.pid, ":irc.test AUTHENTICATE +\r\n"}
-        ])
+        # Full chunks have no intermediate server response.
+        assert_sent_messages_amount(user.pid, 0)
 
         # Verify session buffer was updated with the data
         {:ok, session} = SaslSessions.get(user.pid)

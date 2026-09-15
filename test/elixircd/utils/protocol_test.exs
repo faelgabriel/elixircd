@@ -73,6 +73,21 @@ defmodule ElixIRCd.Utils.ProtocolTest do
   end
 
   describe "match_user_mask?/2" do
+    test "keeps nickname case mapping separate from ident and hostname" do
+      user = build(:user, nick: "Bar[", ident: "~User", hostname: "Host[.Example")
+      assert Protocol.match_user_mask?(user, "bAR{!~uSER@hOST[.example")
+      refute Protocol.match_user_mask?(user, "*!^User@*")
+      refute Protocol.match_user_mask?(user, "*!*@Host{.Example")
+      refute Protocol.match_user_mask?(user, "*!~User@Host[.EXAMPLÉ")
+      assert Protocol.match_user_mask?(user, "~uSER@hOST[.example")
+    end
+
+    test "matches the placeholder of an unregistered user" do
+      user = build(:user, registered: false, nick: nil, ident: nil)
+      assert Protocol.match_user_mask?(user, "*")
+      refute Protocol.match_user_mask?(user, "nick!user@host")
+    end
+
     test "treats regex metacharacters in masks literally" do
       user = build(:user, nick: "nick", ident: "user", hostname: "host")
 
@@ -197,6 +212,43 @@ defmodule ElixIRCd.Utils.ProtocolTest do
     test "builds a user mask for user not registered" do
       user = build(:user, registered: false)
       assert "*" == Protocol.user_mask(user)
+    end
+  end
+
+  describe "user_mask/2" do
+    test "builds a registration mask with placeholders for missing fields" do
+      user = build(:user, registered: false, nick: nil, ident: nil, hostname: "real.host")
+
+      assert "*!*@real.host" == Protocol.user_mask(user, :registration)
+    end
+
+    test "prefers the precomputed cloak and truncates the ident" do
+      user =
+        build(:user,
+          registered: false,
+          nick: "nick",
+          ident: "longusername",
+          hostname: "real.host",
+          cloaked_hostname: "cloak.host"
+        )
+
+      assert "nick!longuserna@cloak.host" == Protocol.user_mask(user, :registration)
+    end
+  end
+
+  describe "user_host/2" do
+    test "returns the truncated ident and public hostname" do
+      user = build(:user, ident: "longusername", hostname: "real.host")
+
+      assert "longuserna@real.host" == Protocol.user_host(user)
+    end
+
+    test "shows a cloaked hostname publicly and the real hostname to an operator" do
+      user = build(:user, ident: "~user", hostname: "real.host", cloaked_hostname: "cloak.host", modes: ["x"])
+      operator = build(:user, modes: ["o"])
+
+      assert "~user@cloak.host" == Protocol.user_host(user)
+      assert "~user@real.host" == Protocol.user_host(user, operator)
     end
   end
 

@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.ModeTest do
 
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Channels
 
   describe "handle/2 for channel" do
     test "handles MODE command with user not registered" do
@@ -82,7 +83,8 @@ defmodule ElixIRCd.Commands.ModeTest do
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{user_mask(user)} MODE #{channel.name} +tnl 10\r\n"}
+          {user.pid, ":irc.test 324 #{user.nick} #{channel.name} +tnl 10\r\n"},
+          {user.pid, ":irc.test 329 #{user.nick} #{channel.name} #{DateTime.to_unix(channel.created_at)}\r\n"}
         ])
       end)
     end
@@ -138,11 +140,11 @@ defmodule ElixIRCd.Commands.ModeTest do
         channel = insert(:channel, modes: ["t", {"l", "20"}, {"k", "password"}])
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
-        message = %Message{command: "MODE", params: [channel.name, "-l-k"]}
+        message = %Message{command: "MODE", params: [channel.name, "-l-k", "password"]}
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{user_mask(user)} MODE #{channel.name} -lk\r\n"}
+          {user.pid, ":#{user_mask(user)} MODE #{channel.name} -lk password\r\n"}
         ])
       end)
     end
@@ -153,11 +155,11 @@ defmodule ElixIRCd.Commands.ModeTest do
         channel = insert(:channel, modes: ["t", {"l", "20"}, {"k", "password"}])
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
 
-        message = %Message{command: "MODE", params: [channel.name, "-t-l-k"]}
+        message = %Message{command: "MODE", params: [channel.name, "-t-l"]}
         assert :ok = Mode.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":#{user_mask(user)} MODE #{channel.name} -tlk\r\n"}
+          {user.pid, ":#{user_mask(user)} MODE #{channel.name} -tl\r\n"}
         ])
       end)
     end
@@ -577,18 +579,43 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
-    test "handles MODE command for channel when mode changes are missing values" do
+    for modes <- ["+l", "+k", "-k"] do
+      test "ignores missing parameters in #{modes}" do
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          channel = insert(:channel, modes: [{"k", "secret"}])
+          insert(:user_channel, user: user, channel: channel, modes: ["o"])
+          assert :ok = Mode.handle(user, %Message{command: "MODE", params: [channel.name, unquote(modes)]})
+          assert {:ok, unchanged} = Channels.get_by_name(channel.name)
+          assert unchanged.modes == channel.modes
+          assert_sent_messages([])
+        end)
+      end
+    end
+
+    for modes <- ["+ml", "+mk", "+m-k"] do
+      test "applies valid changes alongside missing parameters in #{modes}" do
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          channel = insert(:channel, modes: [{"k", "secret"}])
+          insert(:user_channel, user: user, channel: channel, modes: ["o"])
+          assert :ok = Mode.handle(user, %Message{command: "MODE", params: [channel.name, unquote(modes)]})
+          assert {:ok, updated} = Channels.get_by_name(channel.name)
+          assert Enum.sort(updated.modes) == Enum.sort(["m", {"k", "secret"}])
+          assert_sent_messages([{user.pid, ":#{user_mask(user)} MODE #{channel.name} +m\r\n"}])
+        end)
+      end
+    end
+
+    test "consumes the removal key before the next mode parameter" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [])
+        channel = insert(:channel, modes: [{"k", "oldkey"}])
         insert(:user_channel, user: user, channel: channel, modes: ["o"])
-
-        message = %Message{command: "MODE", params: [channel.name, "+l"]}
-        assert :ok = Mode.handle(user, message)
-
-        assert_sent_messages([
-          {user.pid, ":irc.test 461 #{user.nick} MODE :Not enough parameters\r\n"}
-        ])
+        assert :ok = Mode.handle(user, %Message{command: "MODE", params: [channel.name, "-k+l", "oldkey", "10"]})
+        assert {:ok, updated} = Channels.get_by_name(channel.name)
+        assert updated.modes == [{"l", "10"}]
+        assert_sent_messages([{user.pid, ":#{user_mask(user)} MODE #{channel.name} -k+l oldkey 10\r\n"}])
       end)
     end
 

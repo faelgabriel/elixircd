@@ -20,9 +20,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 451 * :You have not registered\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -36,10 +34,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: ["test"], trailing: nil}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 461 #{user.nick} NOTICE :Not enough parameters\r\n"},
-          {user.pid, ":irc.test 461 #{user.nick} NOTICE :Not enough parameters\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -50,9 +45,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: ["#new_channel"], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 403 #{user.nick} #new_channel :No such channel\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -64,9 +57,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -110,9 +101,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: ["another_user"], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 401 #{user.nick} another_user :No such nick\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -214,14 +203,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
         user = insert(:user)
         message = %Message{command: "NOTICE", params: ["NICKSERV"], trailing: "REGISTER password email@example.com"}
 
-        Service
-        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
-        |> expect(:dispatch, fn dispatched_user, service, command_list ->
-          assert dispatched_user == user
-          assert service == "NICKSERV"
-          assert command_list == ["REGISTER", "password", "email@example.com"]
-          :ok
-        end)
+        expect(Service, :service_implemented?, fn "NICKSERV" -> true end)
+        reject(Service, :dispatch, 3)
 
         assert :ok = Notice.handle(user, message)
 
@@ -234,14 +217,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
         user = insert(:user)
         message = %Message{command: "NOTICE", params: ["NICKSERV", "IDENTIFY", "password"]}
 
-        Service
-        |> expect(:service_implemented?, fn "NICKSERV" -> true end)
-        |> expect(:dispatch, fn dispatched_user, service, command_list ->
-          assert dispatched_user == user
-          assert service == "NICKSERV"
-          assert command_list == ["IDENTIFY", "password"]
-          :ok
-        end)
+        expect(Service, :service_implemented?, fn "NICKSERV" -> true end)
+        reject(Service, :dispatch, 3)
 
         assert :ok = Notice.handle(user, message)
 
@@ -254,14 +231,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
         user = insert(:user)
         message = %Message{command: "NOTICE", params: ["nickserv"], trailing: "REGISTER password email@example.com"}
 
-        Service
-        |> expect(:service_implemented?, fn "nickserv" -> true end)
-        |> expect(:dispatch, fn dispatched_user, service, command_list ->
-          assert dispatched_user == user
-          assert service == "nickserv"
-          assert command_list == ["REGISTER", "password", "email@example.com"]
-          :ok
-        end)
+        expect(Service, :service_implemented?, fn "nickserv" -> true end)
+        reject(Service, :dispatch, 3)
 
         assert :ok = Notice.handle(user, message)
 
@@ -269,7 +240,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       end)
     end
 
-    test "handles NOTICE command for user with +g mode and sender is not registered (sender gets blocked notification)" do
+    test "handles NOTICE command for user with +g mode and sender is not registered (silently ignored)" do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user, modes: ["g"])
@@ -277,14 +248,11 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [another_user.nick], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid,
-           ":irc.test 716 #{user.nick} #{another_user.nick} :Your message has been blocked. #{another_user.nick} is only accepting messages from authorized users.\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
-    test "handles NOTICE command for user with +R mode and sender is not registered (sender gets blocked notification)" do
+    test "handles NOTICE command for user with +R mode and sender is not registered (silently ignored)" do
       Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user, nick: "TargetUser", modes: ["R"])
@@ -292,9 +260,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
         Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 477 #{user.nick} #{target_user.nick} :You must be identified to message this user\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -323,9 +289,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x03Hello world"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -340,9 +304,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x02Bold text\x02"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -357,9 +319,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x1FUnderlined text\x1F"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -374,9 +334,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x02\x03Bold and colored\x0F"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel (+c - no colors allowed)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -425,10 +383,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid,
-           ":irc.test 937 #{user.nick} #{channel.name} :You must wait 5 seconds after joining before speaking in this channel.\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -524,9 +479,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send NOTICE to channel (+T)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -541,9 +494,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send NOTICE to channel (+T)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -609,10 +560,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(unregistered_user, message)
 
-        assert_sent_messages([
-          {unregistered_user.pid,
-           ":irc.test 477 #{unregistered_user.nick} #{channel.name} :You must be identified to speak in this channel (+M)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -676,9 +624,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -740,12 +686,10 @@ defmodule ElixIRCd.Commands.NoticeTest do
         channel = insert(:channel, modes: ["C"])
         insert(:user_channel, user: another_user, channel: channel)
 
-        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01VERSION\x01"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -757,12 +701,10 @@ defmodule ElixIRCd.Commands.NoticeTest do
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
-        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION waves\x01"}
+        message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01VERSION\x01"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 
@@ -777,9 +719,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01VERSION\x01"}
         assert :ok = Notice.handle(user, message)
 
-        assert_sent_messages([
-          {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send CTCP to channel (+C)\r\n"}
-        ])
+        assert_sent_messages([])
       end)
     end
 

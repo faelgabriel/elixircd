@@ -11,6 +11,8 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   """
   @spec create(map()) :: ChannelInvite.t()
   def create(attrs) do
+    delete_by_user_pid_and_channel_name(attrs.user_pid, attrs.channel_name_key)
+
     ChannelInvite.new(attrs)
     |> Memento.Query.write()
   end
@@ -32,6 +34,29 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   @spec delete_by_user_pid(pid()) :: :ok
   def delete_by_user_pid(user_pid) do
     Memento.Query.delete(ChannelInvite, user_pid)
+  end
+
+  @doc """
+  Delete a channel invite by the channel name and user pid.
+  """
+  @spec delete_by_user_pid_and_channel_name(pid(), String.t()) :: :ok
+  def delete_by_user_pid_and_channel_name(user_pid, channel_name) do
+    channel_name_key = CaseMapping.normalize(channel_name)
+    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name_key, channel_name_key}]
+
+    ChannelInvite
+    |> Memento.Query.select(conditions)
+    |> Enum.each(&Memento.Query.delete_record/1)
+  end
+
+  @doc """
+  Get all active channel invites for a user.
+  """
+  @spec get_by_user_pid(pid()) :: [ChannelInvite.t()]
+  def get_by_user_pid(user_pid) do
+    ChannelInvite
+    |> Memento.Query.select({:==, :user_pid, user_pid})
+    |> Enum.sort_by(& &1.created_at, DateTime)
   end
 
   @doc """

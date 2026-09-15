@@ -31,7 +31,7 @@ defmodule ElixIRCd.Commands.PingTest do
         assert :ok = Ping.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test PONG :anything\r\n"}
+          {user.pid, ":irc.test PONG irc.test :anything\r\n"}
         ])
       end)
     end
@@ -44,7 +44,7 @@ defmodule ElixIRCd.Commands.PingTest do
         assert :ok = Ping.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test PONG anything\r\n"}
+          {user.pid, ":irc.test PONG irc.test :anything\r\n"}
         ])
       end)
     end

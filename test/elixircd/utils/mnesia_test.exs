@@ -5,8 +5,10 @@ defmodule ElixIRCd.Utils.MnesiaTest do
   use Mimic
 
   alias ElixIRCd.JobQueue
+  alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Utils.Mnesia
 
   setup do
@@ -51,6 +53,33 @@ defmodule ElixIRCd.Utils.MnesiaTest do
       assert migrated.nick == "ExistingUser"
       assert migrated.cap_version == 301
       Users.delete(migrated)
+    end)
+  end
+
+  test "upgrades MONITOR presentation names while retaining subscription lookup" do
+    table = UserMonitor
+    current = table.__info__().attributes
+    old = List.delete(current, :target_nick)
+
+    Memento.transaction!(fn ->
+      UserMonitors.create(%{user_pid: self(), target_nick_key: "oldnick"})
+    end)
+
+    transform = fn row ->
+      values = current |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new()
+      List.to_tuple([table | Enum.map(old, &Map.fetch!(values, &1))])
+    end
+
+    stub(Memento, :stop, fn -> :ok end)
+    stub(Memento, :start, fn -> :ok end)
+    {:atomic, :ok} = :mnesia.transform_table(table, transform, old)
+    Mnesia.setup_mnesia()
+    assert :mnesia.table_info(table, :attributes) == current
+
+    Memento.transaction!(fn ->
+      [monitor] = UserMonitors.get_by_target_nick_key("oldnick")
+      assert monitor.user_pid == self()
+      assert monitor.target_nick == "oldnick"
     end)
   end
 

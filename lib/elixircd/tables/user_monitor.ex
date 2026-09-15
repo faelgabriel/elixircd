@@ -10,7 +10,8 @@ defmodule ElixIRCd.Tables.UserMonitor do
     attributes: [
       :user_pid,
       :target_nick_key,
-      :created_at
+      :created_at,
+      :target_nick
     ],
     index: [:target_nick_key],
     type: :bag
@@ -18,12 +19,14 @@ defmodule ElixIRCd.Tables.UserMonitor do
   @type t :: %__MODULE__{
           user_pid: pid(),
           target_nick_key: String.t(),
+          target_nick: String.t(),
           created_at: DateTime.t()
         }
 
   @type t_attrs :: %{
           optional(:user_pid) => pid(),
           optional(:target_nick_key) => String.t(),
+          optional(:target_nick) => String.t(),
           optional(:created_at) => DateTime.t()
         }
 
@@ -35,6 +38,7 @@ defmodule ElixIRCd.Tables.UserMonitor do
     new_attrs =
       attrs
       |> Map.put_new(:created_at, DateTime.utc_now())
+      |> Map.put_new(:target_nick, Map.get(attrs, :target_nick_key))
 
     struct!(__MODULE__, new_attrs)
   end

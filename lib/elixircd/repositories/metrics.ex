@@ -5,7 +5,7 @@ defmodule ElixIRCd.Repositories.Metrics do
 
   alias ElixIRCd.Tables.Metric
 
-  @metric_keys [:highest_connections, :total_connections]
+  @metric_keys [:highest_connections, :total_connections, :highest_users]
 
   @doc """
   Get a metric by the metric key.
@@ -16,6 +16,20 @@ defmodule ElixIRCd.Repositories.Metrics do
       [] -> 0
       [{_, _, amount} | _] -> amount
     end
+  end
+
+  @doc """
+  Records the peak number of registered users within the registration transaction.
+  """
+  @spec record_user_peak(non_neg_integer()) :: :ok
+  def record_user_peak(count) do
+    current =
+      case :mnesia.read(Metric, :highest_users, :write) do
+        [] -> 0
+        [{Metric, :highest_users, value}] -> value
+      end
+
+    :mnesia.write({Metric, :highest_users, max(current, count)})
   end
 
   @doc """

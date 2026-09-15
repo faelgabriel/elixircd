@@ -145,7 +145,7 @@ defmodule ElixIRCd.Commands.Monitor do
     target_nick_key = CaseMapping.normalize(target)
 
     unless UserMonitors.exists?(user.pid, target_nick_key) do
-      UserMonitors.create(%{user_pid: user.pid, target_nick_key: target_nick_key})
+      UserMonitors.create(%{user_pid: user.pid, target_nick_key: target_nick_key, target_nick: target})
     end
 
     case Users.get_by_nick(target) do
@@ -181,7 +181,7 @@ defmodule ElixIRCd.Commands.Monitor do
     if monitors != [] do
       targets_str =
         monitors
-        |> Enum.map_join(",", & &1.target_nick_key)
+        |> Enum.map_join(",", & &1.target_nick)
 
       %Message{command: :rpl_monlist, params: [user.nick], trailing: targets_str}
       |> Dispatcher.broadcast(:server, user)
@@ -201,7 +201,7 @@ defmodule ElixIRCd.Commands.Monitor do
       Enum.reduce(monitors, {[], []}, fn monitor, {online_acc, offline_acc} ->
         case Users.get_by_nick(monitor.target_nick_key) do
           {:ok, target_user} -> {[user_mask(target_user) | online_acc], offline_acc}
-          {:error, :user_not_found} -> {online_acc, [monitor.target_nick_key | offline_acc]}
+          {:error, :user_not_found} -> {online_acc, [monitor.target_nick | offline_acc]}
         end
       end)
 

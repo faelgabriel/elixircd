@@ -811,7 +811,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert :ok = Cap.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test CAP #{user.nick} NAK :Unsupported CAP command: UNKNOWN param\r\n"}
+          {user.pid, ":irc.test 410 #{user.nick} UNKNOWN :Invalid CAP subcommand\r\n"}
         ])
       end)
     end

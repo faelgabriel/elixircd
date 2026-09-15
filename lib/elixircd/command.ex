@@ -39,6 +39,7 @@ defmodule ElixIRCd.Command do
     "PART" => Commands.Part,
     "PASS" => Commands.Pass,
     "PING" => Commands.Ping,
+    "PONG" => Commands.Pong,
     "PRIVMSG" => Commands.Privmsg,
     "QUIT" => Commands.Quit,
     "REHASH" => Commands.Rehash,

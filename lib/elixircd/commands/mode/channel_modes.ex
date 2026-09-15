@@ -22,42 +22,44 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
 
-  @modes [
-    "b",
-    "C",
-    "c",
-    "d",
-    "e",
-    "I",
-    "i",
-    "j",
-    "k",
-    "l",
-    "m",
-    "M",
-    "n",
-    "O",
-    "o",
-    "p",
-    "r",
-    "R",
-    "s",
-    "t",
-    "T",
-    "u",
-    "v",
-    "z"
+  # One ordered definition drives argument consumption and CHANMODES advertisement.
+  @mode_types [
+    {"b", :a},
+    {"C", :d},
+    {"c", :d},
+    {"d", :c},
+    {"e", :a},
+    {"I", :a},
+    {"i", :d},
+    {"j", :c},
+    {"k", :b},
+    {"l", :c},
+    {"m", :d},
+    {"M", :d},
+    {"n", :d},
+    {"O", :d},
+    {"o", :prefix},
+    {"p", :d},
+    {"r", :d},
+    {"R", :d},
+    {"s", :d},
+    {"t", :d},
+    {"T", :d},
+    {"u", :d},
+    {"v", :prefix},
+    {"z", :d}
   ]
-  @modes_with_value_to_add ["b", "d", "e", "I", "j", "k", "l", "o", "v"]
-  @modes_with_value_to_replace ["d", "j", "k", "l"]
-  @modes_with_value_to_remove ["b", "e", "I", "o", "v"]
+  @modes Enum.map(@mode_types, &elem(&1, 0))
+  @modes_with_value_to_add for {mode, type} <- @mode_types, type != :d, do: mode
+  @modes_with_value_to_remove for {mode, type} <- @mode_types, type in [:a, :b, :prefix], do: mode
+  @modes_with_value_to_replace for {mode, type} <- @mode_types, type in [:b, :c], do: mode
+  @parameter_modes @modes_with_value_to_replace
   @modes_with_value_as_integer ["d", "l"]
-  @modes_without_value_to_remove ["d", "j", "k", "l"]
-  @modes_for_user_channel ["o", "v"]
+  @modes_for_user_channel for {mode, :prefix} <- @mode_types, do: mode
   @modes_for_channel_ban ["b"]
   @modes_for_channel_except ["e"]
   @modes_for_channel_invex ["I"]
-  @modes_as_listing ["b", "e", "I"]
+  @modes_as_listing for {mode, :a} <- @mode_types, do: mode
   @modes_requiring_irc_operator ["O"]
 
   @type mode :: String.t() | {String.t(), String.t()}
@@ -68,6 +70,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   """
   @spec modes :: [String.t()]
   def modes, do: @modes
+
+  @doc """
+  Returns channel mode classes in wire order; membership prefixes are separate from CHANMODES.
+  """
+  @spec mode_types() :: [{String.t(), :a | :b | :c | :d | :prefix}]
+  def mode_types, do: @mode_types
 
   @doc """
   Returns the string representation of the modes.
@@ -257,7 +265,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         apply_user_channel_mode(user, mode_change, channel.name, applied_changes, new_modes)
 
       {:special, :invalid} ->
-        handle_invalid_mode(user, mode_flag, mode, applied_changes, new_modes)
+        handle_invalid_mode(user, channel, mode_flag, mode, applied_changes, new_modes)
 
       {:special, :replaceable} ->
         apply_replaceable_mode(mode, mode_flag, applied_changes, new_modes)
@@ -318,7 +326,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
       mode_flag in @modes_for_channel_invex -> {:list_mode, :invex}
       mode_flag in @modes_requiring_irc_operator -> {:special, :irc_operator}
       mode_flag in @modes_for_user_channel -> {:special, :user_channel}
-      mode_flag in @modes_without_value_to_remove -> {:special, :valueless_removal}
+      mode_flag in @parameter_modes -> {:special, :valueless_removal}
       true -> :simple
     end
   end
@@ -364,14 +372,24 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @spec should_ignore_invalid_mode?(String.t(), mode()) :: boolean()
   defp should_ignore_invalid_mode?(mode_flag, mode) do
     (mode_flag in @modes_with_value_as_integer and not valid_integer_mode_value?(mode)) or
-      (mode_flag == "j" and not valid_join_throttle_format?(mode))
+      (mode_flag == "j" and not valid_join_throttle_format?(mode)) or
+      (mode_flag == "k" and not valid_key?(mode))
   end
 
-  @spec handle_invalid_mode(User.t(), String.t(), mode(), [mode_change()], [mode()]) ::
+  @spec handle_invalid_mode(User.t(), Channel.t(), String.t(), mode(), [mode_change()], [mode()]) ::
           {[mode_change()], [mode()]}
-  defp handle_invalid_mode(user, mode_flag, mode, applied_changes, new_modes) do
+  defp handle_invalid_mode(user, channel, mode_flag, mode, applied_changes, new_modes) do
     if mode_flag == "j" and not valid_join_throttle_format?(mode) do
       send_invalid_join_throttle_format_error(user)
+    else
+      {_flag, value} = mode
+
+      %Message{
+        command: :err_invalidmodeparam,
+        params: [user.nick, channel.name, mode_flag, if(mode_flag == "k" or value == "", do: "*", else: value)],
+        trailing: "Invalid mode parameter"
+      }
+      |> Dispatcher.broadcast(:server, user)
     end
 
     {applied_changes, new_modes}
@@ -588,10 +606,15 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {action, {mode_flag, normalize_mask(mode_value)}}
   end
 
+  @spec valid_key?(mode()) :: boolean()
+  defp valid_key?({"k", value}) do
+    byte_size(value) in 1..32 and not String.contains?(value, [" ", "\t", "\r", "\n", "\0", ":", ","])
+  end
+
   @spec valid_integer_mode_value?(mode()) :: boolean()
   defp valid_integer_mode_value?({_mode_flag, mode_value}) do
     case Integer.parse(mode_value) do
-      {_value, ""} -> true
+      {value, ""} when value > 0 -> true
       _ -> false
     end
   end

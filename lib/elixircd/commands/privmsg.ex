@@ -10,7 +10,7 @@ defmodule ElixIRCd.Commands.Privmsg do
   import ElixIRCd.Utils.MessageFilter,
     only: [check_registered_only_speak: 3, should_silence_message?: 2]
 
-  import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1]
+  import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1, ctcp_action?: 1]
 
   import ElixIRCd.Utils.Protocol,
     only: [channel_name?: 1, channel_operator?: 1, channel_voice?: 1, service_name?: 1]
@@ -43,6 +43,7 @@ defmodule ElixIRCd.Commands.Privmsg do
     message_text = extract_message_text(message)
 
     cond do
+      message_text == "" -> send_no_text_error(user)
       fantasy_command_message?(target, message_text) -> handle_fantasy_channel_message(user, target, message_text)
       channel_name?(target) -> handle_channel_message(user, target, message_text, message.tags)
       service_name?(target) -> handle_service_message(user, target, message)
@@ -50,8 +51,18 @@ defmodule ElixIRCd.Commands.Privmsg do
     end
   end
 
+  def handle(user, %{command: "PRIVMSG", params: [_target]}) do
+    send_no_text_error(user)
+  end
+
   def handle(user, %{command: "PRIVMSG"}) do
     %Message{command: :err_needmoreparams, params: [user.nick, "PRIVMSG"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec send_no_text_error(User.t()) :: :ok
+  defp send_no_text_error(user) do
+    %Message{command: :err_notexttosend, params: [user.nick], trailing: "No text to send"}
     |> Dispatcher.broadcast(:server, user)
   end
 
@@ -306,7 +317,8 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec check_ctcp(Channel.t(), User.t(), UserChannel.t() | nil, String.t()) :: :ok | {:error, :ctcp_blocked}
   defp check_ctcp(channel, _user, user_channel, message_text) do
-    if "C" in channel.modes and ctcp_message?(message_text) and not user_can_send_ctcp?(user_channel) do
+    if "C" in channel.modes and ctcp_message?(message_text) and not ctcp_action?(message_text) and
+         not user_can_send_ctcp?(user_channel) do
       {:error, :ctcp_blocked}
     else
       :ok
