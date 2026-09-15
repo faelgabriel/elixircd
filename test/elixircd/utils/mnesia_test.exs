@@ -24,11 +24,8 @@ defmodule ElixIRCd.Utils.MnesiaTest do
     user_table = User
     current = user_table.__info__().attributes
     old = List.delete(current, :cap_version)
-
-    transform = fn row ->
-      values = current |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new()
-      List.to_tuple([user_table | Enum.map(old, &Map.fetch!(values, &1))])
-    end
+    cap_version_position = Enum.find_index(current, &(&1 == :cap_version)) + 1
+    transform = &Tuple.delete_at(&1, cap_version_position)
 
     user =
       Memento.transaction!(fn ->
@@ -37,7 +34,12 @@ defmodule ElixIRCd.Utils.MnesiaTest do
           transport: :tcp,
           ip_address: {127, 0, 0, 1},
           port_connected: 6667,
-          nick: "ExistingUser"
+          nick: "ExistingUser",
+          webirc_gateway: "gateway.example.test",
+          webirc_hostname: "user.example.test",
+          webirc_ip: "192.0.2.1",
+          webirc_secure: true,
+          webirc_used: true
         })
       end)
 
@@ -52,6 +54,12 @@ defmodule ElixIRCd.Utils.MnesiaTest do
       {:ok, migrated} = Users.get_by_pid(user.pid)
       assert migrated.nick == "ExistingUser"
       assert migrated.cap_version == 301
+      assert migrated.webirc_gateway == "gateway.example.test"
+      assert migrated.webirc_hostname == "user.example.test"
+      assert migrated.webirc_ip == "192.0.2.1"
+      assert migrated.webirc_secure
+      assert migrated.webirc_used
+      assert migrated.created_at == user.created_at
       Users.delete(migrated)
     end)
   end
@@ -60,15 +68,13 @@ defmodule ElixIRCd.Utils.MnesiaTest do
     table = UserMonitor
     current = table.__info__().attributes
     old = List.delete(current, :target_nick)
+    target_nick_position = Enum.find_index(current, &(&1 == :target_nick)) + 1
 
     Memento.transaction!(fn ->
       UserMonitors.create(%{user_pid: self(), target_nick_key: "oldnick"})
     end)
 
-    transform = fn row ->
-      values = current |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new()
-      List.to_tuple([table | Enum.map(old, &Map.fetch!(values, &1))])
-    end
+    transform = &Tuple.delete_at(&1, target_nick_position)
 
     stub(Memento, :stop, fn -> :ok end)
     stub(Memento, :start, fn -> :ok end)

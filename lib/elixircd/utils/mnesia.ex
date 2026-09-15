@@ -23,6 +23,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Tables.UserSilence
+  alias Memento.Query.Data
 
   @memory_tables [
     Channel,
@@ -87,9 +88,13 @@ defmodule ElixIRCd.Utils.Mnesia do
     expected = User.__info__().attributes
 
     if attributes == List.delete(expected, :cap_version) do
+      cap_version_position = Enum.find_index(expected, &(&1 == :cap_version)) + 1
+
       transform = fn row ->
-        values = attributes |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new() |> Map.put(:cap_version, 301)
-        List.to_tuple([User | Enum.map(expected, &Map.fetch!(values, &1))])
+        row
+        |> Tuple.insert_at(cap_version_position, 301)
+        |> Data.load()
+        |> Data.dump()
       end
 
       {:atomic, :ok} = :mnesia.transform_table(User, transform, expected)
@@ -106,9 +111,10 @@ defmodule ElixIRCd.Utils.Mnesia do
 
     if attributes == List.delete(expected, :target_nick) do
       transform = fn row ->
-        values = attributes |> Enum.zip(tl(Tuple.to_list(row))) |> Map.new()
-        values = Map.put(values, :target_nick, values.target_nick_key)
-        List.to_tuple([UserMonitor | Enum.map(expected, &Map.fetch!(values, &1))])
+        monitor = Data.load(row)
+        migrated_monitor = %{monitor | target_nick: monitor.target_nick_key}
+
+        Data.dump(migrated_monitor)
       end
 
       {:atomic, :ok} = :mnesia.transform_table(UserMonitor, transform, expected)
