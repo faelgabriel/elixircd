@@ -73,7 +73,7 @@ config :elixircd,
         nicknames: [],
         # Host masks (e.g., "*!*@127.0.0.1")
         masks: [],
-        # User modes (e.g., "o" for operators)
+        # User modes (e.g., :o for operators)
         umodes: []
       ]
     ]
@@ -236,8 +236,8 @@ config :elixircd,
     # Format: %{"prefix" => max_count, ...}
     channel_join_limits: %{"#" => 20, "&" => 5},
     # Maximum entries for each list mode (bans, exceptions, etc)
-    # Format: {"mode": max_count, ...}
-    max_list_entries: %{"b" => 100, "e" => 100, "I" => 100},
+    # Format: %{mode: max_count, ...}
+    max_list_entries: %{b: 100, e: 100, I: 100},
     # Maximum length of a kick message
     max_kick_message_length: 255,
     # Maximum mode changes per MODE command

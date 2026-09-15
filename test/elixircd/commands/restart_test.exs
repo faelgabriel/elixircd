@@ -42,7 +42,7 @@ defmodule ElixIRCd.Commands.RestartTest do
 
     test "handles RESTART command with user operator" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "RESTART", params: []}
 
         Application
@@ -65,7 +65,7 @@ defmodule ElixIRCd.Commands.RestartTest do
 
     test "handles RESTART command with user operator and reason" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "RESTART", params: ["#reason"], trailing: "Restarting reason"}
 
         Application

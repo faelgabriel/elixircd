@@ -84,7 +84,7 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
     test "handles INFO command when user is IRC operator" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick, email: "user@example.com")
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
 
         assert :ok = Info.handle(user, ["INFO", registered_nick.nickname])
 
@@ -147,7 +147,7 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
             settings: %{hide_email: false}
           )
 
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
 
         assert :ok = Info.handle(user, ["INFO", registered_nick.nickname])
 
@@ -223,7 +223,7 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
         )
 
       identified_user = insert(:user, identified_as: registered_nick.nickname)
-      operator_user = insert(:user, modes: ["o"])
+      operator_user = insert(:user, modes: [:o])
 
       visible_nick =
         insert(:registered_nick,

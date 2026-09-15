@@ -100,8 +100,7 @@ defmodule ElixIRCd.Config.Schema do
            channel_prefixes: {:nonempty_list, {:enum, ["#", "&"]}},
            max_channel_name_length: {:integer, 1, 200},
            channel_join_limits: {:map, {:enum, ["#", "&"]}, :positive_integer},
-           max_list_entries:
-             {:fixed_map, [{"b", :positive_integer}, {"e", :positive_integer}, {"I", :positive_integer}]},
+           max_list_entries: {:fixed_map, [b: :positive_integer, e: :positive_integer, I: :positive_integer]},
            max_kick_message_length: {:integer, 1, 400},
            max_modes_per_command: :positive_integer,
            max_topic_length: {:integer, 1, 400}

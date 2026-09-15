@@ -125,10 +125,10 @@ defmodule ElixIRCd.Repositories.UsersTest do
 
   describe "get_by_mode/1" do
     test "returns a list of users by mode" do
-      user1 = insert(:user, modes: ["i"])
-      _user2 = insert(:user, modes: ["o"])
+      user1 = insert(:user, modes: [:i])
+      _user2 = insert(:user, modes: [:o])
 
-      assert [user1] == Memento.transaction!(fn -> Users.get_by_mode("i") end)
+      assert [user1] == Memento.transaction!(fn -> Users.get_by_mode(:i) end)
     end
   end
 
@@ -144,8 +144,8 @@ defmodule ElixIRCd.Repositories.UsersTest do
   describe "count_all_states/0" do
     test "returns the total number of users in each state" do
       insert(:user, registered: true, modes: [])
-      insert(:user, registered: true, modes: ["i"])
-      insert(:user, registered: true, modes: ["o"])
+      insert(:user, registered: true, modes: [:i])
+      insert(:user, registered: true, modes: [:o])
       insert(:user, registered: false)
 
       assert %{

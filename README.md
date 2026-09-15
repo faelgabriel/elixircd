@@ -67,6 +67,11 @@ docker exec -it <container_name> ./bin/elixircd stop
 
 #### Configuration
 
+Mode identifiers in configuration use the same finite atoms as the server's internal state. For example, message-rate
+exceptions use `umodes: [:o]`, while channel list limits use `max_list_entries: %{b: 100, e: 100, I: 100}`. Mode
+expressions that are part of the IRC syntax, such as ChanServ `mlock: "+nt"`, remain strings. Configurations using
+one-character strings for `umodes` or `max_list_entries` are rejected during startup and REHASH validation.
+
 You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it into the Docker container at `/app/config/`.
 
 1. Create a `elixircd.exs` file based on the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) and customize it as desired.

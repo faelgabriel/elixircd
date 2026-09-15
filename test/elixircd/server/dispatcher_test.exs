@@ -82,7 +82,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
     test "broadcasts with User context, adding prefix and bot tag for bot user", %{
       message: message
     } do
-      bot_user = insert(:user, nick: "botuser", ident: "bot", hostname: "bot.host", modes: ["B"])
+      bot_user = insert(:user, nick: "botuser", ident: "bot", hostname: "bot.host", modes: [:B])
       target_with_caps = insert(:user, capabilities: ["message-tags"])
       expected_message = ~r/^@bot;msgid=[A-Za-z0-9_-]{24} :botuser!bot@bot\.host PRIVMSG #test :hello\r\n$/
 
@@ -103,7 +103,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       message: message,
       target_user: target_user
     } do
-      bot_user = insert(:user, nick: "botuser", ident: "bot", hostname: "bot.host", modes: ["B"])
+      bot_user = insert(:user, nick: "botuser", ident: "bot", hostname: "bot.host", modes: [:B])
       expected_message = ":botuser!bot@bot.host PRIVMSG #test :hello\r\n"
 
       Connection
@@ -195,7 +195,7 @@ defmodule ElixIRCd.Server.DispatcherTest do
       user: user,
       message: message
     } do
-      sender_with_caps = %{user | capabilities: ["message-tags"], modes: ["B"]}
+      sender_with_caps = %{user | capabilities: ["message-tags"], modes: [:B]}
       expected_message = "@bot :testnick!testident@test.host PRIVMSG #test :hello\r\n"
 
       Connection

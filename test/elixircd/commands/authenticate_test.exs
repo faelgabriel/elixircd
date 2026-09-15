@@ -301,7 +301,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
         assert updated_user.identified_as == "testuser"
         assert updated_user.sasl_authenticated == true
-        refute "r" in updated_user.modes
+        refute :r in updated_user.modes
 
         # Verify registered nick was updated
         updated_nick = Memento.Query.read(ElixIRCd.Tables.RegisteredNick, registered_nick.nickname_key)
@@ -832,7 +832,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         {:ok, updated} = Users.get_by_pid(user.pid)
         assert updated.sasl_authenticated
         assert updated.identified_as == "SaslAccount"
-        assert "r" in updated.modes == expected_mode
+        assert :r in updated.modes == expected_mode
         assert_sent_messages_count_containing(user.pid, ~r/ 900 /, 1)
         assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 1)
         assert_sent_messages_count_containing(user.pid, ~r/ ACCOUNT /, 0)

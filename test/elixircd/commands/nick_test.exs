@@ -237,7 +237,7 @@ defmodule ElixIRCd.Commands.NickTest do
     test "sends snotice to operators with +s mode when nick changes" do
       Memento.transaction!(fn ->
         user = insert(:user, nick: "oldnick")
-        oper_with_s = insert(:user, modes: ["o", "s"])
+        oper_with_s = insert(:user, modes: [:o, :s])
         new_nick = "newnick"
         message = %Message{command: "NICK", params: [new_nick]}
 
@@ -258,14 +258,14 @@ defmodule ElixIRCd.Commands.NickTest do
     Memento.transaction!(fn ->
       insert(:registered_nick, nickname: "Account")
       insert(:registered_nick, nickname: "Alias", account_name: "Account")
-      user = insert(:user, nick: "Account", identified_as: "Account", modes: ["i", "r"])
+      user = insert(:user, nick: "Account", identified_as: "Account", modes: [:i, :r])
 
       for {nick, registered?} <- [{"Unrelated", false}, {"aLiAs", true}, {"Other", false}] do
         {:ok, user} = Users.get_by_pid(user.pid)
         Nick.handle(user, %Message{command: "NICK", params: [nick]})
         {:ok, updated} = Users.get_by_pid(user.pid)
-        assert "r" in updated.modes == registered?
-        assert "i" in updated.modes
+        assert :r in updated.modes == registered?
+        assert :i in updated.modes
         assert updated.identified_as == "Account"
       end
     end)

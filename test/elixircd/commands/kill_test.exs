@@ -52,7 +52,7 @@ defmodule ElixIRCd.Commands.KillTest do
 
     test "handles KILL command with target user not found" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "KILL", params: ["target"], trailing: "reason"}
 
         assert :ok = Kill.handle(user, message)
@@ -65,7 +65,7 @@ defmodule ElixIRCd.Commands.KillTest do
 
     test "handles KILL command with target user found and reason" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         # self() as the pid for the target user because of the `assert_received` assertion
         target_user = insert(:user, pid: self())
         message = %Message{command: "KILL", params: [target_user.nick], trailing: "Kill reason"}
@@ -84,7 +84,7 @@ defmodule ElixIRCd.Commands.KillTest do
 
     test "handles KILL command with target user found and no reason" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         # self() as the pid for the target user because of the `assert_received` assertion
         target_user = insert(:user, pid: self())
         message = %Message{command: "KILL", params: [target_user.nick]}
@@ -103,8 +103,8 @@ defmodule ElixIRCd.Commands.KillTest do
 
     test "sends snotice to operators with +s mode when KILL is used" do
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
-        oper_with_s = insert(:user, modes: ["o", "s"])
+        oper = insert(:user, modes: [:o])
+        oper_with_s = insert(:user, modes: [:o, :s])
         target_user = insert(:user, pid: self())
         message = %Message{command: "KILL", params: [target_user.nick], trailing: "Spam"}
 

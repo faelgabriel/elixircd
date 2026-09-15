@@ -27,7 +27,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
     test "handles DROP command with no parameters for a registered nick" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)
-        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
+        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: [:r])
 
         assert :ok = Drop.handle(user, ["DROP"])
 
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
-        assert "r" not in updated_user.modes
+        assert :r not in updated_user.modes
       end)
     end
 
@@ -75,7 +75,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
     test "handles DROP command for identified user dropping their own nick" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)
-        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
+        user = insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: [:r])
 
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname])
 
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
-        assert "r" not in updated_user.modes
+        assert :r not in updated_user.modes
       end)
     end
 
@@ -172,13 +172,13 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         user = insert(:user)
 
         target_user =
-          insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
+          insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: [:r])
 
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, password])
 
         {:ok, updated_target_user} = Users.get_by_pid(target_user.pid)
         assert updated_target_user.identified_as == nil
-        assert "r" not in updated_target_user.modes
+        assert :r not in updated_target_user.modes
       end)
     end
 
@@ -187,19 +187,19 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         registered_nick = insert(:registered_nick, nickname: "PrimaryNick")
 
         primary_user =
-          insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: ["r"])
+          insert(:user, nick: registered_nick.nickname, identified_as: registered_nick.nickname, modes: [:r])
 
-        alias_user = insert(:user, nick: "OtherNick", identified_as: registered_nick.nickname, modes: ["r"])
+        alias_user = insert(:user, nick: "OtherNick", identified_as: registered_nick.nickname, modes: [:r])
 
         assert :ok = Drop.handle(primary_user, ["DROP"])
 
         {:ok, updated_primary_user} = Users.get_by_pid(primary_user.pid)
         assert updated_primary_user.identified_as == nil
-        assert "r" not in updated_primary_user.modes
+        assert :r not in updated_primary_user.modes
 
         {:ok, updated_alias_user} = Users.get_by_pid(alias_user.pid)
         assert updated_alias_user.identified_as == nil
-        assert "r" not in updated_alias_user.modes
+        assert :r not in updated_alias_user.modes
       end)
     end
 
@@ -229,7 +229,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
         alias_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
 
-        user = insert(:user, nick: alias_nick.nickname, identified_as: primary_nick.nickname, modes: ["r"])
+        user = insert(:user, nick: alias_nick.nickname, identified_as: primary_nick.nickname, modes: [:r])
 
         assert :ok = Drop.handle(user, ["DROP"])
 
@@ -238,7 +238,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         {:ok, updated} = Users.get_by_pid(user.pid)
         assert updated.identified_as == primary_nick.account_name
-        refute "r" in updated.modes
+        refute :r in updated.modes
 
         assert_sent_messages([
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
@@ -253,7 +253,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
 
-        user = insert(:user, nick: "different_nick", identified_as: registered_nick.nickname, modes: ["r"])
+        user = insert(:user, nick: "different_nick", identified_as: registered_nick.nickname, modes: [:r])
 
         assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, password])
 
@@ -267,7 +267,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
-        assert "r" not in updated_user.modes
+        assert :r not in updated_user.modes
       end)
     end
   end

@@ -70,7 +70,7 @@ defmodule ElixIRCd.Commands.Invite do
 
   @spec check_user_permission(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
   defp check_user_permission(user_channel) do
-    if "o" in user_channel.modes do
+    if :o in user_channel.modes do
       :ok
     else
       {:error, :user_is_not_operator}

@@ -56,7 +56,7 @@ defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
         assert :ok = Op.handle(user, ["OP", channel.name])
 
         assert {:ok, updated_user_channel} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
-        assert "o" in updated_user_channel.modes
+        assert :o in updated_user_channel.modes
 
         assert_sent_messages(
           [
@@ -79,7 +79,7 @@ defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
         insert(:registered_channel, name: channel.name, founder: "founder")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "VAFS")
         insert(:user_channel, user: user, channel: channel)
-        insert(:user_channel, user: target, channel: channel, modes: ["o"])
+        insert(:user_channel, user: target, channel: channel, modes: [:o])
 
         assert :ok = Op.handle(user, ["OP", channel.name, target.nick])
         assert :ok = Devoice.handle(user, ["DEVOICE", channel.name, target.nick])
@@ -102,7 +102,7 @@ defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
         insert(:registered_channel, name: channel.name, founder: "founder")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "VAFS")
         insert(:user_channel, user: user, channel: channel)
-        insert(:user_channel, user: target, channel: channel, modes: ["v"])
+        insert(:user_channel, user: target, channel: channel, modes: [:v])
 
         assert :ok = Deop.handle(user, ["DEOP", channel.name, target.nick])
         assert :ok = Voice.handle(user, ["VOICE", channel.name, target.nick])
@@ -191,7 +191,7 @@ defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
         insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "VAFS")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "target", flags: "VAFS")
-        insert(:user_channel, user: target, channel: channel, modes: ["o", "v"])
+        insert(:user_channel, user: target, channel: channel, modes: [:o, :v])
 
         assert :ok = Deop.handle(user, ["DEOP", channel.name, target.nick])
 
@@ -213,7 +213,7 @@ defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
         insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "VAFS")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "target", flags: "V")
-        insert(:user_channel, user: target, channel: channel, modes: ["v"])
+        insert(:user_channel, user: target, channel: channel, modes: [:v])
         insert(:user_channel, user: watcher, channel: channel)
 
         assert :ok = Devoice.handle(user, ["DEVOICE", channel.name, target.nick])
@@ -239,12 +239,12 @@ defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
 
         insert(:registered_channel, name: channel.name, founder: "founder")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "VAFS")
-        insert(:user_channel, user: target, channel: channel, modes: ["o"])
+        insert(:user_channel, user: target, channel: channel, modes: [:o])
         insert(:user_channel, user: watcher, channel: channel)
 
         assert :ok = Deop.handle(user, ["DEOP", channel.name, target.nick])
         assert {:ok, updated_user_channel} = UserChannels.get_by_user_pid_and_channel_name(target.pid, channel.name)
-        refute "o" in updated_user_channel.modes
+        refute :o in updated_user_channel.modes
 
         assert_sent_messages(
           [
@@ -272,11 +272,11 @@ defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
 
         assert :ok = Voice.handle(user, ["VOICE", channel.name, target.nick])
         assert {:ok, voiced_user_channel} = UserChannels.get_by_user_pid_and_channel_name(target.pid, channel.name)
-        assert "v" in voiced_user_channel.modes
+        assert :v in voiced_user_channel.modes
 
         assert :ok = Devoice.handle(user, ["DEVOICE", channel.name, target.nick])
         assert {:ok, devoiced_user_channel} = UserChannels.get_by_user_pid_and_channel_name(target.pid, channel.name)
-        refute "v" in devoiced_user_channel.modes
+        refute :v in devoiced_user_channel.modes
 
         assert_sent_messages(
           [

@@ -34,7 +34,7 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
   @spec logout_user(User.t()) :: :ok
   defp logout_user(user) do
     identified_nickname = user.identified_as
-    new_modes = List.delete(user.modes, "r")
+    new_modes = List.delete(user.modes, :r)
 
     updated_user =
       Users.update(user, %{

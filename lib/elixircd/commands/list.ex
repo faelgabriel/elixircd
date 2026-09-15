@@ -123,7 +123,7 @@ defmodule ElixIRCd.Commands.List do
       |> Enum.map(& &1.channel_name_key)
 
     Enum.reject(channels, fn channel ->
-      ("p" in channel.modes or "s" in channel.modes) and not Enum.member?(user_channel_names, channel.name_key)
+      (:p in channel.modes or :s in channel.modes) and not Enum.member?(user_channel_names, channel.name_key)
     end)
   end
 

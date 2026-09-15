@@ -15,6 +15,7 @@ defmodule ElixIRCd.Tables.Channel do
     index: [],
     type: :set
 
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Utils.CaseMapping
 
@@ -22,14 +23,14 @@ defmodule ElixIRCd.Tables.Channel do
           name_key: String.t(),
           name: String.t(),
           topic: Channel.Topic.t() | nil,
-          modes: [String.t() | {String.t(), String.t()}],
+          modes: [ModeRegistry.channel_mode() | {ModeRegistry.channel_mode(), String.t()}],
           created_at: DateTime.t()
         }
 
   @type t_attrs :: %{
           optional(:name) => String.t(),
           optional(:topic) => Channel.Topic.t() | nil,
-          optional(:modes) => [String.t() | {String.t(), String.t()}],
+          optional(:modes) => [ModeRegistry.channel_mode() | {ModeRegistry.channel_mode(), String.t()}],
           optional(:created_at) => DateTime.t()
         }
 

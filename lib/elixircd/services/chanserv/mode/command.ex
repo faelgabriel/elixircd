@@ -6,6 +6,7 @@ defmodule ElixIRCd.Services.Chanserv.Mode.Command do
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
@@ -140,11 +141,11 @@ defmodule ElixIRCd.Services.Chanserv.Mode.Command do
         Flags.access_rank(registered_channel, user.identified_as, access_entries)
   end
 
-  @spec mode_flag(permission_kind()) :: String.t()
-  defp mode_flag(:op), do: "o"
-  defp mode_flag(:voice), do: "v"
+  @spec mode_flag(permission_kind()) :: ModeRegistry.membership_mode()
+  defp mode_flag(:op), do: :o
+  defp mode_flag(:voice), do: :v
 
-  @spec apply_mode(UserChannel.t(), String.t(), action()) :: :changed | :unchanged
+  @spec apply_mode(UserChannel.t(), ModeRegistry.membership_mode(), action()) :: :changed | :unchanged
   defp apply_mode(target_user_channel, mode_flag, :add) do
     if mode_flag in target_user_channel.modes do
       :unchanged

@@ -84,8 +84,8 @@ defmodule ElixIRCd.Commands.ProtocolRegressionTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         target = insert(:user)
-        channel = insert(:channel, modes: ["C"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:C])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: target, channel: channel)
 
         assert :ok =
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Commands.ProtocolRegressionTest do
       user = insert(:user)
       target = insert(:user)
 
-      for {name, modes} <- [{"#oper", ["o", "v"]}, {"#voice", ["v"]}] do
+      for {name, modes} <- [{"#oper", [:o, :v]}, {"#voice", [:v]}] do
         channel = insert(:channel, name: name)
         insert(:user_channel, user: target, channel: channel, modes: modes)
       end

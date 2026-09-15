@@ -8,6 +8,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, normalize_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.ChannelBans
   alias ElixIRCd.Repositories.ChannelExcepts
   alias ElixIRCd.Repositories.ChannelInvexes
@@ -24,57 +25,59 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   # One ordered definition drives argument consumption and CHANMODES advertisement.
   @mode_types [
-    {"b", :a},
-    {"C", :d},
-    {"c", :d},
-    {"d", :c},
-    {"e", :a},
-    {"I", :a},
-    {"i", :d},
-    {"j", :c},
-    {"k", :b},
-    {"l", :c},
-    {"m", :d},
-    {"M", :d},
-    {"n", :d},
-    {"O", :d},
-    {"o", :prefix},
-    {"p", :d},
-    {"r", :d},
-    {"R", :d},
-    {"s", :d},
-    {"t", :d},
-    {"T", :d},
-    {"u", :d},
-    {"v", :prefix},
-    {"z", :d}
+    {:b, :a},
+    {:C, :d},
+    {:c, :d},
+    {:d, :c},
+    {:e, :a},
+    {:I, :a},
+    {:i, :d},
+    {:j, :c},
+    {:k, :b},
+    {:l, :c},
+    {:m, :d},
+    {:M, :d},
+    {:n, :d},
+    {:O, :d},
+    {:o, :prefix},
+    {:p, :d},
+    {:r, :d},
+    {:R, :d},
+    {:s, :d},
+    {:t, :d},
+    {:T, :d},
+    {:u, :d},
+    {:v, :prefix},
+    {:z, :d}
   ]
-  @modes Enum.map(@mode_types, &elem(&1, 0))
+  @modes ModeRegistry.modes(:channel)
   @modes_with_value_to_add for {mode, type} <- @mode_types, type != :d, do: mode
   @modes_with_value_to_remove for {mode, type} <- @mode_types, type in [:a, :b, :prefix], do: mode
   @modes_with_value_to_replace for {mode, type} <- @mode_types, type in [:b, :c], do: mode
   @parameter_modes @modes_with_value_to_replace
-  @modes_with_value_as_integer ["d", "l"]
+  @modes_with_value_as_integer [:d, :l]
   @modes_for_user_channel for {mode, :prefix} <- @mode_types, do: mode
-  @modes_for_channel_ban ["b"]
-  @modes_for_channel_except ["e"]
-  @modes_for_channel_invex ["I"]
+  @modes_for_channel_ban [:b]
+  @modes_for_channel_except [:e]
+  @modes_for_channel_invex [:I]
   @modes_as_listing for {mode, :a} <- @mode_types, do: mode
-  @modes_requiring_irc_operator ["O"]
+  @modes_requiring_irc_operator [:O]
 
-  @type mode :: String.t() | {String.t(), String.t()}
+  @type mode :: ModeRegistry.channel_mode() | {ModeRegistry.channel_mode(), String.t()}
   @type mode_change :: {:add, mode()} | {:remove, mode()}
+  @type parsed_mode :: mode() | String.t()
+  @type parsed_mode_change :: {:add, parsed_mode()} | {:remove, parsed_mode()}
 
   @doc """
   Returns the supported modes.
   """
-  @spec modes :: [String.t()]
+  @spec modes :: [ModeRegistry.channel_mode()]
   def modes, do: @modes
 
   @doc """
   Returns channel mode classes in wire order; membership prefixes are separate from CHANMODES.
   """
-  @spec mode_types() :: [{String.t(), :a | :b | :c | :d | :prefix}]
+  @spec mode_types() :: [{ModeRegistry.channel_mode(), :a | :b | :c | :d | :prefix}]
   def mode_types, do: @mode_types
 
   @doc """
@@ -86,8 +89,8 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   def display_modes(modes) do
     {flags, args} =
       Enum.reduce(modes, {[], []}, fn
-        {mode, arg}, {flags, args} -> {[mode | flags], [arg | args]}
-        mode, {flags, args} -> {[mode | flags], args}
+        {mode, arg}, {flags, args} -> {[ModeRegistry.encode!(:channel, mode) | flags], [arg | args]}
+        mode, {flags, args} -> {[ModeRegistry.encode!(:channel, mode) | flags], args}
       end)
 
     flags = Enum.reverse(flags) |> Enum.join()
@@ -103,14 +106,29 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   def display_mode_changes(applied_modes) do
     {mode_string, args, _} =
       Enum.reduce(applied_modes, {"", [], :none}, fn
-        {:add, {mode, arg}}, {mode_str, args, :add} -> {"#{mode_str}#{mode}", args ++ [arg], :add}
-        {:add, mode}, {mode_str, args, :add} -> {"#{mode_str}#{mode}", args, :add}
-        {:remove, {mode, arg}}, {mode_str, args, :remove} -> {"#{mode_str}#{mode}", args ++ [arg], :remove}
-        {:remove, mode}, {mode_str, args, :remove} -> {"#{mode_str}#{mode}", args, :remove}
-        {:add, {mode, arg}}, {mode_str, args, _} -> {"#{mode_str}+#{mode}", args ++ [arg], :add}
-        {:add, mode}, {mode_str, args, _} -> {"#{mode_str}+#{mode}", args, :add}
-        {:remove, {mode, arg}}, {mode_str, args, _} -> {"#{mode_str}-#{mode}", args ++ [arg], :remove}
-        {:remove, mode}, {mode_str, args, _} -> {"#{mode_str}-#{mode}", args, :remove}
+        {:add, {mode, arg}}, {mode_str, args, :add} ->
+          {mode_str <> ModeRegistry.encode!(:channel, mode), args ++ [arg], :add}
+
+        {:add, mode}, {mode_str, args, :add} ->
+          {mode_str <> ModeRegistry.encode!(:channel, mode), args, :add}
+
+        {:remove, {mode, arg}}, {mode_str, args, :remove} ->
+          {mode_str <> ModeRegistry.encode!(:channel, mode), args ++ [arg], :remove}
+
+        {:remove, mode}, {mode_str, args, :remove} ->
+          {mode_str <> ModeRegistry.encode!(:channel, mode), args, :remove}
+
+        {:add, {mode, arg}}, {mode_str, args, _} ->
+          {mode_str <> "+" <> ModeRegistry.encode!(:channel, mode), args ++ [arg], :add}
+
+        {:add, mode}, {mode_str, args, _} ->
+          {mode_str <> "+" <> ModeRegistry.encode!(:channel, mode), args, :add}
+
+        {:remove, {mode, arg}}, {mode_str, args, _} ->
+          {mode_str <> "-" <> ModeRegistry.encode!(:channel, mode), args ++ [arg], :remove}
+
+        {:remove, mode}, {mode_str, args, _} ->
+          {mode_str <> "-" <> ModeRegistry.encode!(:channel, mode), args, :remove}
       end)
 
     arg_string = Enum.join(args, " ")
@@ -136,7 +154,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   defp prefix_mode_string_if_needed("-" <> _ = mode_string), do: mode_string
   defp prefix_mode_string_if_needed(mode_string), do: "+#{mode_string}"
 
-  @spec handle_changed_modes(String.t(), [String.t()]) :: [mode_change()]
+  @spec handle_changed_modes(String.t(), [String.t()]) :: [parsed_mode_change()]
   defp handle_changed_modes(mode_string, values) do
     mode_string
     |> String.graphemes()
@@ -147,22 +165,35 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
       "-", {_, modes, vals} ->
         {:remove, modes, vals}
 
-      mode, {:add, modes, [val | rest_vals]} when mode in @modes_with_value_to_add ->
-        {:add, [{:add, {mode, val}} | modes], rest_vals}
+      character, {:add, modes, vals} ->
+        append_parsed_mode(:add, character, modes, vals)
 
-      mode, {:add, modes, vals} ->
-        {:add, [{:add, mode} | modes], vals}
-
-      mode, {:remove, modes, [val | rest_vals]} when mode in @modes_with_value_to_remove ->
-        {:remove, [{:remove, {mode, val}} | modes], rest_vals}
-
-      mode, {:remove, modes, vals} ->
-        {:remove, [{:remove, mode} | modes], vals}
+      character, {:remove, modes, vals} ->
+        append_parsed_mode(:remove, character, modes, vals)
     end)
     |> then(fn {_, modes, _} -> Enum.reverse(modes) end)
   end
 
-  @spec filter_changed_modes([mode_change()]) :: {[mode_change()], [String.t()]}
+  @spec append_parsed_mode(:add | :remove, String.t(), [parsed_mode_change()], [String.t()]) ::
+          {:add | :remove, [parsed_mode_change()], [String.t()]}
+  defp append_parsed_mode(action, character, modes, values) do
+    case ModeRegistry.decode(:channel, character) do
+      {:ok, mode} -> append_known_mode(action, mode, modes, values)
+      :error -> {action, [{action, character} | modes], values}
+    end
+  end
+
+  @spec append_known_mode(:add | :remove, ModeRegistry.channel_mode(), [parsed_mode_change()], [String.t()]) ::
+          {:add | :remove, [parsed_mode_change()], [String.t()]}
+  defp append_known_mode(:add, mode, modes, [value | rest]) when mode in @modes_with_value_to_add,
+    do: {:add, [{:add, {mode, value}} | modes], rest}
+
+  defp append_known_mode(:remove, mode, modes, [value | rest]) when mode in @modes_with_value_to_remove,
+    do: {:remove, [{:remove, {mode, value}} | modes], rest}
+
+  defp append_known_mode(action, mode, modes, values), do: {action, [{action, mode} | modes], values}
+
+  @spec filter_changed_modes([parsed_mode_change()]) :: {[mode_change()], [String.t()]}
   defp filter_changed_modes(changed_modes) do
     changed_modes
     |> Enum.reduce({[], []}, fn
@@ -179,7 +210,8 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @doc """
   Filters the mode changes for a channel by valid, listing and missing value modes.
   """
-  @spec filter_mode_changes([mode_change()]) :: {[mode_change()], [String.t()], [String.t()]}
+  @spec filter_mode_changes([mode_change()]) ::
+          {[mode_change()], [ModeRegistry.channel_mode()], [ModeRegistry.channel_mode()]}
   def filter_mode_changes(validated_modes) do
     {updated_validated_modes, missing_value_modes} = filter_missing_value_modes(validated_modes)
     {updated_missing_value_modes, listing_modes} = filter_listing_modes(missing_value_modes)
@@ -187,16 +219,16 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {updated_validated_modes, listing_modes, updated_missing_value_modes}
   end
 
-  @spec filter_missing_value_modes([mode_change()]) :: {[mode_change()], [String.t()]}
+  @spec filter_missing_value_modes([mode_change()]) :: {[mode_change()], [ModeRegistry.channel_mode()]}
   defp filter_missing_value_modes(changed_modes) do
     changed_modes
     |> Enum.reduce({[], []}, fn
       mode_change, {valid_modes, missing_value_modes} ->
         case mode_change do
-          {:add, mode} when is_binary(mode) and mode in @modes_with_value_to_add ->
+          {:add, mode} when mode in @modes_with_value_to_add ->
             {valid_modes, [mode | missing_value_modes]}
 
-          {:remove, mode} when is_binary(mode) and mode in @modes_with_value_to_remove ->
+          {:remove, mode} when mode in @modes_with_value_to_remove ->
             {valid_modes, [mode | missing_value_modes]}
 
           mode_change ->
@@ -208,7 +240,8 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   # Listing modes are based on modes that require a value to be set but are not set in the mode changes,
   # from the `missing_value_modes` list.
-  @spec filter_listing_modes([String.t()]) :: {[String.t()], [String.t()]}
+  @spec filter_listing_modes([ModeRegistry.channel_mode()]) ::
+          {[ModeRegistry.channel_mode()], [ModeRegistry.channel_mode()]}
   defp filter_listing_modes(missing_value_modes) do
     missing_value_modes
     |> Enum.reduce({[], []}, fn
@@ -303,7 +336,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     end
   end
 
-  @spec determine_mode_handler_add(String.t(), mode()) ::
+  @spec determine_mode_handler_add(ModeRegistry.channel_mode(), mode()) ::
           {:list_mode, atom()} | {:special, atom()} | :simple
   defp determine_mode_handler_add(mode_flag, mode) do
     cond do
@@ -318,7 +351,8 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     end
   end
 
-  @spec determine_mode_handler_remove(String.t()) :: {:list_mode, atom()} | {:special, atom()} | :simple
+  @spec determine_mode_handler_remove(ModeRegistry.channel_mode()) ::
+          {:list_mode, atom()} | {:special, atom()} | :simple
   defp determine_mode_handler_remove(mode_flag) do
     cond do
       mode_flag in @modes_for_channel_ban -> {:list_mode, :ban}
@@ -349,7 +383,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     end
   end
 
-  @spec extract_mode_flag(mode()) :: String.t()
+  @spec extract_mode_flag(mode()) :: ModeRegistry.channel_mode()
   defp extract_mode_flag({mode, _val}), do: mode
   defp extract_mode_flag(mode), do: mode
 
@@ -369,24 +403,29 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
   end
 
-  @spec should_ignore_invalid_mode?(String.t(), mode()) :: boolean()
+  @spec should_ignore_invalid_mode?(ModeRegistry.channel_mode(), mode()) :: boolean()
   defp should_ignore_invalid_mode?(mode_flag, mode) do
     (mode_flag in @modes_with_value_as_integer and not valid_integer_mode_value?(mode)) or
-      (mode_flag == "j" and not valid_join_throttle_format?(mode)) or
-      (mode_flag == "k" and not valid_key?(mode))
+      (mode_flag == :j and not valid_join_throttle_format?(mode)) or
+      (mode_flag == :k and not valid_key?(mode))
   end
 
-  @spec handle_invalid_mode(User.t(), Channel.t(), String.t(), mode(), [mode_change()], [mode()]) ::
+  @spec handle_invalid_mode(User.t(), Channel.t(), ModeRegistry.channel_mode(), mode(), [mode_change()], [mode()]) ::
           {[mode_change()], [mode()]}
   defp handle_invalid_mode(user, channel, mode_flag, mode, applied_changes, new_modes) do
-    if mode_flag == "j" and not valid_join_throttle_format?(mode) do
+    if mode_flag == :j and not valid_join_throttle_format?(mode) do
       send_invalid_join_throttle_format_error(user)
     else
       {_flag, value} = mode
 
       %Message{
         command: :err_invalidmodeparam,
-        params: [user.nick, channel.name, mode_flag, if(mode_flag == "k" or value == "", do: "*", else: value)],
+        params: [
+          user.nick,
+          channel.name,
+          ModeRegistry.encode!(:channel, mode_flag),
+          if(mode_flag == :k or value == "", do: "*", else: value)
+        ],
         trailing: "Invalid mode parameter"
       }
       |> Dispatcher.broadcast(:server, user)
@@ -395,14 +434,14 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {applied_changes, new_modes}
   end
 
-  @spec apply_replaceable_mode(mode(), String.t(), [mode_change()], [mode()]) ::
+  @spec apply_replaceable_mode(mode(), ModeRegistry.channel_mode(), [mode_change()], [mode()]) ::
           {[mode_change()], [mode()]}
   defp apply_replaceable_mode(mode, mode_flag, applied_changes, new_modes) do
     handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
     {[{:add, mode} | applied_changes], [mode | handled_new_modes]}
   end
 
-  @spec apply_valueless_mode_removal(mode(), String.t(), [mode_change()], [mode()]) ::
+  @spec apply_valueless_mode_removal(mode(), ModeRegistry.channel_mode(), [mode_change()], [mode()]) ::
           {[mode_change()], [mode()]}
   defp apply_valueless_mode_removal(mode, mode_flag, applied_changes, new_modes) do
     handled_new_modes = Enum.reject(new_modes, &match?({^mode_flag, _}, &1))
@@ -607,7 +646,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   end
 
   @spec valid_key?(mode()) :: boolean()
-  defp valid_key?({"k", value}) do
+  defp valid_key?({:k, value}) do
     byte_size(value) in 1..32 and not String.contains?(value, [" ", "\t", "\r", "\n", "\0", ":", ","])
   end
 

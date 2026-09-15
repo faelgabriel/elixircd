@@ -40,7 +40,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert user.transport == :tls
       assert user.ip_address == {127, 0, 0, 1}
       assert user.port_connected == 6697
-      assert "Z" in user.modes
+      assert :Z in user.modes
     end
 
     test "handles successful ws connection" do
@@ -62,7 +62,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert user.transport == :wss
       assert user.ip_address == {127, 0, 0, 1}
       assert user.port_connected == 6697
-      assert "Z" in user.modes
+      assert :Z in user.modes
     end
 
     test "updates connection stats" do
@@ -277,7 +277,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
     test "sends snotice to operators with +s mode when flood occurs" do
       user = insert(:user)
-      oper_with_s = insert(:user, modes: ["o", "s"])
+      oper_with_s = insert(:user, modes: [:o, :s])
 
       RateLimiter
       |> expect(:check_message, fn target_user, "PRIVMSG #test :flood" ->
@@ -572,7 +572,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
 
     test "sends snotice to operators with +s mode when user quits" do
       user = insert(:user)
-      oper_with_s = insert(:user, modes: ["o", "s"])
+      oper_with_s = insert(:user, modes: [:o, :s])
 
       assert :ok = Connection.handle_disconnect(user.pid, user.transport, "Client quit")
 

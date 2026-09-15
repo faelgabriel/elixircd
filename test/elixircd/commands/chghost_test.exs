@@ -27,7 +27,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST command with not enough parameters" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "CHGHOST", params: ["target", "newident"]}
 
         assert :ok = Chghost.handle(user, message)
@@ -53,7 +53,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST command with non-existent target" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "CHGHOST", params: ["nonexistent", "newident", "newhost"]}
 
         assert :ok = Chghost.handle(user, message)
@@ -66,7 +66,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST command successfully" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user, ident: "oldident", hostname: "oldhost.example.com")
 
         message = %Message{command: "CHGHOST", params: [target.nick, "newident", "newhost.example.com"]}
@@ -96,7 +96,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
       )
 
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user, ident: "oldident", hostname: "oldhost.example.com")
         watcher = insert(:user, capabilities: ["chghost"])
 
@@ -119,7 +119,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST with empty ident" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user)
 
         message = %Message{command: "CHGHOST", params: [target.nick, "", "newhost.example.com"]}
@@ -135,7 +135,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
     test "handles CHGHOST with ident too long" do
       Memento.transaction!(fn ->
         max_ident_length = Application.get_env(:elixircd, :user)[:max_ident_length]
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user)
         long_ident = String.duplicate("a", max_ident_length + 1)
 
@@ -152,7 +152,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST with invalid ident characters" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user)
 
         message = %Message{command: "CHGHOST", params: [target.nick, "inv@lid", "newhost.example.com"]}
@@ -167,7 +167,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST with empty hostname" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user)
 
         message = %Message{command: "CHGHOST", params: [target.nick, "newident", ""]}
@@ -182,7 +182,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST with hostname too long" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user)
         long_hostname = String.duplicate("a", 254)
 
@@ -198,7 +198,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "handles CHGHOST with invalid hostname characters" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         target = insert(:user)
 
         message = %Message{command: "CHGHOST", params: [target.nick, "newident", "invalid host@name"]}
@@ -213,7 +213,7 @@ defmodule ElixIRCd.Commands.ChghostTest do
 
     test "uses labeled standard replies for hostname failures without changing the target" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"], capabilities: ["standard-replies", "batch", "labeled-response"])
+        operator = insert(:user, modes: [:o], capabilities: ["standard-replies", "batch", "labeled-response"])
         target = insert(:user)
 
         for {hostname, reason} <- [

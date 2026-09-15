@@ -52,7 +52,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
     test "handles NOTICE command for channel with +n mode and user is not in the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["n"])
+        channel = insert(:channel, modes: [:n])
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
@@ -243,7 +243,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
     test "handles NOTICE command for user with +g mode and sender is not registered (silently ignored)" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        another_user = insert(:user, modes: ["g"])
+        another_user = insert(:user, modes: [:g])
 
         message = %Message{command: "NOTICE", params: [another_user.nick], trailing: "Hello"}
         assert :ok = Notice.handle(user, message)
@@ -255,7 +255,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
     test "handles NOTICE command for user with +R mode and sender is not registered (silently ignored)" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        target_user = insert(:user, nick: "TargetUser", modes: ["R"])
+        target_user = insert(:user, nick: "TargetUser", modes: [:R])
         message = %Message{command: "NOTICE", params: [target_user.nick], trailing: "Hello"}
 
         Notice.handle(user, message)
@@ -266,8 +266,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
     test "handles NOTICE command for user with +R mode and sender is registered (target gets message)" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["r"])
-        target_user = insert(:user, nick: "TargetUser", modes: ["R"])
+        user = insert(:user, modes: [:r])
+        target_user = insert(:user, nick: "TargetUser", modes: [:R])
         message = %Message{command: "NOTICE", params: [target_user.nick], trailing: "Hello"}
 
         Notice.handle(user, message)
@@ -282,7 +282,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["c"])
+        channel = insert(:channel, modes: [:c])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -297,7 +297,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["c"])
+        channel = insert(:channel, modes: [:c])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -312,7 +312,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["c"])
+        channel = insert(:channel, modes: [:c])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -327,7 +327,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["c"])
+        channel = insert(:channel, modes: [:c])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -342,7 +342,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["c"])
+        channel = insert(:channel, modes: [:c])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -376,7 +376,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: [{"d", "5"}])
+        channel = insert(:channel, modes: [{:d, "5"}])
         insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now())
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -391,7 +391,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: [{"d", "5"}])
+        channel = insert(:channel, modes: [{:d, "5"}])
         past_time = DateTime.add(DateTime.utc_now(), -10, :second)
         insert(:user_channel, user: user, channel: channel, created_at: past_time)
         insert(:user_channel, user: another_user, channel: channel)
@@ -409,8 +409,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: [{"d", "5"}])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"], created_at: DateTime.utc_now())
+        channel = insert(:channel, modes: [{:d, "5"}])
+        insert(:user_channel, user: user, channel: channel, modes: [:o], created_at: DateTime.utc_now())
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -426,8 +426,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: [{"d", "5"}])
-        insert(:user_channel, user: user, channel: channel, modes: ["v"], created_at: DateTime.utc_now())
+        channel = insert(:channel, modes: [{:d, "5"}])
+        insert(:user_channel, user: user, channel: channel, modes: [:v], created_at: DateTime.utc_now())
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -473,7 +473,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["T"])
+        channel = insert(:channel, modes: [:T])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -487,7 +487,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["T"])
+        channel = insert(:channel, modes: [:T])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -502,8 +502,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["T"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:T])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -519,8 +519,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["T"])
-        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        channel = insert(:channel, modes: [:T])
+        insert(:user_channel, user: user, channel: channel, modes: [:v])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -553,7 +553,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         unregistered_user = insert(:user, modes: [])
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["M"])
+        channel = insert(:channel, modes: [:M])
         insert(:user_channel, user: unregistered_user, channel: channel, modes: [])
         insert(:user_channel, user: another_user, channel: channel, modes: [])
 
@@ -566,9 +566,9 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
     test "handles NOTICE command with +M mode allowing registered users" do
       Memento.transaction!(fn ->
-        registered_user = insert(:user, modes: ["r"])
+        registered_user = insert(:user, modes: [:r])
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["M"])
+        channel = insert(:channel, modes: [:M])
         insert(:user_channel, user: registered_user, channel: channel, modes: [])
         insert(:user_channel, user: another_user, channel: channel, modes: [])
 
@@ -585,8 +585,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         unregistered_op = insert(:user, modes: [])
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["M"])
-        insert(:user_channel, user: unregistered_op, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:M])
+        insert(:user_channel, user: unregistered_op, channel: channel, modes: [:o])
         insert(:user_channel, user: another_user, channel: channel, modes: [])
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -602,8 +602,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         unregistered_voiced = insert(:user, modes: [])
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["M"])
-        insert(:user_channel, user: unregistered_voiced, channel: channel, modes: ["v"])
+        channel = insert(:channel, modes: [:M])
+        insert(:user_channel, user: unregistered_voiced, channel: channel, modes: [:v])
         insert(:user_channel, user: another_user, channel: channel, modes: [])
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -618,7 +618,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
     test "handles NOTICE command for channel with +m mode and user is not voice or higher" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["m"])
+        channel = insert(:channel, modes: [:m])
         insert(:user_channel, user: user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -632,8 +632,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["m"])
-        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        channel = insert(:channel, modes: [:m])
+        insert(:user_channel, user: user, channel: channel, modes: [:v])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -649,8 +649,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["m"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:m])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "Hello"}
@@ -666,7 +666,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["n"])
+        channel = insert(:channel, modes: [:n])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -683,7 +683,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["C"])
+        channel = insert(:channel, modes: [:C])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01VERSION\x01"}
@@ -697,7 +697,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["C"])
+        channel = insert(:channel, modes: [:C])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -712,7 +712,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["C"])
+        channel = insert(:channel, modes: [:C])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 
@@ -727,8 +727,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["C"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:C])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION waves\x01"}
@@ -744,8 +744,8 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["C"])
-        insert(:user_channel, user: user, channel: channel, modes: ["v"])
+        channel = insert(:channel, modes: [:C])
+        insert(:user_channel, user: user, channel: channel, modes: [:v])
         insert(:user_channel, user: another_user, channel: channel)
 
         message = %Message{command: "NOTICE", params: [channel.name], trailing: "\x01ACTION dances\x01"}
@@ -778,7 +778,7 @@ defmodule ElixIRCd.Commands.NoticeTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         another_user = insert(:user)
-        channel = insert(:channel, modes: ["C"])
+        channel = insert(:channel, modes: [:C])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: another_user, channel: channel)
 

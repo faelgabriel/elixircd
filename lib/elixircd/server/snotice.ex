@@ -36,7 +36,7 @@ defmodule ElixIRCd.Server.Snotice do
   """
   @spec broadcast(category(), String.t()) :: :ok
   def broadcast(category, message) do
-    operators_with_s = Users.get_by_mode("s")
+    operators_with_s = Users.get_by_mode(:s)
 
     unless operators_with_s == [] do
       formatted_message = format_message(category, message)

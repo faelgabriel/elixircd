@@ -52,8 +52,8 @@ defmodule ElixIRCd.Commands.WallopsTest do
 
     test "handle WALLOPS command with user operator and message" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
-        target_user = insert(:user, modes: ["w"])
+        user = insert(:user, modes: [:o])
+        target_user = insert(:user, modes: [:w])
         message = %Message{command: "WALLOPS", params: [], trailing: "Wallops message"}
 
         assert :ok = Wallops.handle(user, message)

@@ -97,7 +97,7 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpirationTest do
         insert(:user, %{
           nick: "SomeNick",
           identified_as: expired_nick.nickname,
-          modes: ["r"],
+          modes: [:r],
           sasl_authenticated: true
         })
 
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpirationTest do
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
         assert updated_user.sasl_authenticated == false
-        assert "r" not in updated_user.modes
+        assert :r not in updated_user.modes
       end)
     end
 

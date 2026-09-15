@@ -19,7 +19,7 @@ defmodule ElixIRCd.Commands.JoinTest do
       test "JOIN does not equate ident caret and tilde in #{list_mode}" do
         Memento.transaction!(fn ->
           user = insert(:user, ident: "~user", hostname: "host")
-          channel = insert(:channel, modes: if(unquote(list_mode) == :channel_invex, do: ["i"], else: []))
+          channel = insert(:channel, modes: if(unquote(list_mode) == :channel_invex, do: [:i], else: []))
           if unquote(list_mode) == :channel_except, do: insert(:channel_ban, channel: channel, mask: "*!*@*")
           insert(unquote(list_mode), channel: channel, mask: "*!^user@host")
           assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
@@ -40,8 +40,8 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "repeated JOIN preserves membership modes even after channel restrictions change" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["i", {"k", "secret"}, {"l", "1"}])
-        membership = insert(:user_channel, user: user, channel: channel, modes: ["o", "v"])
+        channel = insert(:channel, modes: [:i, {:k, "secret"}, {:l, "1"}])
+        membership = insert(:user_channel, user: user, channel: channel, modes: [:o, :v])
         assert :ok = Join.handle(user, %Message{command: "JOIN", params: [String.upcase(channel.name)]})
         assert UserChannels.get_by_user_pid(user.pid) == [membership]
         assert_sent_messages_amount(user.pid, 0)
@@ -52,7 +52,7 @@ defmodule ElixIRCd.Commands.JoinTest do
       test "JOIN applies IRC case mapping to #{list_mode}" do
         Memento.transaction!(fn ->
           user = insert(:user, nick: "Bar[", ident: "~User", hostname: "Host.Example")
-          channel = insert(:channel, modes: if(unquote(list_mode) == :channel_invex, do: ["i"], else: []))
+          channel = insert(:channel, modes: if(unquote(list_mode) == :channel_invex, do: [:i], else: []))
           if unquote(list_mode) == :channel_except, do: insert(:channel_ban, channel: channel, mask: "*!*@*")
           insert(unquote(list_mode), channel: channel, mask: "bAR{!~uSER@hOST.example")
           assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
@@ -74,7 +74,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         operator = insert(:user)
         user = insert(:user)
         channel = insert(:channel)
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
         assert :ok = Mode.handle(operator, %Message{command: "MODE", params: [channel.name, "+b", "*!*@(["]})
         insert(:channel_ban, channel: channel, mask: "*!*@host(")
         insert(:channel_except, channel: channel, mask: "*!*@[")
@@ -86,7 +86,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     end
 
     for {caps, prefix} <- [{["userhost-in-names"], "@"}, {["userhost-in-names", "multi-prefix"], "@+"}],
-        {channel_modes, status} <- [{[], "="}, {["s"], "@"}, {["p"], "*"}] do
+        {channel_modes, status} <- [{[], "="}, {[:s], "@"}, {[:p], "*"}] do
       test "JOIN NAMES honors hostmasks, prefixes and channel status #{inspect({caps, channel_modes})}" do
         Memento.transaction!(fn ->
           user = insert(:user, capabilities: unquote(caps))
@@ -97,11 +97,11 @@ defmodule ElixIRCd.Commands.JoinTest do
               ident: "~target",
               hostname: "private.example",
               cloaked_hostname: "cloak.example",
-              modes: ["x"]
+              modes: [:x]
             )
 
           channel = insert(:channel, modes: unquote(channel_modes))
-          insert(:user_channel, user: target, channel: channel, modes: ["v", "o"])
+          insert(:user_channel, user: target, channel: channel, modes: [:v, :o])
 
           assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
 
@@ -257,7 +257,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with empty channel key" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [{"k", "password"}])
+        channel = insert(:channel, modes: [{:k, "password"}])
         message = %Message{command: "JOIN", params: [channel.name]}
 
         assert :ok = Join.handle(user, message)
@@ -271,7 +271,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with wrong channel key" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [{"k", "password"}])
+        channel = insert(:channel, modes: [{:k, "password"}])
         message = %Message{command: "JOIN", params: [channel.name, "wrong_password"]}
 
         assert :ok = Join.handle(user, message)
@@ -285,7 +285,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with channel limit reached" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [{"l", "1"}])
+        channel = insert(:channel, modes: [{:l, "1"}])
         insert(:user_channel, channel: channel)
         message = %Message{command: "JOIN", params: [channel.name]}
 
@@ -300,7 +300,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "allows a user to join while the channel remains below its limit" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [{"l", "2"}])
+        channel = insert(:channel, modes: [{:l, "2"}])
         insert(:user_channel, channel: channel)
 
         assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
@@ -313,7 +313,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "allows a directly invited user to join a full channel and consumes the invite" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [{"l", "1"}])
+        channel = insert(:channel, modes: [{:l, "1"}])
         insert(:user_channel, channel: channel)
         insert(:channel_invite, channel: channel, user: user)
 
@@ -331,7 +331,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "does not let an invite exception bypass a full channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["i", {"l", "1"}])
+        channel = insert(:channel, modes: [:i, {:l, "1"}])
         insert(:user_channel, channel: channel)
         insert(:channel_invex, channel: channel, mask: "#{user.nick}!*@*")
 
@@ -346,7 +346,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "does not let a direct invite bypass a channel ban" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [{"l", "1"}])
+        channel = insert(:channel, modes: [{:l, "1"}])
         insert(:user_channel, channel: channel)
         insert(:channel_ban, channel: channel, mask: "#{user.nick}!*@*")
         insert(:channel_invite, channel: channel, user: user)
@@ -419,7 +419,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with a user not invited to the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["i"])
+        channel = insert(:channel, modes: [:i])
         message = %Message{command: "JOIN", params: [channel.name]}
 
         assert :ok = Join.handle(user, message)
@@ -433,7 +433,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with invite-only channel but user in invex list (+I)" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["i"])
+        channel = insert(:channel, modes: [:i])
         insert(:channel_invex, channel: channel, mask: "#{user.nick}!*@*")
         message = %Message{command: "JOIN", params: [channel.name]}
 
@@ -453,7 +453,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with invite-only channel but matching invex wildcard" do
       Memento.transaction!(fn ->
         user = insert(:user, hostname: "staff.company.com")
-        channel = insert(:channel, modes: ["i"])
+        channel = insert(:channel, modes: [:i])
         insert(:channel_invex, channel: channel, mask: "*!*@*.company.com")
         message = %Message{command: "JOIN", params: [channel.name]}
 
@@ -473,7 +473,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with invite-only channel with direct invite takes precedence" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["i"])
+        channel = insert(:channel, modes: [:i])
         insert(:channel_invite, channel: channel, user: user)
         message = %Message{command: "JOIN", params: [channel.name]}
 
@@ -493,7 +493,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with correct channel key, available limit, no bans and with user invited" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: [{"k", "password"}, {"l", "1"}, "i"])
+        channel = insert(:channel, modes: [{:k, "password"}, {:l, "1"}, :i])
         insert(:channel_invite, channel: channel, user: user)
         message = %Message{command: "JOIN", params: [channel.name, "password"]}
 
@@ -657,7 +657,7 @@ defmodule ElixIRCd.Commands.JoinTest do
     test "handles JOIN command with +O mode and non-IRC operator" do
       Memento.transaction!(fn ->
         user = insert(:user, modes: [])
-        channel = insert(:channel, modes: ["O"])
+        channel = insert(:channel, modes: [:O])
         message = %Message{command: "JOIN", params: [channel.name]}
 
         assert :ok = Join.handle(user, message)
@@ -670,8 +670,8 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +O mode and IRC operator" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
-        channel = insert(:channel, modes: ["O"])
+        user = insert(:user, modes: [:o])
+        channel = insert(:channel, modes: [:O])
         message = %Message{command: "JOIN", params: [channel.name]}
 
         assert :ok = Join.handle(user, message)
@@ -689,8 +689,8 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +O mode combined with other restrictive modes and IRC operator" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
-        channel = insert(:channel, modes: ["O", "i", {"k", "password"}, {"l", "10"}])
+        user = insert(:user, modes: [:o])
+        channel = insert(:channel, modes: [:O, :i, {:k, "password"}, {:l, "10"}])
         insert(:channel_invite, channel: channel, user: user)
         message = %Message{command: "JOIN", params: [channel.name, "password"]}
 
@@ -712,7 +712,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         user = insert(:user, capabilities: ["userhost-in-names"], ident: "~testuser", hostname: "test.example.com")
         channel = insert(:channel)
         another_user = insert(:user, nick: "another_user", ident: "~another", hostname: "another.example.com")
-        insert(:user_channel, user: another_user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel, modes: [:o])
 
         message = %Message{command: "JOIN", params: [channel.name]}
 
@@ -736,7 +736,7 @@ defmodule ElixIRCd.Commands.JoinTest do
         user = insert(:user, capabilities: [], ident: "~testuser", hostname: "test.example.com")
         channel = insert(:channel)
         another_user = insert(:user, nick: "another_user", ident: "~another", hostname: "another.example.com")
-        insert(:user_channel, user: another_user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: another_user, channel: channel, modes: [:o])
 
         message = %Message{command: "JOIN", params: [channel.name]}
 
@@ -782,7 +782,7 @@ defmodule ElixIRCd.Commands.JoinTest do
             hostname: "uh.example.com"
           )
 
-        insert(:user_channel, user: hostmask_user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: hostmask_user, channel: channel, modes: [:v])
 
         normal_user =
           insert(:user, nick: "normal_user", capabilities: [], ident: "~normal", hostname: "normal.example.com")
@@ -812,9 +812,9 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +j mode allowing joins under throttle limit" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         channel = insert(:channel, name: "#test")
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
         mode_message = %Message{command: "MODE", params: ["#test", "+j", "3:10"]}
         Mode.handle(operator, mode_message)
@@ -830,9 +830,9 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +j mode blocking joins when throttle limit exceeded" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         channel = insert(:channel, name: "#test")
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
         mode_message = %Message{command: "MODE", params: ["#test", "+j", "2:10"]}
         Mode.handle(operator, mode_message)
@@ -856,15 +856,15 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +j mode exempting IRC operators from throttle" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         channel = insert(:channel, name: "#test")
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
         mode_message = %Message{command: "MODE", params: ["#test", "+j", "2:60"]}
         Mode.handle(operator, mode_message)
 
         normal_user = insert(:user)
-        irc_operator = insert(:user, modes: ["o"])
+        irc_operator = insert(:user, modes: [:o])
 
         join_message1 = %Message{command: "JOIN", params: ["#test"]}
         Join.handle(normal_user, join_message1)
@@ -879,9 +879,9 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +R mode blocking unregistered users" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o", "r"])
-        channel = insert(:channel, name: "#test", modes: ["R"])
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        operator = insert(:user, modes: [:o, :r])
+        channel = insert(:channel, name: "#test", modes: [:R])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
         unregistered_user = insert(:user, modes: [])
         join_message = %Message{command: "JOIN", params: ["#test"]}
@@ -899,11 +899,11 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +R mode allowing registered users" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o", "r"])
-        channel = insert(:channel, name: "#test", modes: ["R"])
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        operator = insert(:user, modes: [:o, :r])
+        channel = insert(:channel, name: "#test", modes: [:R])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
-        registered_user = insert(:user, modes: ["r"])
+        registered_user = insert(:user, modes: [:r])
         join_message = %Message{command: "JOIN", params: ["#test"]}
         Join.handle(registered_user, join_message)
 
@@ -913,9 +913,9 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +z mode blocking non-secure connections" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o", "Z"])
-        channel = insert(:channel, name: "#test", modes: ["z"])
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        operator = insert(:user, modes: [:o, :Z])
+        channel = insert(:channel, name: "#test", modes: [:z])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
         insecure_user = insert(:user, modes: [])
         join_message = %Message{command: "JOIN", params: ["#test"]}
@@ -933,15 +933,15 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +z mode allowing secure connections" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o", "Z"])
-        channel = insert(:channel, name: "#test", modes: ["z"])
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        operator = insert(:user, modes: [:o, :Z])
+        channel = insert(:channel, name: "#test", modes: [:z])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
-        secure_user_tls = insert(:user, modes: ["Z"])
+        secure_user_tls = insert(:user, modes: [:Z])
         join_message1 = %Message{command: "JOIN", params: ["#test"]}
         Join.handle(secure_user_tls, join_message1)
 
-        secure_user_wss = insert(:user, modes: ["Z"])
+        secure_user_wss = insert(:user, modes: [:Z])
         join_message2 = %Message{command: "JOIN", params: ["#test"]}
         Join.handle(secure_user_wss, join_message2)
 
@@ -952,12 +952,12 @@ defmodule ElixIRCd.Commands.JoinTest do
 
     test "handles JOIN command with +u mode showing join only to voiced/ops" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
-        channel = insert(:channel, name: "#test", modes: ["u"])
-        insert(:user_channel, user: operator, channel: channel, modes: ["o"])
+        operator = insert(:user, modes: [:o])
+        channel = insert(:channel, name: "#test", modes: [:u])
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
 
         voiced_user = insert(:user)
-        insert(:user_channel, user: voiced_user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: voiced_user, channel: channel, modes: [:v])
 
         normal_user = insert(:user)
         insert(:user_channel, user: normal_user, channel: channel, modes: [])
@@ -1013,7 +1013,7 @@ defmodule ElixIRCd.Commands.JoinTest do
       Memento.transaction!(fn ->
         channel = insert(:channel, name: "#test")
         existing_user = insert(:user, realname: "Existing User", capabilities: ["extended-join"])
-        insert(:user_channel, user: existing_user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: existing_user, channel: channel, modes: [:o])
 
         existing_user_without_cap = insert(:user, realname: "Regular User", capabilities: [])
         insert(:user_channel, user: existing_user_without_cap, channel: channel, modes: [])
@@ -1044,7 +1044,7 @@ defmodule ElixIRCd.Commands.JoinTest do
       Memento.transaction!(fn ->
         channel = insert(:channel, name: "#test")
         existing_user = insert(:user, capabilities: ["extended-join"])
-        insert(:user_channel, user: existing_user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: existing_user, channel: channel, modes: [:o])
 
         joining_user = insert(:user, realname: "Anonymous User", identified_as: nil, capabilities: [])
         message = %Message{command: "JOIN", params: ["#test"]}

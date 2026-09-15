@@ -4,6 +4,8 @@ defmodule ElixIRCd.Tables.UserChannel do
   """
 
   @enforce_keys [:user_pid, :channel_name_key, :modes, :created_at]
+  alias ElixIRCd.ModeRegistry
+
   use Memento.Table,
     attributes: [
       :user_pid,
@@ -17,14 +19,14 @@ defmodule ElixIRCd.Tables.UserChannel do
   @type t :: %__MODULE__{
           user_pid: pid(),
           channel_name_key: String.t(),
-          modes: [String.t()],
+          modes: [ModeRegistry.membership_mode()],
           created_at: DateTime.t()
         }
 
   @type t_attrs :: %{
           optional(:user_pid) => pid(),
           optional(:channel_name_key) => String.t(),
-          optional(:modes) => [String.t()],
+          optional(:modes) => [ModeRegistry.membership_mode()],
           optional(:created_at) => DateTime.t()
         }
 

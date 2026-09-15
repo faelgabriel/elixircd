@@ -70,10 +70,10 @@ defmodule ElixIRCd.Utils.MessageFilterTest do
       Memento.transaction!(fn ->
         user1 = insert(:user)
         user2 = insert(:user)
-        channel = insert(:channel, modes: ["u"])
+        channel = insert(:channel, modes: [:u])
         uc1 = insert(:user_channel, user: user1, channel: channel, modes: [])
         uc2 = insert(:user_channel, user: user2, channel: channel, modes: [])
-        actor_uc = insert(:user_channel, channel: channel, modes: ["o"])
+        actor_uc = insert(:user_channel, channel: channel, modes: [:o])
 
         result = MessageFilter.filter_auditorium_users([uc1, uc2], actor_uc, channel.modes)
         assert length(result) == 2
@@ -84,10 +84,10 @@ defmodule ElixIRCd.Utils.MessageFilterTest do
       Memento.transaction!(fn ->
         user1 = insert(:user)
         user2 = insert(:user)
-        channel = insert(:channel, modes: ["u"])
+        channel = insert(:channel, modes: [:u])
         uc1 = insert(:user_channel, user: user1, channel: channel, modes: [])
         uc2 = insert(:user_channel, user: user2, channel: channel, modes: [])
-        actor_uc = insert(:user_channel, channel: channel, modes: ["v"])
+        actor_uc = insert(:user_channel, channel: channel, modes: [:v])
 
         result = MessageFilter.filter_auditorium_users([uc1, uc2], actor_uc, channel.modes)
         assert length(result) == 2
@@ -99,9 +99,9 @@ defmodule ElixIRCd.Utils.MessageFilterTest do
         op_user = insert(:user)
         voiced_user = insert(:user)
         normal_user = insert(:user)
-        channel = insert(:channel, modes: ["u"])
-        uc_op = insert(:user_channel, user: op_user, channel: channel, modes: ["o"])
-        uc_voiced = insert(:user_channel, user: voiced_user, channel: channel, modes: ["v"])
+        channel = insert(:channel, modes: [:u])
+        uc_op = insert(:user_channel, user: op_user, channel: channel, modes: [:o])
+        uc_voiced = insert(:user_channel, user: voiced_user, channel: channel, modes: [:v])
         uc_normal = insert(:user_channel, user: normal_user, channel: channel, modes: [])
         actor_uc = insert(:user_channel, channel: channel, modes: [])
 
@@ -117,8 +117,8 @@ defmodule ElixIRCd.Utils.MessageFilterTest do
       Memento.transaction!(fn ->
         op_user = insert(:user)
         normal_user = insert(:user)
-        channel = insert(:channel, modes: ["u"])
-        uc_op = insert(:user_channel, user: op_user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:u])
+        uc_op = insert(:user_channel, user: op_user, channel: channel, modes: [:o])
         uc_normal = insert(:user_channel, user: normal_user, channel: channel, modes: [])
 
         result = MessageFilter.filter_auditorium_users([uc_op, uc_normal], nil, channel.modes)

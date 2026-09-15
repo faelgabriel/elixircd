@@ -11,8 +11,8 @@ defmodule ElixIRCd.Server.SnoticeTest do
   describe "broadcast/2" do
     test "sends notice only to operators with +s mode for all categories" do
       Memento.transaction!(fn ->
-        oper_with_s = insert(:user, nick: "oper_s", modes: ["s", "o"])
-        _user_with_s = insert(:user, nick: "user_s", modes: ["s"])
+        oper_with_s = insert(:user, nick: "oper_s", modes: [:s, :o])
+        _user_with_s = insert(:user, nick: "user_s", modes: [:s])
         _user_without_s = insert(:user, nick: "user_no_s", modes: [])
 
         assert :ok = Snotice.broadcast(:connect, "Test connection message")
@@ -25,9 +25,9 @@ defmodule ElixIRCd.Server.SnoticeTest do
 
     test "sends notice to multiple operators with +s mode" do
       Memento.transaction!(fn ->
-        oper1 = insert(:user, nick: "oper1", modes: ["s", "o"])
-        oper2 = insert(:user, nick: "oper2", modes: ["s", "o"])
-        _user = insert(:user, nick: "user", modes: ["s"])
+        oper1 = insert(:user, nick: "oper1", modes: [:s, :o])
+        oper2 = insert(:user, nick: "oper2", modes: [:s, :o])
+        _user = insert(:user, nick: "user", modes: [:s])
 
         assert :ok = Snotice.broadcast(:quit, "Test quit message")
 
@@ -43,9 +43,9 @@ defmodule ElixIRCd.Server.SnoticeTest do
 
     test "sends operator-only notice only to operators with +s mode" do
       Memento.transaction!(fn ->
-        oper_with_s = insert(:user, nick: "oper_s", modes: ["s", "o"])
-        _user_with_s = insert(:user, nick: "user_s", modes: ["s"])
-        _oper_without_s = insert(:user, nick: "oper_no_s", modes: ["o"])
+        oper_with_s = insert(:user, nick: "oper_s", modes: [:s, :o])
+        _user_with_s = insert(:user, nick: "user_s", modes: [:s])
+        _oper_without_s = insert(:user, nick: "oper_no_s", modes: [:o])
 
         assert :ok = Snotice.broadcast(:oper, "Someone opered")
 
@@ -57,8 +57,8 @@ defmodule ElixIRCd.Server.SnoticeTest do
 
     test "sends kill notice only to operators with +s mode" do
       Memento.transaction!(fn ->
-        oper_with_s = insert(:user, nick: "oper_s", modes: ["s", "o"])
-        _user_with_s = insert(:user, nick: "user_s", modes: ["s"])
+        oper_with_s = insert(:user, nick: "oper_s", modes: [:s, :o])
+        _user_with_s = insert(:user, nick: "user_s", modes: [:s])
 
         assert :ok = Snotice.broadcast(:kill, "admin killed baduser (Spam)")
 
@@ -70,7 +70,7 @@ defmodule ElixIRCd.Server.SnoticeTest do
 
     test "formats message with correct category prefix" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["s", "o"])
+        user = insert(:user, modes: [:s, :o])
 
         Snotice.broadcast(:connect, "test")
         Snotice.broadcast(:quit, "test")
@@ -92,8 +92,8 @@ defmodule ElixIRCd.Server.SnoticeTest do
 
     test "returns :ok even when no operators have +s mode" do
       Memento.transaction!(fn ->
-        insert(:user, modes: ["s"])
-        insert(:user, modes: ["o"])
+        insert(:user, modes: [:s])
+        insert(:user, modes: [:o])
 
         assert :ok = Snotice.broadcast(:connect, "No one will receive this")
       end)
@@ -101,8 +101,8 @@ defmodule ElixIRCd.Server.SnoticeTest do
 
     test "does not send to unregistered operators" do
       Memento.transaction!(fn ->
-        _unregistered = insert(:user, registered: false, modes: ["s", "o"])
-        registered = insert(:user, nick: "registered", modes: ["s", "o"])
+        _unregistered = insert(:user, registered: false, modes: [:s, :o])
+        registered = insert(:user, nick: "registered", modes: [:s, :o])
 
         assert :ok = Snotice.broadcast(:connect, "Test message")
 

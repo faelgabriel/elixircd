@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.Whois do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1, display_hostname: 2, irc_operator?: 1, irc_operator_visible?: 2]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
@@ -89,7 +90,7 @@ defmodule ElixIRCd.Commands.Whois do
 
     messages = messages ++ [whoisuser]
 
-    if irc_operator?(user) and "x" in target_user.modes do
+    if irc_operator?(user) and :x in target_user.modes do
       whoisactually = %Message{
         command: :rpl_whoisactually,
         params: [user.nick, target_user.nick, target_user.hostname],
@@ -105,7 +106,7 @@ defmodule ElixIRCd.Commands.Whois do
   @spec maybe_add_whoismodes([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoismodes(messages, user, target_user) do
     if user.pid == target_user.pid or irc_operator?(user) do
-      modes = "+" <> (target_user.modes |> Enum.sort() |> Enum.join())
+      modes = "+" <> (target_user.modes |> Enum.sort() |> Enum.map_join(&ModeRegistry.encode!(:user, &1)))
 
       messages ++
         [
@@ -122,7 +123,7 @@ defmodule ElixIRCd.Commands.Whois do
 
   @spec maybe_add_whoisregnick([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisregnick(messages, user, target_user) do
-    if "r" in target_user.modes do
+    if :r in target_user.modes do
       messages ++
         [
           %Message{
@@ -154,7 +155,7 @@ defmodule ElixIRCd.Commands.Whois do
 
   @spec maybe_add_whoisbot([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoisbot(messages, user, target_user) do
-    if "B" in target_user.modes do
+    if :B in target_user.modes do
       messages ++
         [%Message{command: :rpl_whoisbot, params: [user.nick, target_user.nick], trailing: "Is a bot on this server"}]
     else
@@ -273,8 +274,8 @@ defmodule ElixIRCd.Commands.Whois do
   @spec membership_prefix(UserChannel.t()) :: String.t()
   defp membership_prefix(membership) do
     cond do
-      "o" in membership.modes -> "@"
-      "v" in membership.modes -> "+"
+      :o in membership.modes -> "@"
+      :v in membership.modes -> "+"
       true -> ""
     end
   end
@@ -304,7 +305,7 @@ defmodule ElixIRCd.Commands.Whois do
   @spec process_channel_visibility(String.t(), map(), MapSet.t()) :: String.t() | nil
   defp process_channel_visibility(channel_name_key, channel_map, user_channels_set) do
     channel = Map.get(channel_map, channel_name_key)
-    is_hidden = "s" in channel.modes or "p" in channel.modes
+    is_hidden = :s in channel.modes or :p in channel.modes
     user_in_channel = MapSet.member?(user_channels_set, channel_name_key)
 
     if is_hidden and not user_in_channel, do: nil, else: channel.name

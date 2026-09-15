@@ -34,7 +34,7 @@ defmodule ElixIRCd.Services.Nickserv.VerifyTest do
           assert :ok = Verify.handle(user, ["VERIFY", nick.nickname, "code"])
           {:ok, updated} = Users.get_by_pid(user.pid)
           assert updated.identified_as == nick.account_name
-          assert "r" in updated.modes
+          assert :r in updated.modes
           assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 0)
 
           assert_sent_messages_count_containing(
@@ -155,7 +155,7 @@ defmodule ElixIRCd.Services.Nickserv.VerifyTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == registered_nick.nickname
-        assert "r" in updated_user.modes
+        assert :r in updated_user.modes
 
         assert_sent_messages([
           {user.pid,
@@ -177,7 +177,7 @@ defmodule ElixIRCd.Services.Nickserv.VerifyTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == registered_nick.account_name
-        assert "r" in updated_user.modes
+        assert :r in updated_user.modes
       end)
     end
 

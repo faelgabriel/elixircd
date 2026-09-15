@@ -26,7 +26,7 @@ defmodule ElixIRCd.Commands.GlobopsTest do
 
     test "handles GLOBOPS command with no message" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "GLOBOPS", params: [], trailing: nil}
 
         assert :ok = Globops.handle(user, message)
@@ -52,9 +52,9 @@ defmodule ElixIRCd.Commands.GlobopsTest do
 
     test "handles GLOBOPS command with operator user and broadcasts to all operators" do
       Memento.transaction!(fn ->
-        sender = insert(:user, modes: ["o"])
-        operator1 = insert(:user, modes: ["o"])
-        operator2 = insert(:user, modes: ["o"])
+        sender = insert(:user, modes: [:o])
+        operator1 = insert(:user, modes: [:o])
+        operator2 = insert(:user, modes: [:o])
         regular_user = insert(:user)
         message = %Message{command: "GLOBOPS", params: [], trailing: "Network maintenance in 10 minutes"}
 
@@ -74,8 +74,8 @@ defmodule ElixIRCd.Commands.GlobopsTest do
 
     test "handles GLOBOPS command with empty message" do
       Memento.transaction!(fn ->
-        sender = insert(:user, modes: ["o"])
-        operator1 = insert(:user, modes: ["o"])
+        sender = insert(:user, modes: [:o])
+        operator1 = insert(:user, modes: [:o])
         message = %Message{command: "GLOBOPS", params: [], trailing: ""}
 
         assert :ok = Globops.handle(sender, message)
@@ -90,7 +90,7 @@ defmodule ElixIRCd.Commands.GlobopsTest do
 
     test "handles GLOBOPS when only sender is operator" do
       Memento.transaction!(fn ->
-        sender = insert(:user, modes: ["o"])
+        sender = insert(:user, modes: [:o])
         regular_user = insert(:user)
         message = %Message{command: "GLOBOPS", params: [], trailing: "Solo operator message"}
 

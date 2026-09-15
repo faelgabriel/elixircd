@@ -187,7 +187,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:send_motd, fn _user -> :ok end)
 
       # Handshake runs once while unregistered; a no-op once registered.
-      user = insert(:user, registered: false, hostname: "127.0.0.1", modes: ["Z"])
+      user = insert(:user, registered: false, hostname: "127.0.0.1", modes: [:Z])
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
       assert_sent_messages(
@@ -278,12 +278,12 @@ defmodule ElixIRCd.Server.HandshakeTest do
       Motd
       |> expect(:send_motd, fn _user -> :ok end)
 
-      user = insert(:user, registered: false, hostname: nil, modes: ["Z"])
+      user = insert(:user, registered: false, hostname: nil, modes: [:Z])
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
       assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
-      assert "x" in updated_user.modes
-      assert "Z" in updated_user.modes
+      assert :x in updated_user.modes
+      assert :Z in updated_user.modes
     end
 
     test "sends snotice to operators with +s mode when user connects" do
@@ -304,7 +304,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       Memento.transaction!(fn ->
         user = insert(:user, registered: false, hostname: nil)
-        oper_with_s = insert(:user, modes: ["o", "s"])
+        oper_with_s = insert(:user, modes: [:o, :s])
 
         assert :ok = Handshake.handle(user)
 
@@ -334,8 +334,8 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:send_motd, fn _user -> :ok end)
 
       Memento.transaction!(fn ->
-        user = insert(:user, registered: false, hostname: nil, modes: ["Z"])
-        oper_with_s = insert(:user, modes: ["o", "s"])
+        user = insert(:user, registered: false, hostname: nil, modes: [:Z])
+        oper_with_s = insert(:user, modes: [:o, :s])
 
         assert :ok = Handshake.handle(user)
 

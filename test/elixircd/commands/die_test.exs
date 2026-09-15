@@ -42,7 +42,7 @@ defmodule ElixIRCd.Commands.DieTest do
 
     test "handles DIE command with user operator" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "DIE", params: []}
 
         System
@@ -64,7 +64,7 @@ defmodule ElixIRCd.Commands.DieTest do
 
     test "handles DIE command with user operator and reason" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "DIE", params: ["#reason"], trailing: "Shutting down reason"}
 
         System

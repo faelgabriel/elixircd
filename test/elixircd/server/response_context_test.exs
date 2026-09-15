@@ -28,7 +28,7 @@ defmodule ElixIRCd.Server.ResponseContextTest do
   for {disabled, retains_batch?} <- [batch: false, labeled_response: true] do
     test "finishes a labeled REHASH before announcing removal of #{disabled}" do
       disabled = unquote(disabled)
-      user = insert(:user, pid: self(), modes: ["o"], capabilities: ["batch", "labeled-response", "cap-notify"])
+      user = insert(:user, pid: self(), modes: [:o], capabilities: ["batch", "labeled-response", "cap-notify"])
 
       stub(ElixIRCd.Utils.System, :load_configurations, fn ->
         config = Application.get_env(:elixircd, :capabilities)
@@ -70,7 +70,7 @@ defmodule ElixIRCd.Server.ResponseContextTest do
   end
 
   test "flushes the entire self KILL response before the disconnect signal" do
-    user = insert(:user, pid: self(), modes: ["o", "s"], capabilities: ["batch", "labeled-response"])
+    user = insert(:user, pid: self(), modes: [:o, :s], capabilities: ["batch", "labeled-response"])
     dispatch(user, "@label=kill KILL #{user.nick} :test")
 
     events = output_events()
@@ -105,7 +105,7 @@ defmodule ElixIRCd.Server.ResponseContextTest do
       test "#{command} closes the operator's batch before disconnecting" do
         command = unquote(command)
         test_pid = self()
-        user = insert(:user, pid: self(), modes: ["o"], capabilities: ["batch", "labeled-response"])
+        user = insert(:user, pid: self(), modes: [:o], capabilities: ["batch", "labeled-response"])
 
         if command == "DIE" do
           expect(System, :halt, fn 0 -> send(test_pid, :shutdown_requested) end)

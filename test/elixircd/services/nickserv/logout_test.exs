@@ -26,7 +26,7 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
     test "handles LOGOUT command when user is identified" do
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)
-        user = insert(:user, identified_as: registered_nick.nickname, modes: ["r"])
+        user = insert(:user, identified_as: registered_nick.nickname, modes: [:r])
 
         assert :ok = Logout.handle(user, ["LOGOUT"])
 
@@ -41,7 +41,7 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
-        assert "r" not in updated_user.modes
+        assert :r not in updated_user.modes
       end)
     end
 
@@ -94,7 +94,7 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
 
       Memento.transaction!(fn ->
         registered_nick = insert(:registered_nick)
-        user = insert(:user, identified_as: registered_nick.nickname, modes: ["r"])
+        user = insert(:user, identified_as: registered_nick.nickname, modes: [:r])
 
         assert :ok = Logout.handle(user, ["LOGOUT"])
 
@@ -124,7 +124,7 @@ defmodule ElixIRCd.Services.Nickserv.LogoutTest do
         registered_nick = insert(:registered_nick)
 
         logging_out_user =
-          insert(:user, identified_as: registered_nick.nickname, modes: ["r"], capabilities: ["account-notify"])
+          insert(:user, identified_as: registered_nick.nickname, modes: [:r], capabilities: ["account-notify"])
 
         watcher = insert(:user, capabilities: ["account-notify"])
         # Users must share a channel to receive ACCOUNT-NOTIFY (and user receives it too)

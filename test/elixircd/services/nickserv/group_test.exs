@@ -398,7 +398,7 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
         insert(:user,
           identified_as: "Source",
           sasl_authenticated: true,
-          modes: ["i", "r"],
+          modes: [:i, :r],
           capabilities: ["account-notify"]
         )
 
@@ -410,7 +410,7 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
       {:ok, updated} = Users.get_by_pid(source.pid)
       assert updated.identified_as == nil
       refute updated.sasl_authenticated
-      assert updated.modes == ["i"]
+      assert updated.modes == [:i]
       for user <- [source, watcher], do: assert_sent_messages_count_containing(user.pid, ~r/ ACCOUNT \*\r\n$/, 1)
       assert_sent_messages_amount(legacy.pid, 0)
       {:ok, updated_caller} = Users.get_by_pid(caller.pid)

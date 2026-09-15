@@ -37,7 +37,7 @@ defmodule ElixIRCd.Commands.Wallops do
 
   @spec wallops_message(User.t(), String.t()) :: :ok
   defp wallops_message(user, message) do
-    target_users = Users.get_by_mode("w")
+    target_users = Users.get_by_mode(:w)
 
     %Message{command: "WALLOPS", params: [], trailing: message}
     |> Dispatcher.broadcast(user, target_users)

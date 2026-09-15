@@ -81,7 +81,7 @@ defmodule ElixIRCd.Commands.UserhostTest do
     test "formats away, operator, truncated ident, and viewer-visible hostname fields" do
       Memento.transaction!(fn ->
         viewer = insert(:user)
-        operator_viewer = insert(:user, modes: ["o"])
+        operator_viewer = insert(:user, modes: [:o])
 
         target_user =
           insert(:user,
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Commands.UserhostTest do
             ident: "longusername",
             hostname: "real.host",
             cloaked_hostname: "cloak.host",
-            modes: ["o", "H", "x"],
+            modes: [:o, :H, :x],
             away_message: "Away"
           )
 

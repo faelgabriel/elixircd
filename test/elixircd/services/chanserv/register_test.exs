@@ -104,7 +104,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         user = insert(:user, identified_as: "founder")
 
         channel = insert(:channel, name: channel_name)
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
 
@@ -165,7 +165,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         channel =
           insert(:channel, name: channel_name, topic: build(:channel_topic, text: topic_text, setter: topic_setter))
 
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         assert :ok = Register.handle(user, ["REGISTER", channel_name, password])
 
@@ -209,7 +209,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         password = "password123"
 
         channel = insert(:channel, name: channel_name, topic: nil)
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         assert :ok = Register.handle(user, ["REGISTER", channel_name, password])
 

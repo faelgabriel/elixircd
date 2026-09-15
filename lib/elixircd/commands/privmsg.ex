@@ -215,10 +215,10 @@ defmodule ElixIRCd.Commands.Privmsg do
       should_silence_message?(target_user, user) ->
         :ok
 
-      "R" in target_user.modes and "r" not in user.modes ->
+      :R in target_user.modes and :r not in user.modes ->
         handle_restricted_user_message(user, target_user)
 
-      "g" in target_user.modes and
+      :g in target_user.modes and
           is_nil(UserAccepts.get_by_user_pid_and_accepted_user_pid(target_user.pid, user.pid)) ->
         handle_blocked_user_message(user, target_user)
 
@@ -288,7 +288,7 @@ defmodule ElixIRCd.Commands.Privmsg do
           :ok | {:error, :user_can_not_send} | {:error, :delay_message_blocked, integer()}
   # When user is not in channel
   defp check_user_channel_modes(channel, _user, nil) do
-    if "m" in channel.modes or "n" in channel.modes do
+    if :m in channel.modes or :n in channel.modes do
       {:error, :user_can_not_send}
     else
       :ok
@@ -297,7 +297,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   # When user is in channel
   defp check_user_channel_modes(channel, _user, user_channel) do
-    if "m" in channel.modes do
+    if :m in channel.modes do
       with :ok <- check_channel_moderated(channel, user_channel) do
         check_delay_message(channel, user_channel)
       end
@@ -308,7 +308,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec check_channel_moderated(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_can_not_send}
   defp check_channel_moderated(channel, user_channel) do
-    if "m" in channel.modes and not (channel_operator?(user_channel) or channel_voice?(user_channel)) do
+    if :m in channel.modes and not (channel_operator?(user_channel) or channel_voice?(user_channel)) do
       {:error, :user_can_not_send}
     else
       :ok
@@ -317,7 +317,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec check_ctcp(Channel.t(), User.t(), UserChannel.t() | nil, String.t()) :: :ok | {:error, :ctcp_blocked}
   defp check_ctcp(channel, _user, user_channel, message_text) do
-    if "C" in channel.modes and ctcp_message?(message_text) and not ctcp_action?(message_text) and
+    if :C in channel.modes and ctcp_message?(message_text) and not ctcp_action?(message_text) and
          not user_can_send_ctcp?(user_channel) do
       {:error, :ctcp_blocked}
     else
@@ -334,7 +334,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec check_formatting(Channel.t(), User.t(), String.t()) :: :ok | {:error, :formatting_blocked}
   defp check_formatting(channel, _user, message_text) do
-    if "c" in channel.modes and contains_formatting?(message_text) do
+    if :c in channel.modes and contains_formatting?(message_text) do
       {:error, :formatting_blocked}
     else
       :ok
@@ -352,10 +352,10 @@ defmodule ElixIRCd.Commands.Privmsg do
     end
   end
 
-  @spec extract_delay_mode_value([{String.t(), String.t()}]) :: integer() | nil
+  @spec extract_delay_mode_value([ElixIRCd.Commands.Mode.ChannelModes.mode()]) :: integer() | nil
   defp extract_delay_mode_value(modes) do
     Enum.find_value(modes, fn
-      {"d", value} -> String.to_integer(value)
+      {:d, value} -> String.to_integer(value)
       _ -> nil
     end)
   end

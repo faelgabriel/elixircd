@@ -31,8 +31,8 @@ defmodule ElixIRCd.Commands.LusersTest do
         |> expect(:get, 1, fn :highest_users -> 10 end)
 
         insert(:user, registered: true, modes: [])
-        insert(:user, registered: true, modes: ["i"])
-        insert(:user, registered: true, modes: ["o"])
+        insert(:user, registered: true, modes: [:i])
+        insert(:user, registered: true, modes: [:o])
         insert(:user, registered: false)
 
         user = insert(:user)

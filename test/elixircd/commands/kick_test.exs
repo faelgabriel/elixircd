@@ -89,7 +89,7 @@ defmodule ElixIRCd.Commands.KickTest do
         max_kick_message_length = Application.get_env(:elixircd, :channel)[:max_kick_message_length]
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         target_user = insert(:user, nick: "target")
         insert(:user_channel, user: target_user, channel: channel)
@@ -112,7 +112,7 @@ defmodule ElixIRCd.Commands.KickTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "KICK", params: ["#channel", "target"]}
         assert :ok = Kick.handle(user, message)
@@ -127,7 +127,7 @@ defmodule ElixIRCd.Commands.KickTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user, nick: "target")
 
         message = %Message{command: "KICK", params: ["#channel", "target"]}
@@ -143,7 +143,7 @@ defmodule ElixIRCd.Commands.KickTest do
       Memento.transaction(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         target_user = insert(:user, nick: "target")
         insert(:user_channel, user: target_user, channel: channel)
@@ -162,7 +162,7 @@ defmodule ElixIRCd.Commands.KickTest do
       Memento.transaction(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         target_user = insert(:user, nick: "target")
         insert(:user_channel, user: target_user, channel: channel)

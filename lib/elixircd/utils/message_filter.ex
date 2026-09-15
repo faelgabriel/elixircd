@@ -30,7 +30,7 @@ defmodule ElixIRCd.Utils.MessageFilter do
   @spec filter_auditorium_users([UserChannel.t()], UserChannel.t() | nil, [String.t()]) :: [UserChannel.t()]
   def filter_auditorium_users(user_channels, actor_user_channel, channel_modes) do
     cond do
-      "u" not in channel_modes ->
+      :u not in channel_modes ->
         user_channels
 
       actor_user_channel && (channel_operator?(actor_user_channel) or channel_voice?(actor_user_channel)) ->
@@ -49,8 +49,8 @@ defmodule ElixIRCd.Utils.MessageFilter do
           :ok | {:error, :registered_only_speak}
   def check_registered_only_speak(channel, user, user_channel) do
     cond do
-      "M" not in channel.modes -> :ok
-      "r" in user.modes -> :ok
+      :M not in channel.modes -> :ok
+      :r in user.modes -> :ok
       is_nil(user_channel) -> {:error, :registered_only_speak}
       channel_operator?(user_channel) or channel_voice?(user_channel) -> :ok
       true -> {:error, :registered_only_speak}

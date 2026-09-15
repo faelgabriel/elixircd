@@ -127,15 +127,15 @@ defmodule ElixIRCd.Commands.Mode do
     end
   end
 
-  @spec send_channel_mode_listing(list(String.t()), User.t(), Channel.t()) :: :ok
+  @spec send_channel_mode_listing([ElixIRCd.ModeRegistry.channel_mode()], User.t(), Channel.t()) :: :ok
   defp send_channel_mode_listing([], _user, _channel), do: :ok
 
   defp send_channel_mode_listing(listing_modes, user, channel) do
     Enum.each(listing_modes, fn mode ->
       case mode do
-        "b" -> send_ban_list(user, channel)
-        "e" -> send_except_list(user, channel)
-        "I" -> send_invex_list(user, channel)
+        :b -> send_ban_list(user, channel)
+        :e -> send_except_list(user, channel)
+        :I -> send_invex_list(user, channel)
       end
     end)
   end
@@ -148,7 +148,7 @@ defmodule ElixIRCd.Commands.Mode do
       |> Integer.to_string()
 
     max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
-    max_entries = Map.fetch!(max_list_entries, "b")
+    max_entries = Map.fetch!(max_list_entries, :b)
 
     channel_bans = ChannelBans.get_by_channel_name_key(channel.name_key)
     total_entries = length(channel_bans)
@@ -180,7 +180,7 @@ defmodule ElixIRCd.Commands.Mode do
       |> Integer.to_string()
 
     max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
-    max_entries = Map.fetch!(max_list_entries, "e")
+    max_entries = Map.fetch!(max_list_entries, :e)
 
     channel_excepts = ChannelExcepts.get_by_channel_name_key(channel.name_key)
     total_entries = length(channel_excepts)
@@ -212,7 +212,7 @@ defmodule ElixIRCd.Commands.Mode do
       |> Integer.to_string()
 
     max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
-    max_entries = Map.fetch!(max_list_entries, "I")
+    max_entries = Map.fetch!(max_list_entries, :I)
 
     channel_invexes = ChannelInvexes.get_by_channel_name_key(channel.name_key)
     total_entries = length(channel_invexes)

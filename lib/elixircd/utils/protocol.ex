@@ -29,27 +29,27 @@ defmodule ElixIRCd.Utils.Protocol do
   Checks if a user is an IRC operator.
   """
   @spec irc_operator?(User.t()) :: boolean()
-  def irc_operator?(user), do: "o" in user.modes
+  def irc_operator?(user), do: :o in user.modes
 
   @doc """
   Checks whether a viewer may see a user's IRC operator status, respecting +H.
   """
   @spec irc_operator_visible?(User.t(), User.t()) :: boolean()
   def irc_operator_visible?(target, viewer) do
-    irc_operator?(target) and ("H" not in target.modes or target.pid == viewer.pid or irc_operator?(viewer))
+    irc_operator?(target) and (:H not in target.modes or target.pid == viewer.pid or irc_operator?(viewer))
   end
 
   @doc """
   Checks if a user is a channel operator.
   """
   @spec channel_operator?(UserChannel.t()) :: boolean()
-  def channel_operator?(user_channel), do: "o" in user_channel.modes
+  def channel_operator?(user_channel), do: :o in user_channel.modes
 
   @doc """
   Checks if a user is a channel voice.
   """
   @spec channel_voice?(UserChannel.t()) :: boolean()
-  def channel_voice?(user_channel), do: "v" in user_channel.modes
+  def channel_voice?(user_channel), do: :v in user_channel.modes
 
   @doc """
   Determines if a user mask matches a user.
@@ -128,7 +128,7 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec display_hostname(User.t(), User.t() | nil) :: String.t()
   def display_hostname(user, viewer \\ nil) do
-    if "x" in user.modes and user.cloaked_hostname != nil and not (viewer != nil and irc_operator?(viewer)) do
+    if :x in user.modes and user.cloaked_hostname != nil and not (viewer != nil and irc_operator?(viewer)) do
       user.cloaked_hostname
     else
       user.hostname

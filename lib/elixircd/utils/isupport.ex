@@ -6,6 +6,7 @@ defmodule ElixIRCd.Utils.Isupport do
   alias ElixIRCd.Commands.Mode.ChannelModes
   alias ElixIRCd.Commands.Mode.UserModes
   alias ElixIRCd.Message
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
@@ -94,7 +95,7 @@ defmodule ElixIRCd.Utils.Isupport do
 
   @spec format_umodes() :: String.t()
   defp format_umodes do
-    UserModes.modes() |> Enum.join("")
+    UserModes.modes() |> Enum.map_join(&ModeRegistry.encode!(:user, &1))
   end
 
   @spec format_prefix() :: String.t()
@@ -107,7 +108,7 @@ defmodule ElixIRCd.Utils.Isupport do
     Enum.map_join([:a, :b, :c, :d], ",", fn type ->
       ChannelModes.mode_types()
       |> Enum.filter(fn {_mode, mode_type} -> mode_type == type end)
-      |> Enum.map_join(fn {mode, _type} -> mode end)
+      |> Enum.map_join(fn {mode, _type} -> ModeRegistry.encode!(:channel, mode) end)
     end)
   end
 

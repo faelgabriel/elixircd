@@ -88,7 +88,7 @@ defmodule ElixIRCd.Commands.OperTest do
 
       Memento.transaction!(fn ->
         user = insert(:user)
-        oper_with_s = insert(:user, modes: ["o", "s"])
+        oper_with_s = insert(:user, modes: [:o, :s])
 
         message = %Message{command: "OPER", params: ["admin", "admin"]}
         assert :ok = Oper.handle(user, message)
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Commands.OperTest do
     test "sends snotice to operators with +s mode when OPER fails" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        oper_with_s = insert(:user, modes: ["o", "s"])
+        oper_with_s = insert(:user, modes: [:o, :s])
 
         message = %Message{command: "OPER", params: ["admin", "wrongpass"]}
         assert :ok = Oper.handle(user, message)

@@ -214,8 +214,8 @@ defmodule ElixIRCd.Commands.ListTest do
     test "handles LIST command with private and secret channels and user not in any channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        insert(:channel, name: "#anything1", modes: ["p"])
-        insert(:channel, name: "#anything2", modes: ["s"])
+        insert(:channel, name: "#anything1", modes: [:p])
+        insert(:channel, name: "#anything2", modes: [:s])
 
         message = %Message{command: "LIST", params: []}
         assert :ok = List.handle(user, message)
@@ -229,8 +229,8 @@ defmodule ElixIRCd.Commands.ListTest do
     test "handles LIST command with private and secret channels and user is in the channels" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel1 = insert(:channel, name: "#anything1", modes: ["p"])
-        channel2 = insert(:channel, name: "#anything2", modes: ["s"])
+        channel1 = insert(:channel, name: "#anything1", modes: [:p])
+        channel2 = insert(:channel, name: "#anything2", modes: [:s])
         insert(:user_channel, user: user, channel: channel1)
         insert(:user_channel, user: user, channel: channel2)
 

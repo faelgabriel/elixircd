@@ -11,7 +11,7 @@ defmodule ElixIRCd.Commands.NamesTest do
 
   describe "handle/2" do
     for {caps, prefix} <- [{["userhost-in-names"], "@"}, {["userhost-in-names", "multi-prefix"], "@+"}],
-        {channel_modes, status} <- [{[], "="}, {["s"], "@"}, {["p"], "*"}] do
+        {channel_modes, status} <- [{[], "="}, {[:s], "@"}, {[:p], "*"}] do
       test "NAMES honors hostmasks, prefixes and channel status #{inspect({caps, channel_modes})}" do
         Memento.transaction!(fn ->
           user = insert(:user, capabilities: unquote(caps))
@@ -22,11 +22,11 @@ defmodule ElixIRCd.Commands.NamesTest do
               ident: "~target",
               hostname: "private.example",
               cloaked_hostname: "cloak.example",
-              modes: ["x"]
+              modes: [:x]
             )
 
           channel = insert(:channel, modes: unquote(channel_modes))
-          insert(:user_channel, user: target, channel: channel, modes: ["v", "o"])
+          insert(:user_channel, user: target, channel: channel, modes: [:v, :o])
           insert(:user_channel, user: user, channel: channel)
           assert :ok = Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
 
@@ -59,14 +59,14 @@ defmodule ElixIRCd.Commands.NamesTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel1 = insert(:channel, name: "#channel1")
-        channel2 = insert(:channel, name: "#channel2", modes: ["s"])
+        channel2 = insert(:channel, name: "#channel2", modes: [:s])
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
         user3 = insert(:user, nick: "user3")
         _free_user = insert(:user, nick: "free_user")
 
-        insert(:user_channel, user: user1, channel: channel1, modes: ["o"])
-        insert(:user_channel, user: user2, channel: channel1, modes: ["v"])
+        insert(:user_channel, user: user1, channel: channel1, modes: [:o])
+        insert(:user_channel, user: user2, channel: channel1, modes: [:v])
         insert(:user_channel, user: user3, channel: channel2)
 
         message = %Message{command: "NAMES", params: []}
@@ -88,8 +88,8 @@ defmodule ElixIRCd.Commands.NamesTest do
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
-        insert(:user_channel, user: user1, channel: channel, modes: ["o"])
-        insert(:user_channel, user: user2, channel: channel, modes: ["v"])
+        insert(:user_channel, user: user1, channel: channel, modes: [:o])
+        insert(:user_channel, user: user2, channel: channel, modes: [:v])
 
         message = %Message{command: "NAMES", params: [channel.name]}
         assert :ok = Names.handle(user, message)
@@ -105,12 +105,12 @@ defmodule ElixIRCd.Commands.NamesTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel1 = insert(:channel, name: "#channel1")
-        channel2 = insert(:channel, name: "#channel2", modes: ["p"])
+        channel2 = insert(:channel, name: "#channel2", modes: [:p])
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
-        insert(:user_channel, user: user1, channel: channel1, modes: ["o"])
-        insert(:user_channel, user: user2, channel: channel2, modes: ["v"])
+        insert(:user_channel, user: user1, channel: channel1, modes: [:o])
+        insert(:user_channel, user: user2, channel: channel2, modes: [:v])
 
         message = %Message{command: "NAMES", params: ["#channel1,#channel2"]}
         assert :ok = Names.handle(user, message)
@@ -155,7 +155,7 @@ defmodule ElixIRCd.Commands.NamesTest do
       test "NAMES keeps +H users visible with channel membership=#{in_channel?}" do
         Memento.transaction!(fn ->
           user = insert(:user)
-          target = insert(:user, nick: "hidden", modes: ["o", "H"])
+          target = insert(:user, nick: "hidden", modes: [:o, :H])
 
           params =
             if unquote(in_channel?) do
@@ -177,7 +177,7 @@ defmodule ElixIRCd.Commands.NamesTest do
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
         user_visible = insert(:user, nick: "visible")
-        user_invisible = insert(:user, nick: "invisible", modes: ["i"])
+        user_invisible = insert(:user, nick: "invisible", modes: [:i])
 
         insert(:user_channel, user: user_visible, channel: channel)
         insert(:user_channel, user: user_invisible, channel: channel)
@@ -194,10 +194,10 @@ defmodule ElixIRCd.Commands.NamesTest do
 
     test "handles NAMES command with operator seeing invisible users" do
       Memento.transaction!(fn ->
-        operator = insert(:user, modes: ["o"])
+        operator = insert(:user, modes: [:o])
         channel = insert(:channel, name: "#channel")
         user_visible = insert(:user, nick: "visible")
-        user_invisible = insert(:user, nick: "invisible", modes: ["i"])
+        user_invisible = insert(:user, nick: "invisible", modes: [:i])
 
         insert(:user_channel, user: user_visible, channel: channel)
         insert(:user_channel, user: user_invisible, channel: channel)
@@ -215,7 +215,7 @@ defmodule ElixIRCd.Commands.NamesTest do
     test "handles NAMES command with secret channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, name: "#secret", modes: ["s"])
+        channel = insert(:channel, name: "#secret", modes: [:s])
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
@@ -235,7 +235,7 @@ defmodule ElixIRCd.Commands.NamesTest do
     test "handles NAMES command with private channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, name: "#private", modes: ["p"])
+        channel = insert(:channel, name: "#private", modes: [:p])
         user1 = insert(:user, nick: "user1")
         user2 = insert(:user, nick: "user2")
 
@@ -256,7 +256,7 @@ defmodule ElixIRCd.Commands.NamesTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         _visible_free_user = insert(:user, nick: "visible_free")
-        _invisible_free_user = insert(:user, nick: "invisible_free", modes: ["i"])
+        _invisible_free_user = insert(:user, nick: "invisible_free", modes: [:i])
 
         message = %Message{command: "NAMES", params: []}
         assert :ok = Names.handle(user, message)
@@ -272,7 +272,7 @@ defmodule ElixIRCd.Commands.NamesTest do
     test "handles NAMES command when user is a member of a private channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        private_channel = insert(:channel, name: "#private", modes: ["p"])
+        private_channel = insert(:channel, name: "#private", modes: [:p])
         insert(:user_channel, user: user, channel: private_channel)
         other_user = insert(:user, nick: "other_user")
         insert(:user_channel, user: other_user, channel: private_channel)
@@ -352,7 +352,7 @@ defmodule ElixIRCd.Commands.NamesTest do
     test "handles NAMES command with all channels including secret channel not visible to user" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        secret_channel = insert(:channel, name: "#secret", modes: ["s"])
+        secret_channel = insert(:channel, name: "#secret", modes: [:s])
         other_user = insert(:user, nick: "other_user")
         insert(:user_channel, user: other_user, channel: secret_channel)
         message = %Message{command: "NAMES", params: []}
@@ -367,13 +367,13 @@ defmodule ElixIRCd.Commands.NamesTest do
         channel = insert(:channel, name: "#test")
 
         dual_prefix_user = insert(:user)
-        insert(:user_channel, user: dual_prefix_user, channel: channel, modes: ["o", "v"])
+        insert(:user_channel, user: dual_prefix_user, channel: channel, modes: [:o, :v])
 
         op_user = insert(:user)
-        insert(:user_channel, user: op_user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: op_user, channel: channel, modes: [:o])
 
         voice_user = insert(:user)
-        insert(:user_channel, user: voice_user, channel: channel, modes: ["v"])
+        insert(:user_channel, user: voice_user, channel: channel, modes: [:v])
 
         normal_user = insert(:user)
         insert(:user_channel, user: normal_user, channel: channel)
@@ -394,7 +394,7 @@ defmodule ElixIRCd.Commands.NamesTest do
         channel = insert(:channel, name: "#test")
 
         dual_prefix_user = insert(:user)
-        insert(:user_channel, user: dual_prefix_user, channel: channel, modes: ["o", "v"])
+        insert(:user_channel, user: dual_prefix_user, channel: channel, modes: [:o, :v])
 
         message = %Message{command: "NAMES", params: ["#test"]}
         assert :ok = Names.handle(user, message)
@@ -410,7 +410,7 @@ defmodule ElixIRCd.Commands.NamesTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#hidden_test", modes: [])
-        hidden_user = insert(:user, modes: ["i"])
+        hidden_user = insert(:user, modes: [:i])
         insert(:user_channel, user: hidden_user, channel: channel)
 
         message = %Message{command: "NAMES", params: ["#hidden_test"]}
@@ -426,7 +426,7 @@ defmodule ElixIRCd.Commands.NamesTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#member_test", modes: [])
-        hidden_member = insert(:user, nick: "hidden_member", modes: ["i"])
+        hidden_member = insert(:user, nick: "hidden_member", modes: [:i])
         insert(:user_channel, user: user, channel: channel)
         insert(:user_channel, user: hidden_member, channel: channel)
 

@@ -35,7 +35,7 @@ defmodule ElixIRCd.Commands.Globops do
 
   @spec globops_message(User.t(), String.t()) :: :ok
   defp globops_message(user, message) do
-    target_operators = Users.get_by_mode("o")
+    target_operators = Users.get_by_mode(:o)
 
     %Message{command: "GLOBOPS", params: [], trailing: message}
     |> Dispatcher.broadcast(user, target_operators)

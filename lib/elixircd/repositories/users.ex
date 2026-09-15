@@ -135,7 +135,7 @@ defmodule ElixIRCd.Repositories.Users do
   @doc """
   Get all users by the mode.
   """
-  @spec get_by_mode(String.t()) :: [User.t()]
+  @spec get_by_mode(ElixIRCd.ModeRegistry.user_mode()) :: [User.t()]
   def get_by_mode(mode) do
     :mnesia.foldl(
       fn raw_user, acc ->
@@ -204,9 +204,9 @@ defmodule ElixIRCd.Repositories.Users do
       fn raw_user, acc ->
         user = Data.load(raw_user)
 
-        visible = if user.registered and "i" not in user.modes, do: acc.visible + 1, else: acc.visible
-        invisible = if user.registered and "i" in user.modes, do: acc.invisible + 1, else: acc.invisible
-        operators = if user.registered and "o" in user.modes, do: acc.operators + 1, else: acc.operators
+        visible = if user.registered and :i not in user.modes, do: acc.visible + 1, else: acc.visible
+        invisible = if user.registered and :i in user.modes, do: acc.invisible + 1, else: acc.invisible
+        operators = if user.registered and :o in user.modes, do: acc.operators + 1, else: acc.operators
         unknown = if user.registered, do: acc.unknown, else: acc.unknown + 1
 
         %{acc | visible: visible, invisible: invisible, operators: operators, unknown: unknown, total: acc.total + 1}

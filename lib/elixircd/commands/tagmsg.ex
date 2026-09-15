@@ -111,7 +111,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
       should_silence_message?(target_user, user) ->
         :ok
 
-      "R" in target_user.modes and "r" not in user.modes ->
+      :R in target_user.modes and :r not in user.modes ->
         handle_restricted_user_message(user, target_user)
 
       not tagmsg_enabled?(target_user) ->
@@ -154,7 +154,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
   @spec check_user_channel_modes(Channel.t(), UserChannel.t() | nil) ::
           :ok | {:error, :user_can_not_send} | {:error, :delay_message_blocked, integer()}
   defp check_user_channel_modes(channel, nil) do
-    if "m" in channel.modes or "n" in channel.modes do
+    if :m in channel.modes or :n in channel.modes do
       {:error, :user_can_not_send}
     else
       :ok
@@ -162,7 +162,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
   end
 
   defp check_user_channel_modes(channel, user_channel) do
-    if "m" in channel.modes do
+    if :m in channel.modes do
       with :ok <- check_channel_moderated(channel, user_channel) do
         check_delay_message(channel, user_channel)
       end
@@ -173,7 +173,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
 
   @spec check_channel_moderated(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_can_not_send}
   defp check_channel_moderated(channel, user_channel) do
-    if "m" in channel.modes and not (channel_operator?(user_channel) or channel_voice?(user_channel)) do
+    if :m in channel.modes and not (channel_operator?(user_channel) or channel_voice?(user_channel)) do
       {:error, :user_can_not_send}
     else
       :ok
@@ -191,10 +191,10 @@ defmodule ElixIRCd.Commands.Tagmsg do
     end
   end
 
-  @spec extract_delay_mode_value([{String.t(), String.t()}]) :: integer() | nil
+  @spec extract_delay_mode_value([ElixIRCd.Commands.Mode.ChannelModes.mode()]) :: integer() | nil
   defp extract_delay_mode_value(modes) do
     Enum.find_value(modes, fn
-      {"d", value} -> String.to_integer(value)
+      {:d, value} -> String.to_integer(value)
       _ -> nil
     end)
   end

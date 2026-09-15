@@ -304,7 +304,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
       Nick.handle(owner, %Message{command: "NICK", params: ["ReservedOwner"]})
       {:ok, claimed} = Users.get_by_nick("ReservedOwner")
       assert claimed.pid == owner.pid
-      assert "r" in claimed.modes
+      assert :r in claimed.modes
       assert Enum.count(Users.get_all(), &(&1.nick_key == reserved.nickname_key)) == 1
     end)
   end

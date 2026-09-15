@@ -277,7 +277,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
         user =
           Memento.transaction!(fn ->
             {:ok, user} = Users.get_by_nick("TcpReview")
-            Users.update(user, %{modes: ["o", "s"]})
+            Users.update(user, %{modes: [:o, :s]})
           end)
 
         monitor = Process.monitor(user.pid)

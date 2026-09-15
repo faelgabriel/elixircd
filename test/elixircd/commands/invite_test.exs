@@ -32,7 +32,7 @@ defmodule ElixIRCd.Commands.InviteTest do
           silent_member = insert(:user, capabilities: ["account-tag"])
           outsider = insert(:user, capabilities: ["invite-notify", "account-tag"])
           channel = insert(:channel)
-          insert(:user_channel, user: inviter, channel: channel, modes: ["o"])
+          insert(:user_channel, user: inviter, channel: channel, modes: [:o])
 
           for member <- [tagged_member, plain_member, silent_member] do
             insert(:user_channel, user: member, channel: channel)
@@ -182,7 +182,7 @@ defmodule ElixIRCd.Commands.InviteTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         user_target = insert(:user, nick: "target")
         insert(:user_channel, user: user_target, channel: channel)
 
@@ -200,7 +200,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         user = insert(:user)
         target_user = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
         assert :ok = Invite.handle(user, message)
@@ -219,8 +219,8 @@ defmodule ElixIRCd.Commands.InviteTest do
       Memento.transaction!(fn ->
         user = insert(:user)
         target_user = insert(:user)
-        channel = insert(:channel, name: "#channel", modes: ["i"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, name: "#channel", modes: [:i])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
         assert :ok = Invite.handle(user, message)
@@ -239,7 +239,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         user = insert(:user)
         target_user = insert(:user, away_message: "I'm away")
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
         assert :ok = Invite.handle(user, message)
@@ -257,7 +257,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         user = insert(:user, identified_as: "alice")
         target_user = insert(:user, capabilities: ["account-tag"])
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
         assert :ok = Invite.handle(user, message)
@@ -274,7 +274,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         user = insert(:user)
         target_user = insert(:user, capabilities: ["account-tag"])
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
         assert :ok = Invite.handle(user, message)
@@ -293,7 +293,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         member_with_notify = insert(:user, capabilities: ["invite-notify"])
         member_without_notify = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: member_with_notify, channel: channel)
         insert(:user_channel, user: member_without_notify, channel: channel)
 
@@ -314,7 +314,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         target_user = insert(:user)
         member = insert(:user)
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: member, channel: channel)
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}
@@ -333,7 +333,7 @@ defmodule ElixIRCd.Commands.InviteTest do
         target_user = insert(:user, capabilities: ["account-tag"])
         member = insert(:user, capabilities: ["invite-notify"])
         channel = insert(:channel, name: "#channel")
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: member, channel: channel)
 
         message = %Message{command: "INVITE", params: [target_user.nick, "#channel"]}

@@ -128,7 +128,7 @@ defmodule ElixIRCd.Config.ValidatorTest do
         {[:ident_service, :timeout], [0, 5_001, :infinity]},
         {[:rate_limiter, :connection, :exceptions, :ips], [["999.0.0.1"], ["localhost"]]},
         {[:rate_limiter, :connection, :exceptions, :cidrs], [["::1/129"], ["127.0.0.1/33"], ["10.0.0.0/-1"]]},
-        {[:rate_limiter, :message, :exceptions, :umodes], [["q"], [:o]]},
+        {[:rate_limiter, :message, :exceptions, :umodes], [["o"], [:q]]},
         {[:services, :chanserv, :settings, :mlock], ["", true]},
         {[:listeners, :tls, :transport_options, :versions], [[:"tlsv1.1"], ["tlsv1.3"]]}
       ] do

@@ -37,7 +37,7 @@ defmodule ElixIRCd.Commands.Operwall do
 
   @spec operwall_message(User.t(), String.t()) :: :ok
   defp operwall_message(sender, message) do
-    target_operators = Users.get_by_mode("o")
+    target_operators = Users.get_by_mode(:o)
 
     %Message{command: "WALLOPS", params: [], trailing: message}
     |> Dispatcher.broadcast(sender, target_operators)

@@ -82,8 +82,8 @@ defmodule ElixIRCd.Commands.Names do
         {:error, :user_channel_not_found} -> false
       end
 
-    is_secret = "s" in channel.modes
-    is_private = "p" in channel.modes
+    is_secret = :s in channel.modes
+    is_private = :p in channel.modes
 
     cond do
       is_member -> true
@@ -129,8 +129,8 @@ defmodule ElixIRCd.Commands.Names do
   @spec get_channel_status(Channel.t()) :: String.t()
   defp get_channel_status(channel) do
     cond do
-      "s" in channel.modes -> "@"
-      "p" in channel.modes -> "*"
+      :s in channel.modes -> "@"
+      :p in channel.modes -> "*"
       true -> "="
     end
   end
@@ -144,7 +144,7 @@ defmodule ElixIRCd.Commands.Names do
 
   @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: [{String.t(), String.t()}]
   defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
-    is_operator = "o" in user.modes
+    is_operator = :o in user.modes
     is_member = Enum.any?(user_channels, &(&1.user_pid == user.pid))
     use_extended_names = "userhost-in-names" in user.capabilities
     use_multi_prefix = "multi-prefix" in user.capabilities
@@ -171,7 +171,7 @@ defmodule ElixIRCd.Commands.Names do
       target_user.pid == requesting_user.pid -> true
       is_operator -> true
       is_member -> true
-      true -> "i" not in target_user.modes
+      true -> :i not in target_user.modes
     end
   end
 
@@ -196,8 +196,8 @@ defmodule ElixIRCd.Commands.Names do
       |> Enum.reject(fn u -> u.pid in channel_users or u.pid == user.pid end)
       |> Enum.filter(fn target ->
         cond do
-          "o" in user.modes -> true
-          "i" not in target.modes -> true
+          :o in user.modes -> true
+          :i not in target.modes -> true
           true -> false
         end
       end)
@@ -222,16 +222,16 @@ defmodule ElixIRCd.Commands.Names do
   @spec get_user_prefix(UserChannel.t(), boolean()) :: String.t()
   defp get_user_prefix(user_channel, true = _use_multi_prefix) do
     []
-    |> maybe_add_user_prefix("o" in user_channel.modes, "@")
-    |> maybe_add_user_prefix("v" in user_channel.modes, "+")
+    |> maybe_add_user_prefix(:o in user_channel.modes, "@")
+    |> maybe_add_user_prefix(:v in user_channel.modes, "+")
     |> Enum.reverse()
     |> Enum.join("")
   end
 
   defp get_user_prefix(user_channel, false = _use_multi_prefix) do
     cond do
-      "o" in user_channel.modes -> "@"
-      "v" in user_channel.modes -> "+"
+      :o in user_channel.modes -> "@"
+      :v in user_channel.modes -> "+"
       true -> ""
     end
   end

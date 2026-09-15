@@ -206,11 +206,11 @@ defmodule ElixIRCd.Commands.TagmsgTest do
     test "sends TAGMSG in moderated channel when user is operator and no delay is configured" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: ["message-tags"])
-        channel = insert(:channel, name: "#staff", modes: ["m"])
+        channel = insert(:channel, name: "#staff", modes: [:m])
 
         other_user = insert(:user, capabilities: ["message-tags"])
 
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:user_channel, user: other_user, channel: channel, modes: [])
 
         message = %Message{command: "TAGMSG", params: [channel.name], tags: %{"+example" => "1"}}
@@ -294,7 +294,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
     test "returns error when sending TAGMSG to a moderated or no-outside-messages channel the user is not in" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: ["message-tags"])
-        channel = insert(:channel, name: "#mod", modes: ["m"])
+        channel = insert(:channel, name: "#mod", modes: [:m])
         message = %Message{command: "TAGMSG", params: [channel.name]}
 
         assert :ok = Tagmsg.handle(user, message)
@@ -308,7 +308,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
     test "returns delay error when channel has +d and user has not waited enough" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: ["message-tags"])
-        channel = insert(:channel, name: "#delay", modes: [{"d", "10"}])
+        channel = insert(:channel, name: "#delay", modes: [{:d, "10"}])
 
         insert(:user_channel, user: user, channel: channel, created_at: DateTime.utc_now(), modes: [])
 
@@ -326,7 +326,7 @@ defmodule ElixIRCd.Commands.TagmsgTest do
     test "returns error when sending TAGMSG to a restricted user without +r" do
       Memento.transaction!(fn ->
         sender = insert(:user, capabilities: ["message-tags"], modes: [])
-        recipient = insert(:user, modes: ["R"])
+        recipient = insert(:user, modes: [:R])
 
         message = %Message{command: "TAGMSG", params: [recipient.nick]}
 

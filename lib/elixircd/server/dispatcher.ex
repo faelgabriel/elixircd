@@ -237,7 +237,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   @spec maybe_put_bot_tag(Message.t(), [String.t()]) :: Message.t()
   defp maybe_put_bot_tag(%Message{} = message, modes) do
-    if "B" in modes do
+    if :B in modes do
       %{message | tags: Map.put(message.tags, "bot", nil)}
     else
       message

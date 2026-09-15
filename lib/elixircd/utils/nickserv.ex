@@ -82,7 +82,7 @@ defmodule ElixIRCd.Utils.Nickserv do
         _ -> false
       end
 
-    modes = if registered, do: Enum.uniq(user.modes ++ ["r"]), else: List.delete(user.modes, "r")
+    modes = if registered, do: Enum.uniq(user.modes ++ [:r]), else: List.delete(user.modes, :r)
 
     if modes == user.modes do
       user
@@ -105,7 +105,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   def logout_account_users(account_name) do
     Users.get_by_identified_as(account_name)
     |> Enum.each(fn target_user ->
-      new_modes = List.delete(target_user.modes, "r")
+      new_modes = List.delete(target_user.modes, :r)
 
       updated_target_user =
         Users.update(target_user, %{identified_as: nil, sasl_authenticated: false, modes: new_modes})

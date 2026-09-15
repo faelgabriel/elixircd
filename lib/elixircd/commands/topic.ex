@@ -48,7 +48,7 @@ defmodule ElixIRCd.Commands.Topic do
     |> case do
       {:ok, channel} ->
         # Secret (+s) channels hide topic and existence from non-members, like in NAMES.
-        if "s" in channel.modes and not channel_member?(user, channel) do
+        if :s in channel.modes and not channel_member?(user, channel) do
           send_nosuchchannel_error(user, channel_name)
         else
           send_channel_topic(channel, user)
@@ -116,7 +116,7 @@ defmodule ElixIRCd.Commands.Topic do
 
   @spec check_channel_operator_permission(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
   defp check_channel_operator_permission(channel, user_channel) do
-    case {"t" in channel.modes, "o" in user_channel.modes} do
+    case {:t in channel.modes, :o in user_channel.modes} do
       {true, false} -> {:error, :user_is_not_operator}
       _modes -> :ok
     end

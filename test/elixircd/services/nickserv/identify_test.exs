@@ -299,7 +299,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
         Identify.handle(user, ["IDENTIFY", "Account", "password"])
         {:ok, updated} = Users.get_by_pid(user.pid)
         assert updated.identified_as == "Account"
-        assert "r" in updated.modes == expected
+        assert :r in updated.modes == expected
         assert_sent_messages_count_containing(user.pid, ~r/ 903 /, 0)
       end
     end)

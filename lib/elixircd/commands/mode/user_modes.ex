@@ -7,21 +7,23 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
 
   import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
 
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.User
 
-  @modes ["B", "g", "H", "i", "o", "r", "R", "s", "w", "x", "Z"]
-  @modes_handled_by_server_to_add ["o", "r", "Z"]
-  @modes_handled_by_server_to_remove ["r", "Z"]
-  @modes_restricted_to_operators ["H", "s"]
+  @modes ModeRegistry.modes(:user)
+  @modes_handled_by_server_to_add [:o, :r, :Z]
+  @modes_handled_by_server_to_remove [:r, :Z]
+  @modes_restricted_to_operators [:H, :s]
 
-  @type mode :: String.t()
+  @type mode :: ModeRegistry.user_mode()
   @type mode_change :: {:add, mode()} | {:remove, mode()}
+  @type parsed_mode_change :: {:add, mode() | String.t()} | {:remove, mode() | String.t()}
 
   @doc """
   Returns the supported modes.
   """
-  @spec modes :: [String.t()]
+  @spec modes :: [mode()]
   def modes, do: @modes
 
   @doc """
@@ -35,7 +37,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
     filtered_modes =
       if irc_operator?(user), do: modes, else: Enum.reject(modes, &(&1 in @modes_restricted_to_operators))
 
-    "+" <> Enum.join(filtered_modes, "")
+    "+" <> Enum.map_join(filtered_modes, &ModeRegistry.encode!(:user, &1))
   end
 
   @doc """
@@ -45,10 +47,10 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   def display_mode_changes(applied_modes) do
     {mode_string, _} =
       Enum.reduce(applied_modes, {"", :none}, fn
-        {:add, mode}, {mode_str, :add} -> {"#{mode_str}#{mode}", :add}
-        {:remove, mode}, {mode_str, :remove} -> {"#{mode_str}#{mode}", :remove}
-        {:add, mode}, {mode_str, _} -> {"#{mode_str}+#{mode}", :add}
-        {:remove, mode}, {mode_str, _} -> {"#{mode_str}-#{mode}", :remove}
+        {:add, mode}, {mode_str, :add} -> {mode_str <> ModeRegistry.encode!(:user, mode), :add}
+        {:remove, mode}, {mode_str, :remove} -> {mode_str <> ModeRegistry.encode!(:user, mode), :remove}
+        {:add, mode}, {mode_str, _} -> {mode_str <> "+" <> ModeRegistry.encode!(:user, mode), :add}
+        {:remove, mode}, {mode_str, _} -> {mode_str <> "-" <> ModeRegistry.encode!(:user, mode), :remove}
       end)
 
     mode_string
@@ -69,7 +71,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   defp prefix_mode_string_if_needed("-" <> _ = mode_string), do: mode_string
   defp prefix_mode_string_if_needed(mode_string), do: "+#{mode_string}"
 
-  @spec handle_changed_modes(String.t()) :: [mode_change()]
+  @spec handle_changed_modes(String.t()) :: [parsed_mode_change()]
   defp handle_changed_modes(mode_string) do
     mode_string
     |> String.graphemes()
@@ -82,14 +84,14 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
     |> then(fn {_, modes} -> Enum.reverse(modes) end)
   end
 
-  @spec filter_changed_modes([mode_change()]) :: {[mode_change()], [String.t()]}
+  @spec filter_changed_modes([parsed_mode_change()]) :: {[mode_change()], [String.t()]}
   defp filter_changed_modes(changed_modes) do
     changed_modes
     |> Enum.reduce({[], []}, fn
       {action, mode}, {valid_modes, invalid_modes} when action in [:add, :remove] ->
-        case mode do
-          mode_flag when mode_flag in @modes -> {[{action, mode} | valid_modes], invalid_modes}
-          mode_flag -> {valid_modes, [mode_flag | invalid_modes]}
+        case ModeRegistry.decode(:user, mode) do
+          {:ok, decoded_mode} -> {[{action, decoded_mode} | valid_modes], invalid_modes}
+          :error -> {valid_modes, [mode | invalid_modes]}
         end
     end)
     |> then(fn {valid_modes, invalid_modes} -> {Enum.reverse(valid_modes), Enum.reverse(invalid_modes)} end)
@@ -126,12 +128,12 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
   end
 
   @spec valid_when_cloak_disabled?(mode_change()) :: boolean()
-  defp valid_when_cloak_disabled?({:remove, "x"}), do: false
+  defp valid_when_cloak_disabled?({:remove, :x}), do: false
   defp valid_when_cloak_disabled?(_), do: true
 
   @spec add_operator_mode_removals(User.t(), [mode_change()]) :: [mode_change()]
   defp add_operator_mode_removals(user, valid_modes) do
-    if Enum.any?(valid_modes, &match?({:remove, "o"}, &1)) do
+    if Enum.any?(valid_modes, &match?({:remove, :o}, &1)) do
       operator_modes_to_remove =
         @modes_restricted_to_operators
         |> Enum.filter(&has_or_adding_mode?(user, valid_modes, &1))
@@ -143,7 +145,7 @@ defmodule ElixIRCd.Commands.Mode.UserModes do
     end
   end
 
-  @spec has_or_adding_mode?(User.t(), [mode_change()], String.t()) :: boolean()
+  @spec has_or_adding_mode?(User.t(), [mode_change()], mode()) :: boolean()
   defp has_or_adding_mode?(user, mode_changes, mode) do
     mode in user.modes or Enum.any?(mode_changes, &match?({:add, ^mode}, &1))
   end

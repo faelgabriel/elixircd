@@ -68,7 +68,7 @@ defmodule ElixIRCd.Services.Chanserv.Invite do
 
   @spec maybe_add_invite(Channel.t(), User.t(), User.t()) :: :ok
   defp maybe_add_invite(channel, target_user, user) do
-    if "i" in channel.modes do
+    if :i in channel.modes do
       ChannelInvites.create(%{user_pid: target_user.pid, channel_name_key: channel.name_key, setter: user_mask(user)})
     end
 

@@ -185,14 +185,14 @@ defmodule ElixIRCd.Commands.Who do
   @spec filter_out_invisible_users_for_channel([User.t()], User.t(), boolean()) :: [User.t()]
   defp filter_out_invisible_users_for_channel(users, requesting_user, user_shares_channel?) do
     users
-    |> Enum.reject(&("i" in &1.modes and &1.pid != requesting_user.pid and !user_shares_channel?))
+    |> Enum.reject(&(:i in &1.modes and &1.pid != requesting_user.pid and !user_shares_channel?))
   end
 
   @spec filter_out_invisible_users_for_mask([User.t()], User.t(), [pid()], String.t()) :: [User.t()]
   defp filter_out_invisible_users_for_mask(users, requesting_user, user_pids_sharing_channels_keys, mask) do
     users
     |> Enum.reject(
-      &("i" in &1.modes and &1.pid != requesting_user.pid and &1.pid not in user_pids_sharing_channels_keys and
+      &(:i in &1.modes and &1.pid != requesting_user.pid and &1.pid not in user_pids_sharing_channels_keys and
           &1.nick_key != CaseMapping.normalize(mask))
     )
   end
@@ -200,7 +200,7 @@ defmodule ElixIRCd.Commands.Who do
   @spec filter_out_hidden_channel([User.t()], Channel.t(), boolean()) :: [User.t()]
   defp filter_out_hidden_channel(users, channel, user_shares_channel?) do
     # Direct WHO queries are allowed on private channels; secret channels remain hidden.
-    if !user_shares_channel? and "s" in channel.modes do
+    if !user_shares_channel? and :s in channel.modes do
       []
     else
       users
@@ -236,7 +236,7 @@ defmodule ElixIRCd.Commands.Who do
       user_shares_channel? or
         case Map.get(channel_map, user_channel.channel_name_key) do
           nil -> false
-          channel -> "s" not in channel.modes and "p" not in channel.modes
+          channel -> :s not in channel.modes and :p not in channel.modes
         end
     end)
   end
@@ -383,8 +383,8 @@ defmodule ElixIRCd.Commands.Who do
   @spec whox_op_level(UserChannel.t() | nil) :: String.t()
   defp whox_op_level(%UserChannel{modes: modes}) do
     cond do
-      "o" in modes -> "2"
-      "v" in modes -> "1"
+      :o in modes -> "2"
+      :v in modes -> "1"
       true -> "0"
     end
   end
@@ -396,7 +396,7 @@ defmodule ElixIRCd.Commands.Who do
     prefixes = channel_operator_symbol(user_channel) <> channel_voice_symbol(user_channel)
     prefixes = if "multi-prefix" in requesting_user.capabilities, do: prefixes, else: String.slice(prefixes, 0, 1)
 
-    bot = if "B" in user_target.modes, do: "B", else: ""
+    bot = if :B in user_target.modes, do: "B", else: ""
     user_away_status(user_target) <> irc_operator_symbol(user_target, requesting_user) <> bot <> prefixes
   end
 
@@ -407,11 +407,11 @@ defmodule ElixIRCd.Commands.Who do
   defp irc_operator_symbol(target, viewer), do: if(irc_operator_visible?(target, viewer), do: "*", else: "")
 
   @spec channel_operator_symbol(UserChannel.t() | nil) :: String.t()
-  defp channel_operator_symbol(%UserChannel{modes: modes}), do: if("o" in modes, do: "@", else: "")
+  defp channel_operator_symbol(%UserChannel{modes: modes}), do: if(:o in modes, do: "@", else: "")
   defp channel_operator_symbol(_user_channel), do: ""
 
   @spec channel_voice_symbol(UserChannel.t() | nil) :: String.t()
-  defp channel_voice_symbol(%UserChannel{modes: modes}), do: if("v" in modes, do: "+", else: "")
+  defp channel_voice_symbol(%UserChannel{modes: modes}), do: if(:v in modes, do: "+", else: "")
   defp channel_voice_symbol(_user_channel), do: ""
 
   @spec parse_query([String.t()]) :: map()

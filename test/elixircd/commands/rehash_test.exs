@@ -20,7 +20,7 @@ defmodule ElixIRCd.Commands.RehashTest do
   describe "handle/2" do
     test "accepts the local hostname case-insensitively" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         expect(System, :load_configurations, fn -> :ok end)
 
         assert :ok = Rehash.handle(user, %Message{command: "REHASH", params: ["IRC.TEST"]})
@@ -75,7 +75,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       on_exit(fn -> Application.put_all_env(elixircd: original_config) end)
 
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "REHASH", params: []}
 
         assert :ok = Rehash.handle(user, message)
@@ -89,7 +89,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
     test "rejects REHASH command with a server argument" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "REHASH", params: ["other.server"]}
 
         assert :ok = Rehash.handle(user, message)
@@ -113,7 +113,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         Memento.transaction!(fn ->
           capabilities = ["cap-notify", "batch", "labeled-response"]
           capabilities = if unquote(modern), do: ["standard-replies" | capabilities], else: capabilities
-          oper = insert(:user, modes: ["o"], capabilities: capabilities)
+          oper = insert(:user, modes: [:o], capabilities: capabilities)
           observer = insert(:user, capabilities: ["cap-notify", "standard-replies"])
           request = %Message{command: "REHASH", params: [], tags: %{"label" => "failed"}}
 
@@ -152,7 +152,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       end)
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"], capabilities: ["standard-replies"])
+        oper = insert(:user, modes: [:o], capabilities: ["standard-replies"])
         observer = insert(:user, capabilities: ["cap-notify"])
         capture_log(fn -> assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []}) end)
         assert_sent_message_contains(oper.pid, ~r/FAIL REHASH CONFIG_BAD/)
@@ -167,7 +167,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       expect(Isupport, :notify_changes, fn _ -> raise "notification failure" end)
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"], capabilities: ["standard-replies"])
+        oper = insert(:user, modes: [:o], capabilities: ["standard-replies"])
 
         assert_raise RuntimeError, "notification failure", fn ->
           Rehash.handle(oper, %Message{command: "REHASH", params: []})
@@ -191,7 +191,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         Application.put_env(:elixircd, :monitor, enabled: not unquote(enabled), max_targets: 100)
 
         Memento.transaction!(fn ->
-          oper = insert(:user, modes: ["o"])
+          oper = insert(:user, modes: [:o])
           client = insert(:user, capabilities: [])
           negotiating = insert(:user, registered: false, capabilities: ["cap-notify"])
           insert(:user_monitor, user: client, target_nick_key: "target")
@@ -222,7 +222,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         Application.put_env(:elixircd, :monitor, enabled: true, max_targets: 100)
 
         Memento.transaction!(fn ->
-          oper = insert(:user, modes: ["o"])
+          oper = insert(:user, modes: [:o])
           client = insert(:user)
           insert(:user_monitor, user: client, target_nick_key: "target")
 
@@ -248,7 +248,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :message_ids, enabled: true)
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["message-tags", "cap-notify"])
         stub(System, :load_configurations, fn -> Application.put_env(:elixircd, :message_ids, enabled: false) end)
 
@@ -280,7 +280,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         )
 
         Memento.transaction!(fn ->
-          oper = insert(:user, modes: ["o"])
+          oper = insert(:user, modes: [:o])
           capabilities = if unquote(enabled), do: ["cap-notify"], else: ["cap-notify", "userhost-in-names"]
           client = insert(:user, capabilities: capabilities)
           silent_client = insert(:user, capabilities: ["userhost-in-names"])
@@ -312,7 +312,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, (original_config || []) |> Keyword.put(:invite_notify, false))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
@@ -334,7 +334,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, (original_config || []) |> Keyword.put(:away_notify, true))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify", "away-notify"], registered: true)
 
         System
@@ -364,7 +364,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       )
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
@@ -389,7 +389,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, (original_config || []) |> Keyword.put(:setname, true))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
@@ -412,7 +412,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, (original_config || []) |> Keyword.put(:multi_prefix, false))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client_with_cap = insert(:user, capabilities: ["cap-notify"], registered: true)
         client_without_cap = insert(:user, capabilities: [], registered: true)
 
@@ -436,7 +436,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, (original_config || []) |> Keyword.put(:account_notify, false))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client1 = insert(:user, capabilities: ["cap-notify"], registered: true)
         client2 = insert(:user, capabilities: ["cap-notify"], registered: true)
 
@@ -464,7 +464,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       )
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify", "server-time"], registered: true)
 
         System
@@ -493,7 +493,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :sts, false))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify"], cap_version: 302, registered: true, transport: :tcp)
 
         System
@@ -517,7 +517,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :sts, false))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify"], cap_version: 302, registered: true, transport: :tls)
 
         System
@@ -545,7 +545,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       )
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         client = insert(:user, capabilities: ["cap-notify"], registered: true)
 
         System
@@ -573,7 +573,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       )
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
 
         client =
           insert(:user,
@@ -614,7 +614,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       end)
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"], capabilities: ["cap-notify"])
+        oper = insert(:user, modes: [:o], capabilities: ["cap-notify"])
         Rehash.handle(oper, %Message{command: "REHASH", params: []})
         assert_sent_message_contains(oper.pid, ":irc.test CAP #{oper.nick} NEW :standard-replies\r\n")
         assert {:ok, updated} = Users.get_by_pid(oper.pid)
@@ -633,7 +633,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
       Memento.transaction!(fn ->
         oper =
-          insert(:user, modes: ["o"], capabilities: ["standard-replies", "cap-notify", "batch", "labeled-response"])
+          insert(:user, modes: [:o], capabilities: ["standard-replies", "cap-notify", "batch", "labeled-response"])
 
         legacy = insert(:user, capabilities: ["standard-replies"])
         request = %Message{command: "REHASH", params: [], tags: %{"label" => "rehash"}}
@@ -667,7 +667,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :account_notify, true))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         subject = insert(:user)
         modern = insert(:user, cap_version: 302, capabilities: ["cap-notify", "account-notify"])
         notified = insert(:user, capabilities: ["cap-notify", "account-notify"])
@@ -701,7 +701,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :capabilities, Keyword.put(original_config, :cap_notify, true))
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         modern = insert(:user, capabilities: ["cap-notify"], cap_version: 302)
         legacy = insert(:user, capabilities: ["cap-notify"])
 
@@ -743,7 +743,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       test "announces effective per-transport changes for #{key}=#{value}",
            %{sts_change: {key, value, tcp_reply, tls_reply}} do
         Memento.transaction!(fn ->
-          oper = insert(:user, modes: ["o"])
+          oper = insert(:user, modes: [:o])
           legacy = insert(:user, capabilities: [], transport: :tls)
 
           clients =
@@ -777,7 +777,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
     test "disabling STS revokes TLS policies without CAP DEL or plaintext revocation" do
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
         plaintext = insert(:user, transport: :tcp, capabilities: ["cap-notify"], cap_version: 302)
         tls = insert(:user, transport: :tls, capabilities: ["cap-notify"], cap_version: 302)
         wss = insert(:user, transport: :wss, capabilities: ["cap-notify"], cap_version: 302)
@@ -808,7 +808,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       Application.put_env(:elixircd, :sts, duration: 3600, port: 6697, preload: false)
 
       Memento.transaction!(fn ->
-        oper = insert(:user, modes: ["o"])
+        oper = insert(:user, modes: [:o])
 
         clients =
           for version <- [301, 302, 303],

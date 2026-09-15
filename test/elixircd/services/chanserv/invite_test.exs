@@ -83,7 +83,7 @@ defmodule ElixIRCd.Services.Chanserv.InviteTest do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "helper")
         target = insert(:user)
-        channel = insert(:channel, name: "#testchannel", modes: ["i"])
+        channel = insert(:channel, name: "#testchannel", modes: [:i])
 
         insert(:registered_channel, name: channel.name, founder: "founder")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "S")

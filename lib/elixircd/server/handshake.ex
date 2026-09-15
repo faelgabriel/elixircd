@@ -12,6 +12,7 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Commands.Motd
   alias ElixIRCd.Message
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -73,14 +74,14 @@ defmodule ElixIRCd.Server.Handshake do
   @spec send_connect_snotice(User.t()) :: :ok
   defp send_connect_snotice(user) do
     user_info = Snotice.format_user_info(user)
-    secure = if "Z" in user.modes, do: " (secure)", else: ""
+    secure = if :Z in user.modes, do: " (secure)", else: ""
     Snotice.broadcast(:connect, "Client connecting: #{user_info}#{secure}")
   end
 
-  @spec apply_handshake_modes([String.t()]) :: [String.t()]
+  @spec apply_handshake_modes([ModeRegistry.user_mode()]) :: [ModeRegistry.user_mode()]
   defp apply_handshake_modes(existing_modes) do
     case Application.fetch_env!(:elixircd, :cloaking)[:cloak_on_connect] do
-      true -> Enum.uniq(existing_modes ++ ["x"])
+      true -> Enum.uniq(existing_modes ++ [:x])
       _ -> existing_modes
     end
   end
@@ -165,8 +166,8 @@ defmodule ElixIRCd.Server.Handshake do
     server_hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
     app_version = "ElixIRCd-#{Application.spec(:elixircd, :vsn)}"
     server_start_date = :persistent_term.get(:server_start_time) |> Calendar.strftime("%Y-%m-%d")
-    usermodes = Mode.UserModes.modes() |> Enum.join("")
-    channelmodes = Mode.ChannelModes.modes() |> Enum.join("")
+    usermodes = Mode.UserModes.modes() |> Enum.map_join(&ModeRegistry.encode!(:user, &1))
+    channelmodes = Mode.ChannelModes.modes() |> Enum.map_join(&ModeRegistry.encode!(:channel, &1))
 
     [
       %Message{

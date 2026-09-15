@@ -26,7 +26,7 @@ defmodule ElixIRCd.Commands.OperWallTest do
 
     test "handles OPERWALL command with not enough parameters" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "OPERWALL", params: []}
 
         assert :ok = Operwall.handle(user, message)
@@ -39,7 +39,7 @@ defmodule ElixIRCd.Commands.OperWallTest do
 
     test "handles OPERWALL command with trailing parameter as nil" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
+        user = insert(:user, modes: [:o])
         message = %Message{command: "OPERWALL", params: [], trailing: nil}
 
         assert :ok = Operwall.handle(user, message)
@@ -65,9 +65,9 @@ defmodule ElixIRCd.Commands.OperWallTest do
 
     test "handles OPERWALL command with operator user and message" do
       Memento.transaction!(fn ->
-        sender = insert(:user, modes: ["o"])
-        operator1 = insert(:user, modes: ["o"])
-        operator2 = insert(:user, modes: ["o"])
+        sender = insert(:user, modes: [:o])
+        operator1 = insert(:user, modes: [:o])
+        operator2 = insert(:user, modes: [:o])
         regular_user = insert(:user)
         message = %Message{command: "OPERWALL", params: [], trailing: "Server maintenance in 10 minutes"}
 

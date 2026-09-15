@@ -73,9 +73,9 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
         insert(:registered_channel, name: channel.name, founder: "founder")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "S")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "voiced", flags: "V")
-        insert(:user_channel, user: founder, channel: channel, modes: ["v"])
+        insert(:user_channel, user: founder, channel: channel, modes: [:v])
         insert(:user_channel, user: voiced, channel: channel)
-        insert(:user_channel, user: guest, channel: channel, modes: ["o"])
+        insert(:user_channel, user: guest, channel: channel, modes: [:o])
 
         assert :ok = Sync.handle(user, ["SYNC", channel.name])
 
@@ -83,9 +83,9 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
         assert {:ok, voiced_channel} = UserChannels.get_by_user_pid_and_channel_name(voiced.pid, channel.name)
         assert {:ok, guest_channel} = UserChannels.get_by_user_pid_and_channel_name(guest.pid, channel.name)
 
-        assert "o" in founder_channel.modes
-        assert "v" not in founder_channel.modes
-        assert "v" in voiced_channel.modes
+        assert :o in founder_channel.modes
+        assert :v not in founder_channel.modes
+        assert :v in voiced_channel.modes
         assert guest_channel.modes == []
 
         assert_sent_messages_count_containing(founder.pid, ~r/:ChanServ!service@irc\.test MODE #{channel.name}/, 4)
@@ -108,8 +108,8 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
         insert(:registered_channel, name: channel.name, founder: "founder")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "S")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "voiced", flags: "V")
-        insert(:user_channel, user: founder, channel: channel, modes: ["o"])
-        insert(:user_channel, user: voiced, channel: channel, modes: ["v"])
+        insert(:user_channel, user: founder, channel: channel, modes: [:o])
+        insert(:user_channel, user: voiced, channel: channel, modes: [:v])
         insert(:user_channel, user: guest, channel: channel)
 
         assert :ok = Sync.handle(user, ["SYNC", channel.name])
@@ -130,7 +130,7 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
 
         insert(:registered_channel, name: channel.name, founder: "founder")
         insert(:registered_channel_access, channel_name: channel.name, account_name: "helper", flags: "S")
-        insert(:user_channel, user: founder, channel: channel, modes: ["o"])
+        insert(:user_channel, user: founder, channel: channel, modes: [:o])
         insert(:user_channel, user: quitter, channel: channel)
 
         # Simulate a quit racing the SYNC snapshot (membership row outlives the user row).
@@ -159,7 +159,7 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
         assert :ok = Sync.handle(user, ["SYNC", channel.name])
 
         assert {:ok, voiced_channel} = UserChannels.get_by_user_pid_and_channel_name(voiced.pid, channel.name)
-        assert "v" in voiced_channel.modes
+        assert :v in voiced_channel.modes
 
         assert_sent_messages([
           {user.pid,

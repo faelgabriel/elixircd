@@ -38,7 +38,7 @@ defmodule ElixIRCd.Utils.ProtocolTest do
 
   describe "irc_operator?/1" do
     test "returns true for irc operator" do
-      user = build(:user, %{modes: ["o"]})
+      user = build(:user, %{modes: [:o]})
       assert true == Protocol.irc_operator?(user)
     end
 
@@ -50,7 +50,7 @@ defmodule ElixIRCd.Utils.ProtocolTest do
 
   describe "channel_operator?/1" do
     test "returns true for channel operator" do
-      user_channel = build(:user_channel, %{modes: ["o"]})
+      user_channel = build(:user_channel, %{modes: [:o]})
       assert true == Protocol.channel_operator?(user_channel)
     end
 
@@ -62,7 +62,7 @@ defmodule ElixIRCd.Utils.ProtocolTest do
 
   describe "channel_voice?/1" do
     test "returns true for channel voice" do
-      user_channel = build(:user_channel, %{modes: ["v"]})
+      user_channel = build(:user_channel, %{modes: [:v]})
       assert true == Protocol.channel_voice?(user_channel)
     end
 
@@ -144,7 +144,7 @@ defmodule ElixIRCd.Utils.ProtocolTest do
           nick: "nick",
           ident: "~user",
           hostname: "real.host.com",
-          modes: ["x"],
+          modes: [:x],
           cloaked_hostname: "elixir-ABC123.example.com"
         )
 
@@ -244,8 +244,8 @@ defmodule ElixIRCd.Utils.ProtocolTest do
     end
 
     test "shows a cloaked hostname publicly and the real hostname to an operator" do
-      user = build(:user, ident: "~user", hostname: "real.host", cloaked_hostname: "cloak.host", modes: ["x"])
-      operator = build(:user, modes: ["o"])
+      user = build(:user, ident: "~user", hostname: "real.host", cloaked_hostname: "cloak.host", modes: [:x])
+      operator = build(:user, modes: [:o])
 
       assert "~user@cloak.host" == Protocol.user_host(user)
       assert "~user@real.host" == Protocol.user_host(user, operator)
@@ -351,16 +351,16 @@ defmodule ElixIRCd.Utils.ProtocolTest do
 
   describe "display_hostname/2" do
     test "returns cloaked hostname for user with +x mode" do
-      user = build(:user, modes: ["x"], cloaked_hostname: "elixir-ABC123.example.com", hostname: "real.example.com")
+      user = build(:user, modes: [:x], cloaked_hostname: "elixir-ABC123.example.com", hostname: "real.example.com")
       result = Protocol.display_hostname(user, nil)
       assert result == "elixir-ABC123.example.com"
     end
 
     test "returns real hostname when operator is viewing" do
-      operator = build(:user, modes: ["o"])
+      operator = build(:user, modes: [:o])
 
       target_user =
-        build(:user, modes: ["x"], cloaked_hostname: "elixir-ABC123.example.com", hostname: "real.example.com")
+        build(:user, modes: [:x], cloaked_hostname: "elixir-ABC123.example.com", hostname: "real.example.com")
 
       result = Protocol.display_hostname(target_user, operator)
       assert result == "real.example.com"

@@ -42,7 +42,7 @@ defmodule ElixIRCd.Server.RateLimiterTest do
       exceptions: [
         nicknames: ["Admin", "ServiceBot"],
         masks: ["*!*@localhost", "*!*staff@*.example.org"],
-        umodes: ["o", "a"]
+        umodes: [:o, :w]
       ]
     ]
   ]
@@ -307,7 +307,7 @@ defmodule ElixIRCd.Server.RateLimiterTest do
           registered: true,
           hostname: "host.example.com",
           ident: "~testuser",
-          modes: ["o", "v"]
+          modes: [:o, :v]
         })
 
       # Verify the user is excepted from rate limiting
@@ -324,7 +324,7 @@ defmodule ElixIRCd.Server.RateLimiterTest do
           registered: true,
           hostname: "host.example.com",
           ident: "~testuser",
-          modes: ["a", "v"]
+          modes: [:w, :v]
         })
 
       assert :ok = RateLimiter.check_message(user_with_another_mode, "PRIVMSG #test :Message from admin")
@@ -335,7 +335,7 @@ defmodule ElixIRCd.Server.RateLimiterTest do
           registered: true,
           hostname: "host.example.com",
           ident: "~testuser",
-          modes: ["v", "i"]
+          modes: [:v, :i]
         })
 
       # Exhaust the capacity

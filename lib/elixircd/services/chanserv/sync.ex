@@ -8,6 +8,7 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Services.Chanserv.Channel.Context, as: ChannelContext
@@ -18,7 +19,7 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
   alias ElixIRCd.Utils.Chanserv.Flags
 
   @command_name "SYNC"
-  @managed_modes ["o", "v"]
+  @managed_modes [:o, :v]
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
@@ -101,18 +102,24 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
     end
   end
 
-  @spec broadcast_mode_diff(Channel.t(), [User.t()], User.t(), [String.t()], [String.t()]) :: :ok
+  @spec broadcast_mode_diff(
+          Channel.t(),
+          [User.t()],
+          User.t(),
+          [ModeRegistry.membership_mode()],
+          [ModeRegistry.membership_mode()]
+        ) :: :ok
   defp broadcast_mode_diff(channel, channel_users, user, current_modes, desired_modes) do
     removed_modes = current_modes -- desired_modes
     added_modes = desired_modes -- current_modes
 
     Enum.each(removed_modes, fn mode ->
-      %Message{command: "MODE", params: [channel.name, "-#{mode}", user.nick]}
+      %Message{command: "MODE", params: [channel.name, "-" <> ModeRegistry.encode!(:membership, mode), user.nick]}
       |> Dispatcher.broadcast(:chanserv, channel_users)
     end)
 
     Enum.each(added_modes, fn mode ->
-      %Message{command: "MODE", params: [channel.name, "+#{mode}", user.nick]}
+      %Message{command: "MODE", params: [channel.name, "+" <> ModeRegistry.encode!(:membership, mode), user.nick]}
       |> Dispatcher.broadcast(:chanserv, channel_users)
     end)
 

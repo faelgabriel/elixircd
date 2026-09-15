@@ -70,7 +70,7 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_success_connection(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
   defp handle_success_connection(pid, transport, connection_data) do
     Memento.transaction!(fn ->
-      modes = if transport in [:tls, :wss], do: ["Z"], else: []
+      modes = if transport in [:tls, :wss], do: [:Z], else: []
       Users.create(Map.merge(connection_data, %{pid: pid, transport: transport, modes: modes}))
       update_connection_stats()
     end)

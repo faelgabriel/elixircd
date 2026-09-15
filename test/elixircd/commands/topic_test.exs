@@ -61,7 +61,7 @@ defmodule ElixIRCd.Commands.TopicTest do
       Memento.transaction!(fn ->
         outsider = insert(:user)
         member = insert(:user)
-        channel = insert(:channel, modes: ["s"])
+        channel = insert(:channel, modes: [:s])
         insert(:user_channel, user: member, channel: channel)
 
         message = %Message{command: "TOPIC", params: [channel.name]}
@@ -126,7 +126,7 @@ defmodule ElixIRCd.Commands.TopicTest do
     test "handles TOPIC command with topic message for a not-operator user in a channel with +t mode" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["t"])
+        channel = insert(:channel, modes: [:t])
         insert(:user_channel, user: user, channel: channel)
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: "Topic text!"}
@@ -188,8 +188,8 @@ defmodule ElixIRCd.Commands.TopicTest do
     test "uses normal channel operator checks when a registered channel is not TOPICLOCKed" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["t"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:t])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
         insert(:registered_channel, name: channel.name, founder: "founder")
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: "Operator topic"}
@@ -224,8 +224,8 @@ defmodule ElixIRCd.Commands.TopicTest do
     test "handles TOPIC command with topic message for an operator user in a channel with +t mode" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["t"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:t])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: "Topic channel text!"}
         assert :ok = Topic.handle(user, message)
@@ -244,8 +244,8 @@ defmodule ElixIRCd.Commands.TopicTest do
     test "handles TOPIC command with an empty topic message" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, modes: ["t"])
-        insert(:user_channel, user: user, channel: channel, modes: ["o"])
+        channel = insert(:channel, modes: [:t])
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
 
         message = %Message{command: "TOPIC", params: [channel.name], trailing: ""}
         assert :ok = Topic.handle(user, message)

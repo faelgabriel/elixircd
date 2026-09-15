@@ -41,7 +41,7 @@ defmodule ElixIRCd.Commands.TraceTest do
       Memento.transaction!(fn ->
         user = insert(:user)
 
-        insert(:user, nick: "target", modes: ["x"], hostname: "private.example", cloaked_hostname: "cloak.IP")
+        insert(:user, nick: "target", modes: [:x], hostname: "private.example", cloaked_hostname: "cloak.IP")
 
         message = %Message{command: "TRACE", params: ["target"]}
 
@@ -70,8 +70,8 @@ defmodule ElixIRCd.Commands.TraceTest do
 
     test "includes the target IP in TRACE replies to IRC operators" do
       Memento.transaction!(fn ->
-        user = insert(:user, modes: ["o"])
-        insert(:user, nick: "target", modes: ["x"], cloaked_hostname: "cloak.IP")
+        user = insert(:user, modes: [:o])
+        insert(:user, nick: "target", modes: [:x], cloaked_hostname: "cloak.IP")
         assert :ok = Trace.handle(user, %Message{command: "TRACE", params: ["target"]})
         assert_sent_message_contains(user.pid, ~r/\(127\.0\.0\.1\)/)
       end)

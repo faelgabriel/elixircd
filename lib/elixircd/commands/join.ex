@@ -27,7 +27,7 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Tables.UserChannel
 
   @type channel_states :: :created | :existing
-  @type mode :: String.t() | {String.t(), String.t()}
+  @type mode :: ElixIRCd.ModeRegistry.channel_mode() | {ElixIRCd.ModeRegistry.channel_mode(), String.t()}
   @type mode_error ::
           :channel_key_invalid
           | :channel_limit_reached
@@ -109,8 +109,8 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  @spec determine_user_channel_modes(channel_states()) :: [String.t()]
-  defp determine_user_channel_modes(:created), do: ["o"]
+  @spec determine_user_channel_modes(channel_states()) :: [ElixIRCd.ModeRegistry.membership_mode()]
+  defp determine_user_channel_modes(:created), do: [:o]
   defp determine_user_channel_modes(:existing), do: []
 
   @spec send_join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
@@ -337,7 +337,7 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec check_user_invited(Channel.t(), User.t()) :: :ok | {:error, :user_not_invited}
   defp check_user_invited(channel, user) do
-    if "i" in channel.modes do
+    if :i in channel.modes do
       has_invex_exception =
         ChannelInvexes.get_by_channel_name_key(channel.name_key)
         |> Enum.any?(&match_user_mask?(user, &1.mask))
@@ -356,7 +356,7 @@ defmodule ElixIRCd.Commands.Join do
   defp check_channel_key(channel, _user, key) do
     channel.modes
     |> Enum.find_value(fn
-      {"k", value} -> value
+      {:k, value} -> value
       _ -> nil
     end)
     |> case do
@@ -370,7 +370,7 @@ defmodule ElixIRCd.Commands.Join do
   defp check_channel_limit(channel, user) do
     channel_limit =
       Enum.find_value(channel.modes, fn
-        {"l", value} -> String.to_integer(value)
+        {:l, value} -> String.to_integer(value)
         _ -> nil
       end)
 
@@ -411,21 +411,21 @@ defmodule ElixIRCd.Commands.Join do
   @spec channel_status(Channel.t()) :: String.t()
   defp channel_status(channel) do
     cond do
-      "s" in channel.modes -> "@"
-      "p" in channel.modes -> "*"
+      :s in channel.modes -> "@"
+      :p in channel.modes -> "*"
       true -> "="
     end
   end
 
   @spec user_mode_symbol(UserChannel.t(), boolean()) :: String.t()
   defp user_mode_symbol(%UserChannel{modes: modes}, true) do
-    Enum.map_join([{"o", "@"}, {"v", "+"}], fn {mode, prefix} -> if mode in modes, do: prefix, else: "" end)
+    Enum.map_join([{:o, "@"}, {:v, "+"}], fn {mode, prefix} -> if mode in modes, do: prefix, else: "" end)
   end
 
   defp user_mode_symbol(%UserChannel{modes: modes}, false) do
     cond do
-      Enum.member?(modes, "o") -> "@"
-      Enum.member?(modes, "v") -> "+"
+      Enum.member?(modes, :o) -> "@"
+      Enum.member?(modes, :v) -> "+"
       true -> ""
     end
   end
@@ -456,7 +456,7 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec check_operator_only(Channel.t(), User.t()) :: :ok | {:error, :user_not_operator}
   defp check_operator_only(channel, user) do
-    if "O" in channel.modes and not irc_operator?(user) do
+    if :O in channel.modes and not irc_operator?(user) do
       {:error, :user_not_operator}
     else
       :ok
@@ -485,7 +485,7 @@ defmodule ElixIRCd.Commands.Join do
   @spec get_join_throttle_value([mode()]) :: String.t() | nil
   defp get_join_throttle_value(modes) do
     Enum.find_value(modes, fn
-      {"j", value} -> value
+      {:j, value} -> value
       _ -> nil
     end)
   end
@@ -508,7 +508,7 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec check_registered_only_join(Channel.t(), User.t()) :: :ok | {:error, :user_not_registered}
   defp check_registered_only_join(channel, user) do
-    if "R" in channel.modes and "r" not in user.modes do
+    if :R in channel.modes and :r not in user.modes do
       {:error, :user_not_registered}
     else
       :ok
@@ -517,7 +517,7 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec check_secure_only(Channel.t(), User.t()) :: :ok | {:error, :connection_not_secure}
   defp check_secure_only(channel, user) do
-    if "z" in channel.modes and "Z" not in user.modes do
+    if :z in channel.modes and :Z not in user.modes do
       {:error, :connection_not_secure}
     else
       :ok
