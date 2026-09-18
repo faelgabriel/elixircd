@@ -11,6 +11,7 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Group
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "requires identification" do
@@ -371,6 +372,64 @@ defmodule ElixIRCd.Services.Nickserv.GroupTest do
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Please verify it first with \x02/msg NickServ VERIFY #{account_nick.nickname} <code>\x02\r\n"}
         ])
+      end)
+    end
+
+    test "honors NEVERGROUP on the destination account" do
+      Memento.transaction!(fn ->
+        account = insert(:registered_nick, nickname: "AccountNick", settings: Settings.new(%{never_group: true}))
+        user = insert(:user, nick: "AliasNick", identified_as: account.nickname)
+
+        assert :ok = Group.handle(user, ["GROUP"])
+        assert_sent_message_contains(user.pid, ~r/Grouping is disabled for account/)
+      end)
+    end
+
+    test "honors NEVERGROUP on the source account" do
+      Memento.transaction!(fn ->
+        destination = insert(:registered_nick, nickname: "Destination")
+
+        source =
+          insert(:registered_nick,
+            nickname: "Source",
+            password: "source_password",
+            settings: Settings.new(%{never_group: true})
+          )
+
+        insert(:registered_nick,
+          nickname: "SourceAlias",
+          account_name: source.account_name,
+          password_hash: source.password_hash
+        )
+
+        user = insert(:user, nick: "SourceAlias", identified_as: destination.account_name)
+
+        assert :ok = Group.handle(user, ["GROUP", "source_password"])
+        assert_sent_message_contains(user.pid, ~r/Grouping is disabled for source account/)
+      end)
+    end
+
+    test "requires a secure connection when grouping from a SECURE source account" do
+      Memento.transaction!(fn ->
+        destination = insert(:registered_nick, nickname: "Destination")
+
+        source =
+          insert(:registered_nick,
+            nickname: "Source",
+            password: "source_password",
+            settings: Settings.new(%{secure: true})
+          )
+
+        insert(:registered_nick,
+          nickname: "SourceAlias",
+          account_name: source.account_name,
+          password_hash: source.password_hash
+        )
+
+        user = insert(:user, nick: "SourceAlias", identified_as: destination.account_name, transport: :tcp)
+
+        assert :ok = Group.handle(user, ["GROUP", "source_password"])
+        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection/)
       end)
     end
 

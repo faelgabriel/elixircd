@@ -8,7 +8,14 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
   @behaviour ElixIRCd.Service
 
   import ElixIRCd.Utils.Nickserv,
-    only: [belongs_to_account?: 2, get_account_nick: 1, notify: 2, sync_registered_mode: 1]
+    only: [
+      account_requires_secure_connection?: 1,
+      belongs_to_account?: 2,
+      get_account_nick: 1,
+      notify: 2,
+      secure_connection?: 1,
+      sync_registered_mode: 1
+    ]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -63,10 +70,15 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
   defp verify_regain_account_password(user, registered_nick, password) do
     case get_account_nick(registered_nick) do
       {:ok, account_nick} ->
-        if Argon2.verify_pass(password, account_nick.password_hash) do
-          regain_nickname(user, registered_nick)
-        else
-          notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
+        cond do
+          account_requires_secure_connection?(account_nick.account_name) and not secure_connection?(user) ->
+            notify(user, "This account requires a secure TLS connection for password authentication.")
+
+          Argon2.verify_pass(password, account_nick.password_hash) ->
+            regain_nickname(user, registered_nick)
+
+          true ->
+            notify(user, "Invalid password for \x02#{registered_nick.nickname}\x02.")
         end
 
       {:error, :registered_nick_not_found} ->

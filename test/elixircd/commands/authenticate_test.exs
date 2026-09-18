@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   setup do
     original_caps = Application.get_env(:elixircd, :capabilities)
@@ -498,6 +499,27 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       end)
     end
 
+    test "rejects account authentication over a non-secure connection when SECURE is enabled" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick,
+          nickname: "secure_account",
+          password: "password123",
+          settings: Settings.new(%{secure: true})
+        )
+
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tcp)
+
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+
+        credentials = Base.encode64("\0secure_account\0password123")
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [credentials]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 904 * :SASL authentication requires a secure TLS connection for this account\r\n"}
+        ])
+      end)
+    end
+
     test "rejects authentication with too long message" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
@@ -838,5 +860,215 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert_sent_messages_count_containing(user.pid, ~r/ ACCOUNT /, 0)
       end
     end)
+  end
+
+  describe "handle/2 - AUTHENTICATE - ECDSA-NIST256P-CHALLENGE" do
+    test "authenticates an account with its registered compressed P-256 public key" do
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: false],
+        ecdsa: [enabled: true],
+        max_attempts_per_connection: 3,
+        session_timeout_ms: 60_000
+      )
+
+      {public_key, private_key} = :crypto.generate_key(:ecdh, :secp256r1)
+      compressed_public_key = compress_public_key(public_key)
+
+      Memento.transaction!(fn ->
+        account =
+          insert(:registered_nick,
+            nickname: "ecdsa_account",
+            settings: Settings.new(%{pubkey: Base.encode64(compressed_public_key)})
+          )
+
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tls)
+
+        assert :ok =
+                 Authenticate.handle(
+                   user,
+                   %Message{command: "AUTHENTICATE", params: ["ECDSA-NIST256P-CHALLENGE"]}
+                 )
+
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
+
+        assert :ok =
+                 Authenticate.handle(
+                   user,
+                   %Message{
+                     command: "AUTHENTICATE",
+                     params: [Base.encode64(account.nickname)]
+                   }
+                 )
+
+        {:ok, session} = SaslSessions.get(user.pid)
+        challenge = session.state.challenge
+
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE #{Base.encode64(challenge)}\r\n"}])
+
+        signature = :crypto.sign(:ecdsa, :sha256, challenge, [private_key, :secp256r1])
+
+        assert :ok =
+                 Authenticate.handle(
+                   user,
+                   %Message{command: "AUTHENTICATE", params: [Base.encode64(signature)]}
+                 )
+
+        assert_sent_messages([
+          {user.pid, ~r/ 900 .* ecdsa_account :You are now logged in as ecdsa_account/},
+          {user.pid, ~r/ 903 .* :SASL authentication successful/}
+        ])
+      end)
+    end
+
+    test "accepts an empty authorization identity and rejects a malformed signature" do
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: false],
+        ecdsa: [enabled: true],
+        max_attempts_per_connection: 3,
+        session_timeout_ms: 60_000
+      )
+
+      {public_key, _private_key} = :crypto.generate_key(:ecdh, :secp256r1)
+      compressed_public_key = compress_public_key(public_key)
+
+      Memento.transaction!(fn ->
+        account =
+          insert(:registered_nick,
+            nickname: "ecdsa_empty_authzid",
+            settings: Settings.new(%{pubkey: Base.encode64(compressed_public_key)})
+          )
+
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tls)
+
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "ECDSA-NIST256P-CHALLENGE", buffer: ""})
+        Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [Base.encode64(account.nickname <> <<0>>)]})
+        {:ok, session} = SaslSessions.get(user.pid)
+
+        Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [Base.encode64("bad")]})
+
+        assert session.state.challenge != nil
+        assert_sent_message_contains(user.pid, ":irc.test 904 * :SASL authentication failed\r\n")
+      end)
+    end
+
+    test "rejects ECDSA authzids for another account or with extra separators" do
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: false],
+        ecdsa: [enabled: true],
+        max_attempts_per_connection: 3,
+        session_timeout_ms: 60_000
+      )
+
+      {public_key, _private_key} = :crypto.generate_key(:ecdh, :secp256r1)
+      compressed_public_key = compress_public_key(public_key)
+
+      Memento.transaction!(fn ->
+        account =
+          insert(:registered_nick,
+            nickname: "ecdsa_bad_authzid",
+            settings: Settings.new(%{pubkey: Base.encode64(compressed_public_key)})
+          )
+
+        for encoded_account <- [
+              account.nickname <> <<0>> <> "other",
+              account.nickname <> <<0>> <> account.nickname <> <<0>> <> "extra"
+            ] do
+          user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tls)
+
+          SaslSessions.create(%{user_pid: user.pid, mechanism: "ECDSA-NIST256P-CHALLENGE", buffer: ""})
+          Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [Base.encode64(encoded_account)]})
+
+          assert_sent_message_contains(user.pid, ":irc.test 904 * :SASL authentication failed\r\n")
+        end
+      end)
+    end
+
+    test "rejects ECDSA accounts with malformed or invalid public keys" do
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: false],
+        ecdsa: [enabled: true],
+        max_attempts_per_connection: 3,
+        session_timeout_ms: 60_000
+      )
+
+      invalid_point = <<2>> <> :binary.copy(<<255>>, 32)
+
+      for encoded_key <- ["invalid", Base.encode64(invalid_point, padding: false)] do
+        Memento.transaction!(fn ->
+          account =
+            insert(:registered_nick, nickname: "ecdsa_invalid_key", settings: Settings.new(%{pubkey: encoded_key}))
+
+          user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tls)
+
+          assert :ok =
+                   Authenticate.handle(
+                     user,
+                     %Message{command: "AUTHENTICATE", params: ["ECDSA-NIST256P-CHALLENGE"]}
+                   )
+
+          assert :ok =
+                   Authenticate.handle(
+                     user,
+                     %Message{command: "AUTHENTICATE", params: [Base.encode64(account.nickname)]}
+                   )
+
+          assert_sent_message_contains(user.pid, ":irc.test 904 * :SASL authentication failed\r\n")
+        end)
+      end
+    end
+
+    test "rejects an invalid mechanism through the defensive mechanism guard" do
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: false],
+        ecdsa: [enabled: false],
+        max_attempts_per_connection: 3,
+        session_timeout_ms: 60_000
+      )
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: ["EXTERNAL"]})
+        assert_sent_message_contains(user.pid, ":irc.test 904 * :SASL mechanism not supported\r\n")
+      end)
+    end
+
+    test "rejects ECDSA authentication when the account has no usable public key" do
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: false],
+        ecdsa: [enabled: true],
+        max_attempts_per_connection: 3,
+        session_timeout_ms: 60_000
+      )
+
+      Memento.transaction!(fn ->
+        account = insert(:registered_nick, nickname: "without_key")
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+
+        assert :ok =
+                 Authenticate.handle(
+                   user,
+                   %Message{command: "AUTHENTICATE", params: ["ECDSA-NIST256P-CHALLENGE"]}
+                 )
+
+        assert :ok =
+                 Authenticate.handle(
+                   user,
+                   %Message{command: "AUTHENTICATE", params: [Base.encode64(account.nickname)]}
+                 )
+
+        assert_sent_messages([
+          {user.pid, ":irc.test AUTHENTICATE +\r\n"},
+          {user.pid, ":irc.test 904 * :SASL authentication failed\r\n"}
+        ])
+
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+      end)
+    end
+  end
+
+  defp compress_public_key(public_key) do
+    <<_prefix, x::binary-size(32), y::binary-size(32)>> = public_key
+    prefix = if rem(:binary.last(y), 2) == 1, do: 3, else: 2
+    <<prefix, x::binary>>
   end
 end

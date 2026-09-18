@@ -13,6 +13,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Services.Nickserv.Identify
   alias ElixIRCd.Services.Nickserv.Regain
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles REGAIN command with insufficient parameters" do
@@ -69,6 +70,21 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Invalid password for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
+      end)
+    end
+
+    test "requires a secure connection for a SECURE account" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            password: "correct_password",
+            settings: Settings.new(%{secure: true})
+          )
+
+        user = insert(:user, transport: :tcp)
+
+        assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname, "correct_password"])
+        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection/)
       end)
     end
 

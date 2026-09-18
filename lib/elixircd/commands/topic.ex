@@ -229,7 +229,7 @@ defmodule ElixIRCd.Commands.Topic do
   defp sync_registered_channel_topic(channel_name, topic) do
     case RegisteredChannels.get_by_name(channel_name) do
       {:ok, registered_channel} ->
-        RegisteredChannels.update(registered_channel, %{topic: topic})
+        RegisteredChannels.update_topic(registered_channel, topic)
         :ok
 
       {:error, :registered_channel_not_found} ->

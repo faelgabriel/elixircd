@@ -16,6 +16,7 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Repositories.ChannelExcepts
   alias ElixIRCd.Repositories.ChannelInvexes
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -23,6 +24,7 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Chanserv.ModeLock
 
   @type channel_mode_errors :: :channel_not_found | :user_channel_not_found | :user_is_not_operator | :too_many_modes
 
@@ -89,10 +91,23 @@ defmodule ElixIRCd.Commands.Mode do
       {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
 
       broadcast_channel_mode_changes(user, updated_channel, applied_changes)
+      enforce_registered_mode_lock(user, updated_channel)
       send_channel_mode_listing(listing_modes, user, updated_channel)
       send_invalid_modes(invalid_modes, user)
     else
       {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
+    end
+  end
+
+  @spec enforce_registered_mode_lock(User.t(), Channel.t()) :: :ok
+  defp enforce_registered_mode_lock(user, channel) do
+    case RegisteredChannels.get_by_name(channel.name) do
+      {:ok, registered_channel} ->
+        ModeLock.reconcile_and_broadcast(channel, registered_channel, user)
+        :ok
+
+      {:error, :registered_channel_not_found} ->
+        :ok
     end
   end
 

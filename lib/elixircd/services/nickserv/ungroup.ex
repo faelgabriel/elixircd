@@ -17,6 +17,7 @@ defmodule ElixIRCd.Services.Nickserv.Ungroup do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.RegisteredNick
+  alias ElixIRCd.Tables.RegisteredNick.Settings
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -64,6 +65,17 @@ defmodule ElixIRCd.Services.Nickserv.Ungroup do
         notify(user, "You cannot ungroup the primary nickname of your account.")
 
       true ->
+        source_settings =
+          if Map.get(account_nick.settings, :display) == registered_nick.nickname do
+            Settings.update(account_nick.settings, %{display: nil})
+          else
+            account_nick.settings
+          end
+
+        if source_settings != account_nick.settings do
+          RegisteredNicks.update(account_nick, %{settings: source_settings})
+        end
+
         detached_nick =
           RegisteredNicks.update(registered_nick, %{
             account_name: registered_nick.nickname,
@@ -72,7 +84,7 @@ defmodule ElixIRCd.Services.Nickserv.Ungroup do
             verify_code: nil,
             verified_at: account_nick.verified_at,
             last_seen_at: DateTime.utc_now(),
-            settings: account_nick.settings
+            settings: Settings.update(source_settings, %{display: nil})
           })
 
         updated_user =

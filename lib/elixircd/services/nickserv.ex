@@ -24,6 +24,8 @@ defmodule ElixIRCd.Services.Nickserv do
     "RELEASE" => Nickserv.Release,
     "DROP" => Nickserv.Drop,
     "INFO" => Nickserv.Info,
+    "LIST" => Nickserv.List,
+    "MEMO" => Nickserv.Memo,
     "SET" => Nickserv.Set,
     "ACCESS" => Nickserv.Access,
     "ALIST" => Nickserv.Alist,

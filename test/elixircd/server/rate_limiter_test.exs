@@ -118,6 +118,9 @@ defmodule ElixIRCd.Server.RateLimiterTest do
 
         # After repeated violations, should escalate to throttled_exceeded
         assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
+
+        # The configured block must reject subsequent attempts until it expires.
+        assert {:error, :throttled_exceeded} = RateLimiter.check_connection(test_ip)
       end)
     end
 

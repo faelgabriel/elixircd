@@ -172,7 +172,7 @@ defmodule ElixIRCd.Repositories.Users do
 
     get_by_pids(shared_user_pids)
     |> Enum.filter(fn other_user ->
-      has_capability = capability in (other_user.capabilities || [])
+      has_capability = capability in other_user.capabilities
       is_self = other_user.pid == user.pid
 
       if include_self do

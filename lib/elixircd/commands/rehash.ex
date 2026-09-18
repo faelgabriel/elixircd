@@ -244,7 +244,7 @@ defmodule ElixIRCd.Commands.Rehash do
     new_sts = Application.fetch_env!(:elixircd, :sts)
 
     Users.get_all()
-    |> Enum.filter(&(has_cap_notify?(&1) and (&1.cap_version || 301) >= 302))
+    |> Enum.filter(&(has_cap_notify?(&1) and &1.cap_version >= 302))
     |> Enum.each(&notify_sts_change(&1, old_caps, old_sts, new_caps, new_sts))
   end
 
@@ -280,7 +280,7 @@ defmodule ElixIRCd.Commands.Rehash do
     |> Enum.each(fn user ->
       deleted = String.split(capabilities)
       # CAP 302 makes cap-notify mandatory for the lifetime of the connection.
-      deleted = if (user.cap_version || 301) >= 302, do: List.delete(deleted, "cap-notify"), else: deleted
+      deleted = if user.cap_version >= 302, do: List.delete(deleted, "cap-notify"), else: deleted
 
       if has_cap_notify?(user) and deleted != [] do
         %Message{
@@ -299,7 +299,7 @@ defmodule ElixIRCd.Commands.Rehash do
 
   @spec has_cap_notify?(User.t()) :: boolean()
   defp has_cap_notify?(user) do
-    "cap-notify" in user.capabilities or (user.cap_version || 301) >= 302
+    "cap-notify" in user.capabilities or user.cap_version >= 302
   end
 
   @spec remove_deleted_capabilities(User.t(), String.t()) :: User.t()

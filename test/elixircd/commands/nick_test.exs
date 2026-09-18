@@ -13,6 +13,7 @@ defmodule ElixIRCd.Commands.NickTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Handshake
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles concurrent NICK commands for case-equivalent nicknames" do
@@ -231,6 +232,56 @@ defmodule ElixIRCd.Commands.NickTest do
         assert_sent_messages([
           {user.pid, ":#{user_mask(user)} NICK #{nickname}\r\n"}
         ])
+      end)
+    end
+
+    test "rejects an unauthorized nickname when ENFORCE is enabled" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "EnforcedNick",
+            settings: Settings.new(%{enforce: true, kill: :off})
+          )
+
+        user = insert(:user, pid: self(), created_at: DateTime.add(DateTime.utc_now(), -60))
+
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: [registered_nick.nickname]})
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 433 #{user.nick} #{registered_nick.nickname} :Nickname is reserved and enforced by NickServ\r\n"}
+        ])
+      end)
+    end
+
+    test "disconnects an unauthorized nickname when KILL is QUICK" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "KilledNick",
+            settings: Settings.new(%{enforce: true, kill: :quick})
+          )
+
+        user = insert(:user, pid: self(), created_at: DateTime.add(DateTime.utc_now(), -60))
+
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: [registered_nick.nickname]})
+        assert_sent_message_contains(user.pid, ~r/433 .*KilledNick.*reserved and enforced/)
+        assert_received {:disconnect, "Nickname KilledNick is reserved and enforced by NickServ"}
+      end)
+    end
+
+    test "allows an enforced nickname during its configured grace period" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "GraceNick",
+            settings: Settings.new(%{enforce: true, enforce_time: 3600})
+          )
+
+        user = insert(:user, created_at: DateTime.utc_now())
+
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: [registered_nick.nickname]})
+        assert_sent_message_contains(user.pid, ~r/NICK GraceNick/)
       end)
     end
 

@@ -72,10 +72,15 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   defp verify_password(user, registered_nick, password) do
     case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
       {:ok, account_nick} ->
-        if Argon2.verify_pass(password, account_nick.password_hash) do
-          complete_identification(user, registered_nick, account_nick)
-        else
-          handle_failed_identification(user)
+        cond do
+          Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] ->
+            notify(user, "This account requires a secure TLS connection for authentication.")
+
+          Argon2.verify_pass(password, account_nick.password_hash) ->
+            complete_identification(user, registered_nick, account_nick)
+
+          true ->
+            handle_failed_identification(user)
         end
 
       {:error, :registered_nick_not_found} ->

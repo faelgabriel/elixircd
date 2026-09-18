@@ -5,10 +5,6 @@ defmodule ElixIRCd.Utils.MnesiaTest do
   use Mimic
 
   alias ElixIRCd.JobQueue
-  alias ElixIRCd.Repositories.UserMonitors
-  alias ElixIRCd.Repositories.Users
-  alias ElixIRCd.Tables.User
-  alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Utils.Mnesia
 
   setup do
@@ -18,75 +14,6 @@ defmodule ElixIRCd.Utils.MnesiaTest do
     on_exit(fn -> Supervisor.restart_child(ElixIRCd, JobQueue) end)
 
     on_exit(fn -> Mnesia.setup_mnesia(recreate: true) end)
-  end
-
-  test "upgrades the previous User schema for CAP version tracking" do
-    user_table = User
-    current = user_table.__info__().attributes
-    old = List.delete(current, :cap_version)
-    cap_version_position = Enum.find_index(current, &(&1 == :cap_version)) + 1
-    transform = &Tuple.delete_at(&1, cap_version_position)
-
-    user =
-      Memento.transaction!(fn ->
-        Users.create(%{
-          pid: self(),
-          transport: :tcp,
-          ip_address: {127, 0, 0, 1},
-          port_connected: 6667,
-          nick: "ExistingUser",
-          webirc_gateway: "gateway.example.test",
-          webirc_hostname: "user.example.test",
-          webirc_ip: "192.0.2.1",
-          webirc_secure: true,
-          webirc_used: true
-        })
-      end)
-
-    # Keep the live row while exercising the startup schema upgrade.
-    stub(Memento, :stop, fn -> :ok end)
-    stub(Memento, :start, fn -> :ok end)
-    {:atomic, :ok} = :mnesia.transform_table(user_table, transform, old)
-    Mnesia.setup_mnesia()
-    assert :mnesia.table_info(user_table, :attributes) == current
-
-    Memento.transaction!(fn ->
-      {:ok, migrated} = Users.get_by_pid(user.pid)
-      assert migrated.nick == "ExistingUser"
-      assert migrated.cap_version == 301
-      assert migrated.webirc_gateway == "gateway.example.test"
-      assert migrated.webirc_hostname == "user.example.test"
-      assert migrated.webirc_ip == "192.0.2.1"
-      assert migrated.webirc_secure
-      assert migrated.webirc_used
-      assert migrated.created_at == user.created_at
-      Users.delete(migrated)
-    end)
-  end
-
-  test "upgrades MONITOR presentation names while retaining subscription lookup" do
-    table = UserMonitor
-    current = table.__info__().attributes
-    old = List.delete(current, :target_nick)
-    target_nick_position = Enum.find_index(current, &(&1 == :target_nick)) + 1
-
-    Memento.transaction!(fn ->
-      UserMonitors.create(%{user_pid: self(), target_nick_key: "oldnick"})
-    end)
-
-    transform = &Tuple.delete_at(&1, target_nick_position)
-
-    stub(Memento, :stop, fn -> :ok end)
-    stub(Memento, :start, fn -> :ok end)
-    {:atomic, :ok} = :mnesia.transform_table(table, transform, old)
-    Mnesia.setup_mnesia()
-    assert :mnesia.table_info(table, :attributes) == current
-
-    Memento.transaction!(fn ->
-      [monitor] = UserMonitors.get_by_target_nick_key("oldnick")
-      assert monitor.user_pid == self()
-      assert monitor.target_nick == "oldnick"
-    end)
   end
 
   describe "setup_mnesia/1" do

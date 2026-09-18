@@ -8,6 +8,7 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Services.Nickserv.Info
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles INFO command with extra parameters" do
@@ -275,6 +276,81 @@ defmodule ElixIRCd.Services.Nickserv.InfoTest do
           {regular_user.pid,
            ~r/:NickServ!service@irc.test NOTICE #{regular_user.nick} :The information for this nickname is private\./}
         ])
+      end)
+    end
+
+    test "applies the individual privacy settings to public INFO status and operator views" do
+      Memento.transaction!(fn ->
+        private_status = insert(:registered_nick, nickname: "PrivateStatus", settings: %{hide_status: true})
+        regular_user = insert(:user)
+
+        assert :ok = Info.handle(regular_user, ["INFO", private_status.nickname])
+        assert_sent_message_contains(regular_user.pid, ~r/Online status is private/)
+
+        private_fields =
+          insert(:registered_nick,
+            nickname: "PrivateFields",
+            settings: %{hide_quit: true, hide_usermask: true},
+            last_seen_at: DateTime.utc_now()
+          )
+
+        operator = insert(:user, modes: [:o])
+
+        assert :ok = Info.handle(operator, ["INFO", private_fields.nickname])
+        assert_sent_message_contains(operator.pid, ~r/Last seen information is private/)
+        assert_sent_message_contains(operator.pid, ~r/Registration mask is private/)
+      end)
+    end
+
+    test "shows the complete account settings and operational flags to the owner" do
+      Memento.transaction!(fn ->
+        account =
+          insert(:registered_nick,
+            nickname: "Account",
+            email: "account@example.com",
+            settings:
+              Settings.new(%{
+                display: "DisplayName",
+                url: "https://example.com/account",
+                property: %{"role" => "admin"},
+                msg: true,
+                email_memos: :on,
+                kill: :quick,
+                hide_email: true,
+                hide_status: true,
+                hide_usermask: true,
+                hide_quit: true,
+                enforce: true,
+                never_group: true,
+                never_op: true,
+                no_greet: true,
+                private: true,
+                quiet_chg: true,
+                secure: true
+              })
+          )
+
+        owner = insert(:user, nick: account.nickname, identified_as: account.account_name)
+
+        assert :ok = Info.handle(owner, ["INFO", account.nickname])
+        assert_sent_message_contains(owner.pid, ~r/Display name:/)
+        assert_sent_message_contains(owner.pid, ~r/URL:/)
+        assert_sent_message_contains(owner.pid, ~r/Properties:/)
+        assert_sent_message_contains(owner.pid, ~r/Email address:/)
+        assert_sent_message_contains(owner.pid, ~r/MSG/)
+        assert_sent_message_contains(owner.pid, ~r/EMAILMEMOS=ON/)
+        assert_sent_message_contains(owner.pid, ~r/KILL=QUICK/)
+        assert_sent_message_contains(owner.pid, ~r/HIDEMAIL/)
+        assert_sent_message_contains(owner.pid, ~r/HIDESTATUS/)
+        assert_sent_message_contains(owner.pid, ~r/HIDEUSERMASK/)
+        assert_sent_message_contains(owner.pid, ~r/HIDEQUIT/)
+        assert_sent_message_contains(owner.pid, ~r/ENFORCE/)
+        assert_sent_message_contains(owner.pid, ~r/NEVERGROUP/)
+        assert_sent_message_contains(owner.pid, ~r/NEVEROP/)
+        assert_sent_message_contains(owner.pid, ~r/NOGREET/)
+        assert_sent_message_contains(owner.pid, ~r/PRIVATE/)
+        assert_sent_message_contains(owner.pid, ~r/QUIETCHG/)
+        assert_sent_message_contains(owner.pid, ~r/SECURE/)
       end)
     end
   end

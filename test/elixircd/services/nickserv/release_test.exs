@@ -8,6 +8,7 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Services.Nickserv.Release
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles RELEASE command with insufficient parameters" do
@@ -127,6 +128,24 @@ defmodule ElixIRCd.Services.Nickserv.ReleaseTest do
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been released.\r\n"}
         ])
+      end)
+    end
+
+    test "requires a secure connection for a SECURE account" do
+      Memento.transaction!(fn ->
+        reserved_until = DateTime.utc_now() |> DateTime.add(300)
+
+        registered_nick =
+          insert(:registered_nick,
+            reserved_until: reserved_until,
+            password: "correct_password",
+            settings: Settings.new(%{secure: true})
+          )
+
+        user = insert(:user, transport: :tcp)
+
+        assert :ok = Release.handle(user, ["RELEASE", registered_nick.nickname, "correct_password"])
+        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection for password authentication/)
       end)
     end
 

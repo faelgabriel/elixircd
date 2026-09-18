@@ -10,6 +10,8 @@ defmodule ElixIRCd.Server.RateLimiter do
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Protocol
 
+  @prepared_config_key {__MODULE__, :prepared_config}
+
   defmodule Connection do
     @moduledoc """
     Handles connection-based rate limiting.
@@ -59,7 +61,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   """
   @spec check_connection(:inet.ip_address()) :: burst_result() | {:error, :max_connections_exceeded}
   def check_connection(ip) do
-    config = Application.fetch_env!(:elixircd, :rate_limiter)[:connection]
+    config = prepared_config()[:connection]
 
     if ip_exception?(ip, config) do
       :ok
@@ -74,16 +76,8 @@ defmodule ElixIRCd.Server.RateLimiter do
   @spec ip_exception?(:inet.ip_address(), keyword()) :: boolean()
   defp ip_exception?(ip, config) do
     exceptions = Keyword.fetch!(config, :exceptions)
-
-    # Pending: Use a configuration builder that parses the IP and CIDR,
-    # so that it does not need to be parsed every call here
-    exception_ips =
-      Keyword.fetch!(exceptions, :ips)
-      |> Enum.map(fn ip -> ip |> String.to_charlist() |> :inet.parse_address() |> elem(1) end)
-
-    exception_cidrs =
-      Keyword.fetch!(exceptions, :cidrs)
-      |> Enum.map(fn cidr -> cidr |> CIDR.parse() end)
+    exception_ips = Keyword.fetch!(exceptions, :ips)
+    exception_cidrs = Keyword.fetch!(exceptions, :cidrs)
 
     cond do
       # Check if IP is in exception list
@@ -111,8 +105,13 @@ defmodule ElixIRCd.Server.RateLimiter do
   defp check_connection_rate_limits(ip, config) do
     throttle = Keyword.get(config, :throttle)
     ip_string = :inet.ntoa(ip) |> to_string()
+    block_ms = throttle[:block_ms]
+    block_key = "block:#{ip_string}"
 
-    check_connection_rate(ip_string, throttle)
+    case Violation.get(block_key, block_ms) do
+      count when is_integer(count) and count >= 1 -> {:error, :throttled_exceeded}
+      _count -> check_connection_rate(ip_string, throttle)
+    end
   end
 
   @spec check_connection_rate(String.t(), keyword()) :: burst_result()
@@ -139,9 +138,16 @@ defmodule ElixIRCd.Server.RateLimiter do
     block_threshold = throttle[:block_threshold]
     violation_key = "violation:#{ip_string}"
 
-    case Violation.hit(violation_key, window_ms, block_threshold) do
-      {:allow, count} when count >= block_threshold -> {:error, :throttled_exceeded}
-      {:allow, _count} -> {:error, :throttled, retry_ms}
+    case Violation.hit(violation_key, window_ms, block_threshold, 1) do
+      {:allow, count} when count >= block_threshold ->
+        block_ms = throttle[:block_ms]
+        block_key = "block:#{ip_string}"
+        Violation.hit(block_key, block_ms, 1, 1)
+
+        {:error, :throttled_exceeded}
+
+      {:allow, _count} ->
+        {:error, :throttled, retry_ms}
     end
   end
 
@@ -152,7 +158,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   """
   @spec check_message(User.t(), String.t()) :: burst_result()
   def check_message(user, data) do
-    config = Application.fetch_env!(:elixircd, :rate_limiter)[:message]
+    config = prepared_config()[:message]
 
     if message_exception?(user, config) do
       :ok
@@ -196,12 +202,7 @@ defmodule ElixIRCd.Server.RateLimiter do
   @spec message_exception?(User.t(), keyword()) :: boolean()
   defp message_exception?(user, config) do
     exceptions = Keyword.fetch!(config, :exceptions)
-
-    # Pending: Use a configuration builder that normalizes the nicknames
-    exception_nicknames =
-      Keyword.fetch!(exceptions, :nicknames)
-      |> Enum.map(fn nickname -> CaseMapping.normalize(nickname) end)
-
+    exception_nicknames = Keyword.fetch!(exceptions, :nicknames)
     exception_umodes = Keyword.fetch!(exceptions, :umodes)
     exception_masks = Keyword.fetch!(exceptions, :masks)
 
@@ -241,6 +242,42 @@ defmodule ElixIRCd.Server.RateLimiter do
   end
 
   defp skip_metadata(data, _marker), do: data
+
+  @spec prepared_config() :: keyword()
+  defp prepared_config do
+    config = Application.fetch_env!(:elixircd, :rate_limiter)
+    case_mapping = Application.fetch_env!(:elixircd, :settings)[:case_mapping]
+    source = {config, case_mapping}
+
+    case :persistent_term.get(@prepared_config_key, :not_set) do
+      {^source, prepared} ->
+        prepared
+
+      _ ->
+        prepared = prepare_config(config)
+        :persistent_term.put(@prepared_config_key, {source, prepared})
+        prepared
+    end
+  end
+
+  @spec prepare_config(keyword()) :: keyword()
+  defp prepare_config(config) do
+    config
+    |> update_in([:connection, :exceptions, :ips], fn ips -> Enum.map(ips, &parse_ip_address/1) end)
+    |> update_in([:connection, :exceptions, :cidrs], fn cidrs -> Enum.map(cidrs, &parse_cidr/1) end)
+    |> update_in([:message, :exceptions, :nicknames], fn nicknames ->
+      Enum.map(nicknames, &CaseMapping.normalize/1)
+    end)
+  end
+
+  @spec parse_ip_address(String.t()) :: :inet.ip_address()
+  defp parse_ip_address(ip) do
+    {:ok, parsed} = :inet.parse_address(String.to_charlist(ip))
+    parsed
+  end
+
+  @spec parse_cidr(String.t()) :: map()
+  defp parse_cidr(cidr), do: CIDR.parse(cidr)
 
   @spec token_bucket_hit(module(), String.t(), number(), pos_integer(), non_neg_integer()) ::
           {:allow, non_neg_integer()} | {:deny, non_neg_integer()}

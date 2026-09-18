@@ -10,6 +10,7 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Drop
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles DROP command with no parameters" do
@@ -108,6 +109,21 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
         ])
 
         assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+      end)
+    end
+
+    test "requires a secure connection for a SECURE account" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            password: "correct_password",
+            settings: Settings.new(%{secure: true})
+          )
+
+        user = insert(:user, transport: :tcp)
+
+        assert :ok = Drop.handle(user, ["DROP", registered_nick.nickname, "correct_password"])
+        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection for password authentication/)
       end)
     end
 
@@ -244,6 +260,28 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
           {user.pid, ":irc.test MODE #{user.nick} -r\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 has been dropped.\r\n"}
         ])
+      end)
+    end
+
+    test "clears the account display nickname when dropping that alias" do
+      Memento.transaction!(fn ->
+        primary_nick =
+          insert(:registered_nick, nickname: "PrimaryNick", settings: Settings.new(%{display: "AliasNick"}))
+
+        alias_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            account_name: primary_nick.nickname,
+            password_hash: primary_nick.password_hash,
+            settings: primary_nick.settings
+          )
+
+        user = insert(:user, nick: alias_nick.nickname, identified_as: primary_nick.account_name)
+
+        assert :ok = Drop.handle(user, ["DROP", alias_nick.nickname])
+
+        {:ok, updated_primary} = RegisteredNicks.get_by_nickname(primary_nick.nickname)
+        assert is_nil(updated_primary.settings.display)
       end)
     end
 

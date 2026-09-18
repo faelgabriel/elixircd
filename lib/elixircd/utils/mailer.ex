@@ -27,6 +27,19 @@ defmodule ElixIRCd.Utils.Mailer do
     |> deliver_now()
   end
 
+  @doc "Sends a stored NickServ memo to the recipient's configured email address."
+  @spec send_memo_email(String.t(), String.t(), String.t(), String.t()) ::
+          {:ok, Bamboo.Email.t()} | {:error, any()}
+  def send_memo_email(to, recipient, sender, body) do
+    new_email()
+    |> to(to)
+    |> from(sender_email())
+    |> subject("IRC memo for #{recipient}")
+    |> html_body(memo_email_html(recipient, sender, body))
+    |> text_body(memo_email_text(recipient, sender, body))
+    |> deliver_now()
+  end
+
   @spec sender_email() :: String.t()
   defp sender_email do
     Application.fetch_env!(:elixircd, :services)[:email][:from_address]
@@ -67,5 +80,39 @@ defmodule ElixIRCd.Utils.Mailer do
     Thank you,
     IRC Network Team
     """
+  end
+
+  @spec memo_email_html(String.t(), String.t(), String.t()) :: String.t()
+  defp memo_email_html(recipient, sender, body) do
+    """
+    <html>
+      <body>
+        <h1>NickServ memo</h1>
+        <p>A memo for <strong>#{escape_html(recipient)}</strong> was sent by <strong>#{escape_html(sender)}</strong>.</p>
+        <p>#{escape_html(body) |> String.replace("\n", "<br>")}</p>
+      </body>
+    </html>
+    """
+  end
+
+  @spec memo_email_text(String.t(), String.t(), String.t()) :: String.t()
+  defp memo_email_text(recipient, sender, body) do
+    """
+    NickServ memo
+
+    A memo for #{recipient} was sent by #{sender}.
+
+    #{body}
+    """
+  end
+
+  @spec escape_html(String.t()) :: String.t()
+  defp escape_html(value) do
+    value
+    |> String.replace("&", "&amp;")
+    |> String.replace("<", "&lt;")
+    |> String.replace(">", "&gt;")
+    |> String.replace("\"", "&quot;")
+    |> String.replace("'", "&#39;")
   end
 end

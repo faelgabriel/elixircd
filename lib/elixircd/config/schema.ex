@@ -81,6 +81,7 @@ defmodule ElixIRCd.Config.Schema do
         {:keyword,
          [
            plain: {:keyword, [enabled: :boolean, require_tls: :boolean]},
+           ecdsa: {:keyword, [enabled: :boolean]},
            session_timeout_ms: :positive_integer,
            max_attempts_per_connection: :positive_integer
          ]},
@@ -121,7 +122,30 @@ defmodule ElixIRCd.Config.Schema do
                 regain_reservation_duration: :positive_integer,
                 recover_reservation_duration: :positive_integer,
                 max_access_entries: :positive_integer,
-                settings: {:keyword, [hide_email: :boolean]}
+                settings:
+                  {:keyword,
+                   [
+                     email_memos: {:enum, [:on, :off, :only]},
+                     enforce: :boolean,
+                     enforce_time: :non_negative_integer,
+                     hide_email: :boolean,
+                     hide_status: :boolean,
+                     hide_usermask: :boolean,
+                     hide_quit: :boolean,
+                     kill: {:enum, [:on, :quick, :immed, :off]},
+                     language: {:enum, ["en", "pt-BR"]},
+                     msg: :boolean,
+                     never_group: :boolean,
+                     never_op: :boolean,
+                     no_greet: :boolean,
+                     private: :boolean,
+                     property: {:map, :text, :text},
+                     pubkey: {:nullable, :text},
+                     quiet_chg: :boolean,
+                     secure: :boolean,
+                     url: {:nullable, :url},
+                     display: {:nullable, :nickname}
+                   ]}
               ]},
            chanserv:
              {:keyword,

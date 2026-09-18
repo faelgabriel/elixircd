@@ -16,7 +16,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel.Settings do
     :entrymsg,
     # SET KEEPTOPIC - Preserve topic when channel is empty
     :keeptopic,
-    # Persistent topic to restore when KEEPTOPIC is ON
+    # Persistent topic text restored when KEEPTOPIC or TOPICLOCK is enabled
     :persistent_topic,
     # SET OPNOTICE - Notify ops when users join
     :opnotice,

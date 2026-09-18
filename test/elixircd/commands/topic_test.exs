@@ -182,6 +182,7 @@ defmodule ElixIRCd.Commands.TopicTest do
 
         {:ok, registered_channel} = RegisteredChannels.get_by_name(channel.name)
         assert registered_channel.topic.text == "Locked topic"
+        assert registered_channel.settings.persistent_topic == "Locked topic"
       end)
     end
 

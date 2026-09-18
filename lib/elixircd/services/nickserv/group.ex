@@ -14,7 +14,9 @@ defmodule ElixIRCd.Services.Nickserv.Group do
       grouped?: 1,
       notify: 2,
       logout_account_users: 1,
-      sync_registered_mode: 1
+      sync_registered_mode: 1,
+      account_requires_secure_connection?: 1,
+      secure_connection?: 1
     ]
 
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
@@ -63,13 +65,17 @@ defmodule ElixIRCd.Services.Nickserv.Group do
 
   @spec group_current_nick(User.t(), RegisteredNick.t(), String.t() | nil) :: :ok
   defp group_current_nick(user, account_nick, current_nick_password) do
-    if is_nil(account_nick.verify_code) do
-      group_nick_if_available(user, account_nick, current_nick_password)
+    if Map.get(account_nick.settings, :never_group) == true do
+      notify(user, "Grouping is disabled for account \x02#{account_nick.account_name}\x02.")
     else
-      notify(user, [
-        "Your account \x02#{account_nick.account_name}\x02 has not been verified yet.",
-        "Please verify it first with \x02/msg NickServ VERIFY #{account_nick.nickname} <code>\x02"
-      ])
+      if is_nil(account_nick.verify_code) do
+        group_nick_if_available(user, account_nick, current_nick_password)
+      else
+        notify(user, [
+          "Your account \x02#{account_nick.account_name}\x02 has not been verified yet.",
+          "Please verify it first with \x02/msg NickServ VERIFY #{account_nick.nickname} <code>\x02"
+        ])
+      end
     end
   end
 
@@ -118,14 +124,33 @@ defmodule ElixIRCd.Services.Nickserv.Group do
   defp verify_registered_nick_password(user, registered_nick, account_nick, current_nick_password) do
     case get_account_nick(registered_nick) do
       {:ok, source_account_nick} ->
-        if Argon2.verify_pass(current_nick_password, source_account_nick.password_hash) do
-          regroup_registered_nick(user, registered_nick, account_nick)
+        if Map.get(source_account_nick.settings, :never_group) == true do
+          notify(user, "Grouping is disabled for source account \x02#{source_account_nick.account_name}\x02.")
         else
-          notify(user, "Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.")
+          verify_source_password(user, registered_nick, account_nick, source_account_nick, current_nick_password)
         end
 
       {:error, :registered_nick_not_found} ->
         notify(user, "Nick \x02#{registered_nick.nickname}\x02 is not registered.")
+    end
+  end
+
+  @spec verify_source_password(
+          User.t(),
+          RegisteredNick.t(),
+          RegisteredNick.t(),
+          RegisteredNick.t(),
+          String.t()
+        ) :: :ok
+  defp verify_source_password(user, registered_nick, account_nick, source_account_nick, password) do
+    if account_requires_secure_connection?(source_account_nick.account_name) and not secure_connection?(user) do
+      notify(user, "This account requires a secure TLS connection for password authentication.")
+    else
+      if Argon2.verify_pass(password, source_account_nick.password_hash) do
+        regroup_registered_nick(user, registered_nick, account_nick)
+      else
+        notify(user, "Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.")
+      end
     end
   end
 

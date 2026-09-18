@@ -6,6 +6,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Services.Chanserv.Set
   alias ElixIRCd.Tables.RegisteredChannel.Settings
@@ -112,6 +113,89 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
         assert channel.settings.description == nil
+      end)
+    end
+
+    test "handles MLOCK validation, persistence, query, and clearing" do
+      Memento.transaction!(fn ->
+        channel_name = "#testchannel"
+        user = insert(:user, identified_as: "founder")
+        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK"])
+        assert_sent_message_contains(user.pid, ~r/No .*MLOCK.* is set/)
+        assert_sent_messages_amount(user.pid, 1)
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+kl", "25", "secret"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2MLOCK\2 for \2#{channel_name}\2 has been set to: \2+kl 25 secret\2\r\n"}
+        ])
+
+        {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
+        assert channel.settings.mlock == "+kl 25 secret"
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2MLOCK\2 for \2#{channel_name}\2 is: \2+kl 25 secret\2\r\n"}
+        ])
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+k"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :MLOCK requires a parameter for every valued mode.\r\n"}
+        ])
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+b"])
+
+        assert_sent_messages([
+          {user.pid, ":ChanServ!service@irc.test NOTICE #{user.nick} :MLOCK does not accept channel list modes.\r\n"}
+        ])
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+o", "other"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :MLOCK does not accept membership or list modes.\r\n"}
+        ])
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+?"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Invalid MLOCK. Use channel modes such as +nt or +kl <limit> <key>.\r\n"}
+        ])
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "OFF"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2MLOCK\2 for \2#{channel_name}\2 has been unset\r\n"}
+        ])
+
+        {:ok, cleared_channel} = RegisteredChannels.get_by_name(channel_name)
+        assert is_nil(cleared_channel.settings.mlock)
+      end)
+    end
+
+    test "applies MLOCK immediately to a live registered channel" do
+      Memento.transaction!(fn ->
+        channel_name = "#live-lock"
+        user = insert(:user, nick: "founder", identified_as: "founder")
+        channel = insert(:channel, name: channel_name)
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
+        insert(:registered_channel, name: channel_name, founder: "founder")
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+nt"])
+
+        {:ok, updated_channel} = Channels.get_by_name(channel_name)
+        assert Enum.sort(updated_channel.modes) == [:n, :t]
+        assert_sent_message_contains(user.pid, ~r/MODE .* \+nt/)
+        assert_sent_message_contains(user.pid, ~r/MLOCK/)
       end)
     end
 

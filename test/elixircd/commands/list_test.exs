@@ -8,6 +8,7 @@ defmodule ElixIRCd.Commands.ListTest do
 
   alias ElixIRCd.Commands.List
   alias ElixIRCd.Message
+  alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
     test "handles LIST command with user not registered" do
@@ -241,6 +242,38 @@ defmodule ElixIRCd.Commands.ListTest do
           {user.pid, ":irc.test 322 #{user.nick} #{channel1.name} 1 :#{channel1.topic.text}\r\n"},
           {user.pid, ":irc.test 322 #{user.nick} #{channel2.name} 1 :#{channel2.topic.text}\r\n"},
           {user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}
+        ])
+      end)
+    end
+
+    test "hides registered private channels from outsiders but shows them to the founder" do
+      Memento.transaction!(fn ->
+        visitor = insert(:user, nick: "visitor")
+        founder = insert(:user, nick: "founder", identified_as: "founder")
+        private_channel = insert(:channel, name: "#registered-private")
+        public_channel = insert(:channel, name: "#registered-public")
+
+        insert(:registered_channel,
+          name: private_channel.name,
+          founder: founder.identified_as,
+          settings: Settings.new(%{private: true})
+        )
+
+        insert(:registered_channel, name: public_channel.name, founder: founder.identified_as)
+
+        assert :ok = List.handle(visitor, %Message{command: "LIST", params: []})
+
+        assert_sent_messages([
+          {visitor.pid, ":irc.test 322 #{visitor.nick} #{public_channel.name} 0 :#{public_channel.topic.text}\r\n"},
+          {visitor.pid, ":irc.test 323 #{visitor.nick} :End of LIST\r\n"}
+        ])
+
+        assert :ok = List.handle(founder, %Message{command: "LIST", params: []})
+
+        assert_sent_messages([
+          {founder.pid, ":irc.test 322 #{founder.nick} #{private_channel.name} 0 :#{private_channel.topic.text}\r\n"},
+          {founder.pid, ":irc.test 322 #{founder.nick} #{public_channel.name} 0 :#{public_channel.topic.text}\r\n"},
+          {founder.pid, ":irc.test 323 #{founder.nick} :End of LIST\r\n"}
         ])
       end)
     end

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
     only: [cleanup_channel_registrations: 1, get_account_nick: 1, grouped?: 1, logout_account_users: 1]
 
   alias ElixIRCd.JobQueue
+  alias ElixIRCd.Repositories.Memos
   alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.Job
@@ -72,6 +73,7 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
     if !grouped?(registered_nick) do
       logout_account_users(registered_nick.account_name)
       NickAccesses.delete_by_account_name(registered_nick.account_name)
+      Memos.delete_by_recipient(registered_nick.account_name)
       cleanup_channel_registrations(registered_nick.account_name)
     end
 

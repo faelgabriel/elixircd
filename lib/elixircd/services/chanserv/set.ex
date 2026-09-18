@@ -10,10 +10,12 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
   import ElixIRCd.Utils.Validation, only: [validate_email: 1]
 
+  alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Chanserv.ModeLock
 
   @command_name "SET"
 
@@ -22,7 +24,7 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   def handle(%{identified_as: nil} = user, [@command_name | _]),
     do: notify(user, "You must be identified with NickServ to use this command.")
 
-  @free_text_settings ["DESCRIPTION", "DESC", "URL", "EMAIL", "ENTRYMSG", "SUCCESSOR"]
+  @free_text_settings ["DESCRIPTION", "DESC", "URL", "EMAIL", "ENTRYMSG", "SUCCESSOR", "MLOCK"]
 
   def handle(user, [@command_name, channel_name, setting | args]) do
     setting = String.upcase(setting)
@@ -85,6 +87,7 @@ defmodule ElixIRCd.Services.Chanserv.Set do
   defp handle_setting(user, registered_channel, "URL", args), do: handle_url(user, registered_channel, args)
   defp handle_setting(user, registered_channel, "EMAIL", args), do: handle_email(user, registered_channel, args)
   defp handle_setting(user, registered_channel, "ENTRYMSG", args), do: handle_entrymsg(user, registered_channel, args)
+  defp handle_setting(user, registered_channel, "MLOCK", args), do: handle_mlock(user, registered_channel, args)
   defp handle_setting(user, registered_channel, "OPNOTICE", args), do: handle_opnotice(user, registered_channel, args)
   defp handle_setting(user, registered_channel, "PEACE", args), do: handle_peace(user, registered_channel, args)
   defp handle_setting(user, registered_channel, "SECURE", args), do: handle_secure(user, registered_channel, args)
@@ -261,6 +264,44 @@ defmodule ElixIRCd.Services.Chanserv.Set do
     else
       update_setting(user, registered_channel, :entrymsg, message_text)
     end
+  end
+
+  @spec handle_mlock(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok
+  defp handle_mlock(user, registered_channel, []) do
+    case registered_channel.settings.mlock do
+      nil -> notify(user, "No \2MLOCK\2 is set for \2#{registered_channel.name}\2.")
+      mode_lock -> notify(user, "\2MLOCK\2 for \2#{registered_channel.name}\2 is: \2#{mode_lock}\2")
+    end
+  end
+
+  defp handle_mlock(user, registered_channel, [value | values]) do
+    if String.upcase(value) == "OFF" and values == [] do
+      update_mlock(user, registered_channel, nil)
+    else
+      case ModeLock.validate(value, values) do
+        {:ok, mode_lock} -> update_mlock(user, registered_channel, mode_lock)
+        {:error, :missing_mode_parameter} -> notify(user, "MLOCK requires a parameter for every valued mode.")
+        {:error, :listing_mode} -> notify(user, "MLOCK does not accept channel list modes.")
+        {:error, :unsupported_mode} -> notify(user, "MLOCK does not accept membership or list modes.")
+        {:error, _reason} -> notify(user, "Invalid MLOCK. Use channel modes such as +nt or +kl <limit> <key>.")
+      end
+    end
+  end
+
+  @spec update_mlock(User.t(), RegisteredChannel.t(), String.t() | nil) :: :ok
+  defp update_mlock(user, registered_channel, mode_lock) do
+    updated_settings = RegisteredChannel.Settings.update(registered_channel.settings, %{mlock: mode_lock})
+    updated_channel = RegisteredChannels.update(registered_channel, %{settings: updated_settings})
+
+    case Channels.get_by_name(registered_channel.name) do
+      {:ok, live_channel} ->
+        ModeLock.reconcile_and_broadcast(live_channel, updated_channel, user)
+
+      {:error, :channel_not_found} ->
+        :ok
+    end
+
+    notify(user, setting_message(registered_channel.name, :mlock, mode_lock))
   end
 
   @spec handle_opnotice(User.t(), RegisteredChannel.t(), [String.t()]) :: :ok

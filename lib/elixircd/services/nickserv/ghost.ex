@@ -7,7 +7,14 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, get_account_nick: 1, notify: 2]
+  import ElixIRCd.Utils.Nickserv,
+    only: [
+      account_requires_secure_connection?: 1,
+      belongs_to_account?: 2,
+      get_account_nick: 1,
+      notify: 2,
+      secure_connection?: 1
+    ]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -74,10 +81,15 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
   defp verify_ghost_account_password(user, target_user, registered_nick, password) do
     case get_account_nick(registered_nick) do
       {:ok, account_nick} ->
-        if Argon2.verify_pass(password, account_nick.password_hash) do
-          perform_disconnect(user, target_user)
-        else
-          notify(user, "Invalid password for \x02#{target_user.nick}\x02.")
+        cond do
+          account_requires_secure_connection?(account_nick.account_name) and not secure_connection?(user) ->
+            notify(user, "This account requires a secure TLS connection for password authentication.")
+
+          Argon2.verify_pass(password, account_nick.password_hash) ->
+            perform_disconnect(user, target_user)
+
+          true ->
+            notify(user, "Invalid password for \x02#{target_user.nick}\x02.")
         end
 
       {:error, :registered_nick_not_found} ->

@@ -15,13 +15,17 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
       grouped?: 1,
       logout_account_users: 1,
       notify: 2,
-      sync_registered_mode: 1
+      sync_registered_mode: 1,
+      account_requires_secure_connection?: 1,
+      secure_connection?: 1
     ]
 
+  alias ElixIRCd.Repositories.Memos
   alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.RegisteredNick
+  alias ElixIRCd.Tables.RegisteredNick.Settings
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -78,7 +82,10 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
       if primary_account_nick? do
         logout_account_users(registered_nick.account_name)
         NickAccesses.delete_by_account_name(registered_nick.account_name)
+        Memos.delete_by_recipient(registered_nick.account_name)
         cleanup_channel_registrations(registered_nick.account_name)
+      else
+        clear_display_if_needed(registered_nick)
       end
 
       RegisteredNicks.delete(cleared_nickname)
@@ -92,14 +99,31 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
     end
   end
 
+  @spec clear_display_if_needed(RegisteredNick.t()) :: :ok
+  defp clear_display_if_needed(registered_nick) do
+    case get_account_nick(registered_nick) do
+      {:ok, account_nick} when account_nick.settings.display == registered_nick.nickname ->
+        RegisteredNicks.update(account_nick, %{settings: Settings.update(account_nick.settings, %{display: nil})})
+        :ok
+
+      _ ->
+        :ok
+    end
+  end
+
   @spec verify_drop_account_password(User.t(), RegisteredNick.t(), String.t()) :: :ok
   defp verify_drop_account_password(user, registered_nick, password) do
     case get_account_nick(registered_nick) do
       {:ok, account_nick} ->
-        if Argon2.verify_pass(password, account_nick.password_hash) do
-          drop_nickname(user, registered_nick)
-        else
-          notify(user, "Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.")
+        cond do
+          account_requires_secure_connection?(account_nick.account_name) and not secure_connection?(user) ->
+            notify(user, "This account requires a secure TLS connection for password authentication.")
+
+          Argon2.verify_pass(password, account_nick.password_hash) ->
+            drop_nickname(user, registered_nick)
+
+          true ->
+            notify(user, "Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.")
         end
 
       {:error, :registered_nick_not_found} ->

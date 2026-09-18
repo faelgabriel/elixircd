@@ -34,8 +34,125 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "RELEASE"), do: send_release_help(user)
   defp send_help_for_command(user, "DROP"), do: send_drop_help(user)
   defp send_help_for_command(user, "INFO"), do: send_info_help(user)
+  defp send_help_for_command(user, "LIST"), do: send_list_help(user)
+  defp send_help_for_command(user, "MEMO"), do: send_memo_help(user)
   defp send_help_for_command(user, "SET"), do: send_set_help(user)
   defp send_help_for_command(user, "SET HIDEMAIL"), do: send_set_hidemail_help(user)
+
+  defp send_help_for_command(user, "SET HIDESTATUS"),
+    do: send_set_option_help(user, "HIDESTATUS", "{ON|OFF}", "Hides online status in INFO displays.")
+
+  defp send_help_for_command(user, "SET HIDEUSERMASK"),
+    do: send_set_option_help(user, "HIDEUSERMASK", "{ON|OFF}", "Hides the registration mask in INFO displays.")
+
+  defp send_help_for_command(user, "SET HIDEQUIT"),
+    do: send_set_option_help(user, "HIDEQUIT", "{ON|OFF}", "Hides last-seen information in INFO displays.")
+
+  defp send_help_for_command(user, "SET ENFORCE"),
+    do: send_set_option_help(user, "ENFORCE", "{ON|OFF}", "Enforces ownership of your registered nickname.")
+
+  defp send_help_for_command(user, "SET NEVERGROUP"),
+    do:
+      send_set_option_help(
+        user,
+        "NEVERGROUP",
+        "{ON|OFF}",
+        "Prevents other nicknames from being grouped into your account."
+      )
+
+  defp send_help_for_command(user, "SET NEVEROP"),
+    do:
+      send_set_option_help(
+        user,
+        "NEVEROP",
+        "{ON|OFF}",
+        "Prevents ChanServ SYNC from automatically giving you operator status."
+      )
+
+  defp send_help_for_command(user, "SET NOGREET"),
+    do:
+      send_set_option_help(
+        user,
+        "NOGREET",
+        "{ON|OFF}",
+        "Suppresses registered-channel entry messages for your account."
+      )
+
+  defp send_help_for_command(user, "SET PRIVATE"),
+    do:
+      send_set_option_help(
+        user,
+        "PRIVATE",
+        "{ON|OFF}",
+        "Hides your registered nicknames from public NickServ LIST results."
+      )
+
+  defp send_help_for_command(user, "SET QUIETCHG"),
+    do:
+      send_set_option_help(
+        user,
+        "QUIETCHG",
+        "{ON|OFF}",
+        "Suppresses automatic ChanServ mode and flag changes for your session."
+      )
+
+  defp send_help_for_command(user, "SET SECURE"),
+    do: send_set_option_help(user, "SECURE", "{ON|OFF}", "Requires TLS for password authentication to your account.")
+
+  defp send_help_for_command(user, "SET MSG"),
+    do: send_set_option_help(user, "MSG", "{ON|OFF}", "Uses PRIVMSG instead of NOTICE for NickServ replies.")
+
+  defp send_help_for_command(user, "SET EMAIL"),
+    do: send_set_option_help(user, "EMAIL", "<email-address> or OFF", "Changes or removes the account email address.")
+
+  defp send_help_for_command(user, "SET EMAILMEMOS"),
+    do: send_set_option_help(user, "EMAILMEMOS", "{ON|OFF|ONLY}", "Controls whether memos are also forwarded by email.")
+
+  defp send_help_for_command(user, "SET ENFORCETIME"),
+    do: send_set_option_help(user, "ENFORCETIME", "<seconds>", "Sets the grace period before nickname enforcement.")
+
+  defp send_help_for_command(user, "SET LANGUAGE"),
+    do: send_set_option_help(user, "LANGUAGE", "<language>", "Sets the NickServ language preference (en or pt-BR).")
+
+  defp send_help_for_command(user, "SET KILL"),
+    do:
+      send_set_option_help(
+        user,
+        "KILL",
+        "{ON|QUICK|IMMED|OFF}",
+        "Selects the action for unauthorized enforced nickname use."
+      )
+
+  defp send_help_for_command(user, "SET PROPERTY"),
+    do:
+      send_set_option_help(
+        user,
+        "PROPERTY",
+        "<name> [value|OFF]",
+        "Stores, queries, lists, or removes account metadata."
+      )
+
+  defp send_help_for_command(user, "SET PUBKEY"),
+    do:
+      send_set_option_help(
+        user,
+        "PUBKEY",
+        "[base64-key|OFF]",
+        "Stores the account public key used by supported authentication mechanisms."
+      )
+
+  defp send_help_for_command(user, "SET URL"),
+    do: send_set_option_help(user, "URL", "<url> or OFF", "Associates a website with the account.")
+
+  defp send_help_for_command(user, "SET DISPLAY"),
+    do:
+      send_set_option_help(
+        user,
+        "DISPLAY",
+        "<nickname> or OFF",
+        "Sets the display nickname from your grouped nicknames."
+      )
+
   defp send_help_for_command(user, "ACCESS"), do: send_access_help(user)
   defp send_help_for_command(user, "ALIST"), do: send_alist_help(user)
   defp send_help_for_command(user, "STATUS"), do: send_status_help(user)
@@ -311,6 +428,36 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     ])
   end
 
+  @spec send_list_help(User.t()) :: :ok
+  defp send_list_help(user) do
+    notify(user, [
+      "Help for \x02LIST\x02:",
+      format_help("LIST", ["[pattern]"], "Lists registered nicknames."),
+      "",
+      "LIST shows registered nicknames matching an optional * wildcard pattern.",
+      "Accounts marked PRIVATE are hidden from other users and remain visible",
+      "to the account owner and IRC operators.",
+      "",
+      "Syntax: \x02LIST [pattern]\x02",
+      "Example: \x02/msg NickServ LIST *admin*\x02"
+    ])
+  end
+
+  @spec send_memo_help(User.t()) :: :ok
+  defp send_memo_help(user) do
+    notify(user, [
+      "Help for \x02MEMO\x02:",
+      format_help("MEMO", ["{SEND|LIST|READ|DEL|CLEAR}"], "Sends and manages account memos."),
+      "",
+      "MEMO SEND stores a message in the recipient's NickServ inbox.",
+      "EMAILMEMOS ON also queues a copy for email delivery; ONLY sends",
+      "only by email and does not retain an inbox copy.",
+      "",
+      "Syntax: \x02MEMO SEND <nickname> <message>\x02",
+      "Syntax: \x02MEMO LIST|READ <id>|DEL <id>|CLEAR\x02"
+    ])
+  end
+
   @spec send_faq_help(User.t()) :: :ok
   defp send_faq_help(user) do
     unverified_expire_days = Application.fetch_env!(:elixircd, :services)[:nickserv][:unverified_expire_days]
@@ -391,6 +538,8 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02RELEASE\x02      - Release a held nickname",
       "\x02DROP\x02         - Unregister a nickname",
       "\x02INFO\x02         - Display information about a nickname",
+      "\x02LIST\x02         - List registered nicknames",
+      "\x02MEMO\x02         - Send and manage account memos",
       "\x02SET\x02          - Set nickname options and information",
       "\x02ACCESS\x02       - Manage your access list",
       "\x02ALIST\x02        - List accounts you are recognized for",
@@ -423,7 +572,27 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "This command allows you to set various options for your",
       "registered nickname. The available options are:",
       "",
+      "\x02EMAIL\x02        - Change or remove your account email",
+      "\x02EMAILMEMOS\x02   - Control memo email delivery",
+      "\x02ENFORCE\x02      - Enforce ownership of your nickname",
+      "\x02ENFORCETIME\x02  - Set nickname enforcement grace time",
+      "\x02LANGUAGE\x02     - Set the NickServ language",
+      "\x02KILL\x02         - Select enforcement action",
+      "\x02PROPERTY\x02     - Manage account metadata",
+      "\x02PUBKEY\x02       - Manage the account public key",
+      "\x02URL\x02          - Set the account website",
+      "\x02DISPLAY\x02      - Set the grouped display nickname",
       "\x02HIDEMAIL\x02     - Hide your email address in INFO displays",
+      "\x02HIDESTATUS\x02   - Hide online status in INFO displays",
+      "\x02HIDEUSERMASK\x02 - Hide the registration mask",
+      "\x02HIDEQUIT\x02     - Hide last-seen information",
+      "\x02MSG\x02          - Use PRIVMSG for NickServ replies",
+      "\x02NEVERGROUP\x02  - Disable account grouping",
+      "\x02NEVEROP\x02     - Disable automatic ChanServ op",
+      "\x02NOGREET\x02     - Suppress channel entry messages",
+      "\x02PRIVATE\x02     - Hide nicknames from NickServ LIST",
+      "\x02QUIETCHG\x02   - Suppress automatic ChanServ mode and flag changes",
+      "\x02SECURE\x02     - Require TLS for authentication",
       "",
       "For more information on a specific option, type",
       "\x02/msg NickServ HELP SET <option>\x02",
@@ -432,6 +601,19 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "",
       "Example:",
       "    \x02/msg NickServ SET HIDEMAIL ON\x02"
+    ])
+  end
+
+  @spec send_set_option_help(User.t(), String.t(), String.t(), String.t()) :: :ok
+  defp send_set_option_help(user, option, syntax, description) do
+    notify(user, [
+      "Help for \x02SET #{option}\x02:",
+      format_help("SET #{option}", [syntax], description),
+      "",
+      "The setting is stored on your canonical account and applies to",
+      "all grouped nicknames.",
+      "",
+      "Syntax: \x02SET #{option} #{syntax}\x02"
     ])
   end
 
@@ -467,7 +649,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "",
       "The ACCESS list allows you to maintain a list of authorized",
       "host masks (user@host) for your nickname. This can be used for",
-      "future authentication features and security purposes.",
+      "authentication and security purposes.",
       "",
       "Available subcommands:",
       "",

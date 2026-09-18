@@ -104,6 +104,18 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
 
+    test "reconciles a registered channel mode lock after a user mode change" do
+      Memento.transaction!(fn ->
+        user = insert(:user, modes: [:o])
+        channel = insert(:channel)
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
+        insert(:registered_channel, name: channel.name)
+
+        assert :ok = Mode.handle(user, %Message{command: "MODE", params: [channel.name, "+t"]})
+        assert_sent_message_contains(user.pid, ~r/MODE #{Regex.escape(channel.name)} \+t/)
+      end)
+    end
+
     test "handles MODE command for channel and remove modes" do
       Memento.transaction!(fn ->
         user = insert(:user)

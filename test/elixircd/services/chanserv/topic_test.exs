@@ -88,6 +88,7 @@ defmodule ElixIRCd.Services.Chanserv.TopicTest do
         {:ok, updated_channel} = Channels.get_by_name(channel.name)
 
         assert registered_channel.topic.text == "Stored topic"
+        assert registered_channel.settings.persistent_topic == "Stored topic"
         assert updated_channel.topic.text == "Stored topic"
 
         assert_sent_messages(
@@ -103,6 +104,7 @@ defmodule ElixIRCd.Services.Chanserv.TopicTest do
 
         {:ok, cleared_registered_channel} = RegisteredChannels.get_by_name(channel.name)
         assert cleared_registered_channel.topic == nil
+        assert cleared_registered_channel.settings.persistent_topic == nil
 
         assert_sent_messages([
           {user.pid,
@@ -122,6 +124,7 @@ defmodule ElixIRCd.Services.Chanserv.TopicTest do
 
         {:ok, updated_registered_channel} = RegisteredChannels.get_by_name(registered_channel.name)
         assert updated_registered_channel.topic.text == "Offline topic"
+        assert updated_registered_channel.settings.persistent_topic == "Offline topic"
 
         assert {:error, :channel_not_found} = Channels.get_by_name(registered_channel.name)
 

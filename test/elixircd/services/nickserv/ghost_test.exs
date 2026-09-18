@@ -9,6 +9,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Ghost
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles GHOST command with insufficient parameters" do
@@ -97,6 +98,22 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
         ])
 
         assert {:ok, _user} = Users.get_by_pid(target_user.pid)
+      end)
+    end
+
+    test "requires a secure connection for a SECURE account" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            password: "correct_password",
+            settings: Settings.new(%{secure: true})
+          )
+
+        target_user = insert(:user, nick: registered_nick.nickname)
+        user = insert(:user, transport: :tcp)
+
+        assert :ok = Ghost.handle(user, ["GHOST", target_user.nick, "correct_password"])
+        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection for password authentication/)
       end)
     end
 

@@ -8,6 +8,7 @@ defmodule ElixIRCd.Commands.Join do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
+  import ElixIRCd.Utils.Nickserv, only: [account_setting: 3, secure_connection?: 1]
 
   import ElixIRCd.Utils.Protocol,
     only: [user_mask: 1, channel_name?: 1, channel_operator?: 1, match_user_mask?: 2, irc_operator?: 1]
@@ -25,6 +26,9 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Chanserv.ModeLock
+
+  @chanserv_mask "ChanServ!service@irc.test"
 
   @type channel_states :: :created | :existing
   @type mode :: ElixIRCd.ModeRegistry.channel_mode() | {ElixIRCd.ModeRegistry.channel_mode(), String.t()}
@@ -37,6 +41,8 @@ defmodule ElixIRCd.Commands.Join do
           | :join_throttled
           | :user_not_registered
           | :connection_not_secure
+          | :registered_channel_restricted
+          | :registered_channel_secure
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -70,6 +76,7 @@ defmodule ElixIRCd.Commands.Join do
          {:error, :user_channel_not_found} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name),
          :ok <- check_user_channel_limit(user, channel_name),
          {channel_state, channel} <- get_or_create_channel(channel_name),
+         channel <- apply_registered_mode_lock(channel, user),
          :ok <- check_modes(channel_state, channel, user, join_value) do
       user_channel =
         UserChannels.create(%{
@@ -99,14 +106,47 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
+  @spec apply_registered_mode_lock(Channel.t(), User.t()) :: Channel.t()
+  defp apply_registered_mode_lock(channel, user) do
+    case RegisteredChannels.get_by_name(channel.name) do
+      {:ok, registered_channel} ->
+        {updated_channel, _applied_changes} = ModeLock.reconcile_and_broadcast(channel, registered_channel, user)
+        updated_channel
+
+      {:error, :registered_channel_not_found} ->
+        channel
+    end
+  end
+
   @spec restored_topic(String.t()) :: Channel.Topic.t() | nil
   defp restored_topic(channel_name) do
     case RegisteredChannels.get_by_name(channel_name) do
-      {:ok, %{settings: %{keeptopic: true}, topic: topic}} -> topic
-      {:ok, %{settings: %{topiclock: true}, topic: topic}} -> topic
-      {:ok, _registered_channel} -> nil
-      {:error, :registered_channel_not_found} -> nil
+      {:ok, %{settings: settings, topic: topic}} when settings.keeptopic or settings.topiclock ->
+        restore_persistent_topic(settings.persistent_topic, topic)
+
+      {:ok, _registered_channel} ->
+        nil
+
+      {:error, :registered_channel_not_found} ->
+        nil
     end
+  end
+
+  @spec restore_persistent_topic(String.t() | nil, Channel.Topic.t() | nil) :: Channel.Topic.t() | nil
+  defp restore_persistent_topic(nil, topic), do: topic
+
+  defp restore_persistent_topic(persistent_topic, nil) do
+    %Channel.Topic{
+      text: persistent_topic,
+      setter: @chanserv_mask,
+      set_at: DateTime.utc_now()
+    }
+  end
+
+  defp restore_persistent_topic(persistent_topic, %Channel.Topic{text: persistent_topic} = topic), do: topic
+
+  defp restore_persistent_topic(persistent_topic, topic) do
+    %{topic | text: persistent_topic, setter: @chanserv_mask, set_at: DateTime.utc_now()}
   end
 
   @spec determine_user_channel_modes(channel_states()) :: [ElixIRCd.ModeRegistry.membership_mode()]
@@ -161,6 +201,50 @@ defmodule ElixIRCd.Commands.Join do
          %Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of NAMES list."}
        ])
     |> Dispatcher.broadcast(:server, user)
+
+    send_entry_message(user, channel)
+    send_operator_join_notice(user, channel, user_channels)
+  end
+
+  @spec send_entry_message(User.t(), Channel.t()) :: :ok
+  defp send_entry_message(user, channel) do
+    case RegisteredChannels.get_by_name(channel.name) do
+      {:ok, registered_channel} ->
+        entry_message = registered_channel.settings.entrymsg
+
+        if is_binary(entry_message) and not account_setting(user.identified_as, :no_greet, false) do
+          %Message{command: "NOTICE", params: [user.nick], trailing: entry_message}
+          |> Dispatcher.broadcast(:chanserv, user)
+        end
+
+      {:error, :registered_channel_not_found} ->
+        :ok
+    end
+
+    :ok
+  end
+
+  @spec send_operator_join_notice(User.t(), Channel.t(), [UserChannel.t()]) :: :ok
+  defp send_operator_join_notice(user, channel, user_channels) do
+    with {:ok, registered_channel} <- RegisteredChannels.get_by_name(channel.name),
+         true <- Map.get(registered_channel.settings, :opnotice) == true do
+      user_channels
+      |> Enum.filter(&(:o in &1.modes and &1.user_pid != user.pid))
+      |> Enum.map(& &1.user_pid)
+      |> Users.get_by_pids()
+      |> Enum.each(fn operator ->
+        %Message{
+          command: "NOTICE",
+          params: [operator.nick],
+          trailing: "#{user.nick} has joined #{channel.name}."
+        }
+        |> Dispatcher.broadcast(:chanserv, operator)
+      end)
+    else
+      _ -> :ok
+    end
+
+    :ok
   end
 
   # RFC 2812: 332 is followed by 333 (who set the topic and when).
@@ -265,6 +349,24 @@ defmodule ElixIRCd.Commands.Join do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  defp send_join_channel_error(:registered_channel_restricted, user, channel_name) do
+    %Message{
+      command: :err_needreggednick,
+      params: [user.nick, channel_name],
+      trailing: "You must be identified to join this channel (ChanServ RESTRICTED)"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_join_channel_error(:registered_channel_secure, user, channel_name) do
+    %Message{
+      command: :err_secureonlychan,
+      params: [user.nick, channel_name],
+      trailing: "Cannot join channel - secure TLS connection required (ChanServ SECURE)"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
   defp send_join_channel_error(error, user, channel_name) do
     %Message{command: :err_badchanmask, params: [user.nick, channel_name], trailing: "Cannot join channel - #{error}"}
     |> Dispatcher.broadcast(:server, user)
@@ -304,17 +406,52 @@ defmodule ElixIRCd.Commands.Join do
   end
 
   @spec check_modes(channel_states(), Channel.t(), User.t(), String.t() | nil) :: :ok | {:error, mode_error()}
-  defp check_modes(:created, _channel, _user, _join_value), do: :ok
-
-  defp check_modes(:existing, channel, user, join_value) do
+  defp check_modes(:created, channel, user, join_value) do
     with :ok <- check_user_banned(channel, user),
          :ok <- check_user_invited(channel, user),
+         :ok <- check_registered_channel_restrictions(channel, user),
          :ok <- check_registered_only_join(channel, user),
          :ok <- check_secure_only(channel, user),
          :ok <- check_channel_key(channel, user, join_value),
          :ok <- check_channel_limit(channel, user),
          :ok <- check_join_throttle(channel, user) do
       check_operator_only(channel, user)
+    end
+  end
+
+  defp check_modes(:existing, channel, user, join_value) do
+    with :ok <- check_user_banned(channel, user),
+         :ok <- check_user_invited(channel, user),
+         :ok <- check_registered_channel_restrictions(channel, user),
+         :ok <- check_registered_only_join(channel, user),
+         :ok <- check_secure_only(channel, user),
+         :ok <- check_channel_key(channel, user, join_value),
+         :ok <- check_channel_limit(channel, user),
+         :ok <- check_join_throttle(channel, user) do
+      check_operator_only(channel, user)
+    end
+  end
+
+  @spec check_registered_channel_restrictions(Channel.t(), User.t()) ::
+          :ok | {:error, :registered_channel_restricted | :registered_channel_secure}
+  defp check_registered_channel_restrictions(channel, user) do
+    case RegisteredChannels.get_by_name(channel.name) do
+      {:ok, registered_channel} ->
+        settings = registered_channel.settings
+
+        cond do
+          Map.get(settings, :restricted) == true and is_nil(user.identified_as) ->
+            {:error, :registered_channel_restricted}
+
+          Map.get(settings, :secure) == true and not secure_connection?(user) ->
+            {:error, :registered_channel_secure}
+
+          true ->
+            :ok
+        end
+
+      {:error, :registered_channel_not_found} ->
+        :ok
     end
   end
 

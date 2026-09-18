@@ -10,6 +10,7 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Identify
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles IDENTIFY command with insufficient parameters" do
@@ -89,6 +90,21 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
 
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.identified_as == nil
+      end)
+    end
+
+    test "requires a secure connection for a SECURE account" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            password: "correct_password",
+            settings: Settings.new(%{secure: true})
+          )
+
+        user = insert(:user, transport: :tcp)
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", registered_nick.nickname, "correct_password"])
+        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection for authentication/)
       end)
     end
 

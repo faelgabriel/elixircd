@@ -1,0 +1,80 @@
+defmodule ElixIRCd.Services.Nickserv.List do
+  @moduledoc "NickServ LIST command with account privacy filtering."
+
+  @behaviour ElixIRCd.Service
+
+  import ElixIRCd.Utils.Nickserv,
+    only: [account_display_name: 1, belongs_to_account?: 2, get_account_nick: 1, notify: 2]
+
+  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
+
+  alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Tables.RegisteredNick
+  alias ElixIRCd.Tables.User
+
+  @impl true
+  @spec handle(User.t(), [String.t()]) :: :ok
+  def handle(user, ["LIST"]), do: list_nicks(user, "*")
+  def handle(user, ["LIST", pattern]), do: list_nicks(user, pattern)
+
+  def handle(user, ["LIST" | _]) do
+    notify(user, [
+      "Too many parameters for \x02LIST\x02.",
+      "Syntax: \x02LIST [pattern]\x02"
+    ])
+  end
+
+  @spec list_nicks(User.t(), String.t()) :: :ok
+  defp list_nicks(user, pattern) do
+    nicks =
+      RegisteredNicks.get_all()
+      |> Enum.filter(fn registered_nick ->
+        pattern_matches?(registered_nick.nickname, pattern) and visible_to?(user, registered_nick)
+      end)
+      |> Enum.sort_by(&String.downcase(&1.nickname))
+
+    if nicks == [] do
+      notify(user, "No registered nicknames matched your search.")
+    else
+      notify(user, "Registered nicknames:")
+
+      Enum.each(nicks, &notify_nick_entry(user, &1))
+
+      notify(user, "End of list.")
+    end
+  end
+
+  @spec notify_nick_entry(User.t(), RegisteredNick.t()) :: :ok
+  defp notify_nick_entry(user, registered_nick) do
+    display_name = account_display_name(account_nick(registered_nick))
+
+    if display_name == registered_nick.nickname do
+      notify(user, "  #{registered_nick.nickname}")
+    else
+      notify(user, "  #{registered_nick.nickname} (#{display_name})")
+    end
+  end
+
+  @spec visible_to?(User.t(), RegisteredNick.t()) :: boolean()
+  defp visible_to?(user, registered_nick) do
+    account = account_nick(registered_nick)
+    private? = Map.get(account.settings, :private) == true
+
+    not private? or irc_operator?(user) or belongs_to_account?(account, user.identified_as)
+  end
+
+  @spec account_nick(RegisteredNick.t()) :: RegisteredNick.t()
+  defp account_nick(registered_nick) do
+    case get_account_nick(registered_nick) do
+      {:ok, account_nick} -> account_nick
+      {:error, :registered_nick_not_found} -> registered_nick
+    end
+  end
+
+  @spec pattern_matches?(String.t(), String.t()) :: boolean()
+  defp pattern_matches?(value, pattern) do
+    escaped = Regex.escape(String.downcase(pattern))
+    regex = String.replace(escaped, "\\*", ".*") |> then(&("\\A" <> &1 <> "\\z"))
+    Regex.match?(Regex.compile!(regex), String.downcase(value))
+  end
+end

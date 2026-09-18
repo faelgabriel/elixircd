@@ -46,7 +46,7 @@ defmodule ElixIRCd.Services.Chanserv.Topic do
          access_entries = ChannelContext.get_access_entries(registered_channel.name),
          :ok <- Flags.can_use_topic(registered_channel, user.identified_as, access_entries),
          updated_topic <- normalize_topic(topic_parts),
-         updated_registered_channel <- RegisteredChannels.update(registered_channel, %{topic: updated_topic}) do
+         updated_registered_channel <- RegisteredChannels.update_topic(registered_channel, updated_topic) do
       sync_live_channel(updated_registered_channel.name, updated_topic)
       notify_topic_change(user, updated_registered_channel.name, updated_topic)
     else

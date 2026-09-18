@@ -23,20 +23,21 @@ defmodule ElixIRCd.Tables.RegisteredChannel.SettingsTest do
       assert is_nil(settings.url)
       assert is_nil(settings.email)
       assert is_nil(settings.entrymsg)
-      assert is_nil(settings.persistent_topic)
       assert is_nil(settings.mlock)
+      assert is_nil(settings.persistent_topic)
     end
   end
 
   describe "update/2" do
     test "updates settings with map attributes" do
       settings = Settings.new()
-      attrs = %{private: true, description: "Test channel"}
+      attrs = %{private: true, description: "Test channel", persistent_topic: "A persistent topic"}
 
       updated_settings = Settings.update(settings, attrs)
 
       assert updated_settings.private == true
       assert updated_settings.description == "Test channel"
+      assert updated_settings.persistent_topic == "A persistent topic"
     end
 
     test "updates settings with keyword list attributes" do

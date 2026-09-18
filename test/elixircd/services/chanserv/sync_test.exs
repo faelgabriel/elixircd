@@ -9,6 +9,7 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Chanserv.Sync
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "requires identification and validates syntax" do
@@ -165,6 +166,31 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
           {user.pid,
            ":ChanServ!service@irc.test NOTICE #{user.nick} :Synchronized \x021\x02 user on \x02#{channel.name}\x02.\r\n"}
         ])
+      end)
+    end
+
+    test "does not restore operator status for NEVEROP accounts and keeps their change quiet" do
+      Memento.transaction!(fn ->
+        founder =
+          insert(:registered_nick,
+            nickname: "founder",
+            settings: Settings.new(%{never_op: true, quiet_chg: true})
+          )
+
+        user = insert(:user, nick: "founder", identified_as: founder.account_name)
+        watcher = insert(:user, nick: "watcher")
+        channel = insert(:channel, name: "#never-op")
+
+        insert(:registered_channel, name: channel.name, founder: founder.account_name)
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
+        insert(:user_channel, user: watcher, channel: channel)
+
+        assert :ok = Sync.handle(user, ["SYNC", channel.name])
+
+        {:ok, updated_membership} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+        assert updated_membership.modes == []
+        assert_sent_messages_count_containing(user.pid, ~r/ MODE /, 0)
+        assert_sent_message_contains(watcher.pid, ~r/ MODE #never-op -o founder/)
       end)
     end
   end

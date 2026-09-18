@@ -220,7 +220,7 @@ defmodule ElixIRCd.Server.ResponseContext do
 
   @spec build_context(User.t(), Message.t()) :: t()
   defp build_context(%User{} = user, %Message{tags: tags}) do
-    capabilities = user.capabilities || []
+    capabilities = user.capabilities
     # Configuration controls CAP availability. Negotiated capabilities remain
     # valid until ACK/DEL is sent, including while REHASH finishes its response.
     batch_capable? = "batch" in capabilities

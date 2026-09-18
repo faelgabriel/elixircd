@@ -419,7 +419,6 @@ defmodule ElixIRCd.Message do
   # SASL replies
   defp numeric_reply(:rpl_loggedin), do: "900"
   defp numeric_reply(:rpl_loggedout), do: "901"
-  # defp numeric_reply(:err_nicklocked), do: "902"  # Not yet implemented
   defp numeric_reply(:rpl_saslsuccess), do: "903"
   defp numeric_reply(:err_saslfail), do: "904"
   defp numeric_reply(:err_sasltoolong), do: "905"

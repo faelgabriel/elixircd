@@ -54,6 +54,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   defp send_help_for_command(user, "SET URL"), do: send_set_url_help(user)
   defp send_help_for_command(user, "SET EMAIL"), do: send_set_email_help(user)
   defp send_help_for_command(user, "SET ENTRYMSG"), do: send_set_entrymsg_help(user)
+  defp send_help_for_command(user, "SET MLOCK"), do: send_set_mlock_help(user)
   defp send_help_for_command(user, "SET OPNOTICE"), do: send_set_opnotice_help(user)
   defp send_help_for_command(user, "SET PEACE"), do: send_set_peace_help(user)
   defp send_help_for_command(user, "SET SECURE"), do: send_set_secure_help(user)
@@ -211,6 +212,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02URL\x02          - Sets channel website URL",
       "\x02EMAIL\x02        - Sets channel contact email",
       "\x02ENTRYMSG\x02     - Sets welcome message shown to new users",
+      "\x02MLOCK\x02        - Enforces a channel mode policy",
       "\x02OPNOTICE\x02     - Toggles join notifications to ops",
       "\x02PEACE\x02        - Toggles protection against channel wars",
       "\x02SECURE\x02       - Toggles stricter security measures",
@@ -447,6 +449,30 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "    \x02/msg ChanServ SET #mychannel ENTRYMSG Welcome to our channel!\x02",
       "    \x02/msg ChanServ SET #mychannel ENTRYMSG\x02 (to view current)",
       "    \x02/msg ChanServ SET #mychannel ENTRYMSG OFF\x02 (to clear)"
+    ])
+  end
+
+  @spec send_set_mlock_help(User.t()) :: :ok
+  defp send_set_mlock_help(user) do
+    notify(user, [
+      "Help for \x02SET MLOCK\x02:",
+      format_help(
+        "SET MLOCK",
+        ["<channel> <modes> [parameters]"],
+        "Locks stable channel modes and reapplies them after changes."
+      ),
+      "",
+      "MLOCK accepts normal channel modes such as \x02+nt\x02 or",
+      "\x02+kl 25 secret\x02. The lock is applied when the channel is",
+      "created, when MODE changes are made, and by ChanServ SYNC.",
+      "Membership modes (+o/+v) and list modes (+b/+e/+I) cannot be locked.",
+      "Use \x02OFF\x02 to remove the mode lock.",
+      "",
+      "Syntax: \x02SET <channel> MLOCK <modes> [parameters]\x02",
+      "Examples:",
+      "    \x02/msg ChanServ SET #mychannel MLOCK +nt\x02",
+      "    \x02/msg ChanServ SET #mychannel MLOCK +kl 25 secret\x02",
+      "    \x02/msg ChanServ SET #mychannel MLOCK OFF\x02"
     ])
   end
 

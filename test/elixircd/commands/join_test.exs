@@ -201,6 +201,74 @@ defmodule ElixIRCd.Commands.JoinTest do
       end)
     end
 
+    test "restores the persistent topic snapshot when it differs from topic metadata" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        topic = build(:channel_topic, text: "Current metadata", setter: "operator!user@host")
+
+        insert(:registered_channel,
+          name: "#persistent_channel",
+          founder: "founder",
+          topic: topic,
+          settings: Settings.new(%{persistent_topic: "Persistent channel topic"})
+        )
+
+        message = %Message{command: "JOIN", params: ["#persistent_channel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_message_contains(
+          user.pid,
+          ":irc.test 332 #{user.nick} #persistent_channel :Persistent channel topic\r\n"
+        )
+      end)
+    end
+
+    test "restores a persistent topic when no topic metadata exists" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        insert(:registered_channel,
+          name: "#persistent_only_channel",
+          founder: "founder",
+          topic: nil,
+          settings: Settings.new(%{persistent_topic: "Persistent only topic"})
+        )
+
+        message = %Message{command: "JOIN", params: ["#persistent_only_channel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_message_contains(
+          user.pid,
+          ":irc.test 332 #{user.nick} #persistent_only_channel :Persistent only topic\r\n"
+        )
+      end)
+    end
+
+    test "preserves topic metadata when the persistent snapshot is unchanged" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        topic = build(:channel_topic, text: "Unchanged topic", setter: "operator!user@host")
+
+        insert(:registered_channel,
+          name: "#unchanged_persistent_channel",
+          founder: "founder",
+          topic: topic,
+          settings: Settings.new(%{persistent_topic: topic.text})
+        )
+
+        message = %Message{command: "JOIN", params: ["#unchanged_persistent_channel"]}
+
+        assert :ok = Join.handle(user, message)
+
+        assert_sent_message_contains(
+          user.pid,
+          ":irc.test 333 #{user.nick} #unchanged_persistent_channel #{topic.setter} #{DateTime.to_unix(topic.set_at)}\r\n"
+        )
+      end)
+    end
+
     test "restores the registered topic when recreating a TOPICLOCK channel" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -947,6 +1015,108 @@ defmodule ElixIRCd.Commands.JoinTest do
 
         assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(secure_user_tls.pid, "#test")
         assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(secure_user_wss.pid, "#test")
+      end)
+    end
+
+    test "registered channel RESTRICTED blocks unidentified users" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: nil)
+        channel = insert(:channel)
+
+        insert(:registered_channel,
+          name: channel.name,
+          settings: Settings.new(%{restricted: true})
+        )
+
+        Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 477 #{user.nick} #{channel.name} :You must be identified to join this channel (ChanServ RESTRICTED)\r\n"}
+        ])
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+      end)
+    end
+
+    test "registered channel RESTRICTED allows identified users" do
+      Memento.transaction!(fn ->
+        user = insert(:user, identified_as: "account")
+        channel = insert(:channel)
+
+        insert(:registered_channel,
+          name: channel.name,
+          settings: Settings.new(%{restricted: true})
+        )
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+        assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+      end)
+    end
+
+    test "registered channel SECURE requires TLS or secure WebSocket" do
+      Memento.transaction!(fn ->
+        user = insert(:user, transport: :tcp)
+        channel = insert(:channel)
+
+        insert(:registered_channel,
+          name: channel.name,
+          settings: Settings.new(%{secure: true})
+        )
+
+        Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 489 #{user.nick} #{channel.name} :Cannot join channel - secure TLS connection required (ChanServ SECURE)\r\n"}
+        ])
+      end)
+    end
+
+    test "registered channel entry message is delivered unless NOGREET is enabled" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "joining")
+        channel = insert(:channel)
+
+        insert(:registered_channel,
+          name: channel.name,
+          settings: Settings.new(%{entrymsg: "Welcome to the channel"})
+        )
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert_sent_message_contains(
+          user.pid,
+          ":ChanServ!service@irc.test NOTICE joining :Welcome to the channel\r\n"
+        )
+      end)
+    end
+
+    test "registered channel OPNOTICE notifies existing operators when a user joins" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, nick: "operator")
+        joining_user = insert(:user, nick: "joining")
+        channel = insert(:channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+
+        insert(:registered_channel,
+          name: channel.name,
+          settings: Settings.new(%{opnotice: true})
+        )
+
+        assert :ok = Join.handle(joining_user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert_sent_message_contains(
+          operator.pid,
+          ":ChanServ!service@irc.test NOTICE operator :joining has joined #{channel.name}.\r\n"
+        )
+
+        assert_sent_messages_count_containing(
+          joining_user.pid,
+          "has joined #{channel.name}",
+          0
+        )
       end)
     end
 

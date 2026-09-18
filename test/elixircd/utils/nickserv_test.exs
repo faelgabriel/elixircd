@@ -10,6 +10,7 @@ defmodule ElixIRCd.Utils.NickservTest do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Tables.RegisteredNick.Settings
   alias ElixIRCd.Utils.Nickserv
 
   describe "notify/2" do
@@ -48,6 +49,28 @@ defmodule ElixIRCd.Utils.NickservTest do
 
       assert Nickserv.notify(user, messages) == :ok
     end
+
+    test "uses PRIVMSG and the account language preference when configured" do
+      user = build(:user, nick: "test_user", identified_as: "AccountNick")
+
+      account =
+        build(:registered_nick, nickname: "AccountNick", settings: Settings.new(%{msg: true, language: "pt-BR"}))
+
+      RegisteredNicks
+      |> expect(:get_by_nickname, fn "AccountNick" -> {:ok, account} end)
+
+      Dispatcher
+      |> expect(:broadcast, fn msg, context, target_user ->
+        assert context == :nickserv
+        assert target_user == user
+        assert msg.command == "PRIVMSG"
+        assert msg.params == ["test_user"]
+        assert msg.trailing == "A configuração \x02HIDEMAIL\x02 agora está em \x02ON\x02."
+        :ok
+      end)
+
+      assert Nickserv.notify(user, "Your \x02HIDEMAIL\x02 setting is now \x02ON\x02.") == :ok
+    end
   end
 
   describe "email_required_format/1" do
@@ -57,6 +80,44 @@ defmodule ElixIRCd.Utils.NickservTest do
 
     test "formats optional email with square brackets" do
       assert Nickserv.email_required_format(false) == "[email-address]"
+    end
+  end
+
+  describe "account settings helpers" do
+    test "resolve settings, preserve false values, and apply defaults" do
+      account = build(:registered_nick, nickname: "Account", settings: Settings.new(%{secure: false}))
+      nil_setting_account = build(:registered_nick, nickname: "NilSetting", settings: Settings.new(%{secure: nil}))
+
+      RegisteredNicks
+      |> expect(:get_by_nickname, 8, fn
+        "Account" -> {:ok, account}
+        "NilSetting" -> {:ok, nil_setting_account}
+        "Missing" -> {:error, :registered_nick_not_found}
+      end)
+
+      assert Nickserv.account_settings(build(:user, identified_as: "Account")) == account.settings
+      assert Nickserv.account_settings(build(:user, identified_as: "Missing")) == nil
+      assert Nickserv.account_settings(build(:user, identified_as: nil)) == nil
+
+      assert Nickserv.account_setting?("Account", :secure) == false
+      assert Nickserv.account_setting?("Missing", :secure) == false
+      assert Nickserv.account_setting?(nil, :secure) == false
+      assert Nickserv.account_setting("Account", :secure, true) == false
+      assert Nickserv.account_setting("Account", :not_present, :fallback) == :fallback
+      assert Nickserv.account_setting("NilSetting", :secure, :fallback) == :fallback
+      assert Nickserv.account_setting("Missing", :secure, :fallback) == :fallback
+      assert Nickserv.account_setting(nil, :secure, :fallback) == :fallback
+    end
+
+    test "handles transport security and configured display names" do
+      account = build(:registered_nick, nickname: "Account", settings: Settings.new(%{display: "Alias"}))
+
+      assert Nickserv.secure_connection?(build(:user, transport: :tls))
+      assert Nickserv.secure_connection?(build(:user, transport: :wss))
+      refute Nickserv.secure_connection?(build(:user, transport: :tcp))
+      assert Nickserv.account_requires_secure_connection?(nil) == false
+      assert Nickserv.account_display_name(account) == "Alias"
+      assert Nickserv.account_display_name(%{account_name: "Account", settings: %{display: nil}}) == "Account"
     end
   end
 

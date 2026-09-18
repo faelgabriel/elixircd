@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.List do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
@@ -123,8 +124,25 @@ defmodule ElixIRCd.Commands.List do
       |> Enum.map(& &1.channel_name_key)
 
     Enum.reject(channels, fn channel ->
-      (:p in channel.modes or :s in channel.modes) and not Enum.member?(user_channel_names, channel.name_key)
+      hidden_by_modes?(channel, user_channel_names) or registered_channel_private?(channel, user)
     end)
+  end
+
+  @spec hidden_by_modes?(Channel.t(), [String.t()]) :: boolean()
+  defp hidden_by_modes?(channel, user_channel_names) do
+    (:p in channel.modes or :s in channel.modes) and not Enum.member?(user_channel_names, channel.name_key)
+  end
+
+  @spec registered_channel_private?(Channel.t(), User.t()) :: boolean()
+  defp registered_channel_private?(channel, user) do
+    case RegisteredChannels.get_by_name(channel.name) do
+      {:ok, %{settings: %{private: true}, founder: founder}} ->
+        not Enum.any?(UserChannels.get_by_user_pid(user.pid), &(&1.channel_name_key == channel.name_key)) and
+          user.identified_as != founder
+
+      _ ->
+        false
+    end
   end
 
   @spec convert_to_detailed_channels([Channel.t()]) :: [detailed_channel()]

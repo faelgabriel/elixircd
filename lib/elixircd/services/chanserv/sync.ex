@@ -6,6 +6,7 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
   @behaviour ElixIRCd.Service
 
   import ElixIRCd.Utils.Chanserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [account_setting: 3]
 
   alias ElixIRCd.Message
   alias ElixIRCd.ModeRegistry
@@ -17,6 +18,7 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.Chanserv.Flags
+  alias ElixIRCd.Utils.Chanserv.ModeLock
 
   @command_name "SYNC"
   @managed_modes [:o, :v]
@@ -33,6 +35,7 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
          :ok <- Flags.can_use_moderation(registered_channel, user.identified_as, access_entries),
          {:ok, channel, user_channels, channel_users} <-
            ChannelContext.get_online_channel_state(registered_channel.name) do
+      {channel, _mode_lock_changes} = ModeLock.reconcile_and_broadcast(channel, registered_channel, user)
       synced_count = sync_users(channel, registered_channel, access_entries, user_channels, channel_users)
 
       if synced_count == 0 do
@@ -85,7 +88,7 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
   @spec sync_user_channel(map(), UserChannel.t(), User.t(), non_neg_integer()) :: non_neg_integer()
   defp sync_user_channel(context, user_channel, user, synced_count) do
     %{registered_channel: registered_channel, access_entries: access_entries} = context
-    desired_modes = Flags.desired_channel_modes(registered_channel, user.identified_as, access_entries)
+    desired_modes = desired_channel_modes(registered_channel, user.identified_as, access_entries)
     current_modes = Enum.filter(user_channel.modes, &(&1 in @managed_modes))
 
     if Enum.sort(current_modes) == Enum.sort(desired_modes) do
@@ -102,6 +105,17 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
     end
   end
 
+  @spec desired_channel_modes(RegisteredChannel.t(), String.t() | nil, map()) :: [ModeRegistry.membership_mode()]
+  defp desired_channel_modes(registered_channel, account_name, access_entries) do
+    modes = Flags.desired_channel_modes(registered_channel, account_name, access_entries)
+
+    if account_setting(account_name, :never_op, false) do
+      List.delete(modes, :o)
+    else
+      modes
+    end
+  end
+
   @spec broadcast_mode_diff(
           Channel.t(),
           [User.t()],
@@ -110,17 +124,24 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
           [ModeRegistry.membership_mode()]
         ) :: :ok
   defp broadcast_mode_diff(channel, channel_users, user, current_modes, desired_modes) do
+    recipients =
+      if account_setting(user.identified_as, :quiet_chg, false) do
+        Enum.reject(channel_users, &(&1.pid == user.pid))
+      else
+        channel_users
+      end
+
     removed_modes = current_modes -- desired_modes
     added_modes = desired_modes -- current_modes
 
     Enum.each(removed_modes, fn mode ->
       %Message{command: "MODE", params: [channel.name, "-" <> ModeRegistry.encode!(:membership, mode), user.nick]}
-      |> Dispatcher.broadcast(:chanserv, channel_users)
+      |> Dispatcher.broadcast(:chanserv, recipients)
     end)
 
     Enum.each(added_modes, fn mode ->
       %Message{command: "MODE", params: [channel.name, "+" <> ModeRegistry.encode!(:membership, mode), user.nick]}
-      |> Dispatcher.broadcast(:chanserv, channel_users)
+      |> Dispatcher.broadcast(:chanserv, recipients)
     end)
 
     :ok

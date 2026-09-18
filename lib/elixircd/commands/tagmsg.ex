@@ -29,7 +29,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
   end
 
   def handle(user, %{command: "TAGMSG"} = message) do
-    capabilities = user.capabilities || []
+    capabilities = user.capabilities
 
     if "message-tags" in capabilities do
       do_handle(user, message)

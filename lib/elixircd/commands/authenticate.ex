@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   Supported mechanisms:
   - PLAIN: Simple username/password authentication
+  - ECDSA-NIST256P-CHALLENGE: Account public-key challenge authentication
 
   The authentication flow:
   1. Client: AUTHENTICATE PLAIN
@@ -30,8 +31,11 @@ defmodule ElixIRCd.Commands.Authenticate do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.Ecdsa
 
-  @supported_mechanisms ["PLAIN"]
+  @ecdsa_mechanism "ECDSA-NIST256P-CHALLENGE"
+  @ecdsa_challenge_bytes 32
   @max_authenticate_length 400
   @max_sasl_length 16_384
 
@@ -118,6 +122,7 @@ defmodule ElixIRCd.Commands.Authenticate do
     sasl_config = Application.fetch_env!(:elixircd, :sasl)
     max_attempts = Keyword.fetch!(sasl_config, :max_attempts_per_connection)
     current_attempts = user.sasl_attempts || 0
+    supported_mechanisms = supported_mechanisms()
 
     cond do
       current_attempts >= max_attempts ->
@@ -143,7 +148,7 @@ defmodule ElixIRCd.Commands.Authenticate do
         }
         |> Dispatcher.broadcast(:server, user)
 
-      normalized_mechanism not in @supported_mechanisms ->
+      normalized_mechanism not in supported_mechanisms ->
         Users.update(user, %{sasl_attempts: current_attempts + 1})
         send_available_mechanisms(user)
 
@@ -174,7 +179,21 @@ defmodule ElixIRCd.Commands.Authenticate do
   @spec mechanism_enabled?(String.t()) :: boolean()
   defp mechanism_enabled?("PLAIN") do
     sasl_config = Application.fetch_env!(:elixircd, :sasl)
-    Keyword.fetch!(sasl_config[:plain], :enabled)
+    Keyword.get(sasl_config[:plain] || [], :enabled, false)
+  end
+
+  defp mechanism_enabled?(@ecdsa_mechanism) do
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+    Keyword.get(sasl_config[:ecdsa] || [], :enabled, false)
+  end
+
+  @spec supported_mechanisms() :: [String.t()]
+  defp supported_mechanisms do
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+
+    mechanisms = ["PLAIN"]
+
+    if Keyword.has_key?(sasl_config, :ecdsa), do: mechanisms ++ [@ecdsa_mechanism], else: mechanisms
   end
 
   @spec start_sasl_session(User.t(), String.t()) :: :ok
@@ -234,8 +253,104 @@ defmodule ElixIRCd.Commands.Authenticate do
     process_plain_auth(user, session)
   end
 
+  defp process_sasl_data(user, %{mechanism: @ecdsa_mechanism, state: nil} = session) do
+    start_ecdsa_challenge(user, session)
+  end
+
+  defp process_sasl_data(user, %{mechanism: @ecdsa_mechanism, state: state} = session)
+       when is_map(state) do
+    verify_ecdsa_response(user, session, state)
+  end
+
   defp process_sasl_data(user, _session) do
     handle_unsupported_mechanism(user)
+  end
+
+  @spec start_ecdsa_challenge(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
+  defp start_ecdsa_challenge(user, session) do
+    with {:ok, account_name} <- decode_ecdsa_account(session.buffer),
+         {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(account_name),
+         {:ok, account_nick} <- RegisteredNicks.get_by_nickname(registered_nick.account_name),
+         {:ok, public_key} <- decode_ecdsa_public_key(Map.get(account_nick.settings, :pubkey)) do
+      challenge = :crypto.strong_rand_bytes(@ecdsa_challenge_bytes)
+
+      SaslSessions.update(session, %{
+        buffer: "",
+        state: %{account: account_nick.account_name, challenge: challenge, public_key: public_key}
+      })
+
+      %Message{command: "AUTHENTICATE", params: [Base.encode64(challenge)]}
+      |> Dispatcher.broadcast(:server, user)
+    else
+      _ -> fail_ecdsa_authentication(user)
+    end
+  end
+
+  @spec verify_ecdsa_response(User.t(), ElixIRCd.Tables.SaslSession.t(), map()) :: :ok
+  defp verify_ecdsa_response(user, session, %{account: account_name, challenge: challenge, public_key: public_key}) do
+    with {:ok, signature} <- Base.decode64(session.buffer),
+         true <- valid_ecdsa_signature?(challenge, signature, public_key),
+         {:ok, account_nick} <- RegisteredNicks.get_by_nickname(account_name) do
+      complete_sasl_authentication(user, account_nick)
+    else
+      _ -> fail_ecdsa_authentication(user)
+    end
+  end
+
+  @spec decode_ecdsa_account(String.t()) :: {:ok, String.t()} | :error
+  defp decode_ecdsa_account(encoded) do
+    with {:ok, decoded} <- Base.decode64(encoded),
+         true <- String.valid?(decoded),
+         [authcid | authzid_parts] <- :binary.split(decoded, <<0>>, [:global]),
+         true <- valid_ecdsa_account_part?(authcid),
+         true <- valid_ecdsa_authzid?(authcid, authzid_parts) do
+      {:ok, authcid}
+    else
+      _ -> :error
+    end
+  end
+
+  @spec valid_ecdsa_account_part?(String.t()) :: boolean()
+  defp valid_ecdsa_account_part?(account_name) do
+    account_name != "" and byte_size(account_name) <= 64 and
+      not Regex.match?(~r/[\x00-\x1f\x7f]/, account_name)
+  end
+
+  @spec valid_ecdsa_authzid?(String.t(), [String.t()]) :: boolean()
+  defp valid_ecdsa_authzid?(_authcid, []), do: true
+  defp valid_ecdsa_authzid?(_authcid, [""]), do: true
+
+  defp valid_ecdsa_authzid?(authcid, [authzid]) do
+    valid_ecdsa_account_part?(authzid) and CaseMapping.normalize(authcid) == CaseMapping.normalize(authzid)
+  end
+
+  defp valid_ecdsa_authzid?(_authcid, _authzid_parts), do: false
+
+  @spec decode_ecdsa_public_key(String.t() | nil) :: {:ok, binary()} | :error
+  defp decode_ecdsa_public_key(encoded) when is_binary(encoded) do
+    case Base.decode64(encoded, padding: false) do
+      {:ok, <<prefix, _x::binary-size(32)>> = public_key} when prefix in [2, 3] ->
+        if Ecdsa.valid_compressed_p256_public_key?(public_key), do: {:ok, public_key}, else: :error
+
+      _ ->
+        :error
+    end
+  end
+
+  defp decode_ecdsa_public_key(_encoded), do: :error
+
+  @spec valid_ecdsa_signature?(binary(), binary(), binary()) :: boolean()
+  defp valid_ecdsa_signature?(challenge, signature, public_key)
+       when byte_size(signature) in 8..128 do
+    :crypto.verify(:ecdsa, :sha256, challenge, signature, [public_key, :secp256r1])
+  end
+
+  defp valid_ecdsa_signature?(_challenge, _signature, _public_key), do: false
+
+  @spec fail_ecdsa_authentication(User.t()) :: :ok
+  defp fail_ecdsa_authentication(user) do
+    send_sasl_failure(user, "SASL authentication failed")
+    SaslSessions.delete(user.pid)
   end
 
   @spec process_plain_auth(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
@@ -327,19 +442,18 @@ defmodule ElixIRCd.Commands.Authenticate do
   defp verify_password(user, registered_nick, password) do
     case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
       {:ok, account_nick} ->
-        if Argon2.verify_pass(password, account_nick.password_hash) do
-          complete_sasl_authentication(user, account_nick)
-        else
-          Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
+        cond do
+          Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] ->
+            send_sasl_failure(user, "SASL authentication requires a secure TLS connection for this account")
+            SaslSessions.delete(user.pid)
 
-          %Message{
-            command: :err_saslfail,
-            params: [user_reply(user)],
-            trailing: "SASL authentication failed"
-          }
-          |> Dispatcher.broadcast(:server, user)
+          Argon2.verify_pass(password, account_nick.password_hash) ->
+            complete_sasl_authentication(user, account_nick)
 
-          SaslSessions.delete(user.pid)
+          true ->
+            Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
+            send_sasl_failure(user, "SASL authentication failed")
+            SaslSessions.delete(user.pid)
         end
 
       {:error, :registered_nick_not_found} ->
@@ -352,6 +466,16 @@ defmodule ElixIRCd.Commands.Authenticate do
 
         SaslSessions.delete(user.pid)
     end
+  end
+
+  @spec send_sasl_failure(User.t(), String.t()) :: :ok
+  defp send_sasl_failure(user, reason) do
+    %Message{
+      command: :err_saslfail,
+      params: [user_reply(user)],
+      trailing: reason
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec complete_sasl_authentication(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
@@ -436,7 +560,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec send_available_mechanisms(User.t()) :: :ok
   defp send_available_mechanisms(user) do
-    mechanisms = Enum.join(@supported_mechanisms, ",")
+    mechanisms = Enum.join(supported_mechanisms(), ",")
 
     %Message{
       command: :rpl_saslmechs,

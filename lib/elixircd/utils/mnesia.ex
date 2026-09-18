@@ -12,6 +12,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Job
+  alias ElixIRCd.Tables.Memo
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.NickAccess
   alias ElixIRCd.Tables.RegisteredChannel
@@ -23,7 +24,6 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Tables.UserSilence
-  alias Memento.Query.Data
 
   @memory_tables [
     Channel,
@@ -43,6 +43,7 @@ defmodule ElixIRCd.Utils.Mnesia do
 
   @disk_tables [
     Job,
+    Memo,
     NickAccess,
     RegisteredChannel,
     RegisteredChannelAccess,
@@ -74,52 +75,8 @@ defmodule ElixIRCd.Utils.Mnesia do
     start_mnesia(opts)
     create_tables(opts)
     wait_for_tables(opts)
-    upgrade_user_cap_version()
-    upgrade_monitor_nickname()
 
     if opts[:verbose], do: Logger.info("Mnesia database setup successfully.")
-    :ok
-  end
-
-  # User rows are transient, but their table schema survives restarts.
-  @spec upgrade_user_cap_version() :: :ok
-  defp upgrade_user_cap_version do
-    attributes = :mnesia.table_info(User, :attributes)
-    expected = User.__info__().attributes
-
-    if attributes == List.delete(expected, :cap_version) do
-      cap_version_position = Enum.find_index(expected, &(&1 == :cap_version)) + 1
-
-      transform = fn row ->
-        row
-        |> Tuple.insert_at(cap_version_position, 301)
-        |> Data.load()
-        |> Data.dump()
-      end
-
-      {:atomic, :ok} = :mnesia.transform_table(User, transform, expected)
-    end
-
-    :ok
-  end
-
-  # MONITOR subscriptions are transient, but their schema persists across restarts.
-  @spec upgrade_monitor_nickname() :: :ok
-  defp upgrade_monitor_nickname do
-    expected = UserMonitor.__info__().attributes
-    attributes = :mnesia.table_info(UserMonitor, :attributes)
-
-    if attributes == List.delete(expected, :target_nick) do
-      transform = fn row ->
-        monitor = Data.load(row)
-        migrated_monitor = %{monitor | target_nick: monitor.target_nick_key}
-
-        Data.dump(migrated_monitor)
-      end
-
-      {:atomic, :ok} = :mnesia.transform_table(UserMonitor, transform, expected)
-    end
-
     :ok
   end
 

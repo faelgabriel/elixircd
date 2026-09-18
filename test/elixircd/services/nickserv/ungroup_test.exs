@@ -9,6 +9,7 @@ defmodule ElixIRCd.Services.Nickserv.UngroupTest do
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Ungroup
+  alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "ungroups the current nickname from the authenticated account" do
@@ -35,6 +36,30 @@ defmodule ElixIRCd.Services.Nickserv.UngroupTest do
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Your current session is now identified for \x02#{grouped_nick.nickname}\x02.\r\n"}
         ])
+      end)
+    end
+
+    test "clears a display nickname when that alias is ungrouped" do
+      Memento.transaction!(fn ->
+        account_nick =
+          insert(:registered_nick, nickname: "AccountNick", settings: Settings.new(%{display: "AliasNick"}))
+
+        grouped_nick =
+          insert(:registered_nick,
+            nickname: "AliasNick",
+            account_name: account_nick.nickname,
+            password_hash: account_nick.password_hash,
+            settings: account_nick.settings
+          )
+
+        user = insert(:user, nick: grouped_nick.nickname, identified_as: account_nick.nickname)
+
+        assert :ok = Ungroup.handle(user, ["UNGROUP"])
+
+        {:ok, updated_account} = RegisteredNicks.get_by_nickname(account_nick.nickname)
+        {:ok, updated_alias} = RegisteredNicks.get_by_nickname(grouped_nick.nickname)
+        assert is_nil(updated_account.settings.display)
+        assert is_nil(updated_alias.settings.display)
       end)
     end
 

@@ -37,6 +37,7 @@ defmodule ElixIRCd.Commands.Nick do
   def handle(user, %{command: "NICK", params: [input_nick | _rest]}) do
     with :ok <- validate_nick(input_nick),
          :ok <- check_reserved_nick(user, input_nick),
+         :ok <- check_enforced_nick(user, input_nick),
          :ok <- check_nick_in_use(user, input_nick) do
       change_nick(user, input_nick)
     else
@@ -56,6 +57,15 @@ defmodule ElixIRCd.Commands.Nick do
         }
         |> Dispatcher.broadcast(:server, user)
 
+      {:error, {:nick_enforced, action}} ->
+        send_enforced_nick_error(user, input_nick)
+
+        if action == :disconnect do
+          Dispatcher.disconnect(user, "Nickname #{input_nick} is reserved and enforced by NickServ")
+        end
+
+        :ok
+
       {:error, invalid_nick_error} ->
         %Message{
           command: :err_erroneusnickname,
@@ -64,6 +74,36 @@ defmodule ElixIRCd.Commands.Nick do
         }
         |> Dispatcher.broadcast(:server, user)
     end
+  end
+
+  @spec check_enforced_nick(User.t(), String.t()) :: :ok | {:error, {:nick_enforced, :reject | :disconnect}}
+  defp check_enforced_nick(user, input_nick) do
+    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
+         false <- belongs_to_account?(registered_nick, user.identified_as),
+         {:ok, account_nick} <- RegisteredNicks.get_by_nickname(registered_nick.account_name),
+         true <- Map.get(account_nick.settings, :enforce) == true,
+         true <- enforcement_grace_elapsed?(user, account_nick) do
+      action = if Map.get(account_nick.settings, :kill, :off) in [:quick, :immed], do: :disconnect, else: :reject
+      {:error, {:nick_enforced, action}}
+    else
+      _ -> :ok
+    end
+  end
+
+  @spec enforcement_grace_elapsed?(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: boolean()
+  defp enforcement_grace_elapsed?(user, account_nick) do
+    enforce_time = Map.get(account_nick.settings, :enforce_time, 0) || 0
+    DateTime.diff(DateTime.utc_now(), user.created_at, :second) >= enforce_time
+  end
+
+  @spec send_enforced_nick_error(User.t(), String.t()) :: :ok
+  defp send_enforced_nick_error(user, input_nick) do
+    %Message{
+      command: :err_nicknameinuse,
+      params: [user_reply(user), input_nick],
+      trailing: "Nickname is reserved and enforced by NickServ"
+    }
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec check_reserved_nick(User.t(), String.t()) :: :ok | {:error, :nick_reserved}

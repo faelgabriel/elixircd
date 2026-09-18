@@ -60,7 +60,7 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP", "SET"])
 
-        assert_sent_messages_amount(user.pid, 30)
+        assert_sent_messages_amount(user.pid, 31)
       end)
     end
 
@@ -109,6 +109,15 @@ defmodule ElixIRCd.Services.Chanserv.HelpTest do
           assert_sent_messages_amount(user.pid, expected_messages)
         end)
       end
+    end
+
+    test "handles HELP command for SET MLOCK" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP", "SET", "MLOCK"])
+        assert_sent_message_contains(user.pid, ~r/Locks stable channel modes/)
+      end)
     end
 
     test "handles HELP command with case insensitivity" do

@@ -16,7 +16,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP"])
 
-        assert_sent_messages_amount(user.pid, 25)
+        assert_sent_messages_amount(user.pid, 27)
       end)
     end
 
@@ -116,7 +116,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP", "SET"])
 
-        assert_sent_messages_amount(user.pid, 15)
+        assert_sent_messages_amount(user.pid, 35)
       end)
     end
 
@@ -246,6 +246,42 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
         assert :ok = Help.handle(user, ["HELP", unknown_command])
 
         assert_sent_messages_amount(user.pid, 2)
+      end)
+    end
+  end
+
+  test "handles HELP for every restored NickServ option and account command" do
+    commands = [
+      ["LIST"],
+      ["MEMO"],
+      ["SET", "HIDESTATUS"],
+      ["SET", "HIDEUSERMASK"],
+      ["SET", "HIDEQUIT"],
+      ["SET", "ENFORCE"],
+      ["SET", "NEVERGROUP"],
+      ["SET", "NEVEROP"],
+      ["SET", "NOGREET"],
+      ["SET", "PRIVATE"],
+      ["SET", "QUIETCHG"],
+      ["SET", "SECURE"],
+      ["SET", "MSG"],
+      ["SET", "EMAIL"],
+      ["SET", "EMAILMEMOS"],
+      ["SET", "ENFORCETIME"],
+      ["SET", "LANGUAGE"],
+      ["SET", "KILL"],
+      ["SET", "PROPERTY"],
+      ["SET", "PUBKEY"],
+      ["SET", "URL"],
+      ["SET", "DISPLAY"]
+    ]
+
+    for command <- commands do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Help.handle(user, ["HELP" | command])
+        assert_sent_message_contains(user.pid, ~r/Help for/)
       end)
     end
   end

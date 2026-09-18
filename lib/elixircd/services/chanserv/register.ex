@@ -14,6 +14,7 @@ defmodule ElixIRCd.Services.Chanserv.Register do
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -119,7 +120,8 @@ defmodule ElixIRCd.Services.Chanserv.Register do
       founder: user.identified_as,
       password_hash: password_hash,
       registered_by: user_mask(user),
-      topic: channel.topic
+      topic: channel.topic,
+      settings: RegisteredChannel.Settings.new(%{persistent_topic: topic_text(channel.topic)})
     })
 
     notify(user, [
@@ -149,6 +151,10 @@ defmodule ElixIRCd.Services.Chanserv.Register do
       end
     end)
   end
+
+  @spec topic_text(Channel.Topic.t() | nil) :: String.t() | nil
+  defp topic_text(nil), do: nil
+  defp topic_text(%Channel.Topic{text: text}), do: text
 
   @spec validate_registration(User.t(), String.t(), String.t(), integer(), integer(), [String.t() | Regex.t()]) ::
           :ok | {:error, atom()}

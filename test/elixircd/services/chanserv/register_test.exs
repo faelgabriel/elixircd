@@ -181,6 +181,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         assert registered_channel.topic != nil
         assert registered_channel.topic.text == topic_text
         assert registered_channel.topic.setter == topic_setter
+        assert registered_channel.settings.persistent_topic == topic_text
         assert Argon2.verify_pass(password, registered_channel.password_hash)
       end)
     end
@@ -222,7 +223,6 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         assert {:ok, registered_channel} = RegisteredChannels.get_by_name(channel_name)
         assert registered_channel.name == channel_name
         assert registered_channel.founder == user.identified_as
-        assert registered_channel.settings.persistent_topic == nil
         assert registered_channel.topic == nil
         assert Argon2.verify_pass(password, registered_channel.password_hash)
       end)

@@ -140,7 +140,7 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec handle_cap_ls(User.t(), pos_integer()) :: :ok
   defp handle_cap_ls(user, requested_version) do
-    version = max(user.cap_version || 301, requested_version)
+    version = max(user.cap_version, requested_version)
     capabilities = if version >= 302, do: Enum.uniq(user.capabilities ++ ["cap-notify"]), else: user.capabilities
     updated_user = Users.update(user, %{cap_negotiating: true, cap_version: version, capabilities: capabilities})
     capabilities_list = get_capabilities_list(%{updated_user | cap_version: requested_version})
@@ -220,16 +220,16 @@ defmodule ElixIRCd.Commands.Cap do
 
     capabilities
     |> Enum.map_join(" ", fn capability ->
-      if (user.cap_version || 301) >= 302, do: capability, else: hd(String.split(capability, "=", parts: 2))
+      if user.cap_version >= 302, do: capability, else: hd(String.split(capability, "=", parts: 2))
     end)
   end
 
   @spec capability_advertised?(atom(), User.t(), keyword()) :: boolean()
   defp capability_advertised?(:cap_notify, user, config),
-    do: (user.cap_version || 301) >= 302 or capability_enabled?(config, :cap_notify)
+    do: user.cap_version >= 302 or capability_enabled?(config, :cap_notify)
 
   defp capability_advertised?(:sts, user, config),
-    do: (user.cap_version || 301) >= 302 and capability_enabled?(config, :sts)
+    do: user.cap_version >= 302 and capability_enabled?(config, :sts)
 
   defp capability_advertised?(key, _user, config), do: capability_enabled?(config, key)
 
@@ -255,11 +255,12 @@ defmodule ElixIRCd.Commands.Cap do
   defp get_enabled_sasl_mechanisms(sasl_config) do
     []
     |> maybe_add_mechanism(sasl_config[:plain], "PLAIN")
+    |> maybe_add_mechanism(sasl_config[:ecdsa], "ECDSA-NIST256P-CHALLENGE")
   end
 
   @spec maybe_add_mechanism([String.t()], keyword() | nil, String.t()) :: [String.t()]
   defp maybe_add_mechanism(mechanisms, config, mechanism_name) do
-    if Keyword.fetch!(config, :enabled) do
+    if Keyword.get(config || [], :enabled, false) do
       mechanisms ++ [mechanism_name]
     else
       mechanisms
@@ -335,7 +336,7 @@ defmodule ElixIRCd.Commands.Cap do
       Map.has_key?(@supported_capabilities, cap.name) and
         (cap.action == :disable or MapSet.member?(available_capabilities, cap.name)) and
         cap.name not in @non_requestable_capabilities and
-        not (cap.name == "cap-notify" and cap.action == :disable and (user.cap_version || 301) >= 302)
+        not (cap.name == "cap-notify" and cap.action == :disable and user.cap_version >= 302)
     end)
   end
 

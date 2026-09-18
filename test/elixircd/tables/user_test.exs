@@ -29,6 +29,8 @@ defmodule ElixIRCd.Tables.UserTest do
       assert user.realname == nil
       assert user.registered == false
       assert user.modes == []
+      assert user.capabilities == []
+      assert user.cap_version == 301
       assert user.password == nil
       assert user.away_message == nil
       assert_in_delta user.last_activity, :erlang.system_time(:second), 1

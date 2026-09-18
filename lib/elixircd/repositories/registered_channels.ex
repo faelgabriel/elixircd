@@ -3,6 +3,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   Repository module for managing registered channels in Mnesia database.
   """
 
+  alias ElixIRCd.Tables.Channel.Topic
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
@@ -66,10 +67,27 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   end
 
   @doc """
+  Update a registered channel topic and its persistent topic snapshot.
+
+  The structured topic is retained for INFO and metadata while the text
+  snapshot is used when KEEPTOPIC recreates an empty channel.
+  """
+  @spec update_topic(RegisteredChannel.t(), Topic.t() | nil) :: RegisteredChannel.t()
+  def update_topic(registered_channel, topic) do
+    settings = RegisteredChannel.Settings.update(registered_channel.settings, %{persistent_topic: topic_text(topic)})
+
+    update(registered_channel, %{topic: topic, settings: settings})
+  end
+
+  @doc """
   Delete a registered channel from the database.
   """
   @spec delete(RegisteredChannel.t()) :: :ok
   def delete(registered_channel) do
     Memento.Query.delete_record(registered_channel)
   end
+
+  @spec topic_text(Topic.t() | nil) :: String.t() | nil
+  defp topic_text(nil), do: nil
+  defp topic_text(%Topic{text: text}), do: text
 end

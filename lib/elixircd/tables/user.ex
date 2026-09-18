@@ -64,7 +64,7 @@ defmodule ElixIRCd.Tables.User do
           sasl_attempts: non_neg_integer() | nil,
           capabilities: [String.t()],
           cap_negotiating: boolean() | nil,
-          cap_version: pos_integer() | nil,
+          cap_version: pos_integer(),
           webirc_gateway: String.t() | nil,
           webirc_hostname: String.t() | nil,
           webirc_ip: String.t() | nil,

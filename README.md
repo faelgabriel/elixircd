@@ -330,6 +330,8 @@ NickServ allows users to register and manage nicknames, providing authentication
 - **ACCESS**: Manage the access list for your nickname. ✅
 - **ALIST**: Display channels or nicknames associated with your account. ✅
 - **STATUS**: Check the identification status of one or more nicknames. ✅
+- **LIST**: List registered nicknames with privacy-aware filtering. ✅
+- **MEMO**: Send and manage persistent account memos, including optional email delivery. ✅
 - **GROUP**: Group a nickname with your current registered nickname. ✅
 - **UNGROUP**: Remove a nickname from your group. ✅
 - **LISTCHANS**: List channels where your account is founder or successor. ✅

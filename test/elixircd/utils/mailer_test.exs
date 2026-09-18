@@ -61,4 +61,31 @@ defmodule ElixIRCd.Utils.MailerTest do
       assert_raise ArgumentError, fn -> Mailer.send_verification_email("test@example.com", "test_nick", "ABC123") end
     end
   end
+
+  describe "send_memo_email/4" do
+    test "sends escaped HTML and readable text content" do
+      BambooMailer
+      |> expect(:deliver_now, fn _adapter, email, _config, _opts ->
+        assert email.to == "recipient@example.com"
+        assert email.from == "noreply@irc.test"
+        assert email.subject == "IRC memo for Account"
+        assert email.html_body =~ "&lt;hello&gt;&amp;"
+        assert email.html_body =~ "&quot;quoted&quot;"
+        assert email.html_body =~ "&#39;value&#39;"
+        assert email.html_body =~ "<br>"
+        assert email.text_body =~ "<hello>&"
+        assert email.text_body =~ "line two"
+
+        {:ok, email}
+      end)
+
+      assert {:ok, _email} =
+               Mailer.send_memo_email(
+                 "recipient@example.com",
+                 "Account",
+                 "Sender",
+                 "<hello>&\nline two\n\"quoted\" 'value'"
+               )
+    end
+  end
 end

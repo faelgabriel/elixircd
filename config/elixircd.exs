@@ -182,6 +182,11 @@ config :elixircd,
       # Require TLS for PLAIN authentication (recommended for security)
       require_tls: true
     ],
+    # ECDSA-NIST256P-CHALLENGE configuration (public-key authentication)
+    ecdsa: [
+      # Disabled by default until clients have a registered public key.
+      enabled: false
+    ],
     # General SASL settings
     # Timeout for incomplete SASL sessions (in milliseconds)
     session_timeout_ms: 60_000,
@@ -270,8 +275,46 @@ config :elixircd,
       max_access_entries: 10,
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
+        # Default for: SET EMAILMEMOS {ON|OFF|ONLY}
+        email_memos: :off,
+        # Default for: SET ENFORCE {ON|OFF}
+        enforce: false,
+        # Default for: SET ENFORCETIME <seconds>
+        enforce_time: 0,
         # Default for: SET HIDE EMAIL {ON|OFF}
-        hide_email: false
+        hide_email: false,
+        # Default for: SET HIDE STATUS {ON|OFF}
+        hide_status: false,
+        # Default for: SET HIDE USERMASK {ON|OFF}
+        hide_usermask: false,
+        # Default for: SET HIDE QUIT {ON|OFF}
+        hide_quit: false,
+        # Default for: SET KILL {ON|QUICK|IMMED|OFF}
+        kill: :off,
+        # Default for: SET LANGUAGE <language>
+        language: "en",
+        # Default for: SET MSG {ON|OFF}
+        msg: false,
+        # Default for: SET NEVERGROUP {ON|OFF}
+        never_group: false,
+        # Default for: SET NEVEROP {ON|OFF}
+        never_op: false,
+        # Default for: SET NOGREET {ON|OFF}
+        no_greet: false,
+        # Default for: SET PRIVATE {ON|OFF}
+        private: false,
+        # Default for: SET PROPERTY <name> [value]
+        property: %{},
+        # Default for: SET PUBKEY [key]
+        pubkey: nil,
+        # Default for: SET QUIETCHG {ON|OFF}
+        quiet_chg: false,
+        # Default for: SET SECURE {ON|OFF}
+        secure: false,
+        # Default for: SET URL <url>
+        url: nil,
+        # Default for: SET DISPLAY <nick>
+        display: nil
       ]
     ],
     # ChanServ Configuration

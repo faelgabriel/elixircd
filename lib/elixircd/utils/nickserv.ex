@@ -13,6 +13,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.Nickserv.Translation
 
   @doc """
   Sends NickServ notices to a user.
@@ -25,6 +26,69 @@ defmodule ElixIRCd.Utils.Nickserv do
   def notify(user, messages) when is_list(messages) do
     Enum.each(messages, fn message -> send_notice(user, message) end)
     :ok
+  end
+
+  @doc """
+  Returns the canonical account settings for an identified user, or `nil` when
+  the session is not identified or the account no longer exists.
+  """
+  @spec account_settings(User.t()) :: map() | nil
+  def account_settings(%User{identified_as: account_name}) when is_binary(account_name) do
+    case RegisteredNicks.get_by_nickname(account_name) do
+      {:ok, registered_nick} -> registered_nick.settings
+      {:error, :registered_nick_not_found} -> nil
+    end
+  end
+
+  def account_settings(%User{}), do: nil
+
+  @doc """
+  Returns whether an account setting is explicitly enabled.
+  """
+  @spec account_setting?(String.t() | nil, atom()) :: boolean()
+  def account_setting?(nil, _setting), do: false
+
+  def account_setting?(account_name, setting) when is_binary(account_name) do
+    case RegisteredNicks.get_by_nickname(account_name) do
+      {:ok, registered_nick} -> Map.get(registered_nick.settings, setting) == true
+      {:error, :registered_nick_not_found} -> false
+    end
+  end
+
+  @doc """
+  Returns a named setting from an account, falling back when the account does
+  not exist or the setting is not populated in a test/legacy value.
+  """
+  @spec account_setting(String.t() | nil, atom(), term()) :: term()
+  def account_setting(nil, _setting, default), do: default
+
+  def account_setting(account_name, setting, default) when is_binary(account_name) do
+    case RegisteredNicks.get_by_nickname(account_name) do
+      {:ok, registered_nick} ->
+        case Map.fetch(registered_nick.settings, setting) do
+          {:ok, nil} -> default
+          {:ok, value} -> value
+          :error -> default
+        end
+
+      {:error, :registered_nick_not_found} ->
+        default
+    end
+  end
+
+  @doc "Returns whether a connection is protected by TLS or secure WebSocket transport."
+  @spec secure_connection?(User.t()) :: boolean()
+  def secure_connection?(%User{transport: transport}), do: transport in [:tls, :wss]
+
+  @doc "Returns whether password authentication for an account requires a secure connection."
+  @spec account_requires_secure_connection?(String.t() | nil) :: boolean()
+  def account_requires_secure_connection?(account_name),
+    do: account_setting(account_name, :secure, false) == true
+
+  @doc "Returns the configured display nickname for an account."
+  @spec account_display_name(RegisteredNick.t()) :: String.t()
+  def account_display_name(registered_nick) do
+    Map.get(registered_nick.settings, :display) || registered_nick.account_name
   end
 
   @doc """
@@ -170,7 +234,11 @@ defmodule ElixIRCd.Utils.Nickserv do
 
   @spec send_notice(User.t(), String.t()) :: :ok
   defp send_notice(user, message) do
-    %Message{command: "NOTICE", params: [user_reply(user)], trailing: message}
+    settings = account_settings(user) || %{}
+    command = if Map.get(settings, :msg) == true, do: "PRIVMSG", else: "NOTICE"
+    language = Map.get(settings, :language, "en")
+
+    %Message{command: command, params: [user_reply(user)], trailing: Translation.translate(message, language)}
     |> Dispatcher.broadcast(:nickserv, user)
   end
 end
