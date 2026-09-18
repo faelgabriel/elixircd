@@ -58,6 +58,39 @@ defmodule ElixIRCd.Config.LoaderTest do
     refute File.exists?(Path.join(dir, "cloak.key"))
   end
 
+  test "load rejects unknown and missing schema fields before preparing resources", %{
+    config: config,
+    dir: dir,
+    path: path
+  } do
+    cases = [
+      {
+        Keyword.put(config, :not_declared, true),
+        "elixircd.not_declared: unknown field"
+      },
+      {
+        Keyword.update!(config, :server, &Keyword.put(&1, :not_declared, true)),
+        "elixircd.server.not_declared: unknown field"
+      },
+      {
+        Keyword.delete(config, :admin_info),
+        "elixircd.admin_info: required field is missing"
+      },
+      {
+        Keyword.update!(config, :server, &Keyword.delete(&1, :hostname)),
+        "elixircd.server.hostname: required field is missing"
+      }
+    ]
+
+    for {invalid, detail} <- cases do
+      write_config(path, invalid)
+
+      error = assert_raise Error, fn -> Loader.load!(path, :boot) end
+      assert Exception.message(error) =~ detail
+      refute File.exists?(Path.join(dir, "cloak.key"))
+    end
+  end
+
   test "read validation is side effect free and valid reload replaces nested sections", %{
     config: config,
     path: path,

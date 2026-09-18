@@ -119,6 +119,60 @@ defmodule ElixIRCd.Config.ValidatorTest do
     assert Enum.any?(errors, &String.contains?(&1, "max_nick_length: duplicate field"))
   end
 
+  test "unknown and missing fields are rejected in every configurable branch", %{config: config} do
+    command_throttle = config[:rate_limiter][:message][:throttle]
+
+    cases = [
+      Keyword.update!(config, ElixIRCd.Utils.Mailer, &Keyword.put(&1, :not_declared, true)),
+      put_in(config, [:listeners, :tcp, :not_declared], true),
+      put_in(config, [:channel, :max_list_entries], %{b: 100, e: 100, I: 100, not_declared: 100}),
+      put_in(config, [:webirc, :gateways], [
+        %{ips: ["192.0.2.1"], password: "secret", name: "Gateway", not_declared: true}
+      ]),
+      put_in(config, [:rate_limiter, :message, :command_throttle], %{
+        "JOIN" => Keyword.put(command_throttle, :not_declared, 1)
+      }),
+      Keyword.update!(config, ElixIRCd.Utils.Mailer, &Keyword.delete(&1, :adapter)),
+      put_in(
+        config,
+        [:listeners, :tls, :transport_options],
+        Keyword.delete(config[:listeners][:tls][:transport_options], :keyfile)
+      ),
+      put_in(config, [:channel, :max_list_entries], %{b: 100, e: 100}),
+      put_in(config, [:webirc, :gateways], [%{ips: ["192.0.2.1"], password: "secret"}]),
+      put_in(config, [:rate_limiter, :message, :command_throttle], %{
+        "JOIN" => Keyword.delete(command_throttle, :cost)
+      })
+    ]
+
+    for invalid <- cases do
+      assert {:error, errors} = Validator.validate(invalid)
+      assert match?([_ | _], errors)
+    end
+  end
+
+  test "required fields inside every shipped listener variant cannot be omitted", %{config: config} do
+    paths = [
+      [:listeners, :tcp, :port],
+      [:listeners, :tls, :port],
+      [:listeners, :tls, :transport_options, :keyfile],
+      [:listeners, :tls, :transport_options, :certfile],
+      [:listeners, :http, :port],
+      [:listeners, :http, :startup_log],
+      [:listeners, :http, :websocket_options, :compress],
+      [:listeners, :https, :port],
+      [:listeners, :https, :startup_log],
+      [:listeners, :https, :websocket_options, :compress],
+      [:listeners, :https, :keyfile],
+      [:listeners, :https, :certfile]
+    ]
+
+    for path <- paths do
+      assert {:error, errors} = Validator.validate(delete_field(config, path)), inspect(path)
+      assert Enum.any?(errors, &String.contains?(&1, "required field is missing")), inspect(path)
+    end
+  end
+
   for {path, values} <- [
         {[:settings, :case_mapping], [:unicode, "ascii", nil]},
         {[:settings, :utf8_only], ["false", 0, nil]},
