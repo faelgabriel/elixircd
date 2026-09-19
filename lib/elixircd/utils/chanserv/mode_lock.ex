@@ -3,7 +3,7 @@ defmodule ElixIRCd.Utils.Chanserv.ModeLock do
   Validates and reapplies ChanServ channel mode locks.
 
   A mode lock is stored in the same wire format used by MODE, for example
-  `+nt` or `+kl 25 secret`. Membership and list modes are deliberately not
+  `+nt` or `+lk 25 secret`. Membership and list modes are deliberately not
   accepted because they describe live users or masks rather than stable
   channel policy.
   """
@@ -14,7 +14,6 @@ defmodule ElixIRCd.Utils.Chanserv.ModeLock do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.RegisteredChannel
-  alias ElixIRCd.Tables.User
 
   @unsupported_modes [:b, :e, :I, :o, :v]
 
@@ -23,6 +22,7 @@ defmodule ElixIRCd.Utils.Chanserv.ModeLock do
           | :invalid_mode
           | :listing_mode
           | :missing_mode_parameter
+          | :invalid_mode_parameter
           | :unsupported_mode
 
   @doc "Validates and canonicalizes a MLOCK expression."
@@ -52,6 +52,9 @@ defmodule ElixIRCd.Utils.Chanserv.ModeLock do
       missing_modes != [] ->
         {:error, :missing_mode_parameter}
 
+      not ChannelModes.valid_mode_parameters?(filtered_changes) ->
+        {:error, :invalid_mode_parameter}
+
       listing_modes != [] ->
         {:error, :listing_mode}
 
@@ -63,12 +66,8 @@ defmodule ElixIRCd.Utils.Chanserv.ModeLock do
     end
   end
 
-  @doc "Parses a persisted canonical mode lock. Invalid legacy data is ignored safely."
   @spec parse(String.t() | nil) :: {:ok, [ChannelModes.mode_change()]} | :error
-  def parse(nil), do: :error
-  def parse(""), do: :error
-
-  def parse(mode_lock) when is_binary(mode_lock) do
+  defp parse(mode_lock) when is_binary(mode_lock) and mode_lock != "" do
     case String.split(mode_lock) do
       [mode_string | values] ->
         with {:ok, canonical} <- validate(mode_string, values),
@@ -82,31 +81,29 @@ defmodule ElixIRCd.Utils.Chanserv.ModeLock do
     end
   end
 
-  def parse(_mode_lock), do: :error
+  defp parse(_mode_lock), do: :error
 
-  @doc "Reconciles live channel modes with the registered channel's MLOCK."
-  @spec reconcile(Channel.t(), RegisteredChannel.t(), User.t()) :: {Channel.t(), [ChannelModes.mode_change()]}
-  def reconcile(channel, registered_channel, actor) do
+  @spec reconcile(Channel.t(), RegisteredChannel.t()) :: {Channel.t(), [ChannelModes.mode_change()]}
+  defp reconcile(channel, registered_channel) do
     case parse(Map.get(registered_channel.settings, :mlock)) do
-      {:ok, mode_changes} -> ChannelModes.apply_mode_changes(actor, channel, mode_changes)
+      {:ok, mode_changes} -> ChannelModes.apply_mode_changes_as_service(channel, mode_changes)
       :error -> {channel, []}
     end
   end
 
   @doc "Reconciles and broadcasts the changes made by ChanServ."
-  @spec reconcile_and_broadcast(Channel.t(), RegisteredChannel.t(), User.t()) ::
+  @spec reconcile_and_broadcast(Channel.t(), RegisteredChannel.t()) ::
           {Channel.t(), [ChannelModes.mode_change()]}
-  def reconcile_and_broadcast(channel, registered_channel, actor) do
-    {updated_channel, applied_changes} = reconcile(channel, registered_channel, actor)
+  def reconcile_and_broadcast(channel, registered_channel) do
+    {updated_channel, applied_changes} = reconcile(channel, registered_channel)
     broadcast(updated_channel, applied_changes)
     {updated_channel, applied_changes}
   end
 
-  @doc "Broadcasts a mode-lock correction to everyone currently in the channel."
   @spec broadcast(Channel.t(), [ChannelModes.mode_change()]) :: :ok
-  def broadcast(_channel, []), do: :ok
+  defp broadcast(_channel, []), do: :ok
 
-  def broadcast(channel, applied_changes) do
+  defp broadcast(channel, applied_changes) do
     user_pids = UserChannels.get_by_channel_name(channel.name) |> Enum.map(& &1.user_pid)
     users = Users.get_by_pids(user_pids)
 

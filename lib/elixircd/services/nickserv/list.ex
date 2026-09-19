@@ -6,11 +6,12 @@ defmodule ElixIRCd.Services.Nickserv.List do
   import ElixIRCd.Utils.Nickserv,
     only: [account_display_name: 1, belongs_to_account?: 2, get_account_nick: 1, notify: 2]
 
-  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1]
+  import ElixIRCd.Utils.Protocol, only: [irc_operator?: 1, match_glob?: 2]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
@@ -26,22 +27,44 @@ defmodule ElixIRCd.Services.Nickserv.List do
 
   @spec list_nicks(User.t(), String.t()) :: :ok
   defp list_nicks(user, pattern) do
-    nicks =
-      RegisteredNicks.get_all()
-      |> Enum.filter(fn registered_nick ->
-        pattern_matches?(registered_nick.nickname, pattern) and visible_to?(user, registered_nick)
-      end)
-      |> Enum.sort_by(&String.downcase(&1.nickname))
+    nickserv = Application.fetch_env!(:elixircd, :services)[:nickserv]
 
-    if nicks == [] do
-      notify(user, "No registered nicknames matched your search.")
+    if not String.valid?(pattern) or String.length(pattern) > nickserv[:max_list_pattern_length] do
+      notify(user, "LIST pattern is too long or contains invalid text.")
     else
-      notify(user, "Registered nicknames:")
+      nicks =
+        RegisteredNicks.get_all()
+        |> Enum.sort_by(&CaseMapping.normalize(&1.nickname))
+        |> Enum.reduce_while([], fn registered_nick, matches ->
+          collect_match(matches, registered_nick, user, pattern, nickserv[:max_list_results])
+        end)
+        |> Enum.reverse()
 
-      Enum.each(nicks, &notify_nick_entry(user, &1))
-
-      notify(user, "End of list.")
+      notify_list_result(user, nicks)
     end
+  end
+
+  @spec collect_match([RegisteredNick.t()], RegisteredNick.t(), User.t(), String.t(), pos_integer()) ::
+          {:cont, [RegisteredNick.t()]} | {:halt, [RegisteredNick.t()]}
+  defp collect_match(matches, _registered_nick, _user, _pattern, max_results)
+       when length(matches) >= max_results,
+       do: {:halt, matches}
+
+  defp collect_match(matches, registered_nick, user, pattern, _max_results) do
+    if match_glob?(registered_nick.nickname, pattern) and visible_to?(user, registered_nick),
+      do: {:cont, [registered_nick | matches]},
+      else: {:cont, matches}
+  end
+
+  @spec notify_list_result(User.t(), [RegisteredNick.t()]) :: :ok
+  defp notify_list_result(user, []) do
+    notify(user, "No registered nicknames matched your search.")
+  end
+
+  defp notify_list_result(user, nicks) do
+    notify(user, "Registered nicknames:")
+    Enum.each(nicks, &notify_nick_entry(user, &1))
+    notify(user, "End of list.")
   end
 
   @spec notify_nick_entry(User.t(), RegisteredNick.t()) :: :ok
@@ -69,12 +92,5 @@ defmodule ElixIRCd.Services.Nickserv.List do
       {:ok, account_nick} -> account_nick
       {:error, :registered_nick_not_found} -> registered_nick
     end
-  end
-
-  @spec pattern_matches?(String.t(), String.t()) :: boolean()
-  defp pattern_matches?(value, pattern) do
-    escaped = Regex.escape(String.downcase(pattern))
-    regex = String.replace(escaped, "\\*", ".*") |> then(&("\\A" <> &1 <> "\\z"))
-    Regex.match?(Regex.compile!(regex), String.downcase(value))
   end
 end

@@ -46,10 +46,10 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     notify(user, "\x02\x0312*** \x0304#{registered_nick.nickname}\x0312 ***\x03\x02")
 
     viewer_is_owner? = belongs_to_account?(registered_nick, user.identified_as)
-    display_online_status(user, registered_nick, has_full_access)
+    display_online_status(user, registered_nick, account_nick, has_full_access)
 
     if has_full_access do
-      display_registration_info(user, registered_nick, viewer_is_owner?)
+      display_registration_info(user, registered_nick, account_nick, viewer_is_owner?)
       display_email_info(user, account_nick, has_full_access)
       display_account_settings(user, account_nick, viewer_is_owner?)
       show_options(user, account_nick)
@@ -58,15 +58,15 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     end
   end
 
-  @spec display_online_status(User.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp display_online_status(user, registered_nick, has_full_access) do
+  @spec display_online_status(User.t(), RegisteredNick.t(), RegisteredNick.t(), boolean()) :: :ok
+  defp display_online_status(user, registered_nick, account_nick, has_full_access) do
     currently_used =
       case Users.get_by_nick(registered_nick.nickname) do
         {:ok, _online_user} -> true
         {:error, :user_not_found} -> false
       end
 
-    if setting(registered_nick.settings, :hide_status, false) == true and not has_full_access do
+    if setting(account_nick.settings, :hide_status, false) == true and not has_full_access do
       notify(user, "Online status is private.")
     else
       if currently_used do
@@ -77,11 +77,11 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     end
   end
 
-  @spec display_registration_info(User.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp display_registration_info(user, registered_nick, can_view_private?) do
+  @spec display_registration_info(User.t(), RegisteredNick.t(), RegisteredNick.t(), boolean()) :: :ok
+  defp display_registration_info(user, registered_nick, account_nick, can_view_private?) do
     notify(user, "Registered on: #{format_datetime(registered_nick.created_at)}")
 
-    if setting(registered_nick.settings, :hide_quit, false) != true or can_view_private? do
+    if setting(account_nick.settings, :hide_quit, false) != true or can_view_private? do
       case registered_nick.last_seen_at do
         nil -> notify(user, "Last seen: never")
         last_seen_at -> notify(user, "Last seen: #{format_datetime(last_seen_at)}")
@@ -90,7 +90,7 @@ defmodule ElixIRCd.Services.Nickserv.Info do
       notify(user, "Last seen information is private.")
     end
 
-    if setting(registered_nick.settings, :hide_usermask, false) != true or can_view_private? do
+    if setting(account_nick.settings, :hide_usermask, false) != true or can_view_private? do
       notify(user, "Registered from: \x02#{registered_nick.registered_by}\x02")
     else
       notify(user, "Registration mask is private.")

@@ -203,5 +203,76 @@ defmodule ElixIRCd.Services.Nickserv.VerifyTest do
         ])
       end)
     end
+
+    test "promotes a verified pending email change without changing account verification" do
+      Memento.transaction!(fn ->
+        verified_at = DateTime.add(DateTime.utc_now(), -300, :second)
+
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "EmailAccount",
+            email: "old@example.com",
+            verified_at: verified_at,
+            pending_email: "new@example.com",
+            pending_email_verify_code: "pending-code",
+            pending_email_requested_at: DateTime.utc_now()
+          )
+
+        user = insert(:user)
+        assert :ok = Verify.handle(user, ["VERIFY", registered_nick.nickname, "pending-code"])
+
+        {:ok, updated} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+        assert updated.email == "new@example.com"
+        assert updated.verified_at == verified_at
+        assert is_nil(updated.pending_email)
+        assert is_nil(updated.pending_email_verify_code)
+        assert is_nil(updated.pending_email_requested_at)
+      end)
+    end
+
+    test "rejects an invalid pending email code without discarding the request" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "PendingEmail",
+            pending_email: "new@example.com",
+            pending_email_verify_code: "correct-code",
+            pending_email_requested_at: DateTime.utc_now()
+          )
+
+        user = insert(:user)
+        assert :ok = Verify.handle(user, ["VERIFY", registered_nick.nickname, "wrong-code"])
+
+        {:ok, unchanged} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+        assert unchanged.pending_email == "new@example.com"
+        assert unchanged.pending_email_verify_code == "correct-code"
+        assert_sent_message_contains(user.pid, ~r/Verification failed.*Invalid code/)
+      end)
+    end
+
+    test "expires a stale pending email code and retains the verified address" do
+      Memento.transaction!(fn ->
+        ttl = Application.fetch_env!(:elixircd, :services)[:nickserv][:email_verification_ttl_seconds]
+
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "ExpiredEmail",
+            email: "verified@example.com",
+            pending_email: "stale@example.com",
+            pending_email_verify_code: "stale-code",
+            pending_email_requested_at: DateTime.add(DateTime.utc_now(), -(ttl + 1), :second)
+          )
+
+        user = insert(:user)
+        assert :ok = Verify.handle(user, ["VERIFY", registered_nick.nickname, "stale-code"])
+
+        {:ok, updated} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+        assert updated.email == "verified@example.com"
+        assert is_nil(updated.pending_email)
+        assert is_nil(updated.pending_email_verify_code)
+        assert is_nil(updated.pending_email_requested_at)
+        assert_sent_message_contains(user.pid, ~r/pending email change.*has expired/)
+      end)
+    end
   end
 end

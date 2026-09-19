@@ -321,6 +321,18 @@ defmodule ElixIRCd.MessageTest do
     end
   end
 
+  describe "unparse_unbounded!/1" do
+    test "raises an ArgumentError on a malformed IRC message" do
+      message = %Message{tags: %{}, prefix: nil, command: "", params: [], trailing: nil}
+
+      assert_raise ArgumentError,
+                   "Invalid IRC message format on unparsing command: %ElixIRCd.Message{tags: %{}, prefix: nil, command: \"\", params: [], trailing: nil}",
+                   fn ->
+                     Message.unparse_unbounded!(message)
+                   end
+    end
+  end
+
   describe "parse/1 - IRCv3 message tags" do
     test "parses a message with a single tag without value" do
       raw_message = "@bot :irc.example.com PRIVMSG #channel :hello"

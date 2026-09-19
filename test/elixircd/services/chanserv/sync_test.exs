@@ -169,7 +169,7 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
       end)
     end
 
-    test "does not restore operator status for NEVEROP accounts and keeps their change quiet" do
+    test "does not restore operator status for NEVEROP accounts and synchronizes the mode change" do
       Memento.transaction!(fn ->
         founder =
           insert(:registered_nick,
@@ -189,7 +189,7 @@ defmodule ElixIRCd.Services.Chanserv.SyncTest do
 
         {:ok, updated_membership} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
         assert updated_membership.modes == []
-        assert_sent_messages_count_containing(user.pid, ~r/ MODE /, 0)
+        assert_sent_messages_count_containing(user.pid, ~r/ MODE #never-op -o founder/, 1)
         assert_sent_message_contains(watcher.pid, ~r/ MODE #never-op -o founder/)
       end)
     end

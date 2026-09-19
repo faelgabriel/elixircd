@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -49,6 +50,8 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
     notify_account_logout(updated_user)
 
     send_logged_out(updated_user, identified_nickname)
+
+    NickEnforcement.schedule_enforcement(updated_user)
 
     notify(updated_user, "You are now logged out from \x02#{identified_nickname}\x02.")
   end

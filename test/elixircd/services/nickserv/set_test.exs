@@ -245,9 +245,111 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
         assert updated.settings.url == "https://example.com/profile"
         assert updated.settings.display == "DisplayAlias"
         assert Base.decode64!(updated.settings.pubkey) == public_key
-        assert updated.email == "new@example.com"
+        assert updated.email == "old@example.com"
+        assert updated.pending_email == "new@example.com"
+        assert is_binary(updated.pending_email_verify_code)
+        assert %DateTime{} = updated.pending_email_requested_at
+        assert is_nil(updated.verify_code)
+        assert updated.verified_at != nil
+      end)
+    end
+
+    test "bounds ENFORCETIME to the configured safe maximum" do
+      Memento.transaction!(fn ->
+        registered_nick = insert(:registered_nick, nickname: "TimedAccount")
+        user = insert(:user, identified_as: registered_nick.account_name)
+        max_enforce_time = Application.fetch_env!(:elixircd, :services)[:nickserv][:max_enforce_time]
+
+        assert :ok = Set.handle(user, ["SET", "ENFORCETIME", Integer.to_string(max_enforce_time)])
+        assert :ok = Set.handle(user, ["SET", "ENFORCETIME", Integer.to_string(max_enforce_time + 1)])
+
+        {:ok, updated} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+        assert updated.settings.enforce_time == max_enforce_time
+        assert_sent_message_contains(user.pid, ~r/Invalid parameter for .*ENFORCETIME/)
+      end)
+    end
+
+    test "removing email preserves an already verified account state" do
+      Memento.transaction!(fn ->
+        verified_at = DateTime.add(DateTime.utc_now(), -300, :second)
+
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "VerifiedAccount",
+            email: "verified@example.com",
+            verified_at: verified_at
+          )
+
+        user = insert(:user, identified_as: registered_nick.account_name)
+        assert :ok = Set.handle(user, ["SET", "EMAIL", "OFF"])
+
+        {:ok, updated} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+        assert is_nil(updated.email)
+        assert updated.verified_at == verified_at
+        assert is_nil(updated.verify_code)
+        assert is_nil(updated.pending_email)
+      end)
+    end
+
+    test "sets the primary email and verification code for an unverified account" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "UnverifiedAccount",
+            email: nil,
+            verified_at: nil,
+            verify_code: nil
+          )
+
+        user = insert(:user, identified_as: registered_nick.account_name)
+
+        expect(JobQueue, :enqueue, fn VerificationEmailDelivery, %{"email" => "first@example.com"}, _opts ->
+          :queued
+        end)
+
+        assert :ok = Set.handle(user, ["SET", "EMAIL", "first@example.com"])
+        {:ok, updated} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+        assert updated.email == "first@example.com"
         assert is_binary(updated.verify_code)
-        assert is_nil(updated.verified_at)
+        assert is_nil(updated.pending_email)
+        assert_sent_message_contains(user.pid, ~r/email address has been changed/)
+      end)
+    end
+
+    test "rejects setting the current primary email again" do
+      Memento.transaction!(fn ->
+        registered_nick = insert(:registered_nick, nickname: "SameEmailAccount", email: "same@example.com")
+        user = insert(:user, identified_as: registered_nick.account_name)
+
+        assert :ok = Set.handle(user, ["SET", "EMAIL", "same@example.com"])
+        assert_sent_message_contains(user.pid, ~r/already the email address/)
+      end)
+    end
+
+    test "reissues an expired pending change even when the requested email is unchanged" do
+      Memento.transaction!(fn ->
+        services = Application.fetch_env!(:elixircd, :services)
+        ttl = services[:nickserv][:email_verification_ttl_seconds]
+        requested_at = DateTime.add(DateTime.utc_now(), -(ttl + 1), :second)
+
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "PendingAccount",
+            email: "old@example.com",
+            pending_email: "new@example.com",
+            pending_email_verify_code: "expired-code",
+            pending_email_requested_at: requested_at
+          )
+
+        user = insert(:user, identified_as: registered_nick.account_name)
+
+        expect(JobQueue, :enqueue, fn VerificationEmailDelivery, %{"email" => "new@example.com"}, _opts -> :queued end)
+        assert :ok = Set.handle(user, ["SET", "EMAIL", "new@example.com"])
+
+        {:ok, updated} = RegisteredNicks.get_by_nickname(registered_nick.nickname)
+        assert updated.pending_email == "new@example.com"
+        refute updated.pending_email_verify_code == "expired-code"
+        assert DateTime.compare(updated.pending_email_requested_at, requested_at) == :gt
       end)
     end
 
@@ -270,6 +372,29 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
         assert unchanged.settings.property == %{}
         assert is_nil(unchanged.settings.pubkey)
       end)
+    end
+
+    test "enforces the account property count and byte quotas" do
+      services = Application.fetch_env!(:elixircd, :services)
+      nickserv = Keyword.fetch!(services, :nickserv)
+      limited_nickserv = Keyword.merge(nickserv, max_properties: 1, max_property_bytes: 10)
+      Application.put_env(:elixircd, :services, Keyword.put(services, :nickserv, limited_nickserv))
+
+      try do
+        Memento.transaction!(fn ->
+          registered_nick = insert(:registered_nick, nickname: "QuotaAccount")
+          user = insert(:user, identified_as: registered_nick.account_name)
+
+          assert :ok = Set.handle(user, ["SET", "PROPERTY", "role", "admin"])
+          assert :ok = Set.handle(user, ["SET", "PROPERTY", "second", "value"])
+
+          {:ok, unchanged} = RegisteredNicks.get_by_nickname(registered_nick.account_name)
+          assert unchanged.settings.property == %{"role" => "admin"}
+          assert_sent_message_contains(user.pid, ~r/reached its custom PROPERTY quota/)
+        end)
+      after
+        Application.put_env(:elixircd, :services, services)
+      end
     end
 
     test "covers validation, clearing, querying, and storage failure paths for every option" do

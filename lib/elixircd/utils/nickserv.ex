@@ -3,17 +3,37 @@ defmodule ElixIRCd.Utils.Nickserv do
   Utility functions for NickServ service.
   """
 
-  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [chunk_message_text: 2, user_reply: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Service
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Nickserv.Translation
+
+  @doc "Returns whether an email-change verification request is still valid."
+  @spec pending_email_active?(RegisteredNick.t(), DateTime.t()) :: boolean()
+  def pending_email_active?(registered_nick, now \\ DateTime.utc_now())
+
+  def pending_email_active?(
+        %RegisteredNick{
+          pending_email: pending_email,
+          pending_email_verify_code: verify_code,
+          pending_email_requested_at: %DateTime{} = requested_at
+        },
+        now
+      )
+      when is_binary(pending_email) and is_binary(verify_code) do
+    ttl = Application.fetch_env!(:elixircd, :services)[:nickserv][:email_verification_ttl_seconds]
+    DateTime.compare(DateTime.add(requested_at, ttl, :second), now) == :gt
+  end
+
+  def pending_email_active?(_registered_nick, _now), do: false
 
   @doc """
   Sends NickServ notices to a user.
@@ -25,6 +45,15 @@ defmodule ElixIRCd.Utils.Nickserv do
 
   def notify(user, messages) when is_list(messages) do
     Enum.each(messages, fn message -> send_notice(user, message) end)
+    :ok
+  end
+
+  @doc "Sends a NickServ notice without passing user-controlled text through translation."
+  @spec notify_literal(User.t(), String.t() | [String.t()]) :: :ok
+  def notify_literal(user, message) when is_binary(message), do: send_notice(user, message, false)
+
+  def notify_literal(user, messages) when is_list(messages) do
+    Enum.each(messages, fn message -> send_notice(user, message, false) end)
     :ok
   end
 
@@ -50,14 +79,14 @@ defmodule ElixIRCd.Utils.Nickserv do
 
   def account_setting?(account_name, setting) when is_binary(account_name) do
     case RegisteredNicks.get_by_nickname(account_name) do
-      {:ok, registered_nick} -> Map.get(registered_nick.settings, setting) == true
+      {:ok, registered_nick} -> Map.fetch!(registered_nick.settings, setting) == true
       {:error, :registered_nick_not_found} -> false
     end
   end
 
   @doc """
-  Returns a named setting from an account, falling back when the account does
-  not exist or the setting is not populated in a test/legacy value.
+  Returns a named setting from an account, or the supplied default when the
+  account does not exist.
   """
   @spec account_setting(String.t() | nil, atom(), term()) :: term()
   def account_setting(nil, _setting, default), do: default
@@ -65,11 +94,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   def account_setting(account_name, setting, default) when is_binary(account_name) do
     case RegisteredNicks.get_by_nickname(account_name) do
       {:ok, registered_nick} ->
-        case Map.fetch(registered_nick.settings, setting) do
-          {:ok, nil} -> default
-          {:ok, value} -> value
-          :error -> default
-        end
+        Map.fetch!(registered_nick.settings, setting)
 
       {:error, :registered_nick_not_found} ->
         default
@@ -233,12 +258,30 @@ defmodule ElixIRCd.Utils.Nickserv do
   end
 
   @spec send_notice(User.t(), String.t()) :: :ok
-  defp send_notice(user, message) do
+  defp send_notice(user, message), do: send_notice(user, message, true)
+
+  @spec send_notice(User.t(), String.t(), boolean()) :: :ok
+  defp send_notice(user, message, translate?) do
     settings = account_settings(user) || %{}
     command = if Map.get(settings, :msg) == true, do: "PRIVMSG", else: "NOTICE"
     language = Map.get(settings, :language, "en")
+    translated_message = if translate?, do: Translation.translate(message, language), else: message
 
-    %Message{command: command, params: [user_reply(user)], trailing: Translation.translate(message, language)}
-    |> Dispatcher.broadcast(:nickserv, user)
+    messages =
+      %Message{
+        prefix: Service.mask(:nickserv),
+        command: command,
+        params: [user_reply(user)]
+      }
+      |> chunk_message_text(translated_message)
+      |> Enum.map(&%{&1 | prefix: nil})
+
+    payload =
+      case messages do
+        [message] -> message
+        messages -> messages
+      end
+
+    Dispatcher.broadcast(payload, :nickserv, user)
   end
 end

@@ -44,10 +44,13 @@ defmodule ElixIRCd.Commands.Userhost do
   @spec fetch_userhost_info(String.t(), User.t()) :: String.t() | nil
   defp fetch_userhost_info(target_nick, viewer) do
     case Users.get_by_nick(target_nick) do
-      {:ok, user} ->
+      {:ok, %{registered: true} = user} ->
         oper = if irc_operator_visible?(user, viewer), do: "*", else: ""
         presence = if user.away_message, do: "-", else: "+"
         "#{user.nick}#{oper}=#{presence}#{user_host(user, viewer)}"
+
+      {:ok, %{registered: false}} ->
+        nil
 
       {:error, :user_not_found} ->
         nil

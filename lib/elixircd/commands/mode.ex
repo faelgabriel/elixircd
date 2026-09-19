@@ -91,7 +91,7 @@ defmodule ElixIRCd.Commands.Mode do
       {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
 
       broadcast_channel_mode_changes(user, updated_channel, applied_changes)
-      enforce_registered_mode_lock(user, updated_channel)
+      enforce_registered_mode_lock(updated_channel)
       send_channel_mode_listing(listing_modes, user, updated_channel)
       send_invalid_modes(invalid_modes, user)
     else
@@ -99,11 +99,11 @@ defmodule ElixIRCd.Commands.Mode do
     end
   end
 
-  @spec enforce_registered_mode_lock(User.t(), Channel.t()) :: :ok
-  defp enforce_registered_mode_lock(user, channel) do
+  @spec enforce_registered_mode_lock(Channel.t()) :: :ok
+  defp enforce_registered_mode_lock(channel) do
     case RegisteredChannels.get_by_name(channel.name) do
       {:ok, registered_channel} ->
-        ModeLock.reconcile_and_broadcast(channel, registered_channel, user)
+        ModeLock.reconcile_and_broadcast(channel, registered_channel)
         :ok
 
       {:error, :registered_channel_not_found} ->

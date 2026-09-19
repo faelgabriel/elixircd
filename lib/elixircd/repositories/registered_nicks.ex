@@ -30,6 +30,19 @@ defmodule ElixIRCd.Repositories.RegisteredNicks do
     end
   end
 
+  @doc "Gets and write-locks a registered nickname for an atomic account update."
+  @spec get_by_nickname_for_update(String.t()) ::
+          {:ok, RegisteredNick.t()} | {:error, :registered_nick_not_found}
+  def get_by_nickname_for_update(nickname) do
+    nickname_key = CaseMapping.normalize(nickname)
+
+    Memento.Query.read(RegisteredNick, nickname_key, lock: :write)
+    |> case do
+      nil -> {:error, :registered_nick_not_found}
+      registered_nick -> {:ok, registered_nick}
+    end
+  end
+
   @doc """
   Get all registered nicknames.
   """

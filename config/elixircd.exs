@@ -273,6 +273,24 @@ config :elixircd,
       recover_reservation_duration: 60,
       # Maximum number of ACCESS entries per registered nickname
       max_access_entries: 10,
+      # Maximum stored inbox memos per NickServ account
+      max_memos_per_account: 100,
+      # Maximum UTF-8 bytes stored across one account's inbox memos
+      max_memo_bytes_per_account: 40_000,
+      # Maximum custom properties per NickServ account
+      max_properties: 50,
+      # Maximum UTF-8 bytes across one account's custom properties
+      max_property_bytes: 10_000,
+      # Maximum rows returned by NickServ LIST
+      max_list_results: 100,
+      # Maximum NickServ LIST glob pattern length
+      max_list_pattern_length: 128,
+      # Maximum user-configurable nickname enforcement grace period (7 days)
+      max_enforce_time: 604_800,
+      # Maximum grace period used by SET KILL QUICK
+      quick_enforce_time: 20,
+      # Lifetime of a pending email-change verification code
+      email_verification_ttl_seconds: 86_400,
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
         # Default for: SET EMAILMEMOS {ON|OFF|ONLY}
@@ -280,7 +298,7 @@ config :elixircd,
         # Default for: SET ENFORCE {ON|OFF}
         enforce: false,
         # Default for: SET ENFORCETIME <seconds>
-        enforce_time: 0,
+        enforce_time: 60,
         # Default for: SET HIDE EMAIL {ON|OFF}
         hide_email: false,
         # Default for: SET HIDE STATUS {ON|OFF}

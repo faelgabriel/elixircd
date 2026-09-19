@@ -863,7 +863,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
   end
 
   describe "handle/2 - AUTHENTICATE - ECDSA-NIST256P-CHALLENGE" do
-    test "authenticates an account with its registered compressed P-256 public key" do
+    test "authenticates with a compressed P-256 key using the challenge directly as the digest" do
       Application.put_env(:elixircd, :sasl,
         plain: [enabled: true, require_tls: false],
         ecdsa: [enabled: true],
@@ -894,10 +894,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert :ok =
                  Authenticate.handle(
                    user,
-                   %Message{
-                     command: "AUTHENTICATE",
-                     params: [Base.encode64(account.nickname)]
-                   }
+                   %Message{command: "AUTHENTICATE", params: [Base.encode64(account.nickname)]}
                  )
 
         {:ok, session} = SaslSessions.get(user.pid)
@@ -905,7 +902,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE #{Base.encode64(challenge)}\r\n"}])
 
-        signature = :crypto.sign(:ecdsa, :sha256, challenge, [private_key, :secp256r1])
+        signature = :crypto.sign(:ecdsa, :sha256, {:digest, challenge}, [private_key, :secp256r1])
 
         assert :ok =
                  Authenticate.handle(
@@ -971,6 +968,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         for encoded_account <- [
               account.nickname <> <<0>> <> "other",
+              account.nickname <> <<0>> <> account.nickname <> <<0>>,
               account.nickname <> <<0>> <> account.nickname <> <<0>> <> "extra"
             ] do
           user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tls)

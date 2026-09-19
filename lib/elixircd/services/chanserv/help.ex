@@ -206,7 +206,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02GUARD\x02        - Toggles whether ChanServ stays in the channel",
       "\x02KEEPTOPIC\x02    - Toggles whether the topic is preserved",
       "\x02PRIVATE\x02      - Hides channel from LIST command",
-      "\x02RESTRICTED\x02   - Only allows identified users to join",
+      "\x02RESTRICTED\x02   - Only allows the founder or listed accounts to join",
       "\x02FANTASY\x02      - Toggles support for !commands",
       "\x02DESCRIPTION\x02  - Sets channel description",
       "\x02URL\x02          - Sets channel website URL",
@@ -215,7 +215,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02MLOCK\x02        - Enforces a channel mode policy",
       "\x02OPNOTICE\x02     - Toggles join notifications to ops",
       "\x02PEACE\x02        - Toggles protection against channel wars",
-      "\x02SECURE\x02       - Toggles stricter security measures",
+      "\x02SECURE\x02       - Requires identified targets for privilege grants",
       "\x02TOPICLOCK\x02    - Controls who can change the channel topic",
       "\x02SUCCESSOR\x02    - Sets a successor who can claim the channel",
       "",
@@ -312,9 +312,9 @@ defmodule ElixIRCd.Services.Chanserv.Help do
         "Toggles restricted access."
       ),
       "",
-      "When set to ON, only users who are identified with NickServ",
-      "will be allowed to join the channel. This helps ensure that",
-      "all users in the channel have registered identities.",
+      "When set to ON, only the founder or accounts listed in",
+      "ChanServ access may join the channel. Being identified alone",
+      "is not enough.",
       "",
       "When set to OFF, anyone can join the channel regardless of",
       "whether they are identified with NickServ or not.",
@@ -463,7 +463,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       ),
       "",
       "MLOCK accepts normal channel modes such as \x02+nt\x02 or",
-      "\x02+kl 25 secret\x02. The lock is applied when the channel is",
+      "\x02+lk 25 secret\x02. The lock is applied when the channel is",
       "created, when MODE changes are made, and by ChanServ SYNC.",
       "Membership modes (+o/+v) and list modes (+b/+e/+I) cannot be locked.",
       "Use \x02OFF\x02 to remove the mode lock.",
@@ -471,7 +471,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "Syntax: \x02SET <channel> MLOCK <modes> [parameters]\x02",
       "Examples:",
       "    \x02/msg ChanServ SET #mychannel MLOCK +nt\x02",
-      "    \x02/msg ChanServ SET #mychannel MLOCK +kl 25 secret\x02",
+      "    \x02/msg ChanServ SET #mychannel MLOCK +lk 25 secret\x02",
       "    \x02/msg ChanServ SET #mychannel MLOCK OFF\x02"
     ])
   end
@@ -530,13 +530,13 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       format_help(
         "SET SECURE",
         ["<channel> {ON|OFF}"],
-        "Toggles stricter security measures."
+        "Requires identified targets for ChanServ privilege grants."
       ),
       "",
-      "When set to ON, ChanServ enforces stricter security measures:",
-      "- Only identified users can be given channel privileges",
-      "- Channel privileges are checked more frequently",
-      "- Access control lists are enforced more strictly",
+      "When set to ON, ChanServ requires a target to be identified before",
+      "granting channel privileges. It does not change JOIN transport policy.",
+      "Use channel mode +z when TLS-only access is required.",
+      "Unidentified users may still join unless channel mode +z is set.",
       "",
       "When set to OFF, normal security measures apply.",
       "",

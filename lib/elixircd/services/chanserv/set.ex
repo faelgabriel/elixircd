@@ -283,7 +283,8 @@ defmodule ElixIRCd.Services.Chanserv.Set do
         {:error, :missing_mode_parameter} -> notify(user, "MLOCK requires a parameter for every valued mode.")
         {:error, :listing_mode} -> notify(user, "MLOCK does not accept channel list modes.")
         {:error, :unsupported_mode} -> notify(user, "MLOCK does not accept membership or list modes.")
-        {:error, _reason} -> notify(user, "Invalid MLOCK. Use channel modes such as +nt or +kl <limit> <key>.")
+        {:error, :invalid_mode_parameter} -> notify(user, "MLOCK contains an invalid parameter for a channel mode.")
+        {:error, _reason} -> notify(user, "Invalid MLOCK. Use channel modes such as +nt or +lk <limit> <key>.")
       end
     end
   end
@@ -295,7 +296,7 @@ defmodule ElixIRCd.Services.Chanserv.Set do
 
     case Channels.get_by_name(registered_channel.name) do
       {:ok, live_channel} ->
-        ModeLock.reconcile_and_broadcast(live_channel, updated_channel, user)
+        ModeLock.reconcile_and_broadcast(live_channel, updated_channel)
 
       {:error, :channel_not_found} ->
         :ok

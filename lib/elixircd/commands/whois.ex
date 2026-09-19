@@ -262,7 +262,7 @@ defmodule ElixIRCd.Commands.Whois do
           membership =
             Enum.find(target_user_channels, &(&1.channel_name_key == CaseMapping.normalize(name)))
 
-          prefix = membership_prefix(membership)
+          prefix = membership_prefix(membership, "multi-prefix" in user.capabilities)
 
           prefix <> name
         end)
@@ -271,14 +271,26 @@ defmodule ElixIRCd.Commands.Whois do
     end
   end
 
-  @spec membership_prefix(UserChannel.t()) :: String.t()
-  defp membership_prefix(membership) do
+  @spec membership_prefix(UserChannel.t(), boolean()) :: String.t()
+  defp membership_prefix(membership, true = _multi_prefix) do
+    []
+    |> maybe_add_membership_prefix(:o in membership.modes, "@")
+    |> maybe_add_membership_prefix(:v in membership.modes, "+")
+    |> Enum.reverse()
+    |> Enum.join("")
+  end
+
+  defp membership_prefix(membership, false = _multi_prefix) do
     cond do
       :o in membership.modes -> "@"
       :v in membership.modes -> "+"
       true -> ""
     end
   end
+
+  @spec maybe_add_membership_prefix([String.t()], boolean(), String.t()) :: [String.t()]
+  defp maybe_add_membership_prefix(prefixes, true, prefix), do: [prefix | prefixes]
+  defp maybe_add_membership_prefix(prefixes, false, _prefix), do: prefixes
 
   @spec fetch_channel_map([String.t()], [String.t()]) :: map()
   defp fetch_channel_map(user_channels_keys, target_user_channels_keys) do

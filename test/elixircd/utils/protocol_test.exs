@@ -5,6 +5,7 @@ defmodule ElixIRCd.Utils.ProtocolTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Message
   alias ElixIRCd.Utils.Protocol
 
   describe "channel_name?/1" do
@@ -285,6 +286,89 @@ defmodule ElixIRCd.Utils.ProtocolTest do
     end
   end
 
+  describe "chunk_message_words/3" do
+    test "chunks names without splitting a token" do
+      message = %Message{command: :rpl_namreply, params: ["nick", "=", "#channel"]}
+
+      chunks = Protocol.chunk_message_words(message, ["@first", "+second", "third"], 35)
+
+      assert Enum.map(chunks, & &1.trailing) == ["@first", "+second", "third"]
+      assert Enum.all?(chunks, &(not String.contains?(&1.trailing, "\n")))
+      assert Enum.all?(chunks, &(wire_size(&1) <= 35))
+    end
+
+    test "uses a protocol-safe fallback when an extended NAMES token cannot fit" do
+      message = %Message{
+        prefix: String.duplicate("s", 63),
+        command: :rpl_namreply,
+        params: [String.duplicate("n", 30), "=", "#channel"]
+      }
+
+      extended = "@Nick!ident@" <> String.duplicate("h", 400)
+      [chunk] = Protocol.chunk_message_words(message, [{extended, "@Nick"}])
+
+      assert chunk.trailing == "@Nick"
+      assert wire_size(chunk) <= 512
+    end
+
+    test "rejects a first protocol token that cannot fit" do
+      message = %Message{command: "NOTICE", params: ["target"]}
+
+      assert_raise ArgumentError, ~r/protocol token/, fn ->
+        Protocol.chunk_message_words(message, [String.duplicate("x", 40)], 20)
+      end
+    end
+
+    test "rejects a later protocol token that cannot fit on a fresh line" do
+      message = %Message{command: "NOTICE", params: ["target"]}
+
+      assert_raise ArgumentError, ~r/protocol token/, fn ->
+        Protocol.chunk_message_words(message, ["a", String.duplicate("x", 40)], 20)
+      end
+    end
+  end
+
+  describe "chunk_message_text/3" do
+    test "preserves all graphemes while bounding every serialized line" do
+      message = %Message{
+        prefix: "NickServ!service@irc.test",
+        command: "NOTICE",
+        params: ["recipient"]
+      }
+
+      text = String.duplicate("😊", 400)
+      chunks = Protocol.chunk_message_text(message, text)
+
+      assert Enum.map_join(chunks, & &1.trailing) == text
+      assert length(chunks) > 1
+      assert Enum.all?(chunks, &(wire_size(&1) <= 512))
+    end
+
+    test "rejects an initial grapheme when message overhead consumes the budget" do
+      message = %Message{command: "NOTICE", params: ["target"]}
+
+      assert_raise ArgumentError, ~r/no room for one UTF-8 grapheme/, fn ->
+        Protocol.chunk_message_text(message, "😊", 20)
+      end
+    end
+
+    test "rejects a larger next grapheme that cannot fit by itself" do
+      message = %Message{command: "NOTICE", params: ["target"]}
+      overhead = byte_size(Message.unparse_unbounded!(%{message | trailing: ""}))
+
+      assert_raise ArgumentError, ~r/no room for one UTF-8 grapheme/, fn ->
+        Protocol.chunk_message_text(message, "a😊", overhead + 1)
+      end
+    end
+  end
+
+  describe "match_glob?/2" do
+    test "rejects non-binary values" do
+      refute Protocol.match_glob?(nil, "*")
+      refute Protocol.match_glob?("value", nil)
+    end
+  end
+
   describe "valid_mask_format?/1" do
     test "validates correct masks" do
       # Valid full masks
@@ -371,5 +455,12 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       result = Protocol.display_hostname(user, nil)
       assert result == "real.example.com"
     end
+  end
+
+  defp wire_size(message) do
+    message
+    |> Map.put(:tags, %{})
+    |> Message.unparse_unbounded!()
+    |> byte_size()
   end
 end

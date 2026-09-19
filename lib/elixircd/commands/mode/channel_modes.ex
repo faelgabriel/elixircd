@@ -219,6 +219,15 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {updated_validated_modes, listing_modes, updated_missing_value_modes}
   end
 
+  @doc "Returns whether every parameter in a parsed mode change is semantically valid."
+  @spec valid_mode_parameters?([mode_change()]) :: boolean()
+  def valid_mode_parameters?(mode_changes) do
+    Enum.all?(mode_changes, fn
+      {_action, {mode_flag, _value} = mode} -> not should_ignore_invalid_mode?(mode_flag, mode)
+      _mode_change -> true
+    end)
+  end
+
   @spec filter_missing_value_modes([mode_change()]) :: {[mode_change()], [ModeRegistry.channel_mode()]}
   defp filter_missing_value_modes(changed_modes) do
     changed_modes
@@ -260,7 +269,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @doc """
   Applies the mode changes for a channel.
   """
-  @spec apply_mode_changes(User.t(), Channel.t(), [mode_change()]) :: {Channel.t(), [mode_change()]}
+  @spec apply_mode_changes(User.t() | :service, Channel.t(), [mode_change()]) :: {Channel.t(), [mode_change()]}
   def apply_mode_changes(user, channel, validated_modes) do
     {applied_changes, new_modes} =
       Enum.reduce(validated_modes, {[], channel.modes}, fn {action, mode}, acc ->
@@ -275,7 +284,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {updated_channel, applied_changes}
   end
 
-  @spec apply_mode_change(User.t(), Channel.t(), mode_change(), {[mode_change()], [mode()]}) ::
+  @doc "Applies a persisted mode lock with ChanServ authority."
+  @spec apply_mode_changes_as_service(Channel.t(), [mode_change()]) :: {Channel.t(), [mode_change()]}
+  def apply_mode_changes_as_service(channel, validated_modes),
+    do: apply_mode_changes(:service, channel, validated_modes)
+
+  @spec apply_mode_change(User.t() | :service, Channel.t(), mode_change(), {[mode_change()], [mode()]}) ::
           {[mode_change()], [mode()]}
   defp apply_mode_change(user, channel, {:add, mode} = mode_change, acc) do
     mode_flag = extract_mode_flag(mode)
@@ -450,6 +464,18 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   @spec apply_irc_operator_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
           {[mode_change()], [mode()]}
+  defp apply_irc_operator_mode(:service, {:add, mode} = mode_change, _channel_name, applied_changes, new_modes) do
+    if Enum.member?(new_modes, mode),
+      do: {applied_changes, new_modes},
+      else: {[mode_change | applied_changes], [mode | new_modes]}
+  end
+
+  defp apply_irc_operator_mode(:service, {:remove, mode} = mode_change, _channel_name, applied_changes, new_modes) do
+    if Enum.member?(new_modes, mode),
+      do: {[mode_change | applied_changes], List.delete(new_modes, mode)},
+      else: {applied_changes, new_modes}
+  end
+
   defp apply_irc_operator_mode(user, {:add, mode} = mode_change, _channel_name, applied_changes, new_modes) do
     if irc_operator?(user) do
       # ignore if the mode is already set

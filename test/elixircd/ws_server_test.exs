@@ -223,6 +223,13 @@ defmodule ElixIRCd.Server.WsListenerTest do
   end
 
   describe "handle_info/2" do
+    test "handles a tag-only text payload without applying the tag budget as message data" do
+      state = ws_state(:ws, "text.ircv3.net")
+
+      assert {:push, {:text, "@label=value"}, ^state} =
+               WsListener.handle_info({:broadcast, "@label=value\r\n"}, state)
+    end
+
     for subprotocol <- [nil, "text.ircv3.net"] do
       test "bounds the final UTF-8 frame after sanitization for #{inspect(subprotocol)}" do
         state = ws_state(:ws, unquote(subprotocol))

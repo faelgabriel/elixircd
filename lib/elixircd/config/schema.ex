@@ -15,7 +15,7 @@ defmodule ElixIRCd.Config.Schema do
   def fields do
     [
       {ElixIRCd.Utils.Mailer, {:variant, :adapter, mailer_variants()}},
-      server: {:keyword, [name: :text, hostname: :hostname, password: {:nullable, :text}, motd: :motd]},
+      server: {:keyword, [name: :text, hostname: :server_hostname, password: {:nullable, :text}, motd: :motd]},
       settings: {:keyword, [case_mapping: {:enum, [:rfc1459, :strict_rfc1459, :ascii]}, utf8_only: :boolean]},
       rate_limiter:
         {:keyword,
@@ -122,6 +122,15 @@ defmodule ElixIRCd.Config.Schema do
                 regain_reservation_duration: :positive_integer,
                 recover_reservation_duration: :positive_integer,
                 max_access_entries: :positive_integer,
+                max_memos_per_account: :positive_integer,
+                max_memo_bytes_per_account: :positive_integer,
+                max_properties: :positive_integer,
+                max_property_bytes: :positive_integer,
+                max_list_results: :positive_integer,
+                max_list_pattern_length: :positive_integer,
+                max_enforce_time: :positive_integer,
+                quick_enforce_time: :non_negative_integer,
+                email_verification_ttl_seconds: :positive_integer,
                 settings:
                   {:keyword,
                    [

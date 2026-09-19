@@ -22,6 +22,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Repositories.UserSilences
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Server.Snotice
@@ -307,6 +308,7 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_disconnect(pid :: pid(), transport :: transport(), reason :: String.t()) :: :ok
   def handle_disconnect(pid, transport, reason) do
     Logger.debug("Connection #{inspect(pid)} (#{transport}) terminated: #{inspect(reason)}")
+    NickEnforcement.cancel(pid)
 
     Memento.transaction!(fn ->
       Users.get_by_pid(pid)

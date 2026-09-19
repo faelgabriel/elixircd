@@ -97,18 +97,26 @@ defmodule ElixIRCd.Server.WsListener do
 
   @spec text_frame(binary()) :: String.t()
   defp text_frame(message) do
-    message |> ensure_utf8_valid() |> fit_text_frame()
+    message
+    |> ensure_utf8_valid()
+    |> fit_text_frame()
   end
 
-  # Tags have a separate wire budget. Bound the data after its final encoding conversion.
+  # IRCv3 message tags have their own budget; only the non-tag portion is
+  # constrained to 510 bytes because WebSocket frames omit the trailing CRLF.
   @spec fit_text_frame(String.t()) :: String.t()
-  defp fit_text_frame("@" <> rest) do
-    [tags, data] = String.split(rest, " ", parts: 2)
-    "@" <> tags <> " " <> fit_text_frame(data)
+  defp fit_text_frame("@" <> rest = message) do
+    case String.split(rest, " ", parts: 2) do
+      [tags, data] -> "@" <> tags <> " " <> fit_non_tag_data(data)
+      [_tag_only] -> fit_non_tag_data(message)
+    end
   end
 
-  defp fit_text_frame(data) when byte_size(data) <= 510, do: data
-  defp fit_text_frame(data), do: data |> binary_part(0, 510) |> trim_partial_codepoint()
+  defp fit_text_frame(message), do: fit_non_tag_data(message)
+
+  @spec fit_non_tag_data(String.t()) :: String.t()
+  defp fit_non_tag_data(data) when byte_size(data) <= 510, do: data
+  defp fit_non_tag_data(data), do: data |> binary_part(0, 510) |> trim_partial_codepoint()
 
   @spec trim_partial_codepoint(binary()) :: String.t()
   defp trim_partial_codepoint(data) do

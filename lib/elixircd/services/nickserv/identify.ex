@@ -14,6 +14,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -102,6 +103,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     notify(updated_user, "You are now identified for \x02#{account_nick.account_name}\x02.")
 
     updated_user = sync_registered_mode(updated_user)
+    NickEnforcement.schedule_enforcement(updated_user)
 
     notify_account_change(updated_user, account_nick.account_name)
   end

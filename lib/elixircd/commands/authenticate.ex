@@ -30,6 +30,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Ecdsa
@@ -342,7 +343,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   @spec valid_ecdsa_signature?(binary(), binary(), binary()) :: boolean()
   defp valid_ecdsa_signature?(challenge, signature, public_key)
        when byte_size(signature) in 8..128 do
-    :crypto.verify(:ecdsa, :sha256, challenge, signature, [public_key, :secp256r1])
+    :crypto.verify(:ecdsa, :sha256, {:digest, challenge}, signature, [public_key, :secp256r1])
   end
 
   defp valid_ecdsa_signature?(_challenge, _signature, _public_key), do: false
@@ -494,6 +495,7 @@ defmodule ElixIRCd.Commands.Authenticate do
       })
 
     updated_user = sync_registered_mode(updated_user)
+    NickEnforcement.schedule_enforcement(updated_user)
     SaslSessions.delete(user.pid)
 
     account_name = registered_nick.account_name

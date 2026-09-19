@@ -99,5 +99,41 @@ defmodule ElixIRCd.Services.Nickserv.ListTest do
         assert_sent_message_contains(user.pid, ~r/OrphanAlias/)
       end)
     end
+
+    test "uses IRC case mapping and enforces the configured result and pattern limits" do
+      services = Application.fetch_env!(:elixircd, :services)
+      nickserv = Keyword.fetch!(services, :nickserv)
+      limited_nickserv = Keyword.merge(nickserv, max_list_results: 1, max_list_pattern_length: 4)
+      Application.put_env(:elixircd, :services, Keyword.put(services, :nickserv, limited_nickserv))
+
+      try do
+        Memento.transaction!(fn ->
+          user = insert(:user)
+          insert(:registered_nick, nickname: "Foo[")
+          insert(:registered_nick, nickname: "Bar")
+
+          assert :ok = List.handle(user, ["LIST", "foo{"])
+
+          assert_sent_messages([
+            {user.pid, ~r/Registered nicknames:/},
+            {user.pid, ~r/:  Foo\[/},
+            {user.pid, ~r/End of list/}
+          ])
+
+          assert :ok = List.handle(user, ["LIST", "*"])
+
+          assert_sent_messages([
+            {user.pid, ~r/Registered nicknames:/},
+            {user.pid, ~r/:  /},
+            {user.pid, ~r/End of list/}
+          ])
+
+          assert :ok = List.handle(user, ["LIST", "abcde"])
+          assert_sent_messages([{user.pid, ~r/LIST pattern is too long/}])
+        end)
+      after
+        Application.put_env(:elixircd, :services, services)
+      end
+    end
   end
 end

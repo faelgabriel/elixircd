@@ -112,10 +112,10 @@ defmodule ElixIRCd.Services.Chanserv.Mode.Command do
   defp check_secure_setting(_registered_channel, _target_user, :remove), do: :ok
 
   defp check_secure_setting(registered_channel, target_user, :add) do
-    if registered_channel.settings.secure and is_nil(target_user.identified_as) do
-      {:error, :target_must_be_identified}
-    else
+    if Flags.secure_grant_allowed?(registered_channel, target_user) do
       :ok
+    else
+      {:error, :target_must_be_identified}
     end
   end
 

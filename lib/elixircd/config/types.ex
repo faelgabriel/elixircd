@@ -41,6 +41,8 @@ defmodule ElixIRCd.Config.Types do
     is_binary(value) and byte_size(value) <= 253 and Enum.all?(String.split(value, "."), &valid?(:hostname_label, &1))
   end
 
+  def valid?(:server_hostname, value), do: valid?(:hostname, value) and byte_size(value) <= 63
+
   def valid?(:email, value), do: valid?(:text, value) and Validation.validate_email(value) == :ok
 
   def valid?(:nickname, value),

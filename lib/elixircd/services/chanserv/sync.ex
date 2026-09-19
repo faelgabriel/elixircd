@@ -35,7 +35,7 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
          :ok <- Flags.can_use_moderation(registered_channel, user.identified_as, access_entries),
          {:ok, channel, user_channels, channel_users} <-
            ChannelContext.get_online_channel_state(registered_channel.name) do
-      {channel, _mode_lock_changes} = ModeLock.reconcile_and_broadcast(channel, registered_channel, user)
+      {channel, _mode_lock_changes} = ModeLock.reconcile_and_broadcast(channel, registered_channel)
       synced_count = sync_users(channel, registered_channel, access_entries, user_channels, channel_users)
 
       if synced_count == 0 do
@@ -124,12 +124,9 @@ defmodule ElixIRCd.Services.Chanserv.Sync do
           [ModeRegistry.membership_mode()]
         ) :: :ok
   defp broadcast_mode_diff(channel, channel_users, user, current_modes, desired_modes) do
-    recipients =
-      if account_setting(user.identified_as, :quiet_chg, false) do
-        Enum.reject(channel_users, &(&1.pid == user.pid))
-      else
-        channel_users
-      end
+    # QUIETCHG suppresses optional service notices, never the protocol MODE
+    # that keeps every affected client's channel state synchronized.
+    recipients = channel_users
 
     removed_modes = current_modes -- desired_modes
     added_modes = desired_modes -- current_modes

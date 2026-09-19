@@ -13,6 +13,7 @@ defmodule ElixIRCd.Commands.NickTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Handshake
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
@@ -240,7 +241,7 @@ defmodule ElixIRCd.Commands.NickTest do
         registered_nick =
           insert(:registered_nick,
             nickname: "EnforcedNick",
-            settings: Settings.new(%{enforce: true, kill: :off})
+            settings: Settings.new(%{enforce: true, enforce_time: 0, kill: :off})
           )
 
         user = insert(:user, pid: self(), created_at: DateTime.add(DateTime.utc_now(), -60))
@@ -259,7 +260,7 @@ defmodule ElixIRCd.Commands.NickTest do
         registered_nick =
           insert(:registered_nick,
             nickname: "KilledNick",
-            settings: Settings.new(%{enforce: true, kill: :quick})
+            settings: Settings.new(%{enforce: true, enforce_time: 0, kill: :quick})
           )
 
         user = insert(:user, pid: self(), created_at: DateTime.add(DateTime.utc_now(), -60))
@@ -285,6 +286,88 @@ defmodule ElixIRCd.Commands.NickTest do
       end)
     end
 
+    test "enforcement grace starts when the nickname is assumed and expires with a forced rename" do
+      {registered_nick, user} =
+        Memento.transaction!(fn ->
+          registered_nick =
+            insert(:registered_nick,
+              nickname: "TimedNick",
+              settings: Settings.new(%{enforce: true, enforce_time: 1, kill: :off})
+            )
+
+          user = insert(:user, pid: self(), nick: "GuestNick")
+
+          {registered_nick, user}
+        end)
+
+      Memento.transaction!(fn ->
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: [registered_nick.nickname]})
+        {:ok, claimed_user} = Users.get_by_pid(user.pid)
+        assert claimed_user.nick == registered_nick.nickname
+        assert claimed_user.nick_enforcement_key == registered_nick.nickname_key
+        assert %DateTime{} = claimed_user.nick_enforcement_deadline_at
+        assert NickEnforcement.grace_active?(user.pid, registered_nick.nickname_key)
+      end)
+
+      assert_eventually(fn ->
+        Memento.transaction!(fn ->
+          {:ok, forced_user} = Users.get_by_pid(user.pid)
+
+          forced_user.nick != registered_nick.nickname and String.starts_with?(forced_user.nick, "Guest") and
+            is_nil(forced_user.nick_enforcement_key)
+        end)
+      end)
+    end
+
+    test "KILL QUICK caps the configured grace and KILL IMMED acts immediately" do
+      Memento.transaction!(fn ->
+        quick_nick =
+          insert(:registered_nick,
+            nickname: "QuickNick",
+            settings: Settings.new(%{enforce: true, enforce_time: 3600, kill: :quick})
+          )
+
+        quick_user = insert(:user)
+        assert :ok = Nick.handle(quick_user, %Message{command: "NICK", params: [quick_nick.nickname]})
+        assert_sent_message_contains(quick_user.pid, ~r/within 20 seconds.*disconnected/)
+
+        {:ok, scheduled_user} = Users.get_by_pid(quick_user.pid)
+        remaining = DateTime.diff(scheduled_user.nick_enforcement_deadline_at, DateTime.utc_now(), :second)
+        assert remaining in 19..20
+
+        immediate_nick =
+          insert(:registered_nick,
+            nickname: "ImmediateNick",
+            settings: Settings.new(%{enforce: true, enforce_time: 3600, kill: :immed})
+          )
+
+        immediate_user = insert(:user, pid: self())
+        assert :ok = Nick.handle(immediate_user, %Message{command: "NICK", params: [immediate_nick.nickname]})
+        assert_received {:disconnect, "Nickname ImmediateNick is reserved and enforced by NickServ"}
+
+        {:ok, unchanged_user} = Users.get_by_pid(immediate_user.pid)
+        assert unchanged_user.nick == immediate_user.nick
+        NickEnforcement.cancel(quick_user.pid)
+      end)
+    end
+
+    test "accepts the current enforced nickname while its exact grace timer is active" do
+      Memento.transaction!(fn ->
+        registered_nick =
+          insert(:registered_nick,
+            nickname: "ActiveGraceNick",
+            settings: Settings.new(%{enforce: true, enforce_time: 60})
+          )
+
+        user = insert(:user, nick: registered_nick.nickname)
+        assert :ok = NickEnforcement.schedule(user.pid, registered_nick.nickname_key, 60)
+
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: [registered_nick.nickname]})
+        refute_received {:disconnect, _reason}
+        NickEnforcement.cancel(user.pid)
+      end)
+    end
+
     test "sends snotice to operators with +s mode when nick changes" do
       Memento.transaction!(fn ->
         user = insert(:user, nick: "oldnick")
@@ -304,6 +387,19 @@ defmodule ElixIRCd.Commands.NickTest do
       end)
     end
   end
+
+  defp assert_eventually(condition, attempts \\ 100)
+
+  defp assert_eventually(condition, attempts) when attempts > 0 do
+    if condition.() do
+      :ok
+    else
+      Process.sleep(20)
+      assert_eventually(condition, attempts - 1)
+    end
+  end
+
+  defp assert_eventually(_condition, 0), do: flunk("condition did not become true before timeout")
 
   test "registered nickname mode follows account aliases across NICK changes" do
     Memento.transaction!(fn ->

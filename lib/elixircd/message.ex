@@ -175,25 +175,10 @@ defmodule ElixIRCd.Message do
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def unparse(%__MODULE__{command: command} = message) when is_atom(command) do
-    %{message | command: numeric_reply(command)}
-    |> unparse()
-  end
+  def unparse(%__MODULE__{} = message), do: do_unparse(message, true)
 
-  def unparse(%__MODULE__{command: ""} = message),
-    do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
-
-  def unparse(%__MODULE__{tags: tags, prefix: nil, command: command, params: params, trailing: trailing}) do
-    base = [command | params]
-    message_str = unparse_message(base, relay_trailing(command, base, trailing))
-    {:ok, prepend_tags(tags, message_str) <> "\r\n"}
-  end
-
-  def unparse(%__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}) do
-    base = [":" <> prefix, command | params]
-    message_str = unparse_message(base, relay_trailing(command, base, trailing))
-    {:ok, prepend_tags(tags, message_str) <> "\r\n"}
-  end
+  @spec unparse_unbounded(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp unparse_unbounded(%__MODULE__{} = message), do: do_unparse(message, false)
 
   @doc """
   Unparses the Message struct into a raw IRC message string.
@@ -202,6 +187,15 @@ defmodule ElixIRCd.Message do
   @spec unparse!(__MODULE__.t()) :: String.t()
   def unparse!(message) do
     case unparse(message) do
+      {:ok, unparsed} -> unparsed
+      {:error, error} -> raise ArgumentError, error
+    end
+  end
+
+  @doc "Serializes without trailing truncation and raises when the message is invalid."
+  @spec unparse_unbounded!(__MODULE__.t()) :: String.t()
+  def unparse_unbounded!(message) do
+    case unparse_unbounded(message) do
       {:ok, unparsed} -> unparsed
       {:error, error} -> raise ArgumentError, error
     end
@@ -318,6 +312,23 @@ defmodule ElixIRCd.Message do
   end
 
   defp relay_trailing(_command, _base, trailing), do: trailing
+
+  @spec do_unparse(__MODULE__.t(), boolean()) :: {:ok, String.t()} | {:error, String.t()}
+  defp do_unparse(%__MODULE__{command: command} = message, truncate?) when is_atom(command) do
+    do_unparse(%{message | command: numeric_reply(command)}, truncate?)
+  end
+
+  defp do_unparse(%__MODULE__{command: ""} = message, _truncate?),
+    do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
+
+  defp do_unparse(
+         %__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing},
+         truncate?
+       ) do
+    base = if is_nil(prefix), do: [command | params], else: [":" <> prefix, command | params]
+    trailing = if truncate?, do: relay_trailing(command, base, trailing), else: trailing
+    {:ok, prepend_tags(tags, unparse_message(base, trailing)) <> "\r\n"}
+  end
 
   @spec trim_partial_utf8(binary()) :: binary()
   defp trim_partial_utf8(text) do

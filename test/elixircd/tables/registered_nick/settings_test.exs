@@ -13,7 +13,7 @@ defmodule ElixIRCd.Tables.RegisteredNick.SettingsTest do
       assert settings.hide_email == false
       assert settings.email_memos == :off
       assert settings.enforce == false
-      assert settings.enforce_time == 0
+      assert settings.enforce_time == 60
       assert settings.hide_status == false
       assert settings.hide_usermask == false
       assert settings.hide_quit == false

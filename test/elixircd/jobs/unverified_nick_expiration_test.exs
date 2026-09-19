@@ -66,5 +66,27 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpirationTest do
       assert job.repeat_interval_ms == 6 * 60 * 60 * 1000
       assert DateTime.compare(job.scheduled_at, DateTime.utc_now()) == :gt
     end
+
+    test "does not expire an established account with a pending email verification" do
+      created_at = DateTime.add(DateTime.utc_now(), -10, :day)
+
+      account =
+        insert(:registered_nick, %{
+          nickname: "EstablishedPendingEmail",
+          created_at: created_at,
+          email: "old@example.com",
+          verified_at: DateTime.add(created_at, 1, :second),
+          verify_code: nil,
+          pending_email: "new@example.com",
+          pending_email_verify_code: "pending-code",
+          pending_email_requested_at: DateTime.utc_now()
+        })
+
+      UnverifiedNickExpiration.run(build(:job))
+
+      Memento.transaction!(fn ->
+        assert {:ok, ^account} = RegisteredNicks.get_by_nickname(account.nickname)
+      end)
+    end
   end
 end

@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.JoinTest do
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelInvites
+  alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
@@ -115,6 +116,46 @@ defmodule ElixIRCd.Commands.JoinTest do
           assert_sent_messages_count_containing(user.pid, ~r/ 366 /, 1)
         end)
       end
+    end
+
+    test "keeps JOIN NAMES replies within 512 bytes and falls back from an oversized hostmask" do
+      original_server = Application.fetch_env!(:elixircd, :server)
+      server_name = String.duplicate("s", 63)
+      Application.put_env(:elixircd, :server, Keyword.put(original_server, :hostname, server_name))
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_server) end)
+
+      Memento.transaction!(fn ->
+        user =
+          insert(:user,
+            nick: String.duplicate("r", 30),
+            capabilities: ["userhost-in-names", "multi-prefix"]
+          )
+
+        target =
+          insert(:user,
+            nick: String.duplicate("t", 30),
+            ident: String.duplicate("i", 64),
+            hostname: String.duplicate("h", 253)
+          )
+
+        channel = insert(:channel, name: "#" <> String.duplicate("c", 64))
+        insert(:user_channel, user: target, channel: channel, modes: [:o, :v])
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        names_replies =
+          Agent.get(@agent_name, fn messages ->
+            for {pid, message} <- messages,
+                pid == user.pid,
+                String.contains?(message, " 353 "),
+                do: message
+          end)
+
+        assert names_replies != []
+        assert Enum.all?(names_replies, &(byte_size(&1) <= 512))
+        assert Enum.any?(names_replies, &String.contains?(&1, "@+#{target.nick}"))
+        refute Enum.any?(names_replies, &String.contains?(&1, target.hostname))
+      end)
     end
 
     test "handles JOIN command with user not registered" do
@@ -1032,7 +1073,7 @@ defmodule ElixIRCd.Commands.JoinTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test 477 #{user.nick} #{channel.name} :You must be identified to join this channel (ChanServ RESTRICTED)\r\n"}
+           ":irc.test 477 #{user.nick} #{channel.name} :You must be identified to an account with channel access (ChanServ RESTRICTED)\r\n"}
         ])
 
         assert {:error, :user_channel_not_found} =
@@ -1050,12 +1091,14 @@ defmodule ElixIRCd.Commands.JoinTest do
           settings: Settings.new(%{restricted: true})
         )
 
+        insert(:registered_channel_access, channel_name: channel.name, account_name: "account", flags: "V")
+
         assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
         assert {:ok, _user_channel} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
       end)
     end
 
-    test "registered channel SECURE requires TLS or secure WebSocket" do
+    test "registered channel SECURE does not change JOIN transport policy" do
       Memento.transaction!(fn ->
         user = insert(:user, transport: :tcp)
         channel = insert(:channel)
@@ -1065,12 +1108,55 @@ defmodule ElixIRCd.Commands.JoinTest do
           settings: Settings.new(%{secure: true})
         )
 
-        Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+        assert {:ok, _membership} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+      end)
+    end
 
-        assert_sent_messages([
-          {user.pid,
-           ":irc.test 489 #{user.nick} #{channel.name} :Cannot join channel - secure TLS connection required (ChanServ SECURE)\r\n"}
-        ])
+    test "rolls back a newly created channel after an invalid first JOIN and retries as the first member" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel_name = "#locked-first-join"
+
+        insert(:registered_channel,
+          name: channel_name,
+          settings: Settings.new(%{mlock: "+lk 25 secret"})
+        )
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel_name, "wrong"]})
+        assert {:error, :channel_not_found} = Channels.get_by_name(channel_name)
+        assert {:error, :user_channel_not_found} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel_name, "secret"]})
+        assert {:ok, channel} = Channels.get_by_name(channel_name)
+        assert {:l, "25"} in channel.modes
+        assert {:k, "secret"} in channel.modes
+        assert {:ok, %{modes: [:o]}} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
+      end)
+    end
+
+    test "restores MLOCK +O with service authority and keeps non-operators out" do
+      Memento.transaction!(fn ->
+        ordinary_user = insert(:user)
+        operator = insert(:user, modes: [:o])
+        channel_name = "#operator-only-lock"
+
+        insert(:registered_channel,
+          name: channel_name,
+          settings: Settings.new(%{mlock: "+O"})
+        )
+
+        assert :ok = Join.handle(ordinary_user, %Message{command: "JOIN", params: [channel_name]})
+        assert {:error, :channel_not_found} = Channels.get_by_name(channel_name)
+
+        assert :ok = Join.handle(operator, %Message{command: "JOIN", params: [channel_name]})
+        assert {:ok, channel} = Channels.get_by_name(channel_name)
+        assert :O in channel.modes
+
+        assert :ok = Join.handle(ordinary_user, %Message{command: "JOIN", params: [channel_name]})
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(ordinary_user.pid, channel_name)
       end)
     end
 

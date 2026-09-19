@@ -39,6 +39,11 @@ defmodule ElixIRCd.Repositories.RegisteredNicksTest do
   end
 
   describe "get_all/0" do
+    test "returns an error when a write-locked nickname does not exist" do
+      assert {:error, :registered_nick_not_found} ==
+               Memento.transaction!(fn -> RegisteredNicks.get_by_nickname_for_update("nonexistent") end)
+    end
+
     test "returns all registered nicknames" do
       registered_nick1 = insert(:registered_nick)
       registered_nick2 = insert(:registered_nick)

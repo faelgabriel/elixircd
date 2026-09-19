@@ -8,6 +8,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.Service
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
 
@@ -38,6 +39,10 @@ defmodule ElixIRCd.Server.Dispatcher do
       end)
     end
   end
+
+  @doc "Returns the configured IRC server source name."
+  @spec server_prefix() :: String.t()
+  def server_prefix, do: Application.fetch_env!(:elixircd, :server)[:hostname]
 
   @doc """
   Sends an optional standard reply when the user negotiated `standard-replies`, or the supplied legacy fallback
@@ -218,9 +223,9 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   @spec add_prefix(Message.t(), context() | String.t()) :: Message.t()
   defp add_prefix(%Message{} = message, %User{} = user), do: %{message | prefix: user_mask(user)}
-  defp add_prefix(%Message{} = message, :server), do: %{message | prefix: hostname()}
-  defp add_prefix(%Message{} = message, :chanserv), do: %{message | prefix: "ChanServ!service@#{hostname()}"}
-  defp add_prefix(%Message{} = message, :nickserv), do: %{message | prefix: "NickServ!service@#{hostname()}"}
+  defp add_prefix(%Message{} = message, :server), do: %{message | prefix: server_prefix()}
+  defp add_prefix(%Message{} = message, :chanserv), do: %{message | prefix: Service.mask(:chanserv)}
+  defp add_prefix(%Message{} = message, :nickserv), do: %{message | prefix: Service.mask(:nickserv)}
   defp add_prefix(%Message{} = message, nil), do: message
 
   @spec sanitize_client_message_tags(Message.t(), User.t()) :: Message.t()
@@ -276,9 +281,6 @@ defmodule ElixIRCd.Server.Dispatcher do
       message
     end
   end
-
-  @spec hostname() :: String.t()
-  defp hostname, do: Application.fetch_env!(:elixircd, :server)[:hostname]
 
   @spec filter_tags(Message.t(), User.t()) :: Message.t()
   defp filter_tags(message, %User{capabilities: []}), do: %{message | tags: %{}}

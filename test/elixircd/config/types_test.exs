@@ -17,6 +17,8 @@ defmodule ElixIRCd.Config.TypesTest do
         {:path, ["data/cloak.key", "/tmp/key"], ["", nil, "bad\0path"]},
         {:hostname_label, ["localhost", "irc-test"], ["-invalid", "invalid-", "a.b"]},
         {:hostname, ["localhost", "irc.example.org"], ["host..test", "bad host", nil]},
+        {:server_hostname, ["irc.example.org", String.duplicate("a", 63)],
+         [String.duplicate("a", 64), "host..test", nil]},
         {:cloak_prefix, ["test", String.duplicate("x", 54)], [String.duplicate("x", 55), ".bad"]},
         {:url, ["https://api.example.org/v3", "http://localhost:3000"],
          [nil, "https://example.com:abc", "http://example.com:65536"]},

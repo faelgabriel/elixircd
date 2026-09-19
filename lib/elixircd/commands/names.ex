@@ -7,7 +7,7 @@ defmodule ElixIRCd.Commands.Names do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [user_mask: 1, chunk_message_words: 2]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -107,15 +107,13 @@ defmodule ElixIRCd.Commands.Names do
       if Enum.empty?(visible_nicks) do
         []
       else
-        nicks_string = Enum.join(visible_nicks, " ")
+        names_message = %Message{
+          prefix: Dispatcher.server_prefix(),
+          command: :rpl_namreply,
+          params: [user.nick, get_channel_status(channel), channel.name]
+        }
 
-        [
-          %Message{
-            command: :rpl_namreply,
-            params: [user.nick, get_channel_status(channel), channel.name],
-            trailing: nicks_string
-          }
-        ]
+        chunk_message_words(names_message, visible_nicks)
       end
 
     messages =
@@ -142,7 +140,8 @@ defmodule ElixIRCd.Commands.Names do
     |> Map.new(fn user -> {user.pid, user} end)
   end
 
-  @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) :: [{String.t(), String.t()}]
+  @spec get_visible_nick_pairs(User.t(), [UserChannel.t()], %{pid() => User.t()}) ::
+          [{String.t(), String.t(), String.t()}]
   defp get_visible_nick_pairs(user, user_channels, users_by_pid) do
     is_operator = :o in user.modes
     is_member = Enum.any?(user_channels, &(&1.user_pid == user.pid))
@@ -156,7 +155,7 @@ defmodule ElixIRCd.Commands.Names do
       if found_user && user_visible?(found_user, user, is_operator, is_member) do
         prefix = get_user_prefix(uc, use_multi_prefix)
         formatted_user = prefix <> format_user_display(found_user, use_extended_names)
-        {formatted_user, found_user.nick}
+        {formatted_user, prefix <> found_user.nick, found_user.nick}
       else
         nil
       end
@@ -175,11 +174,11 @@ defmodule ElixIRCd.Commands.Names do
     end
   end
 
-  @spec get_sorted_nicks([{String.t(), String.t()}]) :: [String.t()]
+  @spec get_sorted_nicks([{String.t(), String.t(), String.t()}]) :: [{String.t(), String.t()}]
   defp get_sorted_nicks(nick_pairs) do
     nick_pairs
-    |> Enum.sort_by(fn {_formatted, nick} -> String.downcase(nick) end)
-    |> Enum.map(fn {formatted, _nick} -> formatted end)
+    |> Enum.sort_by(fn {_formatted, _fallback, nick} -> String.downcase(nick) end)
+    |> Enum.map(fn {formatted, fallback, _nick} -> {formatted, fallback} end)
   end
 
   @spec handle_free_users(User.t()) :: :ok
@@ -193,6 +192,7 @@ defmodule ElixIRCd.Commands.Names do
 
     free_users =
       all_users
+      |> Enum.filter(& &1.registered)
       |> Enum.reject(fn u -> u.pid in channel_users or u.pid == user.pid end)
       |> Enum.filter(fn target ->
         cond do
@@ -207,9 +207,12 @@ defmodule ElixIRCd.Commands.Names do
       use_extended_names = "userhost-in-names" in user.capabilities
 
       free_user_list =
-        Enum.map_join(free_users, " ", &format_user_display(&1, use_extended_names))
+        Enum.map(free_users, fn free_user ->
+          {format_user_display(free_user, use_extended_names), free_user.nick}
+        end)
 
-      %Message{command: :rpl_namreply, params: [user.nick, "*", "*"], trailing: free_user_list}
+      %Message{prefix: Dispatcher.server_prefix(), command: :rpl_namreply, params: [user.nick, "*", "*"]}
+      |> chunk_message_words(free_user_list)
       |> Dispatcher.broadcast(:server, user)
 
       %Message{command: :rpl_endofnames, params: [user.nick, "*"], trailing: "End of /NAMES list"}

@@ -176,7 +176,7 @@ defmodule ElixIRCd.Config.ValidatorTest do
   for {path, values} <- [
         {[:settings, :case_mapping], [:unicode, "ascii", nil]},
         {[:settings, :utf8_only], ["false", 0, nil]},
-        {[:server, :hostname], ["bad host", "host\nINJECT", "-invalid.test"]},
+        {[:server, :hostname], ["bad host", "host\nINJECT", "-invalid.test", String.duplicate("a", 64)]},
         {[:admin_info, :email], ["invalid", "a@b", "a\nb@c.test"]},
         {[:user, :max_nick_length], [0, -1, 1.5, "30"]},
         {[:ident_service, :timeout], [0, 5_001, :infinity]},

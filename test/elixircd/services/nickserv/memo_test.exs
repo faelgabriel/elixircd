@@ -9,10 +9,13 @@ defmodule ElixIRCd.Services.Nickserv.MemoTest do
 
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.MemoEmailDelivery
+  alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Memos
+  alias ElixIRCd.Service
   alias ElixIRCd.Services.Nickserv.Memo
   alias ElixIRCd.Tables.Memo, as: MemoTable
   alias ElixIRCd.Tables.RegisteredNick.Settings
+  alias ElixIRCd.Utils.Protocol
 
   describe "handle/2" do
     test "sends, lists, reads, deletes, and clears account memos" do
@@ -59,6 +62,40 @@ defmodule ElixIRCd.Services.Nickserv.MemoTest do
       end)
     end
 
+    test "chunks a maximum-length Unicode memo into valid IRC lines without losing content" do
+      Memento.transaction!(fn ->
+        recipient = insert(:registered_nick, nickname: "Recipient")
+        recipient_user = insert(:user, nick: recipient.nickname, identified_as: recipient.account_name)
+        body = String.duplicate("😊", 400)
+
+        memo =
+          Memos.create(%{
+            recipient_account: recipient.account_name,
+            sender_account: "Sender",
+            body: body
+          })
+
+        assert :ok = Memo.handle(recipient_user, ["MEMO", "READ", memo.id])
+
+        body_messages =
+          %Message{
+            prefix: Service.mask(:nickserv),
+            command: "NOTICE",
+            params: [recipient_user.nick]
+          }
+          |> Protocol.chunk_message_text(body)
+
+        assert length(body_messages) > 1
+        assert Enum.all?(body_messages, &(byte_size(Message.unparse!(&1)) <= 512))
+
+        expected =
+          [{recipient_user.pid, ~r/Memo #{memo.id} from Sender/}] ++
+            Enum.map(body_messages, &{recipient_user.pid, Message.unparse!(&1)})
+
+        assert_sent_messages(expected)
+      end)
+    end
+
     test "supports email delivery modes" do
       Memento.transaction!(fn ->
         insert(:registered_nick, nickname: "Sender")
@@ -98,6 +135,95 @@ defmodule ElixIRCd.Services.Nickserv.MemoTest do
         assert :ok = Memo.handle(sender, ["MEMO", "SEND", recipient.nickname, "stored"])
         assert [%{body: "stored"}] = Memos.get_by_recipient(recipient.account_name)
       end)
+    end
+
+    test "stores an ON memo but never queues an unverified recipient email" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick, nickname: "Sender")
+
+        recipient =
+          insert(:registered_nick,
+            nickname: "PendingRecipient",
+            email: "pending@example.com",
+            verified_at: nil,
+            verify_code: "pending-code",
+            settings: Settings.new(%{email_memos: :on})
+          )
+
+        sender = insert(:user, nick: "Sender", identified_as: "Sender")
+        parent = self()
+
+        stub(JobQueue, :enqueue, fn _module, _payload, _opts ->
+          send(parent, :unexpected_memo_email)
+          :queued
+        end)
+
+        assert :ok = Memo.handle(sender, ["MEMO", "SEND", recipient.nickname, "stored only"])
+        refute_receive :unexpected_memo_email
+        assert [%{body: "stored only"}] = Memos.get_by_recipient(recipient.account_name)
+        assert_sent_message_contains(sender.pid, ~r/delivered to the NickServ inbox/)
+      end)
+    end
+
+    test "enforces memo count and byte quotas atomically" do
+      Memento.transaction!(fn ->
+        recipient = insert(:registered_nick, nickname: "QuotaRecipient")
+        attrs = %{recipient_account: recipient.account_name, sender_account: "Sender", body: "1234"}
+
+        assert {:ok, _memo} = Memos.create_with_limits(attrs, max_count: 2, max_bytes: 8)
+        assert {:ok, _memo} = Memos.create_with_limits(attrs, max_count: 2, max_bytes: 8)
+        assert {:error, :memo_count_limit} = Memos.create_with_limits(attrs, max_count: 2, max_bytes: 8)
+        assert length(Memos.get_by_recipient(recipient.account_name)) == 2
+
+        assert {:error, :memo_bytes_limit} =
+                 Memos.create_with_limits(
+                   %{attrs | body: "12345"},
+                   max_count: 10,
+                   max_bytes: 8
+                 )
+      end)
+    end
+
+    test "reports a full recipient inbox through MEMO SEND" do
+      services = Application.fetch_env!(:elixircd, :services)
+      nickserv = Keyword.fetch!(services, :nickserv)
+      limited = Keyword.merge(nickserv, max_memos_per_account: 0)
+      Application.put_env(:elixircd, :services, Keyword.put(services, :nickserv, limited))
+
+      try do
+        Memento.transaction!(fn ->
+          sender_account = insert(:registered_nick, nickname: "CountSender")
+          recipient = insert(:registered_nick, nickname: "CountRecipient")
+          sender = insert(:user, identified_as: sender_account.account_name)
+
+          assert :ok = Memo.handle(sender, ["MEMO", "SEND", recipient.nickname, "hello"])
+          assert_sent_message_contains(sender.pid, ~r/memo inbox is full/)
+          assert Memos.get_by_recipient(recipient.account_name) == []
+        end)
+      after
+        Application.put_env(:elixircd, :services, services)
+      end
+    end
+
+    test "reports a recipient inbox byte limit through MEMO SEND" do
+      services = Application.fetch_env!(:elixircd, :services)
+      nickserv = Keyword.fetch!(services, :nickserv)
+      limited = Keyword.merge(nickserv, max_memos_per_account: 10, max_memo_bytes_per_account: 1)
+      Application.put_env(:elixircd, :services, Keyword.put(services, :nickserv, limited))
+
+      try do
+        Memento.transaction!(fn ->
+          sender_account = insert(:registered_nick, nickname: "BytesSender")
+          recipient = insert(:registered_nick, nickname: "BytesRecipient")
+          sender = insert(:user, identified_as: sender_account.account_name)
+
+          assert :ok = Memo.handle(sender, ["MEMO", "SEND", recipient.nickname, "too large"])
+          assert_sent_message_contains(sender.pid, ~r/reached its storage limit/)
+          assert Memos.get_by_recipient(recipient.account_name) == []
+        end)
+      after
+        Application.put_env(:elixircd, :services, services)
+      end
     end
 
     test "validates recipient, message, authentication, and command syntax" do
