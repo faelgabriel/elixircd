@@ -8,7 +8,12 @@ defmodule ElixIRCd.Commands.Privmsg do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.MessageFilter,
-    only: [check_channel_mute: 3, check_registered_only_speak: 3, should_silence_message?: 2]
+    only: [
+      check_channel_mute: 3,
+      check_registered_only_speak: 3,
+      filter_op_moderated_users: 3,
+      should_silence_message?: 2
+    ]
 
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1, ctcp_action?: 1]
 
@@ -44,7 +49,7 @@ defmodule ElixIRCd.Commands.Privmsg do
       when trailing != nil or length(message.params) > 1 do
     message_text = extract_message_text(message)
 
-    if message_text == "" do
+    if message_text == "" and not ElixIRCd.Multiline.collecting?() do
       send_no_text_error(user)
     else
       Targets.split("PRIVMSG", targets)
@@ -97,11 +102,12 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec handle_channel_message(User.t(), String.t(), String.t(), Message.tags(), String.t(), String.t() | nil) :: :ok
   defp handle_channel_message(user, channel_name, message_text, message_tags, wire_target, status_prefix) do
-    with_channel_message_permissions(user, channel_name, message_text, fn channel, _user_channel ->
+    with_channel_message_permissions(user, channel_name, message_text, fn channel, user_channel ->
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
         |> maybe_filter_status(status_prefix)
+        |> filter_op_moderated_users(user_channel, channel.modes)
 
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
       users = Users.get_by_pids(user_pids)

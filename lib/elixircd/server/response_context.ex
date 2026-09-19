@@ -25,7 +25,7 @@ defmodule ElixIRCd.Server.ResponseContext do
   @max_label_bytes 64
   @max_buffered_events 64
 
-  @type batch :: %{ref: String.t(), type: String.t(), params: [String.t()]}
+  @type batch :: %{ref: String.t(), type: String.t(), params: [String.t()], tags: Message.tags()}
   @type event :: {:message, Message.t(), User.t()} | {:batch_start, batch()} | {:batch_end, batch()}
 
   @type t :: %{
@@ -164,7 +164,13 @@ defmodule ElixIRCd.Server.ResponseContext do
   """
   @spec start_batch(String.t(), [String.t()]) :: String.t()
   def start_batch(type, params \\ []) when is_binary(type) and is_list(params) do
-    batch = %{ref: new_batch_ref(), type: type, params: params}
+    start_batch(type, params, %{})
+  end
+
+  @doc "Starts a manual batch with server-authored tags on its opening message."
+  @spec start_batch(String.t(), [String.t()], Message.tags()) :: String.t()
+  def start_batch(type, params, tags) when is_binary(type) and is_list(params) and is_map(tags) do
+    batch = %{ref: new_batch_ref(), type: type, params: params, tags: tags}
 
     update_current(fn
       %{batch_capable?: true, flushed?: false} = context ->
@@ -210,6 +216,18 @@ defmodule ElixIRCd.Server.ResponseContext do
   @spec with_batch(String.t(), [String.t()], (-> result)) :: result when result: var
   def with_batch(type, params \\ [], fun) when is_function(fun, 0) do
     start_batch(type, params)
+
+    try do
+      fun.()
+    after
+      end_batch()
+    end
+  end
+
+  @doc "Groups replies in a tagged manual batch."
+  @spec with_batch(String.t(), [String.t()], Message.tags(), (-> result)) :: result when result: var
+  def with_batch(type, params, tags, fun) when is_function(fun, 0) do
+    start_batch(type, params, tags)
 
     try do
       fun.()
@@ -311,7 +329,7 @@ defmodule ElixIRCd.Server.ResponseContext do
 
   @spec render_labeled_batch(t(), User.t()) :: [{Message.t(), User.t()}]
   defp render_labeled_batch(%{label: label} = context, fallback_user) do
-    outer = %{ref: new_batch_ref(), type: "labeled-response", params: []}
+    outer = %{ref: new_batch_ref(), type: "labeled-response", params: [], tags: %{}}
     start = batch_start_message(outer, [], label)
     {contents, _batches} = context |> events_with_closed_batches() |> render_event_stream(fallback_user, [outer], nil)
     finish = batch_end_message(outer, [])
@@ -340,7 +358,7 @@ defmodule ElixIRCd.Server.ResponseContext do
   defp stream_batches(%{label: nil}), do: []
 
   defp stream_batches(%{label: label, request_user: user}) do
-    batch = %{ref: new_batch_ref(), type: "labeled-response", params: []}
+    batch = %{ref: new_batch_ref(), type: "labeled-response", params: [], tags: %{}}
     Dispatcher.send_prepared_message(batch_start_message(batch, [], label), user)
     [batch]
   end
@@ -397,7 +415,7 @@ defmodule ElixIRCd.Server.ResponseContext do
 
   @spec batch_start_message(batch(), [batch()], String.t() | nil) :: Message.t()
   defp batch_start_message(batch, enclosing_batches, label) do
-    tags = %{} |> maybe_put_batch_tag(enclosing_batches) |> maybe_put_label(label)
+    tags = batch.tags |> maybe_put_batch_tag(enclosing_batches) |> maybe_put_label(label)
 
     %Message{
       tags: tags,

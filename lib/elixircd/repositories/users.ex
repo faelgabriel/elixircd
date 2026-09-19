@@ -24,8 +24,13 @@ defmodule ElixIRCd.Repositories.Users do
   """
   @spec update(User.t(), map()) :: User.t()
   def update(user, attrs) do
-    User.update(user, attrs)
-    |> Memento.Query.write()
+    updated_user = user |> User.update(attrs) |> Memento.Query.write()
+
+    if is_nil(user.identified_as_key) and is_binary(updated_user.identified_as_key) do
+      ElixIRCd.Metadata.migrate_to_account(updated_user)
+    end
+
+    updated_user
   end
 
   @doc """

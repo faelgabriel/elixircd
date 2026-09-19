@@ -20,4 +20,12 @@ defmodule ElixIRCd.Commands.LinksTest do
       ])
     end)
   end
+
+  test "requires registration" do
+    Memento.transaction!(fn ->
+      user = insert(:user, registered: false)
+      assert :ok = Links.handle(user, %Message{command: "LINKS", params: []})
+      assert_sent_messages([{user.pid, ":irc.test 451 * :You have not registered\r\n"}])
+    end)
+  end
 end

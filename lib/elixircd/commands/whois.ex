@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.Whois do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1, display_hostname: 2, irc_operator?: 1, irc_operator_visible?: 2]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Metadata
   alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
@@ -71,6 +72,7 @@ defmodule ElixIRCd.Commands.Whois do
     |> maybe_add_whoismodes(user, target_user)
     |> maybe_add_whoisregnick(user, target_user)
     |> maybe_add_whoisaccount(user, target_user)
+    |> add_metadata(user, target_user)
     |> maybe_add_whoisbot(user, target_user)
     |> maybe_add_whoischannels(user, target_user, target_user_channels_display)
     |> add_whoisserver(user, target_user)
@@ -79,6 +81,8 @@ defmodule ElixIRCd.Commands.Whois do
     |> add_whoisidle(user, target_user)
     |> Dispatcher.broadcast(:server, user)
   end
+
+  defp add_metadata(messages, user, target_user), do: messages ++ Metadata.whois_messages(user, target_user)
 
   @spec add_whoisuser([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp add_whoisuser(messages, user, target_user) do

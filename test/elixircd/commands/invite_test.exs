@@ -165,7 +165,7 @@ defmodule ElixIRCd.Commands.InviteTest do
     test "handles INVITE command with user not operator" do
       Memento.transaction!(fn ->
         user = insert(:user)
-        channel = insert(:channel, name: "#channel")
+        channel = insert(:channel, name: "#channel", modes: [:i])
         insert(:user_channel, user: user, channel: channel)
         insert(:user, nick: "target")
 
@@ -174,6 +174,22 @@ defmodule ElixIRCd.Commands.InviteTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 482 #{user.nick} #channel :You're not channel operator\r\n"}
+        ])
+      end)
+    end
+
+    test "allows a channel member to invite on a channel without +i" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target = insert(:user, nick: "target")
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel)
+
+        assert :ok = Invite.handle(user, %Message{command: "INVITE", params: [target.nick, channel.name]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 341 #{user.nick} #{target.nick} #channel\r\n"},
+          {target.pid, ":#{user_mask(user)} INVITE #{target.nick} #channel\r\n"}
         ])
       end)
     end
@@ -212,6 +228,34 @@ defmodule ElixIRCd.Commands.InviteTest do
 
         assert {:ok, _channel_invite} =
                  ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name)
+      end)
+    end
+
+    test "can relay the historical channel-first form for a nonexistent channel" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :legacy_invite_order, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target = insert(:user, nick: "target")
+
+        assert :ok = Invite.handle(user, %Message{command: "INVITE", params: ["#missing", target.nick]})
+
+        message = ":#{user_mask(user)} INVITE #missing target\r\n"
+        assert_sent_messages([{user.pid, message}, {target.pid, message}])
+      end)
+    end
+
+    test "reports a missing target in the historical channel-first form" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :legacy_invite_order, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        assert :ok = Invite.handle(user, %Message{command: "INVITE", params: ["#missing", "absent"]})
+        assert_sent_message_contains(user.pid, ~r/ 401 .* absent :No such nick/)
       end)
     end
 

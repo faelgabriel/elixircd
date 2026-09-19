@@ -2,12 +2,13 @@ defmodule ElixIRCd.Commands.Invite do
   @moduledoc """
   This module defines the INVITE command.
 
-  INVITE allows channel operators to invite users to join a channel.
+  INVITE allows channel members to invite users to join a channel. On an
+  invite-only channel, only channel operators may issue invitations.
   """
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChannelInvites
@@ -47,17 +48,40 @@ defmodule ElixIRCd.Commands.Invite do
   end
 
   @impl true
-  def handle(user, %{command: "INVITE", params: [target_nick, channel_name | _rest]}) do
+  def handle(user, %{command: "INVITE", params: [first, second | _rest]}) do
+    if legacy_order_enabled?() and channel_name?(first) do
+      handle_legacy_order(user, first, second)
+    else
+      handle_modern_order(user, first, second)
+    end
+  end
+
+  defp handle_modern_order(user, target_nick, channel_name) do
     with {:ok, target_user} <- get_target_user(target_nick),
          {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
-         :ok <- check_user_permission(user_channel),
+         :ok <- check_user_permission(user_channel, channel),
          :ok <- check_target_user_on_channel(target_user, channel) do
       add_channel_invite(user, target_user, channel)
       send_user_invite_success(user, target_user, channel)
     else
       {:error, error} -> send_user_invite_error(error, user, target_nick, channel_name)
     end
+  end
+
+  defp handle_legacy_order(user, channel_name, target_nick) do
+    case get_target_user(target_nick) do
+      {:ok, target_user} ->
+        %Message{command: "INVITE", params: [channel_name, target_user.nick]}
+        |> Dispatcher.broadcast(user, [user, target_user])
+
+      {:error, error} ->
+        send_user_invite_error(error, user, target_nick, channel_name)
+    end
+  end
+
+  defp legacy_order_enabled? do
+    Application.fetch_env!(:elixircd, :compatibility)[:legacy_invite_order]
   end
 
   @spec get_target_user(String.t()) :: {:ok, User.t()} | {:error, :target_user_not_found}
@@ -68,9 +92,9 @@ defmodule ElixIRCd.Commands.Invite do
     end
   end
 
-  @spec check_user_permission(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}
-  defp check_user_permission(user_channel) do
-    if :o in user_channel.modes do
+  @spec check_user_permission(UserChannel.t(), Channel.t()) :: :ok | {:error, :user_is_not_operator}
+  defp check_user_permission(user_channel, channel) do
+    if :i not in channel.modes or :o in user_channel.modes do
       :ok
     else
       {:error, :user_is_not_operator}

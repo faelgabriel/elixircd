@@ -42,7 +42,20 @@ defmodule ElixIRCd.Commands.Info do
   end
 
   @impl true
-  def handle(user, %{command: "INFO"}) do
+  def handle(user, %{command: "INFO", params: [server | _]}) do
+    hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
+
+    if String.downcase(server) == String.downcase(hostname) do
+      send_info(user)
+    else
+      %Message{command: :err_nosuchserver, params: [user.nick, server], trailing: "No such server"}
+      |> Dispatcher.broadcast(:server, user)
+    end
+  end
+
+  def handle(user, %{command: "INFO"}), do: send_info(user)
+
+  defp send_info(user) do
     @info
     |> String.split("\n")
     |> Enum.map(&%Message{command: :rpl_info, params: [user.nick], trailing: &1})

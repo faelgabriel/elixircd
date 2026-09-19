@@ -8,7 +8,12 @@ defmodule ElixIRCd.Commands.Tagmsg do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.MessageFilter,
-    only: [check_channel_mute: 3, check_registered_only_speak: 3, should_silence_message?: 2]
+    only: [
+      check_channel_mute: 3,
+      check_registered_only_speak: 3,
+      filter_op_moderated_users: 3,
+      should_silence_message?: 2
+    ]
 
   import ElixIRCd.Utils.Protocol,
     only: [channel_name?: 1, channel_operator?: 1, channel_voice?: 1, service_name?: 1]
@@ -91,6 +96,7 @@ defmodule ElixIRCd.Commands.Tagmsg do
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
         |> maybe_filter_status(status_prefix)
+        |> filter_op_moderated_users(user_channel, channel.modes)
 
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
 

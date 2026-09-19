@@ -9,6 +9,7 @@ defmodule ElixIRCd.Server.NickChange do
 
   import ElixIRCd.Utils.Nickserv, only: [sync_registered_mode: 1]
 
+  alias ElixIRCd.History
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
@@ -24,9 +25,14 @@ defmodule ElixIRCd.Server.NickChange do
     old_nick = user.nick
     updated_user = Users.update(user, %{nick: input_nick})
 
+    channel_name_keys = UserChannels.get_by_user_pid(user.pid) |> Enum.map(& &1.channel_name_key)
+
+    Enum.each(channel_name_keys, fn channel_name ->
+      History.record_channel_event(%Message{command: "NICK", params: [input_nick]}, user, channel_name)
+    end)
+
     all_channel_user_pids =
-      UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name_key)
+      channel_name_keys
       |> UserChannels.get_by_channel_names()
       |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
       |> Enum.group_by(& &1.user_pid)

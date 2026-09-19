@@ -87,4 +87,18 @@ defmodule ElixIRCd.Utils.MessageFilter do
 
     if muted? and not excepted?, do: {:error, :user_muted}, else: :ok
   end
+
+  @doc "Routes unprivileged messages in +U channels only to channel operators."
+  @spec filter_op_moderated_users([UserChannel.t()], UserChannel.t() | nil, [term()]) :: [UserChannel.t()]
+  def filter_op_moderated_users(user_channels, sender_membership, channel_modes) do
+    privileged? =
+      sender_membership &&
+        (channel_operator?(sender_membership) or channel_voice?(sender_membership))
+
+    if :U in channel_modes and not privileged? do
+      Enum.filter(user_channels, &channel_operator?/1)
+    else
+      user_channels
+    end
+  end
 end

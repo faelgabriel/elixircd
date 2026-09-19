@@ -64,6 +64,10 @@ defmodule ElixIRCd.Utils.Protocol do
     is_binary(user.identified_as) and match_glob?(user.identified_as, account_pattern)
   end
 
+  def match_user_mask?(user, "$r:" <> realname_pattern) do
+    is_binary(user.realname) and match_glob?(user.realname, realname_pattern)
+  end
+
   def match_user_mask?(_user, "$m:" <> _mask), do: false
   def match_user_mask?(%{registered: false}, mask), do: match_mask(mask, "*", nil)
 
@@ -282,6 +286,7 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec normalize_mask(String.t()) :: String.t()
   def normalize_mask("$a:" <> account), do: "$a:" <> account
+  def normalize_mask("$r:" <> realname), do: "$r:" <> realname
   def normalize_mask("$m:" <> mask), do: "$m:" <> normalize_mask(mask)
 
   def normalize_mask(mask) do

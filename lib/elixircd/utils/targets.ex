@@ -9,7 +9,7 @@ defmodule ElixIRCd.Utils.Targets do
   @limits %{
     "KICK" => 4,
     "LIST" => 1,
-    "NAMES" => 1,
+    "NAMES" => 20,
     "NOTICE" => 4,
     "PRIVMSG" => 4,
     "TAGMSG" => 4,

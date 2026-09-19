@@ -21,6 +21,7 @@ defmodule ElixIRCd.ModeRegistry do
     :l,
     :m,
     :M,
+    :N,
     :n,
     :O,
     :o,
@@ -30,6 +31,7 @@ defmodule ElixIRCd.ModeRegistry do
     :s,
     :t,
     :T,
+    :U,
     :u,
     :v,
     :z
@@ -57,6 +59,7 @@ defmodule ElixIRCd.ModeRegistry do
           | :l
           | :m
           | :M
+          | :N
           | :n
           | :O
           | :o
@@ -66,6 +69,7 @@ defmodule ElixIRCd.ModeRegistry do
           | :s
           | :t
           | :T
+          | :U
           | :u
           | :v
           | :z

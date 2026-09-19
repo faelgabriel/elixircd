@@ -87,6 +87,21 @@ config :elixircd,
     # Whether to enforce UTF-8 only traffic support
     utf8_only: true
   ],
+  # Explicit opt-ins for withdrawn or conflicting client-protocol behavior.
+  # These switches never enable server-to-server linking.
+  compatibility: [
+    # Accept the historical `INVITE <channel> <nick>` parameter order,
+    # including delivery for a channel that does not exist.
+    legacy_invite_order: false,
+    # Serve the withdrawn metadata-3.2 numeric protocol to clients that did
+    # not negotiate draft/metadata-2 or draft/metadata-3.
+    deprecated_metadata: false,
+    # Omit the channel symbol from RPL_NAMREPLY as required by RFC 1459.
+    # This conflicts with RFC 2812 and Modern IRC, so it is disabled by default.
+    rfc1459_names: false,
+    # Use ERR_NONICKNAMEGIVEN plus RPL_ENDOFWHOWAS for parameterless WHOWAS.
+    rfc1459_whowas_errors: false
+  ],
   # Hostname Cloaking Configuration
   cloaking: [
     # Enable or disable hostname cloaking feature
@@ -115,6 +130,8 @@ config :elixircd,
     account_tag: true,
     # Whether to send ACCOUNT notifications on identify/logout (account-notify capability)
     account_notify: true,
+    # Direct IRCv3 account registration; custom account names are intentionally not advertised.
+    account_registration: true,
     # Whether to send AWAY notifications to interested clients (away-notify capability)
     away_notify: true,
     # Whether to support IRCv3 BATCH for grouping related server messages
@@ -123,6 +140,10 @@ config :elixircd,
     cap_notify: true,
     # Whether to send CHGHOST notifications when ident/hostname changes (chghost capability)
     chghost: true,
+    # Persistent IRCv3 message history and optional event playback.
+    chathistory: true,
+    channel_rename: true,
+    event_playback: true,
     # Whether to echo accepted PRIVMSG/NOTICE/TAGMSG commands back to senders (echo-message capability)
     echo_message: true,
     # Whether to support extended JOIN with account information (extended-join capability)
@@ -131,8 +152,16 @@ config :elixircd,
     extended_monitor: true,
     # Whether to notify channel members when users are invited (invite-notify capability)
     invite_notify: true,
+    # Whether clients can redact persisted messages with server-enforced authorization.
+    message_redaction: true,
+    # Current metadata-2 plus the metadata-3 draft alias used by older clients.
+    metadata: true,
+    # Client-originated multiline message batches with bounded buffering.
+    multiline: true,
     # Whether to support multiple status prefixes in channel responses (multi-prefix capability)
     multi_prefix: true,
+    # Persistent, monotonic per-account read markers.
+    read_marker: true,
     # Whether to enable SASL authentication before registration (sasl capability)
     sasl: true,
     # Whether to allow clients to change their real name during the session (setname capability)
@@ -155,6 +184,40 @@ config :elixircd,
   message_ids: [
     # Enable unique message IDs for clients using message-tags
     enabled: true
+  ],
+  # Persistent chat history. Retention and per-target limits are enforced on writes.
+  history: [
+    enabled: true,
+    max_entries_per_target: 1_000,
+    max_request_limit: 100,
+    retention_seconds: 604_800
+  ],
+  redaction: [
+    enabled: true,
+    max_reason_length: 300
+  ],
+  metadata: [
+    enabled: true,
+    before_connect: true,
+    max_keys: 20,
+    max_subscriptions: 50,
+    max_value_bytes: 400
+  ],
+  read_markers: [
+    enabled: true
+  ],
+  multiline: [
+    enabled: true,
+    max_bytes: 4_096,
+    max_lines: 32
+  ],
+  account_registration: [
+    enabled: true,
+    before_connect: false
+  ],
+  channel_rename: [
+    enabled: true,
+    max_reason_length: 300
   ],
   # MONITOR Command Configuration
   monitor: [
@@ -183,6 +246,14 @@ config :elixircd,
       enabled: true,
       # Require TLS for PLAIN authentication (recommended for security)
       require_tls: true
+    ],
+    # SCRAM-SHA-256 authenticates without sending the password to the server.
+    # Existing accounts receive a verifier after their next valid password login.
+    scram_sha_256: [
+      enabled: true,
+      # RFC 7677 requires at least 4096 iterations. Raising this value affects
+      # only newly generated or lazily migrated verifiers.
+      iterations: 15_000
     ],
     # ECDSA-NIST256P-CHALLENGE configuration (public-key authentication)
     ecdsa: [

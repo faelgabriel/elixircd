@@ -1313,5 +1313,13 @@ defmodule ElixIRCd.Commands.JoinTest do
         )
       end)
     end
+
+    test "includes the negotiated read marker in the JOIN response" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["draft/read-marker"])
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: ["#test"]})
+        assert_sent_message_contains(user.pid, ":irc.test MARKREAD #test *\r\n")
+      end)
+    end
   end
 end

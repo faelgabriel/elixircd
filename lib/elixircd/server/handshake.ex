@@ -12,6 +12,7 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Commands.Mode
   alias ElixIRCd.Commands.Motd
   alias ElixIRCd.Message
+  alias ElixIRCd.Metadata
   alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.Users
@@ -65,6 +66,7 @@ defmodule ElixIRCd.Server.Handshake do
     send_welcome(updated_user)
     Isupport.send_isupport_messages(updated_user)
     Lusers.send_lusers(updated_user)
+    Metadata.sync_registration(updated_user)
     Motd.send_motd(updated_user)
     send_user_modes(updated_user)
     send_connect_snotice(updated_user)

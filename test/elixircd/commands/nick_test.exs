@@ -58,6 +58,23 @@ defmodule ElixIRCd.Commands.NickTest do
       end)
     end
 
+    test "blocks unprivileged nickname changes in +N channels" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "oldnick")
+        channel = insert(:channel, name: "#stable", modes: [:N])
+        insert(:user_channel, user: user, channel: channel)
+
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: ["newnick"]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 447 oldnick #stable :Cannot change nickname while on channel (+N)\r\n"}
+        ])
+
+        assert {:ok, persisted} = Users.get_by_pid(user.pid)
+        assert persisted.nick == "oldnick"
+      end)
+    end
+
     test "handles NICK command with invalid nick too long" do
       nick = "nick.too.long.nick.too.long.nick.too.long"
 

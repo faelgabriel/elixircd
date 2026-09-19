@@ -91,6 +91,56 @@ defmodule ElixIRCd.Config.LoaderTest do
     end
   end
 
+  test "upgrades pre-feature configuration with disabled compatibility defaults", %{config: config, path: path} do
+    new_capabilities = [
+      :account_registration,
+      :chathistory,
+      :channel_rename,
+      :event_playback,
+      :message_redaction,
+      :metadata,
+      :multiline,
+      :read_marker
+    ]
+
+    legacy_capabilities = Keyword.drop(config[:capabilities], new_capabilities)
+
+    legacy =
+      config
+      |> Keyword.drop([
+        :compatibility,
+        :history,
+        :redaction,
+        :metadata,
+        :read_markers,
+        :multiline,
+        :account_registration,
+        :channel_rename
+      ])
+      |> Keyword.put(:capabilities, legacy_capabilities)
+      |> update_in([:sasl], &Keyword.delete(&1, :scram_sha_256))
+
+    write_config(path, legacy)
+    upgraded = Loader.read!(path)
+
+    assert upgraded[:history][:enabled] == false
+    assert upgraded[:metadata][:enabled] == false
+    assert upgraded[:compatibility][:deprecated_metadata] == false
+    assert upgraded[:sasl][:scram_sha_256] == [enabled: false, iterations: 15_000]
+    assert Enum.all?(new_capabilities, &(upgraded[:capabilities][&1] == false))
+  end
+
+  test "rejects malformed legacy roots and SASL sections after safe upgrade", %{config: config, path: path} do
+    for invalid <- [
+          123,
+          Keyword.put(config, :sasl, :invalid),
+          Keyword.put(config, :sasl, ["not-a-keyword"])
+        ] do
+      File.write!(path, "import Config\nconfig :elixircd, #{inspect(invalid, limit: :infinity)}")
+      assert_raise Error, fn -> Loader.read!(path) end
+    end
+  end
+
   test "read validation is side effect free and valid reload replaces nested sections", %{
     config: config,
     path: path,

@@ -198,6 +198,10 @@ defmodule ElixIRCd.Commands.ListTest do
 
         assert :ok = List.handle(user, %Message{command: "LIST", params: ["T>1"]})
         assert_sent_messages([{user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}])
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: ["T<1"]})
+        assert_sent_message_contains(user.pid, ~r/ 322 .* #other /)
+        assert_sent_messages_count_containing(user.pid, ~r/ 322 .* #chan2 /, 0)
       end)
     end
 

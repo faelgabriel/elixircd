@@ -37,6 +37,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {:l, :c},
     {:m, :d},
     {:M, :d},
+    {:N, :d},
     {:n, :d},
     {:O, :d},
     {:o, :prefix},
@@ -46,6 +47,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {:s, :d},
     {:t, :d},
     {:T, :d},
+    {:U, :d},
     {:u, :d},
     {:v, :prefix},
     {:z, :d}

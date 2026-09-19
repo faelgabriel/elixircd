@@ -8,7 +8,12 @@ defmodule ElixIRCd.Commands.Notice do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.MessageFilter,
-    only: [check_channel_mute: 3, check_registered_only_speak: 3, should_silence_message?: 2]
+    only: [
+      check_channel_mute: 3,
+      check_registered_only_speak: 3,
+      filter_op_moderated_users: 3,
+      should_silence_message?: 2
+    ]
 
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1, ctcp_action?: 1]
 
@@ -39,7 +44,7 @@ defmodule ElixIRCd.Commands.Notice do
       when trailing != nil or length(message.params) > 1 do
     message_text = extract_message_text(message)
 
-    if message_text == "" do
+    if message_text == "" and not ElixIRCd.Multiline.collecting?() do
       :ok
     else
       Targets.split("NOTICE", targets)
@@ -88,6 +93,7 @@ defmodule ElixIRCd.Commands.Notice do
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
         |> maybe_filter_status(status_prefix)
+        |> filter_op_moderated_users(user_channel, channel.modes)
 
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
       users = Users.get_by_pids(user_pids)

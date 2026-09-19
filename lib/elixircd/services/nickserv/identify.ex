@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2, sync_registered_mode: 1]
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
+  alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.NickEnforcement
@@ -73,19 +74,25 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   defp verify_password(user, registered_nick, password) do
     case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
       {:ok, account_nick} ->
-        cond do
-          Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] ->
-            notify(user, "This account requires a secure TLS connection for authentication.")
-
-          Argon2.verify_pass(password, account_nick.password_hash) ->
-            complete_identification(user, registered_nick, account_nick)
-
-          true ->
-            handle_failed_identification(user)
-        end
+        verify_account_password(user, registered_nick, account_nick, password)
 
       {:error, :registered_nick_not_found} ->
         handle_failed_identification(user)
+    end
+  end
+
+  defp verify_account_password(user, registered_nick, account_nick, password) do
+    if Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] do
+      notify(user, "This account requires a secure TLS connection for authentication.")
+    else
+      complete_password_verification(user, registered_nick, account_nick, password)
+    end
+  end
+
+  defp complete_password_verification(user, registered_nick, account_nick, password) do
+    case Password.verify_and_upgrade(account_nick, password) do
+      {:ok, upgraded_account} -> complete_identification(user, registered_nick, upgraded_account)
+      :error -> handle_failed_identification(user)
     end
   end
 

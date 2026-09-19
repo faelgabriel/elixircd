@@ -394,5 +394,23 @@ defmodule ElixIRCd.Commands.TagmsgTest do
         assert_sent_messages_amount(regular.pid, 0)
       end)
     end
+
+    test "reports a channel mute extban" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, nick: "muted", capabilities: ["message-tags"])
+        channel = insert(:channel)
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:channel_ban, channel: channel, mask: "$m:muted!*@*")
+
+        assert :ok =
+                 Tagmsg.handle(sender, %Message{
+                   command: "TAGMSG",
+                   params: [channel.name],
+                   tags: %{"+example" => "1"}
+                 })
+
+        assert_sent_message_contains(sender.pid, ~r/ 404 .* :Cannot send to channel/)
+      end)
+    end
   end
 end

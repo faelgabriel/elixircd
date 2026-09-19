@@ -10,6 +10,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   Supported mechanisms:
   - PLAIN: Simple username/password authentication
+  - SCRAM-SHA-256: Salted challenge-response authentication
   - ECDSA-NIST256P-CHALLENGE: Account public-key challenge authentication
 
   The authentication flow:
@@ -26,10 +27,12 @@ defmodule ElixIRCd.Commands.Authenticate do
   import ElixIRCd.Utils.Nickserv, only: [notify_account_change: 2, sync_registered_mode: 1]
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1, user_mask: 1, user_mask: 2]
 
+  alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Sasl.ScramSha256
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Tables.User
@@ -37,6 +40,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   alias ElixIRCd.Utils.Ecdsa
 
   @ecdsa_mechanism "ECDSA-NIST256P-CHALLENGE"
+  @scram_mechanism "SCRAM-SHA-256"
   @ecdsa_challenge_bytes 32
   @max_authenticate_length 400
   @max_sasl_length 16_384
@@ -144,41 +148,24 @@ defmodule ElixIRCd.Commands.Authenticate do
         }
         |> Dispatcher.broadcast(:server, user)
 
-      not mechanism_enabled?(normalized_mechanism) ->
-        Users.update(user, %{sasl_attempts: current_attempts + 1})
-        send_available_mechanisms(user)
-
-        %Message{
-          command: :err_saslfail,
-          params: [user_reply(user)],
-          trailing: "SASL mechanism is disabled by server configuration"
-        }
-        |> Dispatcher.broadcast(:server, user)
-
       true ->
         Users.update(user, %{sasl_attempts: current_attempts + 1})
         start_sasl_session(user, normalized_mechanism)
     end
   end
 
-  @spec mechanism_enabled?(String.t()) :: boolean()
-  defp mechanism_enabled?("PLAIN") do
-    sasl_config = Application.fetch_env!(:elixircd, :sasl)
-    Keyword.get(sasl_config[:plain] || [], :enabled, false)
-  end
-
-  defp mechanism_enabled?(@ecdsa_mechanism) do
-    sasl_config = Application.fetch_env!(:elixircd, :sasl)
-    Keyword.get(sasl_config[:ecdsa] || [], :enabled, false)
-  end
-
   @spec supported_mechanisms() :: [String.t()]
   defp supported_mechanisms do
     sasl_config = Application.fetch_env!(:elixircd, :sasl)
 
-    mechanisms = ["PLAIN"]
+    []
+    |> maybe_add_mechanism(sasl_config[:plain], "PLAIN")
+    |> maybe_add_mechanism(sasl_config[:scram_sha_256], @scram_mechanism)
+    |> maybe_add_mechanism(sasl_config[:ecdsa], @ecdsa_mechanism)
+  end
 
-    if Keyword.has_key?(sasl_config, :ecdsa), do: mechanisms ++ [@ecdsa_mechanism], else: mechanisms
+  defp maybe_add_mechanism(mechanisms, config, mechanism) do
+    if Keyword.get(config || [], :enabled, false), do: mechanisms ++ [mechanism], else: mechanisms
   end
 
   @spec start_sasl_session(User.t(), String.t()) :: :ok
@@ -236,6 +223,14 @@ defmodule ElixIRCd.Commands.Authenticate do
   @spec process_sasl_data(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
   defp process_sasl_data(user, %{mechanism: "PLAIN"} = session) do
     process_plain_auth(user, session)
+  end
+
+  defp process_sasl_data(user, %{mechanism: @scram_mechanism, state: nil} = session) do
+    start_scram_authentication(user, session)
+  end
+
+  defp process_sasl_data(user, %{mechanism: @scram_mechanism, state: %{scram: state}} = session) do
+    finish_scram_authentication(user, session, state)
   end
 
   defp process_sasl_data(user, %{mechanism: @ecdsa_mechanism, state: nil} = session) do
@@ -338,6 +333,73 @@ defmodule ElixIRCd.Commands.Authenticate do
     SaslSessions.delete(user.pid)
   end
 
+  @spec start_scram_authentication(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
+  defp start_scram_authentication(user, session) do
+    with {:ok, client_first} <- Base.decode64(session.buffer),
+         {:ok, server_first, state} <-
+           ScramSha256.start(client_first, &scram_credentials_for_user(&1, user)) do
+      SaslSessions.update(session, %{buffer: "", state: %{scram: state}})
+      send_authenticate_data(user, server_first)
+    else
+      _ -> fail_scram_authentication(user)
+    end
+  end
+
+  @spec finish_scram_authentication(User.t(), ElixIRCd.Tables.SaslSession.t(), map()) :: :ok
+  defp finish_scram_authentication(user, session, state) do
+    with {:ok, client_final} <- Base.decode64(session.buffer),
+         {:ok, server_final} <- ScramSha256.finish(client_final, state),
+         {:ok, account_nick} <- RegisteredNicks.get_by_nickname(state.account_name) do
+      send_authenticate_data(user, server_final)
+      complete_sasl_authentication(user, account_nick)
+    else
+      _ -> fail_scram_authentication(user)
+    end
+  end
+
+  @spec scram_credentials_for_user(String.t(), User.t()) ::
+          {:ok, String.t(), ScramSha256.credentials(), boolean()}
+  defp scram_credentials_for_user(username, user) do
+    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(username),
+         {:ok, account_nick} <- RegisteredNicks.get_by_nickname(registered_nick.account_name),
+         credentials when is_map(credentials) <- account_nick.scram_sha_256 do
+      secure_transport? = user.transport in [:tls, :wss]
+      allowed? = Map.get(account_nick.settings, :secure) != true or secure_transport?
+      {:ok, account_nick.account_name, credentials, allowed?}
+    else
+      _ -> {:ok, username, fake_scram_credentials(), false}
+    end
+  end
+
+  @spec fake_scram_credentials() :: ScramSha256.credentials()
+  defp fake_scram_credentials do
+    iterations = Application.fetch_env!(:elixircd, :sasl)[:scram_sha_256][:iterations]
+    ScramSha256.derive(:crypto.strong_rand_bytes(32), iterations)
+  end
+
+  @spec fail_scram_authentication(User.t()) :: :ok
+  defp fail_scram_authentication(user) do
+    send_sasl_failure(user, "SASL authentication failed")
+    SaslSessions.delete(user.pid)
+  end
+
+  @spec send_authenticate_data(User.t(), String.t()) :: :ok
+  defp send_authenticate_data(user, decoded_data) do
+    encoded_data = Base.encode64(decoded_data)
+    chunks = for <<chunk::binary-size(400) <- encoded_data>>, do: chunk
+    consumed = length(chunks) * 400
+    remainder = binary_part(encoded_data, consumed, byte_size(encoded_data) - consumed)
+    chunks = if remainder == "", do: chunks, else: chunks ++ [remainder]
+    chunks = if rem(byte_size(encoded_data), 400) == 0, do: chunks ++ ["+"], else: chunks
+
+    Enum.each(chunks, fn chunk ->
+      %Message{command: "AUTHENTICATE", params: [chunk]}
+      |> Dispatcher.broadcast(:server, user)
+    end)
+
+    :ok
+  end
+
   @spec process_plain_auth(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
   defp process_plain_auth(user, session) do
     sasl_config = Application.fetch_env!(:elixircd, :sasl)
@@ -427,19 +489,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   defp verify_password(user, registered_nick, password) do
     case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
       {:ok, account_nick} ->
-        cond do
-          Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] ->
-            send_sasl_failure(user, "SASL authentication requires a secure TLS connection for this account")
-            SaslSessions.delete(user.pid)
-
-          Argon2.verify_pass(password, account_nick.password_hash) ->
-            complete_sasl_authentication(user, account_nick)
-
-          true ->
-            Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
-            send_sasl_failure(user, "SASL authentication failed")
-            SaslSessions.delete(user.pid)
-        end
+        verify_account_password(user, registered_nick, account_nick, password)
 
       {:error, :registered_nick_not_found} ->
         %Message{
@@ -449,6 +499,27 @@ defmodule ElixIRCd.Commands.Authenticate do
         }
         |> Dispatcher.broadcast(:server, user)
 
+        SaslSessions.delete(user.pid)
+    end
+  end
+
+  defp verify_account_password(user, registered_nick, account_nick, password) do
+    if Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] do
+      send_sasl_failure(user, "SASL authentication requires a secure TLS connection for this account")
+      SaslSessions.delete(user.pid)
+    else
+      complete_password_verification(user, registered_nick, account_nick, password)
+    end
+  end
+
+  defp complete_password_verification(user, registered_nick, account_nick, password) do
+    case Password.verify_and_upgrade(account_nick, password) do
+      {:ok, upgraded_account} ->
+        complete_sasl_authentication(user, upgraded_account)
+
+      :error ->
+        Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
+        send_sasl_failure(user, "SASL authentication failed")
         SaslSessions.delete(user.pid)
     end
   end

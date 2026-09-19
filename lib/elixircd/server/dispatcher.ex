@@ -5,6 +5,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
+  alias ElixIRCd.History
   alias ElixIRCd.Message
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.ResponseContext
@@ -33,11 +34,16 @@ defmodule ElixIRCd.Server.Dispatcher do
     else
       any_message_tags? = Enum.any?(targets, &message_tags_capable?/1)
 
-      Enum.each(messages, fn message ->
-        prepared = prepare_message(message, context, any_message_tags?)
-        Enum.each(targets, &broadcast_to_target(prepared, &1, source_user))
-      end)
+      Enum.each(messages, &broadcast_message(&1, context, targets, source_user, any_message_tags?))
     end
+  end
+
+  defp broadcast_message(message, context, targets, source_user, any_message_tags?) do
+    record_history? = match?(%User{}, context) and History.enabled?() and History.recordable?(message)
+    prepared = prepare_message(message, context, any_message_tags? or record_history?)
+    prepared = if record_history?, do: maybe_put_history_time(prepared), else: prepared
+    if record_history?, do: History.record(prepared, context)
+    Enum.each(targets, &broadcast_to_target(prepared, &1, source_user))
   end
 
   @doc "Returns the configured IRC server source name."
@@ -66,6 +72,16 @@ defmodule ElixIRCd.Server.Dispatcher do
     |> send_message(pid)
   end
 
+  @doc "Queues an already prepared message in the active response batch."
+  @spec enqueue_prepared_message(Message.t(), User.t()) :: :ok
+  def enqueue_prepared_message(%Message{} = message, %User{} = user) do
+    if "batch" in user.capabilities and ResponseContext.buffer(message, user) == :buffered do
+      :ok
+    else
+      send_prepared_message(message, user)
+    end
+  end
+
   @doc """
   Enqueues a disconnect after any buffered response for this user. Sending both
   from the command process preserves their order in the connection mailbox.
@@ -85,6 +101,14 @@ defmodule ElixIRCd.Server.Dispatcher do
   def broadcast_with_echo([], %User{}, _targets), do: :ok
 
   def broadcast_with_echo(messages, %User{} = sender, targets) do
+    if ElixIRCd.Multiline.collecting?() do
+      ElixIRCd.Multiline.collect(messages, sender, targets)
+    else
+      do_broadcast_with_echo(messages, sender, targets)
+    end
+  end
+
+  defp do_broadcast_with_echo(messages, sender, targets) do
     delivery_targets =
       targets
       |> List.wrap()
@@ -93,14 +117,16 @@ defmodule ElixIRCd.Server.Dispatcher do
     echo_enabled? = echo_message_enabled?(sender)
 
     self_delivery? = Enum.any?(delivery_targets, &(target_pid(&1) == sender.pid))
-    separate_echo? = echo_enabled? and (not self_delivery? or labeled_request?(sender.pid))
+    separate_echo? = echo_enabled?
 
     any_message_tags? =
       ((echo_enabled? or self_delivery?) and message_tags_capable?(sender)) or
         Enum.any?(delivery_targets, &message_tags_capable?/1)
 
     Enum.each(List.wrap(messages), fn message ->
-      prepared = prepare_message(message, sender, any_message_tags?)
+      prepared = prepare_message(message, sender, any_message_tags? or History.enabled?())
+      prepared = maybe_put_history_time(prepared)
+      History.record(prepared, sender)
       send_delivery_messages(prepared, delivery_targets, sender)
 
       if separate_echo?, do: broadcast_to_target(prepared, sender, sender)
@@ -109,6 +135,14 @@ defmodule ElixIRCd.Server.Dispatcher do
     if self_delivery?, do: ResponseContext.mark_response_satisfied(sender.pid)
 
     :ok
+  end
+
+  @doc false
+  @spec prepare_multiline_message(Message.t(), User.t()) :: Message.t()
+  def prepare_multiline_message(message, sender) do
+    message
+    |> add_context(sender)
+    |> StandardReply.fit_message()
   end
 
   @spec prepare_message(message(), context(), boolean()) :: Message.t()
@@ -123,16 +157,6 @@ defmodule ElixIRCd.Server.Dispatcher do
     |> add_context(context)
     |> StandardReply.fit_message()
     |> maybe_put_base_msgid(any_message_tags?)
-  end
-
-  @spec labeled_request?(pid()) :: boolean()
-  defp labeled_request?(pid) do
-    # Legacy self-delivery already acknowledges the message. A labeled request
-    # needs a separate echo to distinguish that acknowledgment from delivery.
-    case ResponseContext.current() do
-      %{request_user: %User{pid: ^pid}, label: label, flushed?: false} when is_binary(label) -> true
-      _ -> false
-    end
   end
 
   @spec message_tags_capable?(target()) :: boolean()
@@ -263,12 +287,17 @@ defmodule ElixIRCd.Server.Dispatcher do
   end
 
   @spec maybe_put_base_msgid(Message.t(), boolean()) :: Message.t()
-  defp maybe_put_base_msgid(%Message{command: command} = message, _enabled)
-       when command not in ["PRIVMSG", "NOTICE", "TAGMSG"], do: message
-
   defp maybe_put_base_msgid(%Message{} = message, false), do: message
 
-  defp maybe_put_base_msgid(%Message{tags: tags} = message, true) do
+  defp maybe_put_base_msgid(%Message{} = message, true) do
+    if History.recordable?(message) do
+      put_msgid(message)
+    else
+      message
+    end
+  end
+
+  defp put_msgid(%Message{tags: tags} = message) do
     msgid_supported = Application.fetch_env!(:elixircd, :message_ids)[:enabled]
 
     if msgid_supported and not Map.has_key?(tags, "msgid") do
@@ -280,6 +309,11 @@ defmodule ElixIRCd.Server.Dispatcher do
     else
       message
     end
+  end
+
+  defp maybe_put_history_time(%Message{} = message) do
+    timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
+    %{message | tags: Map.put_new(message.tags, "time", timestamp)}
   end
 
   @spec filter_tags(Message.t(), User.t()) :: Message.t()
@@ -331,15 +365,20 @@ defmodule ElixIRCd.Server.Dispatcher do
   defp maybe_put_server_time_tag(tags, capabilities) do
     server_time_supported = Application.fetch_env!(:elixircd, :capabilities)[:server_time]
 
-    if server_time_supported and "server-time" in capabilities and not Map.has_key?(tags, "time") do
-      time =
-        DateTime.utc_now()
-        |> DateTime.truncate(:millisecond)
-        |> DateTime.to_iso8601()
+    cond do
+      not server_time_supported or "server-time" not in capabilities ->
+        Map.delete(tags, "time")
 
-      Map.put(tags, "time", time)
-    else
-      tags
+      Map.has_key?(tags, "time") ->
+        tags
+
+      true ->
+        time =
+          DateTime.utc_now()
+          |> DateTime.truncate(:millisecond)
+          |> DateTime.to_iso8601()
+
+        Map.put(tags, "time", time)
     end
   end
 

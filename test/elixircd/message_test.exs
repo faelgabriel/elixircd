@@ -99,6 +99,14 @@ defmodule ElixIRCd.MessageTest do
       assert Message.parse(raw_message) == expected
     end
 
+    test "preserves trailing spaces while removing only the IRC line ending" do
+      assert {:ok, %Message{params: ["#channel"], trailing: "line  "}} =
+               Message.parse("PRIVMSG #channel :line  \r\n")
+
+      assert {:ok, %Message{params: ["#channel"], trailing: ""}} =
+               Message.parse("PRIVMSG #channel :\r\n")
+    end
+
     test "parses a raw message with multiple parameters" do
       raw_message = ":Nick!user@host MODE #channel +o User"
 
@@ -544,6 +552,14 @@ defmodule ElixIRCd.MessageTest do
 
       assert Message.unparse(message) ==
                {:ok, "@msgid=abc;+draft/reply=123 :irc.example.com PRIVMSG #channel :hello\r\n"}
+    end
+
+    test "unparses LINKS and SASL-already numerics" do
+      assert {:ok, "364 nick * :link\r\n"} =
+               Message.unparse(%Message{command: :rpl_links, params: ["nick", "*"], trailing: "link"})
+
+      assert {:ok, "907 nick :already\r\n"} =
+               Message.unparse(%Message{command: :err_saslalready, params: ["nick"], trailing: "already"})
     end
   end
 end

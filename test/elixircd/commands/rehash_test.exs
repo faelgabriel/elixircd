@@ -244,7 +244,7 @@ defmodule ElixIRCd.Commands.RehashTest do
       end
     end
 
-    test "changing message IDs does not announce a capability change" do
+    test "disabling message IDs withdraws dependent message-redaction" do
       Application.put_env(:elixircd, :message_ids, enabled: true)
 
       Memento.transaction!(fn ->
@@ -253,7 +253,8 @@ defmodule ElixIRCd.Commands.RehashTest do
         stub(System, :load_configurations, fn -> Application.put_env(:elixircd, :message_ids, enabled: false) end)
 
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
-        assert_sent_messages_amount(client.pid, 0)
+        assert_sent_message_contains(client.pid, ~r/CAP .* DEL :draft\/message-redaction/)
+        assert_sent_messages_amount(client.pid, 1)
         updated = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
         assert updated.capabilities == client.capabilities
       end)
@@ -829,6 +830,33 @@ defmodule ElixIRCd.Commands.RehashTest do
 
           assert_sent_messages_count_containing(user.pid, ~r/ DEL .*sts/, 0)
         end
+      end)
+    end
+
+    test "reannounces dynamic metadata and multiline values when limits change" do
+      original_metadata = Application.fetch_env!(:elixircd, :metadata)
+      original_multiline = Application.fetch_env!(:elixircd, :multiline)
+
+      on_exit(fn ->
+        Application.put_env(:elixircd, :metadata, original_metadata)
+        Application.put_env(:elixircd, :multiline, original_multiline)
+      end)
+
+      Memento.transaction!(fn ->
+        oper = insert(:user, modes: [:o])
+        client = insert(:user, capabilities: ["cap-notify"], cap_version: 302)
+
+        stub(System, :load_configurations, fn ->
+          Application.put_env(:elixircd, :metadata, Keyword.put(original_metadata, :max_subscriptions, 17))
+          Application.put_env(:elixircd, :multiline, Keyword.put(original_multiline, :max_lines, 9))
+        end)
+
+        assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
+
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :.*draft\/metadata-2=.*max-subs=17/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :.*draft\/metadata-3=.*max-subs=17/)
+        assert_sent_message_contains(client.pid, ~r/CAP .* NEW :.*draft\/multiline=max-bytes=4096,max-lines=9/)
+        assert_sent_messages_amount(client.pid, 1)
       end)
     end
   end

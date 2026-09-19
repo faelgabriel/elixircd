@@ -109,4 +109,11 @@ defmodule ElixIRCd.Tables.RegisteredNick.SettingsTest do
       assert updated_settings.hide_email == false
     end
   end
+
+  describe "normalize/1" do
+    test "normalizes persisted maps and nil using current defaults" do
+      assert %Settings{hide_email: true, url: nil} = Settings.normalize(%{hide_email: true, url: nil, unknown: true})
+      assert %Settings{} = Settings.normalize(nil)
+    end
+  end
 end

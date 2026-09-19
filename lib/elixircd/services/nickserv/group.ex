@@ -21,6 +21,7 @@ defmodule ElixIRCd.Services.Nickserv.Group do
 
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
+  alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -146,7 +147,7 @@ defmodule ElixIRCd.Services.Nickserv.Group do
     if account_requires_secure_connection?(source_account_nick.account_name) and not secure_connection?(user) do
       notify(user, "This account requires a secure TLS connection for password authentication.")
     else
-      if Argon2.verify_pass(password, source_account_nick.password_hash) do
+      if match?({:ok, _}, Password.verify_and_upgrade(source_account_nick, password)) do
         regroup_registered_nick(user, registered_nick, account_nick)
       else
         notify(user, "Authentication failed. Invalid password for \x02#{registered_nick.nickname}\x02.")
@@ -166,6 +167,7 @@ defmodule ElixIRCd.Services.Nickserv.Group do
       nickname: user.nick,
       account_name: account_nick.account_name,
       password_hash: account_nick.password_hash,
+      scram_sha_256: account_nick.scram_sha_256,
       email: account_nick.email,
       registered_by: user_mask(user),
       verify_code: nil,
@@ -189,6 +191,7 @@ defmodule ElixIRCd.Services.Nickserv.Group do
     RegisteredNicks.update(registered_nick, %{
       account_name: account_nick.account_name,
       password_hash: account_nick.password_hash,
+      scram_sha_256: account_nick.scram_sha_256,
       email: account_nick.email,
       verify_code: nil,
       verified_at: account_nick.verified_at,

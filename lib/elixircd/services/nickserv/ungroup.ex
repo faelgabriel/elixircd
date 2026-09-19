@@ -80,6 +80,7 @@ defmodule ElixIRCd.Services.Nickserv.Ungroup do
           RegisteredNicks.update(registered_nick, %{
             account_name: registered_nick.nickname,
             password_hash: account_nick.password_hash,
+            scram_sha_256: account_nick.scram_sha_256,
             email: account_nick.email,
             verify_code: nil,
             verified_at: account_nick.verified_at,

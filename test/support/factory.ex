@@ -248,6 +248,7 @@ defmodule ElixIRCd.Factory do
       account_name_key: CaseMapping.normalize(account_name),
       account_name: account_name,
       password_hash: password_hash,
+      scram_sha_256: Map.get(attrs, :scram_sha_256, nil),
       email: Map.get(attrs, :email, "email@example.com"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
       verify_code: Map.get(attrs, :verify_code, nil),

@@ -49,6 +49,7 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:numeric, "MODES", channel_config[:max_modes_per_command]),
       format_feature(:map, "CHANLIMIT", channel_config[:channel_join_limits]),
       format_feature(:string, "PREFIX", format_prefix()),
+      format_deprecated_metadata(),
       format_feature(:list, "CHANTYPES", channel_config[:channel_prefixes]),
       format_feature(:numeric, "NICKLEN", user_config[:max_nick_length]),
       format_feature(:string, "NETWORK", server_config[:name]),
@@ -72,10 +73,23 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:numeric, "USERLEN", user_config[:max_ident_length]),
       format_feature(:string, "MAXLIST", format_maxlist(channel_config[:max_list_entries])),
       format_feature(:numeric, "SILENCE", 15),
-      format_feature(:string, "EXTBAN", "$,am"),
-      format_feature(:string, "ACCOUNTEXTBAN", "a")
+      format_feature(:string, "EXTBAN", "$,amr"),
+      format_feature(:string, "ACCOUNTEXTBAN", "a"),
+      format_history_limit(),
+      format_feature(:string, "MSGREFTYPES", "msgid,timestamp")
     ]
     |> Enum.reject(&is_nil/1)
+  end
+
+  defp format_history_limit do
+    history = Application.fetch_env!(:elixircd, :history)
+    if history[:enabled], do: "CHATHISTORY=#{history[:max_request_limit]}"
+  end
+
+  defp format_deprecated_metadata do
+    if Application.fetch_env!(:elixircd, :compatibility)[:deprecated_metadata] do
+      "METADATA=#{Application.fetch_env!(:elixircd, :metadata)[:max_keys]}"
+    end
   end
 
   @doc """

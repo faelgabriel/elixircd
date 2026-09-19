@@ -17,6 +17,7 @@ defmodule ElixIRCd.Commands.Names do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Targets
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -30,33 +31,31 @@ defmodule ElixIRCd.Commands.Names do
   end
 
   def handle(user, %{command: "NAMES", params: [channel_names | _rest]}) do
-    channel_names
-    |> String.split(",")
-    |> Enum.map(&String.trim/1)
-    |> Enum.each(&handle_single_channel_names(user, &1))
+    targets = "NAMES" |> Targets.split(channel_names) |> Enum.map(&String.trim/1)
+    Enum.each(targets, &handle_single_channel_names(user, &1))
+    send_end_of_names(user, Enum.join(targets, ","))
   end
 
   @spec handle_all_names(User.t()) :: :ok
   defp handle_all_names(user) do
     Channels.get_all()
-    |> Enum.each(fn channel -> handle_channel_names_silent(user, channel) end)
+    |> Enum.sort_by(& &1.name_key)
+    |> Enum.each(&handle_channel_names_silent(user, &1))
 
     handle_free_users(user)
+    send_end_of_names(user, "*")
   end
 
   @spec handle_single_channel_names(User.t(), String.t()) :: :ok
   defp handle_single_channel_names(user, channel_name) do
     case Channels.get_by_name(channel_name) do
-      {:ok, channel} ->
-        if channel_visible_to_user?(channel, user) do
-          send_names_reply(user, channel)
-        else
-          send_end_of_names(user, channel_name)
-        end
-
-      {:error, :channel_not_found} ->
-        send_end_of_names(user, channel_name)
+      {:ok, channel} -> handle_existing_channel(user, channel)
+      {:error, :channel_not_found} -> :ok
     end
+  end
+
+  defp handle_existing_channel(user, channel) do
+    if channel_visible_to_user?(channel, user), do: send_names_reply(user, channel)
   end
 
   @spec send_end_of_names(User.t(), String.t()) :: :ok
@@ -107,18 +106,19 @@ defmodule ElixIRCd.Commands.Names do
       if Enum.empty?(visible_nicks) do
         []
       else
+        params =
+          if Application.fetch_env!(:elixircd, :compatibility)[:rfc1459_names],
+            do: [user.nick, channel.name],
+            else: [user.nick, get_channel_status(channel), channel.name]
+
         names_message = %Message{
           prefix: Dispatcher.server_prefix(),
           command: :rpl_namreply,
-          params: [user.nick, get_channel_status(channel), channel.name]
+          params: params
         }
 
         chunk_message_words(names_message, visible_nicks)
       end
-
-    messages =
-      messages ++
-        [%Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of /NAMES list"}]
 
     messages
     |> Dispatcher.broadcast(:server, user)
@@ -211,11 +211,13 @@ defmodule ElixIRCd.Commands.Names do
           {format_user_display(free_user, use_extended_names), free_user.nick}
         end)
 
-      %Message{prefix: Dispatcher.server_prefix(), command: :rpl_namreply, params: [user.nick, "*", "*"]}
-      |> chunk_message_words(free_user_list)
-      |> Dispatcher.broadcast(:server, user)
+      params =
+        if Application.fetch_env!(:elixircd, :compatibility)[:rfc1459_names],
+          do: [user.nick, "*"],
+          else: [user.nick, "*", "*"]
 
-      %Message{command: :rpl_endofnames, params: [user.nick, "*"], trailing: "End of /NAMES list"}
+      %Message{prefix: Dispatcher.server_prefix(), command: :rpl_namreply, params: params}
+      |> chunk_message_words(free_user_list)
       |> Dispatcher.broadcast(:server, user)
     end
 

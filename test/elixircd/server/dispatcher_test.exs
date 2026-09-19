@@ -176,12 +176,17 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "broadcasts with User context to a pid target that is not the sender", %{user: user, message: message} do
       target_pid = self()
-      expected_message = ":testnick!testident@test.host PRIVMSG #test :hello\r\n"
 
       Connection
       |> expect(:handle_send, fn pid, received_message ->
         assert pid === target_pid
-        assert received_message == expected_message
+        parsed = Message.parse!(received_message)
+        assert parsed.prefix == "testnick!testident@test.host"
+        assert parsed.command == "PRIVMSG"
+        assert parsed.params == ["#test"]
+        assert parsed.trailing == "hello"
+        assert is_binary(parsed.tags["msgid"])
+        assert is_binary(parsed.tags["time"])
         :ok
       end)
 
@@ -196,12 +201,17 @@ defmodule ElixIRCd.Server.DispatcherTest do
       message: message
     } do
       sender_with_caps = %{user | capabilities: ["message-tags"], modes: [:B]}
-      expected_message = "@bot :testnick!testident@test.host PRIVMSG #test :hello\r\n"
 
       Connection
       |> expect(:handle_send, fn pid, received_message ->
         assert pid === sender_with_caps.pid
-        assert received_message == expected_message
+        parsed = Message.parse!(received_message)
+        assert parsed.prefix == "testnick!testident@test.host"
+        assert parsed.command == "PRIVMSG"
+        assert parsed.params == ["#test"]
+        assert parsed.trailing == "hello"
+        assert parsed.tags["bot"] == nil
+        assert is_binary(parsed.tags["msgid"])
         :ok
       end)
 
@@ -943,11 +953,11 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
-    test "deduplicates the sender when the sender is already one of the targets" do
+    test "delivers and separately echoes when the sender messages themself" do
       sender = insert(:user, nick: "echoer", ident: "ident", hostname: "host.test", capabilities: ["echo-message"])
 
       Connection
-      |> expect(:handle_send, 1, fn pid, received_message ->
+      |> expect(:handle_send, 2, fn pid, received_message ->
         assert pid === sender.pid
         assert received_message == ":echoer!ident@host.test NOTICE echoer :hello\r\n"
         :ok
@@ -959,9 +969,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
                  sender,
                  sender.pid
                )
-
-      Connection
-      |> reject(:handle_send, 2)
     end
   end
 
@@ -980,6 +987,34 @@ defmodule ElixIRCd.Server.DispatcherTest do
       end)
 
       assert :ok = Dispatcher.send_prepared_message(message, user)
+    end
+
+    test "sends an enqueued prepared message immediately without an active batch" do
+      user = build(:user, capabilities: ["batch"])
+      message = %Message{command: "NOTICE", params: [user.nick], trailing: "hello"}
+
+      expect(Connection, :handle_send, fn pid, wire ->
+        assert pid == user.pid
+        assert wire == "NOTICE #{user.nick} :hello\r\n"
+        :ok
+      end)
+
+      assert :ok = Dispatcher.enqueue_prepared_message(message, user)
+    end
+
+    test "preserves a preexisting history timestamp" do
+      sender = build(:user, nick: "sender")
+      target = build(:user, nick: "target", capabilities: ["message-tags", "server-time"])
+      timestamp = "2026-01-01T00:00:00.000Z"
+      message = %Message{command: "PRIVMSG", params: [target.nick], trailing: "hello", tags: %{"time" => timestamp}}
+
+      expect(Connection, :handle_send, fn pid, wire ->
+        assert pid == target.pid
+        assert wire =~ ";time="
+        :ok
+      end)
+
+      assert :ok = Dispatcher.broadcast(message, sender, target)
     end
   end
 

@@ -22,6 +22,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       :account_name_key,
       :account_name,
       :password_hash,
+      :scram_sha_256,
       :email,
       :registered_by,
       :verify_code,
@@ -43,6 +44,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           account_name_key: String.t(),
           account_name: String.t(),
           password_hash: String.t(),
+          scram_sha_256: ElixIRCd.Sasl.ScramSha256.credentials() | nil,
           email: String.t() | nil,
           registered_by: String.t(),
           verify_code: String.t() | nil,
@@ -60,6 +62,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           optional(:nickname) => String.t(),
           optional(:account_name) => String.t(),
           optional(:password_hash) => String.t(),
+          optional(:scram_sha_256) => ElixIRCd.Sasl.ScramSha256.credentials() | nil,
           optional(:email) => String.t() | nil,
           optional(:registered_by) => String.t(),
           optional(:verify_code) => String.t() | nil,
@@ -80,6 +83,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   def new(attrs) do
     new_attrs =
       attrs
+      |> Map.put_new(:scram_sha_256, nil)
       |> Map.put_new(:settings, Settings.new())
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> put_default_account_name()

@@ -84,6 +84,14 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       refute Protocol.match_user_mask?(authenticated, "$m:*!*@*")
     end
 
+    test "matches realname extbans with IRC glob semantics" do
+      user = build(:user, realname: "Alice Example")
+      assert Protocol.match_user_mask?(user, "$r:alice*")
+      assert Protocol.match_user_mask?(user, "$r:*Example")
+      refute Protocol.match_user_mask?(user, "$r:Bob*")
+      assert Protocol.normalize_mask("$r:Alice*") == "$r:Alice*"
+    end
+
     test "matches mute extbans against the inner user mask" do
       user = build(:user, nick: "Muted", ident: "ident", hostname: "host")
 

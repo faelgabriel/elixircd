@@ -5,6 +5,7 @@ defmodule ElixIRCd.Repositories.HistoricalUsers do
 
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.Protocol
 
   @doc """
   Create a new historical user and write it to the database.
@@ -33,5 +34,17 @@ defmodule ElixIRCd.Repositories.HistoricalUsers do
     # Mnesia's select limit is a chunk size and does not select the newest rows.
     get_by_nick(nick, nil)
     |> Enum.take(limit)
+  end
+
+  @doc "Gets historical users whose nickname matches an IRC glob."
+  @spec get_by_mask(String.t(), non_neg_integer() | nil) :: [HistoricalUser.t()]
+  def get_by_mask(mask, limit) do
+    matching =
+      HistoricalUser
+      |> Memento.Query.all()
+      |> Enum.filter(&Protocol.match_glob?(&1.nick, mask))
+      |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
+
+    if is_integer(limit), do: Enum.take(matching, limit), else: matching
   end
 end

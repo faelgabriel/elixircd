@@ -9,11 +9,82 @@ defmodule ElixIRCd.Config.Loader do
   @doc "Reads and validates a complete file without changing files or application state."
   @spec read!(String.t()) :: keyword()
   def read!(path) do
-    config = read_file!(path)
+    config = path |> read_file!() |> upgrade_legacy_config()
 
     case Validator.validate(config) do
       :ok -> config
       {:error, errors} -> raise Error, path: path, errors: errors
+    end
+  end
+
+  # New protocol features are disabled when absent so configurations copied
+  # from an older release remain valid and retain their previous behavior.
+  @legacy_capability_defaults [
+    account_registration: false,
+    chathistory: false,
+    channel_rename: false,
+    event_playback: false,
+    message_redaction: false,
+    metadata: false,
+    multiline: false,
+    read_marker: false
+  ]
+  @legacy_section_defaults [
+    compatibility: [
+      legacy_invite_order: false,
+      deprecated_metadata: false,
+      rfc1459_names: false,
+      rfc1459_whowas_errors: false
+    ],
+    history: [
+      enabled: false,
+      max_entries_per_target: 1_000,
+      max_request_limit: 100,
+      retention_seconds: 604_800
+    ],
+    redaction: [enabled: false, max_reason_length: 300],
+    metadata: [enabled: false, before_connect: false, max_keys: 20, max_subscriptions: 50, max_value_bytes: 400],
+    read_markers: [enabled: false],
+    multiline: [enabled: false, max_bytes: 4_096, max_lines: 32],
+    account_registration: [enabled: false, before_connect: false],
+    channel_rename: [enabled: false, max_reason_length: 300]
+  ]
+
+  @spec upgrade_legacy_config(keyword()) :: keyword()
+  defp upgrade_legacy_config(config) do
+    upgraded =
+      config
+      |> merge_section_defaults(:capabilities, @legacy_capability_defaults)
+      |> merge_section_defaults(:sasl, scram_sha_256: [enabled: false, iterations: 15_000])
+      |> merge_nested_section_defaults(:sasl, :scram_sha_256, enabled: false, iterations: 15_000)
+
+    Enum.reduce(@legacy_section_defaults, upgraded, &merge_legacy_section/2)
+  end
+
+  @spec merge_legacy_section({atom(), keyword()}, keyword()) :: keyword()
+  defp merge_legacy_section({section, defaults}, config), do: merge_section_defaults(config, section, defaults)
+
+  @spec merge_section_defaults(keyword(), atom(), keyword()) :: keyword()
+  defp merge_section_defaults(config, section, defaults) do
+    case Keyword.fetch(config, section) do
+      :error ->
+        Keyword.put(config, section, defaults)
+
+      {:ok, value} ->
+        if Keyword.keyword?(value), do: Keyword.put(config, section, Keyword.merge(defaults, value)), else: config
+    end
+  end
+
+  @spec merge_nested_section_defaults(keyword(), atom(), atom(), keyword()) :: keyword()
+  defp merge_nested_section_defaults(config, section, nested, defaults) do
+    case Keyword.fetch(config, section) do
+      {:ok, value} when is_list(value) ->
+        if Keyword.keyword?(value),
+          do: Keyword.put(config, section, merge_section_defaults(value, nested, defaults)),
+          else: config
+
+      _ ->
+        config
     end
   end
 

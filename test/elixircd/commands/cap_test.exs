@@ -45,7 +45,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify draft/account-registration away-notify batch chghost draft/chathistory draft/channel-rename draft/event-playback echo-message extended-join extended-monitor invite-notify draft/message-redaction draft/metadata-2 draft/metadata-3 labeled-response multi-prefix draft/multiline draft/read-marker sasl setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch cap-notify chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix sasl=PLAIN setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify draft/account-registration away-notify batch cap-notify chghost draft/chathistory draft/channel-rename draft/event-playback echo-message extended-join extended-monitor invite-notify draft/message-redaction draft/metadata-2=before-connect,max-subs=50,max-keys=20,max-value-bytes=400 draft/metadata-3=before-connect,max-subs=50,max-keys=20,max-value-bytes=400 labeled-response multi-prefix draft/multiline=max-bytes=4096,max-lines=32 draft/read-marker sasl=PLAIN,SCRAM-SHA-256 setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -141,7 +141,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify draft/account-registration away-notify batch chghost draft/chathistory draft/channel-rename draft/event-playback echo-message extended-join extended-monitor invite-notify draft/message-redaction draft/metadata-2 draft/metadata-3 labeled-response multi-prefix draft/multiline draft/read-marker sasl setname standard-replies server-time message-tags\r\n"}
         ])
       end)
     end
@@ -174,15 +174,23 @@ defmodule ElixIRCd.Commands.CapTest do
         original_config
         |> Keyword.put(:account_tag, false)
         |> Keyword.put(:account_notify, false)
+        |> Keyword.put(:account_registration, false)
         |> Keyword.put(:away_notify, false)
         |> Keyword.put(:batch, false)
         |> Keyword.put(:cap_notify, false)
         |> Keyword.put(:chghost, false)
+        |> Keyword.put(:chathistory, false)
+        |> Keyword.put(:channel_rename, false)
+        |> Keyword.put(:event_playback, false)
         |> Keyword.put(:echo_message, false)
         |> Keyword.put(:extended_join, false)
         |> Keyword.put(:extended_monitor, false)
         |> Keyword.put(:invite_notify, false)
+        |> Keyword.put(:message_redaction, false)
+        |> Keyword.put(:metadata, false)
         |> Keyword.put(:multi_prefix, false)
+        |> Keyword.put(:multiline, false)
+        |> Keyword.put(:read_marker, false)
         |> Keyword.put(:setname, false)
         |> Keyword.put(:standard_replies, false)
         |> Keyword.put(:extended_names, false)
@@ -236,7 +244,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify draft/account-registration away-notify batch chghost draft/chathistory draft/channel-rename draft/event-playback echo-message extended-join extended-monitor invite-notify draft/message-redaction draft/metadata-2 draft/metadata-3 labeled-response multi-prefix draft/multiline draft/read-marker setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -285,7 +293,7 @@ defmodule ElixIRCd.Commands.CapTest do
         # SASL should not be in the list when no mechanisms are enabled
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify draft/account-registration away-notify batch chghost draft/chathistory draft/channel-rename draft/event-playback echo-message extended-join extended-monitor invite-notify draft/message-redaction draft/metadata-2 draft/metadata-3 labeled-response multi-prefix draft/multiline draft/read-marker setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -1189,6 +1197,18 @@ defmodule ElixIRCd.Commands.CapTest do
 
         updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
         assert "cap-notify" not in updated_user.capabilities
+      end)
+    end
+
+    test "advertises account-registration feature values for CAP 302" do
+      original = Application.fetch_env!(:elixircd, :account_registration)
+      on_exit(fn -> Application.put_env(:elixircd, :account_registration, original) end)
+      Application.put_env(:elixircd, :account_registration, Keyword.put(original, :before_connect, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false)
+        assert :ok = Cap.handle(user, %Message{command: "CAP", params: ["LS", "302"]})
+        assert_sent_message_contains(user.pid, ~r/draft\/account-registration=before-connect/)
       end)
     end
   end

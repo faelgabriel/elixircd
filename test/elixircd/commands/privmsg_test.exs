@@ -89,6 +89,24 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
       end)
     end
 
+    test "routes unprivileged +U messages only to channel operators" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, nick: "sender")
+        operator = insert(:user, nick: "operator")
+        member = insert(:user, nick: "member")
+        channel = insert(:channel, name: "#ops", modes: [:U])
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+        insert(:user_channel, user: member, channel: channel)
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{command: "PRIVMSG", params: [channel.name], trailing: "review me"})
+
+        assert_sent_message_contains(operator.pid, ":#{user_mask(sender)} PRIVMSG #ops :review me\r\n")
+        assert_sent_messages_amount(member.pid, 0)
+      end)
+    end
+
     test "handles PRIVMSG command for channel with no external messages mode and user is not in the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)

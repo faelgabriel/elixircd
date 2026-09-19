@@ -10,20 +10,27 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.ChannelExcept
   alias ElixIRCd.Tables.ChannelInvex
   alias ElixIRCd.Tables.ChannelInvite
+  alias ElixIRCd.Tables.ChatHistory
+  alias ElixIRCd.Tables.ClientBatch
   alias ElixIRCd.Tables.HistoricalUser
   alias ElixIRCd.Tables.Job
   alias ElixIRCd.Tables.Memo
+  alias ElixIRCd.Tables.Metadata
+  alias ElixIRCd.Tables.MetadataSubscription
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.NickAccess
+  alias ElixIRCd.Tables.ReadMarker
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredChannelAccess
   alias ElixIRCd.Tables.RegisteredNick
+  alias ElixIRCd.Tables.RegisteredNick.Settings
   alias ElixIRCd.Tables.SaslSession
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Tables.UserSilence
+  alias Memento.Query.Data
 
   @memory_tables [
     Channel,
@@ -31,8 +38,10 @@ defmodule ElixIRCd.Utils.Mnesia do
     ChannelExcept,
     ChannelInvex,
     ChannelInvite,
+    ClientBatch,
     HistoricalUser,
     Metric,
+    MetadataSubscription,
     SaslSession,
     User,
     UserAccept,
@@ -42,9 +51,12 @@ defmodule ElixIRCd.Utils.Mnesia do
   ]
 
   @disk_tables [
+    ChatHistory,
     Job,
     Memo,
+    Metadata,
     NickAccess,
+    ReadMarker,
     RegisteredChannel,
     RegisteredChannelAccess,
     RegisteredNick
@@ -75,9 +87,119 @@ defmodule ElixIRCd.Utils.Mnesia do
     start_mnesia(opts)
     create_tables(opts)
     wait_for_tables(opts)
+    upgrade_schemas()
 
     if opts[:verbose], do: Logger.info("Mnesia database setup successfully.")
     :ok
+  end
+
+  @doc "Runs compatible table migrations after local table copies are available."
+  @spec upgrade_schemas() :: :ok
+  def upgrade_schemas do
+    upgrade_user_cap_version()
+    upgrade_monitor_nickname()
+    upgrade_sasl_session_schema()
+    upgrade_registered_nick_schema()
+    :ok
+  end
+
+  defp upgrade_user_cap_version do
+    expected = User.__info__().attributes
+    attributes = :mnesia.table_info(User, :attributes)
+
+    if attributes == List.delete(expected, :cap_version) do
+      position = Enum.find_index(expected, &(&1 == :cap_version)) + 1
+      transform = fn row -> row |> Tuple.insert_at(position, 301) |> Data.load() |> Data.dump() end
+      {:atomic, :ok} = :mnesia.transform_table(User, transform, expected)
+    end
+
+    :ok
+  end
+
+  defp upgrade_monitor_nickname do
+    expected = UserMonitor.__info__().attributes
+    attributes = :mnesia.table_info(UserMonitor, :attributes)
+
+    if attributes == List.delete(expected, :target_nick) do
+      transform = fn row ->
+        monitor = Data.load(row)
+        monitor |> Map.put(:target_nick, monitor.target_nick_key) |> Data.dump()
+      end
+
+      {:atomic, :ok} = :mnesia.transform_table(UserMonitor, transform, expected)
+    end
+
+    :ok
+  end
+
+  defp upgrade_sasl_session_schema do
+    expected = SaslSession.__info__().attributes
+    attributes = :mnesia.table_info(SaslSession, :attributes)
+
+    if attributes == List.delete(expected, :state) do
+      position = Enum.find_index(expected, &(&1 == :state)) + 1
+      transform = fn row -> row |> Tuple.insert_at(position, nil) |> Data.load() |> Data.dump() end
+      {:atomic, :ok} = :mnesia.transform_table(SaslSession, transform, expected)
+    end
+
+    :ok
+  end
+
+  defp upgrade_registered_nick_schema do
+    expected = RegisteredNick.__info__().attributes
+    attributes = :mnesia.table_info(RegisteredNick, :attributes)
+
+    additions = [
+      {:scram_sha_256, nil},
+      {:pending_email, nil},
+      {:pending_email_verify_code, nil},
+      {:pending_email_requested_at, nil}
+    ]
+
+    missing = Enum.filter(additions, fn {field, _default} -> field not in attributes end)
+    known_old_attributes = expected -- Enum.map(missing, &elem(&1, 0))
+
+    cond do
+      attributes == expected ->
+        transform_registered_nicks(expected, & &1)
+
+      attributes == known_old_attributes ->
+        transform_registered_nicks(expected, fn row -> insert_missing_fields(row, attributes, expected, missing) end)
+
+      true ->
+        Logger.warning("RegisteredNick table has unexpected attributes: #{inspect(attributes)}")
+    end
+
+    :ok
+  end
+
+  defp transform_registered_nicks(expected, insert_fields) do
+    transform = fn row ->
+      row
+      |> insert_fields.()
+      |> Data.load()
+      |> then(fn registered_nick -> %{registered_nick | settings: Settings.normalize(registered_nick.settings)} end)
+      |> Data.dump()
+    end
+
+    {:atomic, :ok} = :mnesia.transform_table(RegisteredNick, transform, expected)
+  end
+
+  defp insert_missing_fields(row, old_attributes, expected, missing) do
+    old_values =
+      row |> Tuple.to_list() |> tl() |> Enum.zip(old_attributes) |> Map.new(fn {value, field} -> {field, value} end)
+
+    defaults = Map.new(missing)
+
+    values =
+      Enum.map(expected, fn field ->
+        case Map.fetch(old_values, field) do
+          {:ok, value} -> value
+          :error -> Map.fetch!(defaults, field)
+        end
+      end)
+
+    List.to_tuple([RegisteredNick | values])
   end
 
   @spec recreate_schema(keyword()) :: :ok

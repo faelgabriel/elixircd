@@ -20,7 +20,10 @@ defmodule ElixIRCd.Commands.Join do
       chunk_message_words: 2
     ]
 
+  alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Metadata
+  alias ElixIRCd.ReadMarkers
   alias ElixIRCd.Repositories.ChannelBans
   alias ElixIRCd.Repositories.ChannelExcepts
   alias ElixIRCd.Repositories.ChannelInvexes
@@ -194,6 +197,8 @@ defmodule ElixIRCd.Commands.Join do
       |> Dispatcher.broadcast(user, users_with_extended_join)
     end
 
+    History.record_channel_event(%Message{command: "JOIN", params: [channel.name]}, user, channel.name)
+
     if channel_operator?(user_channel) do
       %Message{command: "MODE", params: [channel.name, "+o", user.nick]}
       |> Dispatcher.broadcast(:server, users)
@@ -206,6 +211,8 @@ defmodule ElixIRCd.Commands.Join do
       |> Dispatcher.broadcast(user, watchers)
     end
 
+    Metadata.sync_join(user, channel, users)
+
     topic_messages = build_topic_messages(user, channel)
 
     names_message = %Message{
@@ -214,8 +221,16 @@ defmodule ElixIRCd.Commands.Join do
       params: [user.nick, channel_status(channel), channel.name]
     }
 
+    read_marker_messages =
+      if ReadMarkers.enabled?() and "draft/read-marker" in user.capabilities do
+        [ReadMarkers.message(user, channel.name)]
+      else
+        []
+      end
+
     (topic_messages ++
        chunk_message_words(names_message, get_user_channels_nicks(user, user_channels)) ++
+       read_marker_messages ++
        [%Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of NAMES list."}])
     |> Dispatcher.broadcast(:server, user)
 

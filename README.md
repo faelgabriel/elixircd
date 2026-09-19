@@ -248,6 +248,13 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **REHASH**: Enable operators to reload the server's configuration. ✅
 - **RESTART**: Allow operators to restart the server. ✅
 - **DIE**: Allow operators to shut down the server. ✅
+- **CHATHISTORY**: Retrieve bounded persistent channel or direct-message history, including target discovery. ✅
+- **MARKREAD**: Store and synchronize monotonic per-account read markers. ✅
+- **METADATA**: Read, write, subscribe to, and synchronize account and channel metadata. ✅
+- **REDACT**: Remove an authorized message from persistent history. ✅
+- **REGISTER**: Register the current nickname as an account through IRCv3. ✅
+- **RENAME**: Atomically rename a channel while preserving its live and persistent state. ✅
+- **BATCH**: Accept bounded client multiline batches in addition to server-originated batches. ✅
 
 ### Modes
 
@@ -283,6 +290,7 @@ These modes apply to channels and define behavior, restrictions, and access rule
 - **+l (Limit)**: Limits the number of users who can join the channel. ✅
 - **+m (Moderated)**: Only users with voice or higher can send messages to the channel. ✅
 - **+M (Registered Only Speak)**: Only registered users may speak. ✅
+- **+N (No Nick Changes)**: Prevents unprivileged members from changing nickname while joined. ✅
 - **+n (No External Messages)**: Prevents messages from users not in the channel. ✅
 - **+O (Oper Only)**: Restricts channel access to IRC operators only. ✅
 - **+p (Private)**: Hides the channel from the LIST command. ✅
@@ -291,6 +299,7 @@ These modes apply to channels and define behavior, restrictions, and access rule
 - **+s (Secret)**: Hides the channel from the LIST command and WHOIS searches. ✅
 - **+t (Topic)**: Restricts topic changes to users with operator privileges. ✅
 - **+T (No NOTICEs)**: Blocks NOTICE messages in the channel. ✅
+- **+U (Op Moderated)**: Routes messages from unvoiced members only to channel operators. ✅
 - **+u (Auditorium)**: Hides join/part/quit messages except for users with voice or higher. ✅
 - **+z (Secure Only)**: Restricts channel access to users with secure connections only. ✅
 
@@ -308,6 +317,7 @@ These masks are used as parameters of channel list modes; they are not standalon
 
 - **`$a:<account>` (Account)**: Matches users identified to an account. ✅
 - **`$m:<mask>` (Mute)**: Prevents matching users from speaking while allowing operator and voice overrides. ✅
+- **`$r:<glob>` (Real name)**: Matches a user's real name (GECOS) using IRC glob semantics. ✅
 
 #### Channel User Modes
 
@@ -389,6 +399,12 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 - **CAP**: Negotiate client capabilities with the server. ✅
 - **AUTHENTICATE**: Authenticate a user using SASL mechanisms. ✅
+- **CHATHISTORY**: Query `LATEST`, `BEFORE`, `AFTER`, `BETWEEN`, `AROUND`, and `TARGETS`. ✅
+- **MARKREAD**: Get or advance a persistent read marker. ✅
+- **METADATA**: Manage metadata values and subscriptions. ✅
+- **REDACT**: Redact a message by stable message ID. ✅
+- **REGISTER**: Create an account using the negotiated registration policy. ✅
+- **RENAME**: Rename a channel without discarding membership or registered state. ✅
 - **ACCOUNT**: Notify clients when a user's account status changes. ✅
 - **CHGHOST**: Forcefully change a user's ident and hostname. ✅
 - **INVITE**: Extended with account tags and channel notifications. ✅
@@ -403,7 +419,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 #### Capabilities
 
-- **Account Authentication and Registration** (sasl): SASL PLAIN and ECDSA challenge authentication. ✅
+- **Account Authentication and Registration** (`sasl`, `draft/account-registration`): SASL PLAIN, SCRAM-SHA-256, ECDSA challenge authentication, and direct account creation. ✅
 - **Account Tag** (account-tag): Attach account name to messages via IRCv3 message tags. ✅
 - **Account Tracking** (account-notify): Account notifications and tagging. ✅
 - **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ✅
@@ -418,6 +434,12 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ✅
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ✅
 - **Message Tags** (message-tags): Additional metadata in messages. ✅
+- **Persistent History** (`draft/chathistory`, `draft/event-playback`): Privacy-scoped replay of messages and channel events with stable `msgid` and `time` tags. ✅
+- **Message Redaction** (`draft/message-redaction`): Permission-checked removal from persistent history. ✅
+- **Metadata** (`draft/metadata-2`, `draft/metadata-3`): Persistent account/channel values, subscriptions, WHOIS exposure, and registration/join synchronization. ✅
+- **Multiline** (`draft/multiline`): Atomic logical messages with bounded lines/bytes, legacy fallback, and nested history replay. ✅
+- **Read Marker** (`draft/read-marker`): Monotonic account-scoped markers synchronized across connected account sessions. ✅
+- **Channel Rename** (`draft/channel-rename`): Live rename with legacy PART/JOIN fallback and persistent-reference migration. ✅
 - **Multi-Prefix** (multi-prefix): Display multiple status prefixes for users in channel responses. ✅
 - **Server Time** (server-time): Timestamp information for messages. ✅
 - **Set Name** (setname): Allow clients to change their real name during the session. ✅
@@ -431,6 +453,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Extended LIST** (`ELIST=MNUCT`, `SAFELIST`): Name, negated-name, user-count, creation-time, and topic-time filters. ✅
 - **Status messages** (`STATUSMSG=@+`): Deliver PRIVMSG, NOTICE, and TAGMSG to channel operators or voiced users. ✅
 - **List and extban discovery** (`EXCEPTS`, `INVEX`, `MAXLIST`, `EXTBAN`, `ACCOUNTEXTBAN`). ✅
+- **History discovery** (`CHATHISTORY`, `MSGREFTYPES`): Advertises request bounds and supported reference forms. ✅
 - **Case mappings** (`ascii`, `rfc1459`, `strict-rfc1459`): Configurable and advertised using canonical ISUPPORT values. ✅
 
 ### Server Features
@@ -443,6 +466,30 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **IPv6 Compatibility**: Support for both IPv4 and IPv6 connections. ✅
 - **Rate Limiting**: Prevent floods of connections and messages with burst support. ✅
 - **Connection Cloaking**: Mask users' IP addresses to enhance privacy. ✅
+
+### Persistence and compatibility notes
+
+History, metadata, and read markers use disk-backed Mnesia tables and are upgraded automatically with the existing
+schema at startup. Channel history is visible only to current members; direct history is keyed by authenticated account,
+or by a non-reassignable connection identity for anonymous users. Redacted entries remain as audit records but are not
+returned by `CHATHISTORY`. Retention, per-target history size, request size, metadata keys/subscriptions/value bytes,
+multiline lines/bytes, redaction reasons, and rename reasons are bounded in `config/elixircd.exs`.
+
+Existing Argon2 password hashes remain authoritative. A successful password authentication lazily adds a salted
+SCRAM-SHA-256 verifier; new registrations create both forms. Disabling `sasl.scram_sha_256` leaves existing verifiers
+intact. `REHASH` validates feature dependencies before applying configuration and sends CAP NEW/DEL when capability
+availability or advertised values change.
+
+Modern IRC behavior is the default. The `compatibility` section provides independent, disabled-by-default switches for
+the historical `INVITE <channel> <nick>` order, the withdrawn metadata-3.2 numeric protocol, RFC 1459 NAMES replies
+without the channel symbol, and the RFC 1459 parameterless-WHOWAS error sequence. These switches preserve current
+framing, UTF-8 validation, authorization, privacy, and resource limits; in particular, the deprecated metadata profile
+still rejects NUL bytes. They are reloaded by `REHASH` and do not enable server-to-server linking, which remains outside
+the scope of ElixIRCd.
+
+Configuration files copied from releases before these extensions are upgraded in memory with every new feature disabled,
+so boot and `REHASH` preserve their previous behavior. Add the corresponding sections from the current default
+`config/elixircd.exs` to opt in and tune persistence and limits; the source configuration file is never rewritten.
 
 ## Development
 

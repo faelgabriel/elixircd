@@ -95,7 +95,7 @@ defmodule ElixIRCd.Message do
   def parse(raw_message) do
     {tags, rest_after_tags} =
       raw_message
-      |> String.trim_trailing()
+      |> strip_line_ending()
       |> extract_tags()
 
     {prefix, rest_raw_message} = extract_prefix(rest_after_tags)
@@ -108,6 +108,25 @@ defmodule ElixIRCd.Message do
       {:error, error} ->
         {:error, error}
     end
+  end
+
+  # Only the IRC frame delimiter is discarded. Spaces immediately before it
+  # are part of a trailing parameter (notably in draft/multiline) and must be
+  # preserved byte-for-byte.
+  defp strip_line_ending(message) do
+    stripped =
+      cond do
+        String.ends_with?(message, "\r\n") ->
+          binary_part(message, 0, byte_size(message) - 2)
+
+        String.ends_with?(message, "\n") or String.ends_with?(message, "\r") ->
+          binary_part(message, 0, byte_size(message) - 1)
+
+        true ->
+          message
+      end
+
+    if String.trim(stripped) == "", do: "", else: stripped
   end
 
   @spec extract_tags(String.t()) :: {tags(), String.t()}
@@ -266,35 +285,33 @@ defmodule ElixIRCd.Message do
   # It returns {command, params, trailing} or {:error, error}.
   @spec parse_command_and_params(String.t()) :: {String.t(), [String.t()], String.t() | nil} | {:error, String.t()}
   defp parse_command_and_params(message) do
-    parts = String.split(message, " ", trim: true)
+    case Regex.run(~r/\A([^ ]+)(?: +(.*))?\z/s, message, capture: :all_but_first) do
+      [command] ->
+        {String.upcase(command), [], nil}
 
-    case parts do
-      [command | params_and_trailing] ->
-        {params, trailing} = extract_trailing(params_and_trailing)
+      [command, rest] ->
+        {params, trailing} = extract_trailing(rest)
         {String.upcase(command), params, trailing}
 
-      [] ->
+      _ ->
         {:error, "Invalid IRC message format on parsing command and params: #{inspect(message)}"}
     end
   end
 
-  # Extracts the trailing from the parameters if present.
-  @spec extract_trailing([String.t()]) :: {[String.t()], String.t() | nil}
-  defp extract_trailing(parts) do
-    # Find the index of the part where the trailing begins (first part starting with ':')
-    trailing_index = Enum.find_index(parts, &String.starts_with?(&1, ":"))
+  # Extracts the trailing parameter without normalizing its whitespace.
+  @spec extract_trailing(String.t()) :: {[String.t()], String.t() | nil}
+  defp extract_trailing(":" <> trailing), do: {[], trailing}
 
-    case trailing_index do
-      nil ->
-        # No trailing part; all parts are parameters
-        {parts, nil}
+  defp extract_trailing(rest) do
+    case :binary.match(rest, " :") do
+      {index, 2} ->
+        middle = binary_part(rest, 0, index)
+        trailing_offset = index + 2
+        trailing = binary_part(rest, trailing_offset, byte_size(rest) - trailing_offset)
+        {String.split(middle, " ", trim: true), trailing}
 
-      index ->
-        # Extract parameters and trailing
-        params = Enum.take(parts, index)
-        trailing_parts = Enum.drop(parts, index)
-        trailing = trailing_parts |> Enum.join(" ") |> String.trim_leading(":")
-        {params, trailing}
+      :nomatch ->
+        {String.split(rest, " ", trim: true), nil}
     end
   end
 

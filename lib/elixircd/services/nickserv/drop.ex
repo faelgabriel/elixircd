@@ -20,6 +20,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
       secure_connection?: 1
     ]
 
+  alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.Memos
   alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -119,7 +120,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
           account_requires_secure_connection?(account_nick.account_name) and not secure_connection?(user) ->
             notify(user, "This account requires a secure TLS connection for password authentication.")
 
-          Argon2.verify_pass(password, account_nick.password_hash) ->
+          match?({:ok, _}, Password.verify_and_upgrade(account_nick, password)) ->
             drop_nickname(user, registered_nick)
 
           true ->

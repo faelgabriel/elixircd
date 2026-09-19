@@ -17,6 +17,14 @@ defmodule ElixIRCd.Config.Schema do
       {ElixIRCd.Utils.Mailer, {:variant, :adapter, mailer_variants()}},
       server: {:keyword, [name: :text, hostname: :server_hostname, password: {:nullable, :text}, motd: :motd]},
       settings: {:keyword, [case_mapping: {:enum, [:rfc1459, :strict_rfc1459, :ascii]}, utf8_only: :boolean]},
+      compatibility:
+        {:keyword,
+         [
+           legacy_invite_order: :boolean,
+           deprecated_metadata: :boolean,
+           rfc1459_names: :boolean,
+           rfc1459_whowas_errors: :boolean
+         ]},
       rate_limiter:
         {:keyword,
          [
@@ -58,15 +66,23 @@ defmodule ElixIRCd.Config.Schema do
            :message_tags,
            :account_tag,
            :account_notify,
+           :account_registration,
            :away_notify,
            :batch,
            :cap_notify,
            :chghost,
+           :chathistory,
+           :channel_rename,
+           :event_playback,
            :echo_message,
            :extended_join,
            :extended_monitor,
            :invite_notify,
+           :message_redaction,
+           :metadata,
+           :multiline,
            :multi_prefix,
+           :read_marker,
            :sasl,
            :setname,
            :standard_replies,
@@ -76,12 +92,35 @@ defmodule ElixIRCd.Config.Schema do
          ])},
       whox: {:keyword, [enabled: :boolean]},
       message_ids: {:keyword, [enabled: :boolean]},
+      history:
+        {:keyword,
+         [
+           enabled: :boolean,
+           max_entries_per_target: :positive_integer,
+           max_request_limit: :positive_integer,
+           retention_seconds: :positive_integer
+         ]},
+      redaction: {:keyword, [enabled: :boolean, max_reason_length: {:integer, 1, 400}]},
+      metadata:
+        {:keyword,
+         [
+           enabled: :boolean,
+           before_connect: :boolean,
+           max_keys: :positive_integer,
+           max_subscriptions: :positive_integer,
+           max_value_bytes: {:integer, 1, 400}
+         ]},
+      read_markers: {:keyword, [enabled: :boolean]},
+      multiline: {:keyword, [enabled: :boolean, max_bytes: :positive_integer, max_lines: :positive_integer]},
+      account_registration: {:keyword, [enabled: :boolean, before_connect: :boolean]},
+      channel_rename: {:keyword, [enabled: :boolean, max_reason_length: {:integer, 1, 400}]},
       monitor: {:keyword, [enabled: :boolean, max_targets: :non_negative_integer]},
       sts: {:keyword, [port: :port, duration: :non_negative_integer, preload: :boolean]},
       sasl:
         {:keyword,
          [
            plain: {:keyword, [enabled: :boolean, require_tls: :boolean]},
+           scram_sha_256: {:keyword, [enabled: :boolean, iterations: {:integer, 4096, 1_000_000}]},
            ecdsa: {:keyword, [enabled: :boolean]},
            session_timeout_ms: :positive_integer,
            max_attempts_per_connection: :positive_integer

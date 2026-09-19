@@ -16,8 +16,10 @@ defmodule ElixIRCd.Command do
     "ADMIN" => Commands.Admin,
     "AUTHENTICATE" => Commands.Authenticate,
     "AWAY" => Commands.Away,
+    "BATCH" => Commands.Batch,
     "CAP" => Commands.Cap,
     "CHGHOST" => Commands.Chghost,
+    "CHATHISTORY" => Commands.Chathistory,
     "DIE" => Commands.Die,
     "GLOBOPS" => Commands.Globops,
     "HELP" => Commands.Help,
@@ -29,6 +31,8 @@ defmodule ElixIRCd.Command do
     "KICK" => Commands.Kick,
     "KILL" => Commands.Kill,
     "LIST" => Commands.List,
+    "MARKREAD" => Commands.Markread,
+    "METADATA" => Commands.Metadata,
     "LINKS" => Commands.Links,
     "LUSERS" => Commands.Lusers,
     "MODE" => Commands.Mode,
@@ -45,6 +49,9 @@ defmodule ElixIRCd.Command do
     "PONG" => Commands.Pong,
     "PRIVMSG" => Commands.Privmsg,
     "QUIT" => Commands.Quit,
+    "REDACT" => Commands.Redact,
+    "REGISTER" => Commands.Register,
+    "RENAME" => Commands.Rename,
     "REHASH" => Commands.Rehash,
     "RESTART" => Commands.Restart,
     "SETNAME" => Commands.Setname,
@@ -79,12 +86,23 @@ defmodule ElixIRCd.Command do
   """
   @spec dispatch(User.t(), Message.t()) :: :ok | {:quit, String.t()}
   def dispatch(user, message) do
-    ResponseContext.with_command(user, message, fn ->
-      case Map.fetch(@commands, message.command) do
-        {:ok, command_module} -> command_module.handle(user, message)
-        :error -> unknown_command_message(user, message.command)
-      end
-    end)
+    case ElixIRCd.Multiline.capture(user, message) do
+      :handled ->
+        :ok
+
+      :continue when message.command == "BATCH" ->
+        dispatch_to_module(user, message)
+
+      :continue ->
+        ResponseContext.with_command(user, message, fn -> dispatch_to_module(user, message) end)
+    end
+  end
+
+  defp dispatch_to_module(user, message) do
+    case Map.fetch(@commands, message.command) do
+      {:ok, command_module} -> command_module.handle(user, message)
+      :error -> unknown_command_message(user, message.command)
+    end
   end
 
   @spec unknown_command_message(User.t(), String.t()) :: :ok

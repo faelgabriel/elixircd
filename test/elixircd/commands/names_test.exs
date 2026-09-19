@@ -106,7 +106,6 @@ defmodule ElixIRCd.Commands.NamesTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 353 #{user.nick} = #{channel1.name} :@user1 +user2\r\n"},
-          {user.pid, ":irc.test 366 #{user.nick} #{channel1.name} :End of /NAMES list\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} * * :free_user\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}
         ])
@@ -147,13 +146,44 @@ defmodule ElixIRCd.Commands.NamesTest do
         message = %Message{command: "NAMES", params: ["#channel1,#channel2"]}
         assert :ok = Names.handle(user, message)
 
-        # Since #channel2 is private, and the user is not a member, they should only see #channel1
-        # and receive the end-of-list reply for #channel2
+        # Since #channel2 is private, and the user is not a member, they should only see #channel1.
+        # A multi-target request has one terminator containing the accepted target list.
         assert_sent_messages([
           {user.pid, ":irc.test 353 #{user.nick} = #{channel1.name} :@user1\r\n"},
-          {user.pid, ":irc.test 366 #{user.nick} #{channel1.name} :End of /NAMES list\r\n"},
-          {user.pid, ":irc.test 366 #{user.nick} #channel2 :End of /NAMES list\r\n"}
+          {user.pid, ":irc.test 366 #{user.nick} #channel1,#channel2 :End of /NAMES list\r\n"}
         ])
+      end)
+    end
+
+    test "can emit the conflicting RFC 1459 RPL_NAMREPLY shape explicitly" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :rfc1459_names, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} #channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #channel :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "uses the RFC 1459 free-user reply shape when explicitly configured" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :rfc1459_names, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "Requester")
+        insert(:user, nick: "Free")
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: []})
+        assert_sent_message_contains(user.pid, ":irc.test 353 Requester * :Free\r\n")
       end)
     end
 

@@ -8,10 +8,12 @@ defmodule ElixIRCd.Commands.Nick do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, sync_registered_mode: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_operator?: 1, channel_voice?: 1, user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
@@ -36,7 +38,8 @@ defmodule ElixIRCd.Commands.Nick do
     with :ok <- validate_nick(input_nick),
          :ok <- check_reserved_nick(user, input_nick),
          :ok <- NickEnforcement.authorize_nick(user, input_nick),
-         :ok <- check_nick_in_use(user, input_nick) do
+         :ok <- check_nick_in_use(user, input_nick),
+         :ok <- check_channel_nick_change(user) do
       change_nick(user, input_nick)
     else
       {:error, :nick_reserved} ->
@@ -57,6 +60,14 @@ defmodule ElixIRCd.Commands.Nick do
 
       {:error, {:nick_enforced, action}} ->
         NickEnforcement.reject_nick(user, input_nick, action)
+
+      {:error, {:nick_change_blocked, channel_name}} ->
+        %Message{
+          command: "447",
+          params: [user_reply(user), channel_name],
+          trailing: "Cannot change nickname while on channel (+N)"
+        }
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, invalid_nick_error} ->
         %Message{
@@ -106,6 +117,22 @@ defmodule ElixIRCd.Commands.Nick do
       {:ok, _user} -> {:error, :nick_in_use}
       {:error, :user_not_found} -> :ok
     end
+  end
+
+  defp check_channel_nick_change(%{registered: false}), do: :ok
+
+  defp check_channel_nick_change(user) do
+    user.pid
+    |> UserChannels.get_by_user_pid()
+    |> Enum.find_value(:ok, fn membership ->
+      with {:ok, channel} <- Channels.get_by_name(membership.channel_name_key),
+           true <- :N in channel.modes,
+           false <- channel_operator?(membership) or channel_voice?(membership) do
+        {:error, {:nick_change_blocked, channel.name}}
+      else
+        _ -> false
+      end
+    end)
   end
 
   @spec validate_nick(String.t()) :: :ok | {:error, String.t()}

@@ -13,6 +13,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Sasl.ScramSha256
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -117,6 +118,7 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       RegisteredNicks.create(%{
         nickname: user.nick,
         password_hash: password_hash,
+        scram_sha_256: ScramSha256.configured_credentials(password),
         email: email,
         registered_by: user_mask(user),
         verify_code: verify_code,

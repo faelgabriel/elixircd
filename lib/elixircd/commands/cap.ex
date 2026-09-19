@@ -35,6 +35,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "account-notify",
       description: "Notify when users identify or logout"
     },
+    "draft/account-registration" => %{
+      name: "draft/account-registration",
+      description: "Register a services account directly"
+    },
     "away-notify" => %{
       name: "away-notify",
       description: "Notify when users set or remove away status"
@@ -50,6 +54,34 @@ defmodule ElixIRCd.Commands.Cap do
     "chghost" => %{
       name: "chghost",
       description: "Notify when a user's ident or hostname changes"
+    },
+    "draft/chathistory" => %{
+      name: "draft/chathistory",
+      description: "Retrieve persistent message history"
+    },
+    "draft/channel-rename" => %{
+      name: "draft/channel-rename",
+      description: "Rename a channel while preserving its state"
+    },
+    "draft/event-playback" => %{
+      name: "draft/event-playback",
+      description: "Include non-message events in history playback"
+    },
+    "draft/message-redaction" => %{
+      name: "draft/message-redaction",
+      description: "Remove authorized messages from persistent history"
+    },
+    "draft/multiline" => %{
+      name: "draft/multiline",
+      description: "Send one logical message as multiple IRC lines"
+    },
+    "draft/metadata-2" => %{
+      name: "draft/metadata-2",
+      description: "Store and synchronize user and channel metadata"
+    },
+    "draft/metadata-3" => %{
+      name: "draft/metadata-3",
+      description: "Compatibility alias for the evolving metadata draft"
     },
     "echo-message" => %{
       name: "echo-message",
@@ -70,6 +102,10 @@ defmodule ElixIRCd.Commands.Cap do
     "multi-prefix" => %{
       name: "multi-prefix",
       description: "Display multiple status prefixes for users in channel responses"
+    },
+    "draft/read-marker" => %{
+      name: "draft/read-marker",
+      description: "Synchronize per-target read positions"
     },
     "sasl" => %{
       name: "sasl",
@@ -193,24 +229,34 @@ defmodule ElixIRCd.Commands.Cap do
     Handshake.handle(updated_user)
   end
 
+  @doc "Returns the space-separated capabilities currently available to a user."
   @spec get_capabilities_list(User.t()) :: String.t()
-  defp get_capabilities_list(user) do
+  def get_capabilities_list(user) do
     capabilities_config = Application.fetch_env!(:elixircd, :capabilities)
 
     capabilities =
       for {config_key, name} <- [
             {:account_tag, "account-tag"},
             {:account_notify, "account-notify"},
+            {:account_registration, build_account_registration_capability_value()},
             {:away_notify, "away-notify"},
             {:batch, "batch"},
             {:cap_notify, "cap-notify"},
             {:chghost, "chghost"},
+            {:chathistory, "draft/chathistory"},
+            {:channel_rename, "draft/channel-rename"},
+            {:event_playback, "draft/event-playback"},
             {:echo_message, "echo-message"},
             {:extended_join, "extended-join"},
             {:extended_monitor, "extended-monitor"},
             {:invite_notify, "invite-notify"},
+            {:message_redaction, "draft/message-redaction"},
+            {:metadata, build_metadata_capability_value("draft/metadata-2")},
+            {:metadata, build_metadata_capability_value("draft/metadata-3")},
             {:labeled_response, "labeled-response"},
             {:multi_prefix, "multi-prefix"},
+            {:multiline, build_multiline_capability_value()},
+            {:read_marker, "draft/read-marker"},
             {:sasl, build_sasl_capability_value()},
             {:setname, "setname"},
             {:standard_replies, "standard-replies"},
@@ -229,6 +275,18 @@ defmodule ElixIRCd.Commands.Cap do
     end)
   end
 
+  @doc "Returns advertised capability names mapped to their complete per-user values."
+  @spec capability_map(User.t()) :: %{String.t() => String.t()}
+  def capability_map(user) do
+    user
+    |> get_capabilities_list()
+    |> String.split()
+    |> Map.new(fn capability ->
+      name = capability |> String.split("=", parts: 2) |> hd()
+      {name, capability}
+    end)
+  end
+
   @spec capability_advertised?(atom(), User.t(), keyword()) :: boolean()
   defp capability_advertised?(:cap_notify, user, config),
     do: user.cap_version >= 302 or capability_enabled?(config, :cap_notify)
@@ -243,6 +301,43 @@ defmodule ElixIRCd.Commands.Cap do
     Keyword.fetch!(config, :batch) and Keyword.fetch!(config, :labeled_response)
   end
 
+  defp capability_enabled?(config, :chathistory) do
+    Keyword.fetch!(config, :chathistory) and Keyword.fetch!(config, :batch) and
+      Keyword.fetch!(config, :message_tags) and Keyword.fetch!(config, :server_time) and
+      Application.fetch_env!(:elixircd, :history)[:enabled]
+  end
+
+  defp capability_enabled?(config, :event_playback),
+    do: Keyword.fetch!(config, :event_playback) and capability_enabled?(config, :chathistory)
+
+  defp capability_enabled?(config, :message_redaction) do
+    Keyword.fetch!(config, :message_redaction) and capability_enabled?(config, :chathistory) and
+      Application.fetch_env!(:elixircd, :redaction)[:enabled] and
+      Application.fetch_env!(:elixircd, :message_ids)[:enabled]
+  end
+
+  defp capability_enabled?(config, :multiline) do
+    Keyword.fetch!(config, :multiline) and Keyword.fetch!(config, :batch) and
+      Keyword.fetch!(config, :message_tags) and Application.fetch_env!(:elixircd, :multiline)[:enabled]
+  end
+
+  defp capability_enabled?(config, :metadata) do
+    Keyword.fetch!(config, :metadata) and Keyword.fetch!(config, :batch) and
+      Application.fetch_env!(:elixircd, :metadata)[:enabled]
+  end
+
+  defp capability_enabled?(config, :read_marker),
+    do: Keyword.fetch!(config, :read_marker) and Application.fetch_env!(:elixircd, :read_markers)[:enabled]
+
+  defp capability_enabled?(config, :account_registration) do
+    Keyword.fetch!(config, :account_registration) and
+      Application.fetch_env!(:elixircd, :account_registration)[:enabled] and
+      Application.fetch_env!(:elixircd, :services)[:nickserv][:enabled]
+  end
+
+  defp capability_enabled?(config, :channel_rename),
+    do: Keyword.fetch!(config, :channel_rename) and Application.fetch_env!(:elixircd, :channel_rename)[:enabled]
+
   defp capability_enabled?(config, key), do: Keyword.fetch!(config, key)
 
   @spec build_sasl_capability_value() :: String.t() | nil
@@ -256,10 +351,52 @@ defmodule ElixIRCd.Commands.Cap do
     end
   end
 
+  defp build_multiline_capability_value do
+    config = Application.fetch_env!(:elixircd, :multiline)
+    "draft/multiline=max-bytes=#{config[:max_bytes]},max-lines=#{config[:max_lines]}"
+  end
+
+  defp build_metadata_capability_value(name) do
+    config = Application.fetch_env!(:elixircd, :metadata)
+
+    features =
+      [
+        if(config[:before_connect], do: "before-connect"),
+        "max-subs=#{config[:max_subscriptions]}",
+        "max-keys=#{config[:max_keys]}",
+        "max-value-bytes=#{config[:max_value_bytes]}"
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    name <> "=" <> Enum.join(features, ",")
+  end
+
+  defp build_account_registration_capability_value do
+    features =
+      []
+      |> maybe_add_registration_feature(
+        Application.fetch_env!(:elixircd, :account_registration)[:before_connect],
+        "before-connect"
+      )
+      |> maybe_add_registration_feature(
+        Application.fetch_env!(:elixircd, :services)[:nickserv][:email_required],
+        "email-required"
+      )
+
+    case features do
+      [] -> "draft/account-registration"
+      _ -> "draft/account-registration=" <> Enum.join(features, ",")
+    end
+  end
+
+  defp maybe_add_registration_feature(features, true, feature), do: features ++ [feature]
+  defp maybe_add_registration_feature(features, false, _feature), do: features
+
   @spec get_enabled_sasl_mechanisms(keyword()) :: [String.t()]
   defp get_enabled_sasl_mechanisms(sasl_config) do
     []
     |> maybe_add_mechanism(sasl_config[:plain], "PLAIN")
+    |> maybe_add_mechanism(sasl_config[:scram_sha_256], "SCRAM-SHA-256")
     |> maybe_add_mechanism(sasl_config[:ecdsa], "ECDSA-NIST256P-CHALLENGE")
   end
 

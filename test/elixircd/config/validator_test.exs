@@ -248,6 +248,35 @@ defmodule ElixIRCd.Config.ValidatorTest do
     end
   end
 
+  test "enforces capability dependencies and history limit relationships", %{config: config} do
+    sasl_without_mechanisms =
+      config
+      |> put_in([:sasl, :plain, :enabled], false)
+      |> put_in([:sasl, :scram_sha_256, :enabled], false)
+      |> put_in([:sasl, :ecdsa, :enabled], false)
+
+    cases = [
+      {put_in(config, [:capabilities, :batch], false), "capabilities.chathistory: requires batch"},
+      {put_in(config, [:history, :enabled], false), "capabilities.chathistory: requires history.enabled"},
+      {put_in(config, [:message_ids, :enabled], false), "capabilities.message_redaction: requires message_ids.enabled"},
+      {put_in(config, [:multiline, :enabled], false), "capabilities.multiline: requires multiline.enabled"},
+      {put_in(config, [:metadata, :enabled], false), "capabilities.metadata: requires metadata.enabled"},
+      {put_in(config, [:read_markers, :enabled], false), "capabilities.read_marker: requires read_markers.enabled"},
+      {put_in(config, [:account_registration, :enabled], false),
+       "capabilities.account_registration: requires account_registration.enabled"},
+      {put_in(config, [:channel_rename, :enabled], false),
+       "capabilities.channel_rename: requires channel_rename.enabled"},
+      {sasl_without_mechanisms, "capabilities.sasl: requires at least one enabled SASL mechanism"},
+      {put_in(config, [:history, :max_request_limit], config[:history][:max_entries_per_target] + 1),
+       "history.max_request_limit: must not exceed max_entries_per_target"}
+    ]
+
+    for {invalid, expected} <- cases do
+      assert {:error, errors} = Validator.validate(invalid)
+      assert Enum.any?(errors, &String.contains?(&1, expected)), "#{expected}: #{inspect(errors)}"
+    end
+  end
+
   defp delete_field(config, [key]), do: Keyword.delete(config, key)
   defp delete_field(config, [key | rest]), do: Keyword.update!(config, key, &delete_field(&1, rest))
 

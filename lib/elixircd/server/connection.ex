@@ -9,10 +9,12 @@ defmodule ElixIRCd.Server.Connection do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Command
-
+  alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Metadata
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.ClientBatches
   alias ElixIRCd.Repositories.HistoricalUsers
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.SaslSessions
@@ -359,7 +361,13 @@ defmodule ElixIRCd.Server.Connection do
         end)
       end)
 
+    Enum.each(all_channel_name_keys, fn channel_name ->
+      History.record_channel_event(%Message{command: "QUIT", params: [], trailing: quit_message}, user, channel_name)
+    end)
+
     Monitor.notify_offline(user)
+    Metadata.disconnect(user)
+    ClientBatches.delete_by_user_pid(user.pid)
 
     ChannelInvites.delete_by_user_pid(user.pid)
     UserChannels.delete_by_user_pid(user.pid)
@@ -390,6 +398,8 @@ defmodule ElixIRCd.Server.Connection do
   end
 
   defp handle_quit(user, _quit_message) do
+    Metadata.disconnect(user)
+    ClientBatches.delete_by_user_pid(user.pid)
     Users.delete(user)
   end
 

@@ -52,4 +52,17 @@ defmodule ElixIRCd.Repositories.HistoricalUsersTest do
                Memento.transaction!(fn -> HistoricalUsers.get_by_nick("test", 1) end)
     end
   end
+
+  describe "get_by_mask/2" do
+    test "uses IRC casemapping wildcards and applies the result limit after sorting" do
+      older = insert(:historical_user, nick: "NickTwo", created_at: ~U[2026-09-14 00:00:00Z])
+      newest = insert(:historical_user, nick: "NickOne", created_at: ~U[2026-09-14 00:00:02Z])
+      insert(:historical_user, nick: "Other", created_at: ~U[2026-09-14 00:00:03Z])
+
+      Memento.transaction!(fn ->
+        assert HistoricalUsers.get_by_mask("nIck*", nil) == [newest, older]
+        assert HistoricalUsers.get_by_mask("nick?ne", 1) == [newest]
+      end)
+    end
+  end
 end
