@@ -15,6 +15,7 @@ defmodule ElixIRCd.Commands.Setname do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Monitor
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -95,13 +96,7 @@ defmodule ElixIRCd.Commands.Setname do
     setname_supported = Application.fetch_env!(:elixircd, :capabilities)[:setname]
 
     if setname_supported do
-      watchers = Users.get_in_shared_channels_with_capability(user, "setname", true)
-
-      # Include a capable sender even when they have no channels.
-      watchers_with_self =
-        [user | watchers]
-        |> Enum.filter(&("setname" in &1.capabilities))
-        |> Enum.uniq_by(& &1.pid)
+      watchers_with_self = Monitor.notification_watchers(user, "setname", true)
 
       %Message{command: "SETNAME", params: [], trailing: new_realname}
       |> Dispatcher.broadcast(user, watchers_with_self)

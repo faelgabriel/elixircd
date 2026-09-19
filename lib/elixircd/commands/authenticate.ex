@@ -2,10 +2,11 @@ defmodule ElixIRCd.Commands.Authenticate do
   @moduledoc """
   This module defines the AUTHENTICATE command.
 
-  AUTHENTICATE implements SASL authentication during the connection handshake.
-  It allows users to authenticate before completing registration (NICK + USER).
-
-  AUTHENTICATE is only valid during CAP negotiation (between `CAP LS` and `CAP END`).
+  AUTHENTICATE implements SASL authentication before or after connection
+  registration. Before registration it is valid during CAP negotiation; after
+  registration the client must still have negotiated the `sasl` capability.
+  Reauthentication is supported without discarding the current account when a
+  new attempt fails.
 
   Supported mechanisms:
   - PLAIN: Simple username/password authentication
@@ -42,15 +43,6 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
-  def handle(%{registered: true} = user, %{command: "AUTHENTICATE"}) do
-    %Message{
-      command: :err_alreadyregistered,
-      params: [user_reply(user)],
-      trailing: "You may not reregister"
-    }
-    |> Dispatcher.broadcast(:server, user)
-  end
-
   def handle(user, %{command: "AUTHENTICATE", params: []}) do
     %Message{
       command: :err_needmoreparams,
@@ -70,19 +62,11 @@ defmodule ElixIRCd.Commands.Authenticate do
         }
         |> Dispatcher.broadcast(:server, user)
 
-      user.cap_negotiating != true ->
+      not user.registered and user.cap_negotiating != true ->
         %Message{
           command: :err_notregistered,
           params: [user_reply(user)],
           trailing: "You have not registered"
-        }
-        |> Dispatcher.broadcast(:server, user)
-
-      user.identified_as != nil and user.sasl_authenticated == true ->
-        %Message{
-          command: :err_saslalready,
-          params: [nick_or_asterisk(user)],
-          trailing: "You have already authenticated using SASL"
         }
         |> Dispatcher.broadcast(:server, user)
 

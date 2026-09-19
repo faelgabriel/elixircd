@@ -14,6 +14,7 @@ defmodule ElixIRCd.Utils.Nickserv do
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.Monitor
   alias ElixIRCd.Utils.Nickserv.Translation
 
   @doc "Returns whether an email-change verification request is still valid."
@@ -240,14 +241,7 @@ defmodule ElixIRCd.Utils.Nickserv do
 
   @spec broadcast_account_message(User.t(), String.t()) :: :ok
   defp broadcast_account_message(user, account) do
-    if "account-notify" in user.capabilities do
-      %Message{command: "ACCOUNT", params: [account]}
-      |> Dispatcher.broadcast(user, [user])
-    end
-
-    watchers =
-      Users.get_in_shared_channels_with_capability(user, "account-notify", true)
-      |> Enum.reject(&(&1.pid == user.pid))
+    watchers = Monitor.notification_watchers(user, "account-notify", true)
 
     if watchers != [] do
       %Message{command: "ACCOUNT", params: [account]}

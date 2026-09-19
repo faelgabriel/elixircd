@@ -11,6 +11,7 @@ defmodule ElixIRCd.Utils.Isupport do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Monitor
+  alias ElixIRCd.Utils.Targets
 
   # Maximum number of feature tokens per ISUPPORT message
   @max_features_per_batch 5
@@ -51,7 +52,7 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:list, "CHANTYPES", channel_config[:channel_prefixes]),
       format_feature(:numeric, "NICKLEN", user_config[:max_nick_length]),
       format_feature(:string, "NETWORK", server_config[:name]),
-      format_feature(:string, "CASEMAPPING", settings_config[:case_mapping]),
+      format_feature(:string, "CASEMAPPING", format_case_mapping(settings_config[:case_mapping])),
       format_feature(:numeric, "TOPICLEN", channel_config[:max_topic_length]),
       format_feature(:numeric, "KICKLEN", channel_config[:max_kick_message_length]),
       format_feature(:numeric, "AWAYLEN", user_config[:max_away_message_length]),
@@ -60,7 +61,19 @@ defmodule ElixIRCd.Utils.Isupport do
       format_feature(:string, "UMODES", format_umodes()),
       format_feature(:string, "BOT", "B"),
       format_feature(:boolean, "UTF8ONLY", settings_config[:utf8_only]),
-      format_monitor_feature()
+      format_monitor_feature(),
+      format_feature(:string, "TARGMAX", Targets.targmax_value(monitor_max_targets())),
+      format_feature(:string, "EXCEPTS", "e"),
+      format_feature(:string, "INVEX", "I"),
+      format_feature(:string, "ELIST", "MNUCT"),
+      format_feature(:boolean, "SAFELIST", true),
+      format_feature(:string, "STATUSMSG", "@+"),
+      format_feature(:numeric, "CHANNELLEN", channel_config[:max_channel_name_length]),
+      format_feature(:numeric, "USERLEN", user_config[:max_ident_length]),
+      format_feature(:string, "MAXLIST", format_maxlist(channel_config[:max_list_entries])),
+      format_feature(:numeric, "SILENCE", 15),
+      format_feature(:string, "EXTBAN", "$,am"),
+      format_feature(:string, "ACCOUNTEXTBAN", "a")
     ]
     |> Enum.reject(&is_nil/1)
   end
@@ -97,6 +110,10 @@ defmodule ElixIRCd.Utils.Isupport do
   defp format_umodes do
     UserModes.modes() |> Enum.map_join(&ModeRegistry.encode!(:user, &1))
   end
+
+  @spec format_case_mapping(:ascii | :rfc1459 | :strict_rfc1459) :: String.t()
+  defp format_case_mapping(:strict_rfc1459), do: "strict-rfc1459"
+  defp format_case_mapping(case_mapping), do: to_string(case_mapping)
 
   @spec format_prefix() :: String.t()
   defp format_prefix do
@@ -140,5 +157,18 @@ defmodule ElixIRCd.Utils.Isupport do
     else
       nil
     end
+  end
+
+  @spec format_maxlist(map()) :: String.t()
+  defp format_maxlist(max_entries) do
+    max_entries
+    |> Enum.sort_by(fn {mode, _limit} -> to_string(mode) end)
+    |> Enum.map_join(",", fn {mode, limit} -> "#{mode}:#{limit}" end)
+  end
+
+  @spec monitor_max_targets() :: non_neg_integer()
+  defp monitor_max_targets do
+    Application.fetch_env!(:elixircd, :monitor)
+    |> Keyword.fetch!(:max_targets)
   end
 end

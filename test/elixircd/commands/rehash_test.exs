@@ -235,7 +235,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
           assert_sent_message_contains(
             client.pid,
-            ":irc.test 005 #{client.nick} #{token} :are supported by this server\r\n"
+            ~r/^:irc\.test 005 #{client.nick} #{token} .*:are supported by this server\r\n$/
           )
 
           assert_sent_messages_amount(client.pid, 1)

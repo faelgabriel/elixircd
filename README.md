@@ -215,6 +215,8 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **TOPIC**: Set or get the topic of a channel. ✅
 - **NAMES**: List all visible nicknames on a channel. ✅
 - **LIST**: List channels and their topics. ✅
+- **LINKS**: Return the visible server-link topology. ✅
+- **HELP/HELPOP**: Display the command index and command help. ✅
 - **INVITE**: Invite a user to a channel. ✅
 - **KICK**: Eject a user from a channel. ✅
 - **PRIVMSG**: Send private messages between users or to a channel. ✅
@@ -299,6 +301,13 @@ These modes use lists to manage exceptions and access control in channels.
 - **+b (Ban)**: Prevents a user or host from joining the channel. ✅
 - **+e (Ban Exception)**: Exempts users from channel bans. ✅
 - **+I (Invite Exception)**: Exempts users from invite-only restriction. ✅
+
+##### Extended Bans
+
+These masks are used as parameters of channel list modes; they are not standalone channel modes.
+
+- **`$a:<account>` (Account)**: Matches users identified to an account. ✅
+- **`$m:<mask>` (Mute)**: Prevents matching users from speaking while allowing operator and voice overrides. ✅
 
 #### Channel User Modes
 
@@ -394,7 +403,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 
 #### Capabilities
 
-- **Account Authentication and Registration** (sasl): Secure SASL authentication mechanism. ✅
+- **Account Authentication and Registration** (sasl): SASL PLAIN and ECDSA challenge authentication. ✅
 - **Account Tag** (account-tag): Attach account name to messages via IRCv3 message tags. ✅
 - **Account Tracking** (account-notify): Account notifications and tagging. ✅
 - **Away Notifications** (away-notify): Real-time notifications of user "away" status changes. ✅
@@ -404,6 +413,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ✅
 - **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ✅
+- **Extended Monitor** (extended-monitor): Extend account, away, host, and real-name notifications to MONITOR subscribers. ✅
 - **Userhost in Names** (userhost-in-names): Adds full user hostmasks to NAMES replies. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ✅
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ✅
@@ -414,6 +424,14 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Standard Replies** (standard-replies): Standardized format for server and client replies. ✅
 - **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ✅
 - **UTF-8 Only** (utf8only): Configurable support for UTF-8 only traffic. ✅
+
+#### ISUPPORT and interoperability
+
+- **Target limits** (`TARGMAX`): Shared limits for NAMES, LIST, KICK, WHOIS, PRIVMSG, NOTICE, TAGMSG, and MONITOR. ✅
+- **Extended LIST** (`ELIST=MNUCT`, `SAFELIST`): Name, negated-name, user-count, creation-time, and topic-time filters. ✅
+- **Status messages** (`STATUSMSG=@+`): Deliver PRIVMSG, NOTICE, and TAGMSG to channel operators or voiced users. ✅
+- **List and extban discovery** (`EXCEPTS`, `INVEX`, `MAXLIST`, `EXTBAN`, `ACCOUNTEXTBAN`). ✅
+- **Case mappings** (`ascii`, `rfc1459`, `strict-rfc1459`): Configurable and advertised using canonical ISUPPORT values. ✅
 
 ### Server Features
 

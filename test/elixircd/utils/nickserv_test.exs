@@ -244,16 +244,7 @@ defmodule ElixIRCd.Utils.NickservTest do
         assert msg.command == "ACCOUNT"
         assert msg.params == ["*"]
         assert context_user == user
-        assert recipients == [user]
-        :ok
-      end)
-
-      Dispatcher
-      |> expect(:broadcast, fn msg, context_user, recipients ->
-        assert msg.command == "ACCOUNT"
-        assert msg.params == ["*"]
-        assert context_user == user
-        assert recipients == [watcher]
+        assert recipients == [user, watcher]
         :ok
       end)
 

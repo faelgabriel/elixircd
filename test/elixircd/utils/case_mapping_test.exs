@@ -20,6 +20,7 @@ defmodule ElixIRCd.Utils.CaseMappingTest do
       assert CaseMapping.normalize("ABC") == "abc"
       assert CaseMapping.normalize("XyZ") == "xyz"
       assert CaseMapping.normalize("{|}~") == "{|}~"
+      assert CaseMapping.normalize("ÄA") == "Äa"
     end
 
     test "normalizes with rfc1459 case mapping", %{original_settings: original_settings} do
@@ -30,6 +31,7 @@ defmodule ElixIRCd.Utils.CaseMappingTest do
       assert CaseMapping.normalize("XyZ") == "xyz"
       assert CaseMapping.normalize("{|}~") == "[\\]^"
       assert CaseMapping.normalize("test{channel}") == "test[channel]"
+      assert CaseMapping.normalize("ÄA") == "Äa"
     end
 
     test "normalizes with strict_rfc1459 case mapping", %{original_settings: original_settings} do
@@ -41,6 +43,7 @@ defmodule ElixIRCd.Utils.CaseMappingTest do
       assert CaseMapping.normalize("{|}") == "[\\]"
       assert CaseMapping.normalize("{|}~") == "[\\]~"
       assert CaseMapping.normalize("test{channel}") == "test[channel]"
+      assert CaseMapping.normalize("ÄA") == "Äa"
     end
 
     test "uses configured case mapping by default", %{original_settings: original_settings} do

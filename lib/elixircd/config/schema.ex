@@ -64,6 +64,7 @@ defmodule ElixIRCd.Config.Schema do
            :chghost,
            :echo_message,
            :extended_join,
+           :extended_monitor,
            :invite_notify,
            :multi_prefix,
            :sasl,

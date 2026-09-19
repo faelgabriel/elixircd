@@ -12,6 +12,27 @@ defmodule ElixIRCd.Commands.ModeTest do
   alias ElixIRCd.Repositories.Channels
 
   describe "handle/2 for channel" do
+    test "allows a regular channel member to inspect list modes" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: user, channel: channel)
+        insert(:channel_ban, channel: channel, mask: "$m:muted!*@*")
+
+        assert :ok = Mode.handle(user, %Message{command: "MODE", params: [channel.name, "+b"]})
+
+        assert_sent_message_contains(
+          user.pid,
+          ~r/^:irc\.test 367 #{user.nick} #{Regex.escape(channel.name)} \$m:muted!\*@\*/
+        )
+
+        assert_sent_message_contains(
+          user.pid,
+          ":irc.test 368 #{user.nick} #{channel.name} :End of channel ban list\r\n"
+        )
+      end)
+    end
+
     test "handles MODE command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)

@@ -99,33 +99,33 @@ defmodule ElixIRCd.Commands.ListTest do
       end)
     end
 
-    test "handles LIST command with created at after filter" do
-      Memento.transaction!(fn ->
-        user = insert(:user)
-        channel1 = insert(:channel, name: "#anything1", created_at: DateTime.add(DateTime.utc_now(), -10, :minute))
-        insert(:channel, name: "#anything2", created_at: DateTime.add(DateTime.utc_now(), -20, :minute))
-
-        message = %Message{command: "LIST", params: ["C>15"]}
-        assert :ok = List.handle(user, message)
-
-        assert_sent_messages([
-          {user.pid, ":irc.test 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
-          {user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}
-        ])
-      end)
-    end
-
-    test "handles LIST command with created at before filter" do
+    test "handles LIST command with channels created more than the requested minutes ago" do
       Memento.transaction!(fn ->
         user = insert(:user)
         insert(:channel, name: "#anything1", created_at: DateTime.add(DateTime.utc_now(), -10, :minute))
         channel2 = insert(:channel, name: "#anything2", created_at: DateTime.add(DateTime.utc_now(), -20, :minute))
 
-        message = %Message{command: "LIST", params: ["C<15"]}
+        message = %Message{command: "LIST", params: ["C>15"]}
         assert :ok = List.handle(user, message)
 
         assert_sent_messages([
           {user.pid, ":irc.test 322 #{user.nick} #{channel2.name} 0 :#{channel2.topic.text}\r\n"},
+          {user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}
+        ])
+      end)
+    end
+
+    test "handles LIST command with channels created less than the requested minutes ago" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel1 = insert(:channel, name: "#anything1", created_at: DateTime.add(DateTime.utc_now(), -10, :minute))
+        insert(:channel, name: "#anything2", created_at: DateTime.add(DateTime.utc_now(), -20, :minute))
+
+        message = %Message{command: "LIST", params: ["C<15"]}
+        assert :ok = List.handle(user, message)
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
           {user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}
         ])
       end)
@@ -180,6 +180,24 @@ defmodule ElixIRCd.Commands.ListTest do
           {user.pid, ":irc.test 322 #{user.nick} #{channel1.name} 0 :#{channel1.topic.text}\r\n"},
           {user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}
         ])
+      end)
+    end
+
+    test "handles channel-prefixed wildcard filters and topics that are not set" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#chan2", topic: nil)
+        insert(:channel, name: "#other")
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: ["#c*n2"]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 322 #{user.nick} #{channel.name} 0 :No topic is set\r\n"},
+          {user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}
+        ])
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: ["T>1"]})
+        assert_sent_messages([{user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}])
       end)
     end
 

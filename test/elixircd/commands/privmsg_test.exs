@@ -1046,5 +1046,91 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
+
+    test "delivers PRIVMSG to each advertised comma-separated target" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        recipients = Enum.map(1..5, &insert(:user, nick: "target#{&1}"))
+        targets = Enum.map_join(recipients, ",", & &1.nick)
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{command: "PRIVMSG", params: [targets], trailing: "hello"})
+
+        assert_sent_messages_amount(List.last(recipients).pid, 0)
+
+        assert_sent_messages(
+          recipients
+          |> Enum.take(4)
+          |> Enum.map(fn recipient ->
+            {recipient.pid, ":#{user_mask(sender)} PRIVMSG #{recipient.nick} :hello\r\n"}
+          end)
+        )
+      end)
+    end
+
+    test "delivers STATUSMSG only to channel members with the requested status" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        operator = insert(:user, nick: "operator")
+        voiced = insert(:user, nick: "voiced")
+        regular = insert(:user, nick: "regular")
+        channel = insert(:channel)
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+        insert(:user_channel, user: voiced, channel: channel, modes: [:v])
+        insert(:user_channel, user: regular, channel: channel)
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{
+                   command: "PRIVMSG",
+                   params: ["@#{channel.name}"],
+                   trailing: "operators"
+                 })
+
+        assert_sent_messages([
+          {operator.pid, ":#{user_mask(sender)} PRIVMSG @#{channel.name} :operators\r\n"}
+        ])
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{
+                   command: "PRIVMSG",
+                   params: ["+#{channel.name}"],
+                   trailing: "voiced"
+                 })
+
+        assert_sent_messages([
+          {operator.pid, ":#{user_mask(sender)} PRIVMSG +#{channel.name} :voiced\r\n"},
+          {voiced.pid, ":#{user_mask(sender)} PRIVMSG +#{channel.name} :voiced\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks a muted channel member and lets voice override the mute" do
+      Memento.transaction!(fn ->
+        muted = insert(:user, nick: "muted")
+        voiced = insert(:user, nick: "voiced")
+        recipient = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: muted, channel: channel)
+        insert(:user_channel, user: voiced, channel: channel, modes: [:v])
+        insert(:user_channel, user: recipient, channel: channel)
+        insert(:channel_ban, channel: channel, mask: "$m:*!*@*")
+
+        assert :ok =
+                 Privmsg.handle(muted, %Message{command: "PRIVMSG", params: [channel.name], trailing: "blocked"})
+
+        assert_sent_messages([
+          {muted.pid, ":irc.test 404 #{muted.nick} #{channel.name} :Cannot send to channel\r\n"}
+        ])
+
+        assert :ok =
+                 Privmsg.handle(voiced, %Message{command: "PRIVMSG", params: [channel.name], trailing: "allowed"})
+
+        assert_sent_messages([
+          {muted.pid, ":#{user_mask(voiced)} PRIVMSG #{channel.name} :allowed\r\n"},
+          {recipient.pid, ":#{user_mask(voiced)} PRIVMSG #{channel.name} :allowed\r\n"}
+        ])
+      end)
+    end
   end
 end

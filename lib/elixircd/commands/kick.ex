@@ -17,6 +17,7 @@ defmodule ElixIRCd.Commands.Kick do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Targets
 
   @type kick_errors ::
           :channel_not_found
@@ -39,7 +40,34 @@ defmodule ElixIRCd.Commands.Kick do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  def handle(user, %{command: "KICK", params: [channel_name, target_nick | _rest], trailing: reason}) do
+  def handle(user, %{command: "KICK", params: [channel_names, target_nicks | _rest], trailing: reason}) do
+    case target_pairs(channel_names, target_nicks) do
+      {:ok, pairs} ->
+        Enum.each(pairs, fn {channel_name, target_nick} -> kick_target(user, channel_name, target_nick, reason) end)
+
+      {:error, :mismatched_targets} ->
+        send_need_more_params(user)
+    end
+
+    :ok
+  end
+
+  @spec target_pairs(String.t(), String.t()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, :mismatched_targets}
+  defp target_pairs(channel_names, target_nicks) do
+    channels = Targets.split("KICK", channel_names)
+    users = Targets.split("KICK", target_nicks)
+
+    cond do
+      length(channels) == length(users) -> {:ok, Enum.zip(channels, users)}
+      length(channels) == 1 -> {:ok, Enum.map(users, &{hd(channels), &1})}
+      length(users) == 1 -> {:ok, Enum.map(channels, &{&1, hd(users)})}
+      true -> {:error, :mismatched_targets}
+    end
+  end
+
+  @spec kick_target(User.t(), String.t(), String.t(), String.t() | nil) :: :ok
+  defp kick_target(user, channel_name, target_nick, reason) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
@@ -56,6 +84,12 @@ defmodule ElixIRCd.Commands.Kick do
     else
       {:error, error} -> send_user_kick_error(error, user, channel_name, target_nick)
     end
+  end
+
+  @spec send_need_more_params(User.t()) :: :ok
+  defp send_need_more_params(user) do
+    %Message{command: :err_needmoreparams, params: [user.nick, "KICK"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec check_user_permission(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}

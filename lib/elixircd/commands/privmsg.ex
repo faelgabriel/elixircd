@@ -8,7 +8,7 @@ defmodule ElixIRCd.Commands.Privmsg do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.MessageFilter,
-    only: [check_registered_only_speak: 3, should_silence_message?: 2]
+    only: [check_channel_mute: 3, check_registered_only_speak: 3, should_silence_message?: 2]
 
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1, ctcp_action?: 1]
 
@@ -26,6 +26,8 @@ defmodule ElixIRCd.Commands.Privmsg do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Statusmsg
+  alias ElixIRCd.Utils.Targets
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -34,7 +36,7 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  def handle(user, %{command: "PRIVMSG", params: [target | _], trailing: trailing} = message)
+  def handle(user, %{command: "PRIVMSG", params: [targets | _], trailing: trailing} = message)
       # Handle PRIVMSG when either:
       # 1. A trailing message is provided (standard IRC format)
       # 2. The message is included in params (alternative client format)
@@ -42,12 +44,11 @@ defmodule ElixIRCd.Commands.Privmsg do
       when trailing != nil or length(message.params) > 1 do
     message_text = extract_message_text(message)
 
-    cond do
-      message_text == "" -> send_no_text_error(user)
-      fantasy_command_message?(target, message_text) -> handle_fantasy_channel_message(user, target, message_text)
-      channel_name?(target) -> handle_channel_message(user, target, message_text, message.tags)
-      service_name?(target) -> handle_service_message(user, target, message)
-      true -> handle_user_message(user, target, message_text, message.tags)
+    if message_text == "" do
+      send_no_text_error(user)
+    else
+      Targets.split("PRIVMSG", targets)
+      |> Enum.each(&handle_target(user, &1, message_text, message))
     end
   end
 
@@ -60,6 +61,29 @@ defmodule ElixIRCd.Commands.Privmsg do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  @spec handle_target(User.t(), String.t(), String.t(), Message.t()) :: :ok
+  defp handle_target(user, target, message_text, message) do
+    case Statusmsg.parse(target) do
+      {:ok, channel_name, status_prefix} ->
+        handle_channel_message(user, channel_name, message_text, message.tags, target, status_prefix)
+
+      :error ->
+        cond do
+          fantasy_command_message?(target, message_text) ->
+            handle_fantasy_channel_message(user, target, message_text)
+
+          channel_name?(target) ->
+            handle_channel_message(user, target, message_text, message.tags)
+
+          service_name?(target) ->
+            handle_service_message(user, target, %{message | params: [target | tl(message.params)]})
+
+          true ->
+            handle_user_message(user, target, message_text, message.tags)
+        end
+    end
+  end
+
   @spec send_no_text_error(User.t()) :: :ok
   defp send_no_text_error(user) do
     %Message{command: :err_notexttosend, params: [user.nick], trailing: "No text to send"}
@@ -68,18 +92,28 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   @spec handle_channel_message(User.t(), String.t(), String.t(), Message.tags()) :: :ok
   defp handle_channel_message(user, channel_name, message_text, message_tags) do
+    handle_channel_message(user, channel_name, message_text, message_tags, channel_name, nil)
+  end
+
+  @spec handle_channel_message(User.t(), String.t(), String.t(), Message.tags(), String.t(), String.t() | nil) :: :ok
+  defp handle_channel_message(user, channel_name, message_text, message_tags, wire_target, status_prefix) do
     with_channel_message_permissions(user, channel_name, message_text, fn channel, _user_channel ->
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
+        |> maybe_filter_status(status_prefix)
 
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
       users = Users.get_by_pids(user_pids)
 
-      %Message{command: "PRIVMSG", params: [channel.name], trailing: message_text, tags: message_tags}
+      %Message{command: "PRIVMSG", params: [wire_target], trailing: message_text, tags: message_tags}
       |> Dispatcher.broadcast_with_echo(user, users)
     end)
   end
+
+  @spec maybe_filter_status([UserChannel.t()], String.t() | nil) :: [UserChannel.t()]
+  defp maybe_filter_status(user_channels, nil), do: user_channels
+  defp maybe_filter_status(user_channels, prefix), do: Enum.filter(user_channels, &Statusmsg.eligible?(&1, prefix))
 
   @spec handle_fantasy_channel_message(User.t(), String.t(), String.t()) :: :ok
   defp handle_fantasy_channel_message(user, channel_name, message_text) do
@@ -99,6 +133,7 @@ defmodule ElixIRCd.Commands.Privmsg do
 
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          :ok <- check_user_channel_modes(channel, user, user_channel),
+         :ok <- check_channel_mute(channel, user, user_channel),
          :ok <- check_registered_only_speak(channel, user, user_channel),
          :ok <- check_ctcp(channel, user, user_channel, message_text),
          :ok <- check_formatting(channel, user, message_text) do
@@ -117,6 +152,10 @@ defmodule ElixIRCd.Commands.Privmsg do
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :user_can_not_send} ->
+        %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :user_muted} ->
         %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
         |> Dispatcher.broadcast(:server, user)
 

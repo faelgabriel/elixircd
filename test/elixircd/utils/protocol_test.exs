@@ -74,6 +74,24 @@ defmodule ElixIRCd.Utils.ProtocolTest do
   end
 
   describe "match_user_mask?/2" do
+    test "matches account extbans only against authenticated accounts" do
+      authenticated = build(:user, identified_as: "Bob")
+      unauthenticated = build(:user, nick: "bob", identified_as: nil)
+
+      assert Protocol.match_user_mask?(authenticated, "$a:bob")
+      assert Protocol.match_user_mask?(authenticated, "$a:b*")
+      refute Protocol.match_user_mask?(unauthenticated, "$a:bob")
+      refute Protocol.match_user_mask?(authenticated, "$m:*!*@*")
+    end
+
+    test "matches mute extbans against the inner user mask" do
+      user = build(:user, nick: "Muted", ident: "ident", hostname: "host")
+
+      assert Protocol.match_mute_mask?(user, "$m:muted!*@*")
+      refute Protocol.match_mute_mask?(user, "$m:other!*@*")
+      refute Protocol.match_mute_mask?(user, "$a:muted")
+    end
+
     test "keeps nickname case mapping separate from ident and hostname" do
       user = build(:user, nick: "Bar[", ident: "~User", hostname: "Host[.Example")
       assert Protocol.match_user_mask?(user, "bAR{!~uSER@hOST[.example")
@@ -283,6 +301,8 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       assert "*!*@*" == Protocol.normalize_mask("!")
       assert "*!*@*" == Protocol.normalize_mask("@")
       assert "*!*@*" == Protocol.normalize_mask("*!@*")
+      assert "$a:Account" == Protocol.normalize_mask("$a:Account")
+      assert "$m:nick!*@*" == Protocol.normalize_mask("$m:nick")
     end
   end
 

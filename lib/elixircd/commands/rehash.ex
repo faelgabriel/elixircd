@@ -33,6 +33,7 @@ defmodule ElixIRCd.Commands.Rehash do
     {:chghost, "chghost"},
     {:echo_message, "echo-message"},
     {:extended_join, "extended-join"},
+    {:extended_monitor, "extended-monitor"},
     {:invite_notify, "invite-notify"},
     {:labeled_response, "labeled-response"},
     {:multi_prefix, "multi-prefix"},

@@ -45,7 +45,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -107,7 +107,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify away-notify batch cap-notify chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl=PLAIN setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS :account-tag account-notify away-notify batch cap-notify chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix sasl=PLAIN setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -141,7 +141,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix sasl setname standard-replies server-time message-tags\r\n"}
         ])
       end)
     end
@@ -180,6 +180,7 @@ defmodule ElixIRCd.Commands.CapTest do
         |> Keyword.put(:chghost, false)
         |> Keyword.put(:echo_message, false)
         |> Keyword.put(:extended_join, false)
+        |> Keyword.put(:extended_monitor, false)
         |> Keyword.put(:invite_notify, false)
         |> Keyword.put(:multi_prefix, false)
         |> Keyword.put(:setname, false)
@@ -235,7 +236,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -284,7 +285,7 @@ defmodule ElixIRCd.Commands.CapTest do
         # SASL should not be in the list when no mechanisms are enabled
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP #{user.nick} LS :account-tag account-notify away-notify batch chghost echo-message extended-join extended-monitor invite-notify labeled-response multi-prefix setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Commands.Mode.ChannelModes
   alias ElixIRCd.Commands.Mode.UserModes
   alias ElixIRCd.Message
+  alias ElixIRCd.ModeRegistry
   alias ElixIRCd.Repositories.ChannelBans
   alias ElixIRCd.Repositories.ChannelExcepts
   alias ElixIRCd.Repositories.ChannelInvexes
@@ -82,20 +83,60 @@ defmodule ElixIRCd.Commands.Mode do
   defp handle_channel_mode(user, channel_name, mode_string, values) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
-         :ok <- check_user_permission(user_channel),
          {validated_modes, invalid_modes} <- ChannelModes.parse_mode_changes(mode_string, values),
          :ok <- check_mode_limit(validated_modes) do
       {validated_filtered_modes, listing_modes, _missing_value_modes} =
         ChannelModes.filter_mode_changes(validated_modes)
 
-      {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_filtered_modes)
-
-      broadcast_channel_mode_changes(user, updated_channel, applied_changes)
-      enforce_registered_mode_lock(updated_channel)
-      send_channel_mode_listing(listing_modes, user, updated_channel)
-      send_invalid_modes(invalid_modes, user)
+      process_channel_mode_changes(
+        user,
+        user_channel,
+        channel,
+        channel_name,
+        validated_filtered_modes,
+        listing_modes,
+        invalid_modes
+      )
     else
       {:error, channel_mode_error} -> send_channel_mode_error(channel_mode_error, user, channel_name)
+    end
+  end
+
+  @spec process_channel_mode_changes(
+          User.t(),
+          UserChannel.t(),
+          Channel.t(),
+          String.t(),
+          [ChannelModes.mode_change()],
+          [ModeRegistry.channel_mode()],
+          [String.t()]
+        ) :: :ok
+  defp process_channel_mode_changes(user, _user_channel, channel, _channel_name, [], listing_modes, invalid_modes)
+       when listing_modes != [] do
+    send_channel_mode_listing(listing_modes, user, channel)
+    send_invalid_modes(invalid_modes, user)
+  end
+
+  defp process_channel_mode_changes(
+         user,
+         user_channel,
+         channel,
+         channel_name,
+         validated_modes,
+         listing_modes,
+         invalid_modes
+       ) do
+    case check_user_permission(user_channel) do
+      :ok ->
+        {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_modes)
+
+        broadcast_channel_mode_changes(user, updated_channel, applied_changes)
+        enforce_registered_mode_lock(updated_channel)
+        send_channel_mode_listing(listing_modes, user, updated_channel)
+        send_invalid_modes(invalid_modes, user)
+
+      {:error, error} ->
+        send_channel_mode_error(error, user, channel_name)
     end
   end
 

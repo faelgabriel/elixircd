@@ -42,7 +42,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
   end
 
   describe "handle/2 - AUTHENTICATE - already registered" do
-    test "rejects AUTHENTICATE after registration" do
+    test "requires the SASL capability after registration" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: true)
         message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
@@ -50,14 +50,24 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert :ok = Authenticate.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"}
+          {user.pid, ":irc.test 421 #{user.nick} AUTHENTICATE :You must negotiate SASL capability first\r\n"}
         ])
+      end)
+    end
+
+    test "starts SASL after registration when the capability is negotiated" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: true, capabilities: ["sasl"])
+
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: ["PLAIN"]})
+
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
       end)
     end
   end
 
   describe "handle/2 - AUTHENTICATE - already authenticated" do
-    test "rejects AUTHENTICATE when already authenticated via SASL" do
+    test "allows reauthentication when already authenticated via SASL" do
       Memento.transaction!(fn ->
         user =
           insert(:user,
@@ -72,16 +82,11 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert :ok = Authenticate.handle(user, message)
 
-        # When user is not registered yet, nick might be nil, so we use "*"
-        expected_nick = if user.nick, do: user.nick, else: "*"
-
-        assert_sent_messages([
-          {user.pid, ":irc.test 907 #{expected_nick} :You have already authenticated using SASL\r\n"}
-        ])
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
       end)
     end
 
-    test "rejects re-authentication using asterisk when user has no nick" do
+    test "allows reauthentication before a nick is selected" do
       Memento.transaction!(fn ->
         user =
           insert(:user,
@@ -97,10 +102,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert :ok = Authenticate.handle(user, message)
 
-        # When user has no nick set, the error response should use "*" instead of a nick
-        assert_sent_messages([
-          {user.pid, ":irc.test 907 * :You have already authenticated using SASL\r\n"}
-        ])
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
       end)
     end
   end

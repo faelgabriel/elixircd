@@ -60,6 +60,11 @@ defmodule ElixIRCd.Utils.Protocol do
   Determines if a user mask matches a user.
   """
   @spec match_user_mask?(User.t(), String.t()) :: boolean()
+  def match_user_mask?(user, "$a:" <> account_pattern) do
+    is_binary(user.identified_as) and match_glob?(user.identified_as, account_pattern)
+  end
+
+  def match_user_mask?(_user, "$m:" <> _mask), do: false
   def match_user_mask?(%{registered: false}, mask), do: match_mask(mask, "*", nil)
 
   def match_user_mask?(user, mask) do
@@ -74,10 +79,22 @@ defmodule ElixIRCd.Utils.Protocol do
   @doc "Matches an IRC glob using the configured IRC case mapping."
   @spec match_glob?(String.t(), String.t()) :: boolean()
   def match_glob?(value, pattern) when is_binary(value) and is_binary(pattern) do
-    match_mask(CaseMapping.normalize(pattern), CaseMapping.normalize(value), nil)
+    regex_source =
+      pattern
+      |> CaseMapping.normalize()
+      |> Regex.escape()
+      |> String.replace("\\*", ".*")
+      |> String.replace("\\?", ".")
+
+    Regex.match?(Regex.compile!("^#{regex_source}$", "u"), CaseMapping.normalize(value))
   end
 
   def match_glob?(_value, _pattern), do: false
+
+  @doc "Returns whether a mute extban matches a user."
+  @spec match_mute_mask?(User.t(), String.t()) :: boolean()
+  def match_mute_mask?(user, "$m:" <> mask), do: match_user_mask?(user, mask)
+  def match_mute_mask?(_user, _mask), do: false
 
   @spec message_fits?(Message.t(), pos_integer()) :: boolean()
   defp message_fits?(%Message{} = message, max_bytes) do
@@ -264,6 +281,9 @@ defmodule ElixIRCd.Utils.Protocol do
   Normalizes a mask to the *!*@* IRC format.
   """
   @spec normalize_mask(String.t()) :: String.t()
+  def normalize_mask("$a:" <> account), do: "$a:" <> account
+  def normalize_mask("$m:" <> mask), do: "$m:" <> normalize_mask(mask)
+
   def normalize_mask(mask) do
     {nick, user, host} = parse_mask_parts(mask)
     "#{empty_mask_part_to_wildcard(nick)}!#{empty_mask_part_to_wildcard(user)}@#{empty_mask_part_to_wildcard(host)}"

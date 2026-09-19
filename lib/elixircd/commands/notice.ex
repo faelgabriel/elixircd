@@ -8,7 +8,7 @@ defmodule ElixIRCd.Commands.Notice do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.MessageFilter,
-    only: [check_registered_only_speak: 3, should_silence_message?: 2]
+    only: [check_channel_mute: 3, check_registered_only_speak: 3, should_silence_message?: 2]
 
   import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1, ctcp_action?: 1]
 
@@ -24,31 +24,52 @@ defmodule ElixIRCd.Commands.Notice do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Statusmsg
+  alias ElixIRCd.Utils.Targets
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
   def handle(%{registered: false}, %{command: "NOTICE"}), do: :ok
 
   @impl true
-  def handle(user, %{command: "NOTICE", params: [target | _], trailing: trailing} = message)
+  def handle(user, %{command: "NOTICE", params: [targets | _], trailing: trailing} = message)
       # Handle NOTICE when either:
       # 1. A trailing message is provided (standard IRC format)
       # 2. The message is included in params (alternative client format)
       when trailing != nil or length(message.params) > 1 do
     message_text = extract_message_text(message)
 
-    cond do
-      message_text == "" -> :ok
-      channel_name?(target) -> handle_channel_message(user, target, message_text, message.tags)
-      service_name?(target) -> :ok
-      true -> handle_user_message(user, target, message_text, message.tags)
+    if message_text == "" do
+      :ok
+    else
+      Targets.split("NOTICE", targets)
+      |> Enum.each(&handle_target(user, &1, message_text, message.tags))
     end
   end
 
   @impl true
   def handle(_user, %{command: "NOTICE"}), do: :ok
 
+  @spec handle_target(User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp handle_target(user, target, message_text, message_tags) do
+    case Statusmsg.parse(target) do
+      {:ok, channel_name, status_prefix} ->
+        handle_channel_message(user, channel_name, message_text, message_tags, target, status_prefix)
+
+      :error ->
+        cond do
+          channel_name?(target) -> handle_channel_message(user, target, message_text, message_tags)
+          service_name?(target) -> :ok
+          true -> handle_user_message(user, target, message_text, message_tags)
+        end
+    end
+  end
+
   defp handle_channel_message(user, channel_name, message_text, message_tags) do
+    handle_channel_message(user, channel_name, message_text, message_tags, channel_name, nil)
+  end
+
+  defp handle_channel_message(user, channel_name, message_text, message_tags, wire_target, status_prefix) do
     user_channel =
       UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
       |> case do
@@ -58,6 +79,7 @@ defmodule ElixIRCd.Commands.Notice do
 
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          :ok <- check_user_channel_modes(channel, user, user_channel),
+         :ok <- check_channel_mute(channel, user, user_channel),
          :ok <- check_registered_only_speak(channel, user, user_channel),
          :ok <- check_ctcp(channel, user, user_channel, message_text),
          :ok <- check_formatting(channel, user, message_text),
@@ -65,16 +87,21 @@ defmodule ElixIRCd.Commands.Notice do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
+        |> maybe_filter_status(status_prefix)
 
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
       users = Users.get_by_pids(user_pids)
 
-      %Message{command: "NOTICE", params: [channel.name], trailing: message_text, tags: message_tags}
+      %Message{command: "NOTICE", params: [wire_target], trailing: message_text, tags: message_tags}
       |> Dispatcher.broadcast_with_echo(user, users)
     else
       _error -> :ok
     end
   end
+
+  @spec maybe_filter_status([UserChannel.t()], String.t() | nil) :: [UserChannel.t()]
+  defp maybe_filter_status(user_channels, nil), do: user_channels
+  defp maybe_filter_status(user_channels, prefix), do: Enum.filter(user_channels, &Statusmsg.eligible?(&1, prefix))
 
   defp handle_user_message(user, target_nick, message_text, message_tags) do
     case Users.get_by_nick(target_nick) do

@@ -127,6 +127,8 @@ config :elixircd,
     echo_message: true,
     # Whether to support extended JOIN with account information (extended-join capability)
     extended_join: true,
+    # Whether MONITOR subscriptions extend supported presence notifications
+    extended_monitor: true,
     # Whether to notify channel members when users are invited (invite-notify capability)
     invite_notify: true,
     # Whether to support multiple status prefixes in channel responses (multi-prefix capability)

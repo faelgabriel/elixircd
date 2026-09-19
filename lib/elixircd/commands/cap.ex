@@ -59,6 +59,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "extended-join",
       description: "Extended JOIN messages including account name and real name"
     },
+    "extended-monitor" => %{
+      name: "extended-monitor",
+      description: "Extend supported presence notifications to MONITOR subscribers"
+    },
     "invite-notify" => %{
       name: "invite-notify",
       description: "Notify channel members when users are invited"
@@ -203,6 +207,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:chghost, "chghost"},
             {:echo_message, "echo-message"},
             {:extended_join, "extended-join"},
+            {:extended_monitor, "extended-monitor"},
             {:invite_notify, "invite-notify"},
             {:labeled_response, "labeled-response"},
             {:multi_prefix, "multi-prefix"},

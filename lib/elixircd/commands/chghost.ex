@@ -15,6 +15,7 @@ defmodule ElixIRCd.Commands.Chghost do
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Monitor
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -158,7 +159,7 @@ defmodule ElixIRCd.Commands.Chghost do
     chghost_supported = Application.fetch_env!(:elixircd, :capabilities)[:chghost]
 
     if chghost_supported do
-      watchers = Users.get_in_shared_channels_with_capability(user, "chghost", true)
+      watchers = Monitor.notification_watchers(user, "chghost", true)
 
       if watchers != [] do
         %Message{command: "CHGHOST", params: [new_ident, new_host]}
