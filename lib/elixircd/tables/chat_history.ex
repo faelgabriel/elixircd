@@ -15,7 +15,7 @@ defmodule ElixIRCd.Tables.ChatHistory do
       :occurred_at,
       :redacted_at
     ],
-    index: [:target_key, :msgid],
+    index: [:target_key, :msgid, :sender_account_key, :recipient_account_key],
     type: :ordered_set
 
   @type t :: %__MODULE__{
@@ -26,7 +26,7 @@ defmodule ElixIRCd.Tables.ChatHistory do
           msgid: String.t(),
           sender_account_key: String.t() | nil,
           recipient_account_key: String.t() | nil,
-          message: ElixIRCd.Message.t(),
+          message: ElixIRCd.Message.t() | map(),
           occurred_at: DateTime.t(),
           redacted_at: DateTime.t() | nil
         }

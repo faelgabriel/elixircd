@@ -112,6 +112,24 @@ defmodule ElixIRCd.Services.Nickserv.DropTest do
       end)
     end
 
+    test "allows deleting an unverified account with its password" do
+      Memento.transaction!(fn ->
+        account =
+          insert(:registered_nick,
+            nickname: "Pending",
+            password: "correct_password",
+            verify_code: "code",
+            verified_at: nil
+          )
+
+        user = insert(:user, nick: "Pending")
+
+        assert :ok = Drop.handle(user, ["DROP", account.nickname, "correct_password"])
+        assert_sent_message_contains(user.pid, ~r/Nick .* has been dropped/)
+        assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(account.nickname)
+      end)
+    end
+
     test "requires a secure connection for a SECURE account" do
       Memento.transaction!(fn ->
         registered_nick =

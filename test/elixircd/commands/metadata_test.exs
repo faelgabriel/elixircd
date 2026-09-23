@@ -70,6 +70,29 @@ defmodule ElixIRCd.Commands.MetadataTest do
     end)
   end
 
+  test "SYNC includes channel member metadata and MONITOR subscribers receive updates" do
+    Memento.transaction!(fn ->
+      alice = insert(:user, nick: "Alice", identified_as: "Alice", capabilities: ["batch", "draft/metadata-2"])
+      bob = insert(:user, nick: "Bob", capabilities: ["batch", "draft/metadata-2"])
+      watcher = insert(:user, nick: "Watcher", capabilities: ["batch", "draft/metadata-2"])
+      channel = insert(:channel, name: "#test")
+      insert(:user_channel, user: alice, channel: channel)
+      insert(:user_channel, user: bob, channel: channel)
+      insert(:user_monitor, user: watcher, target_nick: "Alice")
+
+      dispatch(bob, ["*", "SUB", "avatar"])
+      dispatch(watcher, ["*", "SUB", "avatar"])
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      assert :ok = dispatch(alice, ["*", "SET", "avatar"], "photo")
+      assert_sent_message_contains(watcher.pid, ~r/ METADATA Alice avatar \* :photo\r\n$/)
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      assert :ok = dispatch(bob, ["#test", "SYNC"])
+      assert_sent_message_contains(bob.pid, ~r/ METADATA Alice avatar \* :photo\r\n$/)
+    end)
+  end
+
   test "serves the withdrawn numeric protocol only when explicitly enabled" do
     original = Application.fetch_env!(:elixircd, :compatibility)
     on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
@@ -114,7 +137,7 @@ defmodule ElixIRCd.Commands.MetadataTest do
       Agent.update(@agent_name, fn _ -> [] end)
 
       assert :ok = dispatch(user, ["*", "SET", "bad-value"], "line\nbreak")
-      assert_sent_message_contains(user.pid, ~r/ FAIL METADATA INVALID_VALUE bad-value/)
+      assert_sent_message_contains(user.pid, ~r/ FAIL METADATA VALUE_INVALID :Invalid metadata value/)
       Agent.update(@agent_name, fn _ -> [] end)
 
       assert :ok = dispatch(user, ["*", "SET", "one"], "1")

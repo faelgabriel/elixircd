@@ -18,7 +18,7 @@ defmodule ElixIRCd.Commands.RenameTest do
 
   test "renames atomically, preserves membership modes and falls back to PART/JOIN" do
     Memento.transaction!(fn ->
-      channel = insert(:channel, name: "#old", modes: [:m, {:k, "secret"}])
+      channel = insert(:channel, name: "#old", modes: [:m, {:k, "secret"}], topic: nil)
       operator = insert(:user, nick: "Operator", capabilities: ["draft/channel-rename"])
       legacy = insert(:user, nick: "Legacy")
       insert(:user_channel, user: operator, channel: channel, modes: [:o])
@@ -29,8 +29,10 @@ defmodule ElixIRCd.Commands.RenameTest do
 
       assert_sent_messages([
         {operator.pid, ":Operator!~username@hostname RENAME #old #new :better name\r\n"},
-        {legacy.pid, ":Operator!~username@hostname PART #old :better name\r\n"},
-        {legacy.pid, ":Operator!~username@hostname JOIN #new\r\n"}
+        {legacy.pid, ":Legacy!~username@hostname PART #old :better name\r\n"},
+        {legacy.pid, ":Legacy!~username@hostname JOIN #new\r\n"},
+        {legacy.pid, ":irc.test 353 Legacy = #new :+Legacy @Operator\r\n"},
+        {legacy.pid, ":irc.test 366 Legacy #new :End of NAMES list.\r\n"}
       ])
 
       assert {:error, :channel_not_found} = Channels.get_by_name("#old")
@@ -40,6 +42,57 @@ defmodule ElixIRCd.Commands.RenameTest do
       assert op_membership.modes == [:o]
       assert {:ok, legacy_membership} = UserChannels.get_by_user_pid_and_channel_name(legacy.pid, "#new")
       assert legacy_membership.modes == [:v]
+      assert ChatHistory.for_target("channel:#old") == []
+      assert Enum.map(ChatHistory.for_target("channel:#new"), & &1.message.command) == ["RENAME"]
+    end)
+  end
+
+  test "fallback replays topic and NAMES after JOIN" do
+    Memento.transaction!(fn ->
+      channel = insert(:channel, name: "#old")
+      operator = insert(:user, nick: "Operator", capabilities: ["draft/channel-rename"])
+      legacy = insert(:user, nick: "Legacy")
+      insert(:user_channel, user: operator, channel: channel, modes: [:o])
+      insert(:user_channel, user: legacy, channel: channel)
+
+      assert :ok = Command.dispatch(operator, %Message{command: "RENAME", params: ["#old", "#new"]})
+      assert_sent_message_contains(legacy.pid, ~r/ PART #old /)
+      assert_sent_message_contains(legacy.pid, ~r/ JOIN #new\r\n/)
+      assert_sent_message_contains(legacy.pid, ~r/ 332 Legacy #new :topic/)
+      assert_sent_message_contains(legacy.pid, ~r/ 333 Legacy #new setter /)
+      assert_sent_message_contains(legacy.pid, ~r/ 353 Legacy = #new /)
+      assert_sent_message_contains(legacy.pid, ~r/ 366 Legacy #new /)
+    end)
+  end
+
+  test "case-only rename works without a legacy PART/JOIN and always includes a trailing reason" do
+    Memento.transaction!(fn ->
+      channel = insert(:channel, name: "#Mixed", topic: nil)
+      operator = insert(:user, nick: "Operator", capabilities: ["draft/channel-rename"])
+      legacy = insert(:user, nick: "Legacy")
+      insert(:user_channel, user: operator, channel: channel, modes: [:o])
+      insert(:user_channel, user: legacy, channel: channel)
+
+      assert :ok = Command.dispatch(operator, %Message{command: "RENAME", params: ["#Mixed", "#MIXED"]})
+      assert {:ok, renamed} = Channels.get_by_name("#mixed")
+      assert renamed.name == "#MIXED"
+      assert_sent_messages_amount(legacy.pid, 0)
+      assert_sent_messages([{operator.pid, ":Operator!~username@hostname RENAME #Mixed #MIXED :\r\n"}])
+    end)
+  end
+
+  test "accepts an unprefixed third reason and rejects extra parameters" do
+    Memento.transaction!(fn ->
+      channel = insert(:channel, name: "#old")
+      user = insert(:user, nick: "Operator", capabilities: ["draft/channel-rename"])
+      insert(:user_channel, user: user, channel: channel, modes: [:o])
+
+      assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: ["#old", "#new", "why", "extra"]})
+      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME INVALID_PARAMS #old #new /)
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: ["#old", "#new", "why"]})
+      assert_sent_message_contains(user.pid, ~r/ RENAME #old #new :why/)
     end)
   end
 
@@ -51,13 +104,13 @@ defmodule ElixIRCd.Commands.RenameTest do
       insert(:user_channel, user: user, channel: old)
 
       assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: ["#old", "#new"]})
-      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME RENAME_NOT_ALLOWED #old /)
+      assert_sent_message_contains(user.pid, ~r/ 482 User #old :You're not channel operator/)
       Agent.update(@agent_name, fn _ -> [] end)
 
       membership = UserChannels.get_by_user_pid_and_channel_name(user.pid, "#old") |> elem(1)
       UserChannels.update(membership, %{modes: [:o]})
       assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: ["#old", "#taken"]})
-      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME CHANNEL_NAME_IN_USE #taken /)
+      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME CHANNEL_NAME_IN_USE #old #taken /)
     end)
   end
 
@@ -124,25 +177,32 @@ defmodule ElixIRCd.Commands.RenameTest do
 
     Memento.transaction!(fn ->
       unavailable = insert(:user, nick: "Unavailable")
+      Application.put_env(:elixircd, :channel_rename, Keyword.put(original, :enabled, false))
       assert :ok = Command.dispatch(unavailable, %Message{command: "RENAME", params: ["#old", "#new"]})
-      assert_sent_message_contains(unavailable.pid, ~r/ FAIL RENAME NEED_CAP #old/)
+      assert_sent_message_contains(unavailable.pid, ~r/ FAIL RENAME CANNOT_RENAME #old #new /)
+
+      Application.put_env(
+        :elixircd,
+        :channel_rename,
+        original |> Keyword.put(:enabled, true) |> Keyword.put(:max_reason_length, 3)
+      )
 
       user = insert(:user, nick: "Operator", capabilities: ["draft/channel-rename"])
       assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: []})
-      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME INVALID_PARAMS \*/)
+      assert_sent_message_contains(user.pid, ~r/ 461 Operator RENAME :Not enough parameters/)
       Agent.update(@agent_name, fn _ -> [] end)
 
       assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: ["#missing", "#new"]})
-      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME INVALID_CHANNEL #missing/)
+      assert_sent_message_contains(user.pid, ~r/ 403 Operator #missing :No such channel/)
       Agent.update(@agent_name, fn _ -> [] end)
 
       channel = insert(:channel, name: "#old")
       assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: ["#old", "invalid"]})
-      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME INVALID_CHANNEL invalid/)
+      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME CANNOT_RENAME #old invalid /)
       Agent.update(@agent_name, fn _ -> [] end)
 
       assert :ok = Command.dispatch(user, %Message{command: "RENAME", params: ["#old", "#new"]})
-      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME RENAME_NOT_ALLOWED #old/)
+      assert_sent_message_contains(user.pid, ~r/ 442 Operator #old :You're not on that channel/)
       Agent.update(@agent_name, fn _ -> [] end)
 
       insert(:user_channel, user: user, channel: channel, modes: [:o])
@@ -154,7 +214,7 @@ defmodule ElixIRCd.Commands.RenameTest do
                  trailing: "long"
                })
 
-      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME INVALID_PARAMS #old/)
+      assert_sent_message_contains(user.pid, ~r/ FAIL RENAME CANNOT_RENAME #old #new /)
     end)
   end
 

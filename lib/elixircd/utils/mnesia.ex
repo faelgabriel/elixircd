@@ -100,7 +100,19 @@ defmodule ElixIRCd.Utils.Mnesia do
     upgrade_monitor_nickname()
     upgrade_sasl_session_schema()
     upgrade_registered_nick_schema()
+    ensure_index(ChatHistory, :sender_account_key)
+    ensure_index(ChatHistory, :recipient_account_key)
+    ensure_index(ReadMarker, :target_key)
+    ensure_index(ChannelInvite, :channel_name_key)
     :ok
+  end
+
+  defp ensure_index(table, field) do
+    case :mnesia.add_table_index(table, field) do
+      {:atomic, :ok} -> :ok
+      {:aborted, {:already_exists, ^table, _position}} -> :ok
+      {:aborted, reason} -> raise "Failed adding #{inspect(table)} index #{field}: #{inspect(reason)}"
+    end
   end
 
   defp upgrade_user_cap_version do
@@ -161,13 +173,13 @@ defmodule ElixIRCd.Utils.Mnesia do
 
     cond do
       attributes == expected ->
-        transform_registered_nicks(expected, & &1)
+        :ok
 
       attributes == known_old_attributes ->
         transform_registered_nicks(expected, fn row -> insert_missing_fields(row, attributes, expected, missing) end)
 
       true ->
-        Logger.warning("RegisteredNick table has unexpected attributes: #{inspect(attributes)}")
+        raise "RegisteredNick table has unexpected attributes: #{inspect(attributes)}"
     end
 
     :ok

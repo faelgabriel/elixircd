@@ -355,6 +355,22 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       end)
     end
 
+    test "does not authenticate an account while email verification is pending" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick, nickname: "pending", password: "password123", verify_code: "code", verified_at: nil)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+        encoded = Base.encode64("\0pending\0password123")
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [encoded]})
+
+        assert_sent_message_contains(user.pid, ~r/ 904 \* :SASL authentication failed\r\n/)
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+        assert {:ok, unchanged} = Users.get_by_pid(user.pid)
+        assert is_nil(unchanged.identified_as)
+      end)
+    end
+
     test "rejects authentication when grouped nick canonical account cannot be resolved" do
       Memento.transaction!(fn ->
         insert(:registered_nick,
@@ -926,6 +942,48 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
            ":irc.test 900 #{user.nick} #{user.nick}!~username@hostname scram_user :You are now logged in as scram_user\r\n"},
           {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"}
         ])
+      end)
+    end
+
+    test "rejects a valid SCRAM proof while account verification is pending" do
+      enable_scram()
+      password = "password123"
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick,
+          nickname: "pending_scram",
+          password: password,
+          scram_sha_256: ScramSha256.derive(password, 4096),
+          verify_code: "code",
+          verified_at: nil
+        )
+
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: ["SCRAM-SHA-256"]})
+        Agent.update(@agent_name, fn _ -> [] end)
+
+        first = "n=pending_scram,r=client-nonce"
+
+        assert :ok =
+                 Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [Base.encode64("n,," <> first)]})
+
+        user_pid = user.pid
+        [{^user_pid, server_message}] = Agent.get(@agent_name, &Enum.reverse/1)
+        encoded_server_first = server_message |> String.trim() |> String.split(" ") |> List.last()
+        server_first = Base.decode64!(encoded_server_first)
+        Agent.update(@agent_name, fn _ -> [] end)
+
+        final = scram_client_final(password, first, server_first)
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [Base.encode64(final)]})
+
+        assert_sent_message_contains(
+          user.pid,
+          ~r/ 904 \* :SASL authentication failed: Account verification is required/
+        )
+
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+        assert {:ok, unchanged} = Users.get_by_pid(user.pid)
+        assert is_nil(unchanged.identified_as)
       end)
     end
 

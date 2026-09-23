@@ -28,6 +28,7 @@ defmodule ElixIRCd.Repositories.Users do
 
     if is_nil(user.identified_as_key) and is_binary(updated_user.identified_as_key) do
       ElixIRCd.Metadata.migrate_to_account(updated_user)
+      ElixIRCd.ReadMarkers.migrate_to_account(user, updated_user)
     end
 
     updated_user

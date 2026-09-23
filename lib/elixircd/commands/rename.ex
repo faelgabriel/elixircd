@@ -3,10 +3,12 @@ defmodule ElixIRCd.Commands.Rename do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_reply: 1]
 
+  alias ElixIRCd.Commands.Join
   alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Metadata
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
@@ -22,42 +24,78 @@ defmodule ElixIRCd.Commands.Rename do
   alias ElixIRCd.Tables.RegisteredChannelAccess
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.CaseMapping
+  alias Memento.Query.Data
 
   @impl true
-  def handle(user, %{params: [old_name, new_name | _], trailing: reason}) do
+  def handle(user, %{params: [old_name, new_name, reason], trailing: nil} = message),
+    do: handle(user, %{message | params: [old_name, new_name], trailing: reason})
+
+  def handle(user, %{params: [old_name, new_name], trailing: reason}) do
     with :ok <- available(user),
          :ok <- validate_name(new_name),
          {:ok, channel} <- Channels.get_by_name(old_name),
-         {:error, :channel_not_found} <- Channels.get_by_name(new_name),
+         :ok <- ensure_destination_free(channel, new_name),
          {:ok, membership} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, old_name),
          true <- :o in membership.modes,
          :ok <- validate_reason(reason) do
       users = channel.name |> UserChannels.get_by_channel_name() |> Enum.map(& &1.user_pid) |> Users.get_by_pids()
       rename_channel(channel, new_name)
+      renamed_channel = %{channel | name_key: CaseMapping.normalize(new_name), name: new_name}
 
       History.record_channel_event(
-        %Message{command: "RENAME", params: [channel.name, new_name], trailing: reason},
+        %Message{command: "RENAME", params: [channel.name, new_name], trailing: reason || ""},
         user,
         new_name
       )
 
-      relay_rename(user, users, channel.name, new_name, reason)
+      relay_rename(user, users, renamed_channel, channel.name, reason)
     else
-      {:ok, _channel} -> fail(user, "CHANNEL_NAME_IN_USE", new_name, "Channel name is already in use")
-      {:error, :channel_not_found} -> fail(user, "INVALID_CHANNEL", old_name, "No such channel")
-      {:error, :user_channel_not_found} -> fail(user, "RENAME_NOT_ALLOWED", old_name, "You are not on that channel")
-      {:error, :invalid_name} -> fail(user, "INVALID_CHANNEL", new_name, "Invalid channel name")
-      {:error, :invalid_reason} -> fail(user, "INVALID_PARAMS", old_name, "Rename reason is too long")
-      {:error, :unavailable} -> fail(user, "NEED_CAP", old_name, "Channel rename capability is required")
-      false -> fail(user, "RENAME_NOT_ALLOWED", old_name, "Channel operator privileges are required")
+      {:error, :name_in_use} ->
+        fail(user, "CHANNEL_NAME_IN_USE", [old_name, new_name], "Channel name is already in use")
+
+      {:error, :channel_not_found} ->
+        numeric_error(user, :err_nosuchchannel, old_name, "No such channel")
+
+      {:error, :user_channel_not_found} ->
+        numeric_error(user, :err_notonchannel, old_name, "You're not on that channel")
+
+      {:error, :invalid_name} ->
+        fail(user, "CANNOT_RENAME", [old_name, new_name], "Invalid channel name")
+
+      {:error, :invalid_reason} ->
+        fail(user, "CANNOT_RENAME", [old_name, new_name], "Rename reason is too long")
+
+      {:error, :unavailable} ->
+        fail(user, "CANNOT_RENAME", [old_name, new_name], "Channel renaming is unavailable")
+
+      false ->
+        numeric_error(user, :err_chanoprivsneeded, old_name, "You're not channel operator")
     end
   end
 
-  def handle(user, _message), do: fail(user, "INVALID_PARAMS", "*", "RENAME requires old and new channel names")
+  def handle(user, %{params: [old_name, new_name | _]}) do
+    fail(user, "INVALID_PARAMS", [old_name, new_name], "Too many RENAME parameters")
+  end
 
-  defp available(user) do
+  def handle(user, _message) do
+    %Message{command: :err_needmoreparams, params: [user_reply(user), "RENAME"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp available(_user) do
     config = Application.fetch_env!(:elixircd, :channel_rename)
-    if config[:enabled] and "draft/channel-rename" in user.capabilities, do: :ok, else: {:error, :unavailable}
+    if config[:enabled], do: :ok, else: {:error, :unavailable}
+  end
+
+  defp ensure_destination_free(channel, new_name) do
+    if channel.name_key == CaseMapping.normalize(new_name) do
+      :ok
+    else
+      case Channels.get_by_name(new_name) do
+        {:error, :channel_not_found} -> :ok
+        {:ok, _channel} -> {:error, :name_in_use}
+      end
+    end
   end
 
   defp validate_name(name) do
@@ -100,12 +138,19 @@ defmodule ElixIRCd.Commands.Rename do
 
   defp migrate_channel_key(table, old_key, _new_key, transform) do
     table
-    |> Memento.Query.all()
-    |> Enum.filter(&(&1.channel_name_key == old_key))
+    |> channel_records(old_key)
     |> Enum.each(fn record ->
       Memento.Query.delete_record(record)
       record |> transform.() |> Memento.Query.write()
     end)
+  end
+
+  defp channel_records(UserChannel, key), do: indexed_records(UserChannel, key, :channel_name_key)
+  defp channel_records(ChannelInvite, key), do: indexed_records(ChannelInvite, key, :channel_name_key)
+  defp channel_records(table, key), do: table |> :mnesia.read(key) |> Enum.map(&Data.load/1)
+
+  defp indexed_records(table, key, field) do
+    table |> :mnesia.index_read(key, field) |> Enum.map(&Data.load/1)
   end
 
   defp migrate_registered_channel(old_key, new_key, new_name) do
@@ -121,8 +166,7 @@ defmodule ElixIRCd.Commands.Rename do
 
   defp migrate_registered_access(old_key, new_key) do
     RegisteredChannelAccess
-    |> Memento.Query.all()
-    |> Enum.filter(&(&1.channel_name_key == old_key))
+    |> indexed_records(old_key, :channel_name_key)
     |> Enum.each(fn record ->
       Memento.Query.delete_record(record)
       %{record | id: {new_key, record.account_name_key}, channel_name_key: new_key} |> Memento.Query.write()
@@ -133,8 +177,7 @@ defmodule ElixIRCd.Commands.Rename do
     old_channel_key = String.replace_prefix(old_key, "channel:", "")
 
     ChatHistory
-    |> Memento.Query.all()
-    |> Enum.filter(&(&1.target_key == old_key))
+    |> indexed_records(old_key, :target_key)
     |> Enum.each(fn record ->
       Memento.Query.delete_record(record)
       {_old_target, timestamp, msgid} = record.id
@@ -147,8 +190,7 @@ defmodule ElixIRCd.Commands.Rename do
 
   defp migrate_read_markers(old_key, new_key, new_name) do
     ReadMarker
-    |> Memento.Query.all()
-    |> Enum.filter(&(&1.target_key == old_key))
+    |> indexed_records(old_key, :target_key)
     |> Enum.each(fn record ->
       Memento.Query.delete_record(record)
       %{record | id: {record.owner_key, new_key}, target_key: new_key, target: new_name} |> Memento.Query.write()
@@ -175,22 +217,40 @@ defmodule ElixIRCd.Commands.Rename do
 
   defp rewrite_history_message(message, _old_key, _new_name), do: message
 
-  defp relay_rename(actor, users, old_name, new_name, reason) do
+  defp relay_rename(actor, users, renamed_channel, old_name, reason) do
     {modern, legacy} = Enum.split_with(users, &("draft/channel-rename" in &1.capabilities))
-    rename = %Message{command: "RENAME", params: [old_name, new_name], trailing: reason}
+    new_name = renamed_channel.name
+    rename = %Message{command: "RENAME", params: [old_name, new_name], trailing: reason || ""}
     Dispatcher.broadcast(rename, actor, modern)
 
-    Dispatcher.broadcast(
-      %Message{command: "PART", params: [old_name], trailing: reason || "Channel renamed"},
-      actor,
-      legacy
-    )
+    unless renamed_channel.name_key == CaseMapping.normalize(old_name) do
+      memberships = UserChannels.get_by_channel_name(new_name)
 
-    Dispatcher.broadcast(%Message{command: "JOIN", params: [new_name]}, actor, legacy)
+      Enum.each(legacy, fn recipient ->
+        Dispatcher.broadcast_without_history(
+          %Message{command: "PART", params: [old_name], trailing: reason || "Channel renamed"},
+          recipient,
+          recipient
+        )
+
+        Dispatcher.broadcast_without_history(%Message{command: "JOIN", params: [new_name]}, recipient, recipient)
+        Metadata.sync_join(recipient, renamed_channel, users)
+
+        Join.channel_state_messages(recipient, renamed_channel, memberships)
+        |> Dispatcher.broadcast(:server, recipient)
+      end)
+    end
+
+    :ok
   end
 
   defp fail(user, code, context, description) do
-    %StandardReply{type: :fail, command: "RENAME", code: code, context: [context], description: description}
+    %StandardReply{type: :fail, command: "RENAME", code: code, context: List.wrap(context), description: description}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp numeric_error(user, code, channel, description) do
+    %Message{command: code, params: [user_reply(user), channel], trailing: description}
     |> Dispatcher.broadcast(:server, user)
   end
 end

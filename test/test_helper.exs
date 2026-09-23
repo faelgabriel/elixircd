@@ -111,6 +111,8 @@ Mimic.copy(ThousandIsland.Socket)
 Mimic.copy(WebSockAdapter)
 
 # Setup database
+Supervisor.terminate_child(ElixIRCd, ElixIRCd.JobQueue)
 ElixIRCd.Utils.Mnesia.setup_mnesia(recreate: true)
+Supervisor.restart_child(ElixIRCd, ElixIRCd.JobQueue)
 
 ExUnit.start()

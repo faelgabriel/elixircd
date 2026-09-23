@@ -17,6 +17,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.ClientBatches
   alias ElixIRCd.Repositories.HistoricalUsers
   alias ElixIRCd.Repositories.Metrics
+  alias ElixIRCd.Repositories.ReadMarkers
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.UserChannels
@@ -315,10 +316,19 @@ defmodule ElixIRCd.Server.Connection do
     Memento.transaction!(fn ->
       Users.get_by_pid(pid)
       |> case do
-        {:ok, user} -> handle_quit(user, reason)
-        {:error, :user_not_found} -> :ok
+        {:ok, user} ->
+          disconnect_user(user, reason)
+
+        {:error, :user_not_found} ->
+          :ok
       end
     end)
+  end
+
+  defp disconnect_user(user, reason) do
+    result = handle_quit(user, reason)
+    if is_nil(user.identified_as), do: user |> History.identity_key() |> ReadMarkers.delete_owner()
+    result
   end
 
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok

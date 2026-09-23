@@ -213,8 +213,16 @@ defmodule ElixIRCd.Commands.Join do
 
     Metadata.sync_join(user, channel, users)
 
-    topic_messages = build_topic_messages(user, channel)
+    channel_state_messages(user, channel, user_channels)
+    |> Dispatcher.broadcast(:server, user)
 
+    send_entry_message(user, channel)
+    send_operator_join_notice(user, channel, user_channels)
+  end
+
+  @doc "Builds the replies sent after JOIN, also used by channel-rename fallback."
+  @spec channel_state_messages(User.t(), Channel.t(), [UserChannel.t()]) :: [Message.t()]
+  def channel_state_messages(user, channel, user_channels) do
     names_message = %Message{
       prefix: Dispatcher.server_prefix(),
       command: :rpl_namreply,
@@ -228,14 +236,10 @@ defmodule ElixIRCd.Commands.Join do
         []
       end
 
-    (topic_messages ++
-       chunk_message_words(names_message, get_user_channels_nicks(user, user_channels)) ++
-       read_marker_messages ++
-       [%Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of NAMES list."}])
-    |> Dispatcher.broadcast(:server, user)
-
-    send_entry_message(user, channel)
-    send_operator_join_notice(user, channel, user_channels)
+    build_topic_messages(user, channel) ++
+      chunk_message_words(names_message, get_user_channels_nicks(user, user_channels)) ++
+      read_marker_messages ++
+      [%Message{command: :rpl_endofnames, params: [user.nick, channel.name], trailing: "End of NAMES list."}]
   end
 
   @spec send_entry_message(User.t(), Channel.t()) :: :ok

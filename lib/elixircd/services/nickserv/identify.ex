@@ -82,10 +82,15 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   end
 
   defp verify_account_password(user, registered_nick, account_nick, password) do
-    if Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] do
-      notify(user, "This account requires a secure TLS connection for authentication.")
-    else
-      complete_password_verification(user, registered_nick, account_nick, password)
+    cond do
+      is_binary(account_nick.verify_code) and is_nil(account_nick.verified_at) ->
+        notify(user, "This account requires email verification before authentication.")
+
+      Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] ->
+        notify(user, "This account requires a secure TLS connection for authentication.")
+
+      true ->
+        complete_password_verification(user, registered_nick, account_nick, password)
     end
   end
 

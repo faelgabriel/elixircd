@@ -65,6 +65,7 @@ defmodule ElixIRCd.Command do
     "USERS" => Commands.Users,
     "USERHOST" => Commands.Userhost,
     "VERSION" => Commands.Version,
+    "VERIFY" => Commands.Verify,
     "WALLOPS" => Commands.Wallops,
     "WEBIRC" => Commands.Webirc,
     "WHO" => Commands.Who,

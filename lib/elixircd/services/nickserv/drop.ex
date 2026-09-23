@@ -120,7 +120,7 @@ defmodule ElixIRCd.Services.Nickserv.Drop do
           account_requires_secure_connection?(account_nick.account_name) and not secure_connection?(user) ->
             notify(user, "This account requires a secure TLS connection for password authentication.")
 
-          match?({:ok, _}, Password.verify_and_upgrade(account_nick, password)) ->
+          match?({:ok, _}, Password.verify_and_upgrade(account_nick, password, allow_unverified: true)) ->
             drop_nickname(user, registered_nick)
 
           true ->

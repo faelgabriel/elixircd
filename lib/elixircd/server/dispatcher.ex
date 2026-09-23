@@ -24,7 +24,13 @@ defmodule ElixIRCd.Server.Dispatcher do
   extension-mandated replies can use it.
   """
   @spec broadcast(message() | [message()], context(), target() | [target()]) :: :ok
-  def broadcast(messages, context, targets) do
+  def broadcast(messages, context, targets), do: do_broadcast(messages, context, targets, true)
+
+  @doc "Relays synthetic protocol messages with normal source tags, without persisting them as chat history."
+  @spec broadcast_without_history(message() | [message()], context(), target() | [target()]) :: :ok
+  def broadcast_without_history(messages, context, targets), do: do_broadcast(messages, context, targets, false)
+
+  defp do_broadcast(messages, context, targets, persist_history?) do
     messages = List.wrap(messages)
     targets = List.wrap(targets)
     source_user = source_user_from_context(context)
@@ -34,12 +40,14 @@ defmodule ElixIRCd.Server.Dispatcher do
     else
       any_message_tags? = Enum.any?(targets, &message_tags_capable?/1)
 
-      Enum.each(messages, &broadcast_message(&1, context, targets, source_user, any_message_tags?))
+      Enum.each(messages, &broadcast_message(&1, context, targets, source_user, any_message_tags?, persist_history?))
     end
   end
 
-  defp broadcast_message(message, context, targets, source_user, any_message_tags?) do
-    record_history? = match?(%User{}, context) and History.enabled?() and History.recordable?(message)
+  defp broadcast_message(message, context, targets, source_user, any_message_tags?, persist_history?) do
+    record_history? =
+      persist_history? and match?(%User{}, context) and History.enabled?() and History.recordable?(message)
+
     prepared = prepare_message(message, context, any_message_tags? or record_history?)
     prepared = if record_history?, do: maybe_put_history_time(prepared), else: prepared
     if record_history?, do: History.record(prepared, context)

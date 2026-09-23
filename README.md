@@ -215,7 +215,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **TOPIC**: Set or get the topic of a channel. ✅
 - **NAMES**: List all visible nicknames on a channel. ✅
 - **LIST**: List channels and their topics. ✅
-- **LINKS**: Return the visible server-link topology. ✅
+- **LINKS**: Return the local server entry (IRC server linking is not implemented). ✅
 - **HELP/HELPOP**: Display the command index and command help. ✅
 - **INVITE**: Invite a user to a channel. ✅
 - **KICK**: Eject a user from a channel. ✅
@@ -248,13 +248,7 @@ The commands are essential to the functionality of the ElixIRCd server, followin
 - **REHASH**: Enable operators to reload the server's configuration. ✅
 - **RESTART**: Allow operators to restart the server. ✅
 - **DIE**: Allow operators to shut down the server. ✅
-- **CHATHISTORY**: Retrieve bounded persistent channel or direct-message history, including target discovery. ✅
-- **MARKREAD**: Store and synchronize monotonic per-account read markers. ✅
-- **METADATA**: Read, write, subscribe to, and synchronize account and channel metadata. ✅
-- **REDACT**: Remove an authorized message from persistent history. ✅
-- **REGISTER**: Register the current nickname as an account through IRCv3. ✅
-- **RENAME**: Atomically rename a channel while preserving its live and persistent state. ✅
-- **BATCH**: Accept bounded client multiline batches in addition to server-originated batches. ✅
+- **CHGHOST**: Allow operators to change a user's ident and hostname. ✅
 
 ### Modes
 
@@ -404,18 +398,15 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **METADATA**: Manage metadata values and subscriptions. ✅
 - **REDACT**: Redact a message by stable message ID. ✅
 - **REGISTER**: Create an account using the negotiated registration policy. ✅
+- **VERIFY**: Complete account registration using a verification code. ✅
 - **RENAME**: Rename a channel without discarding membership or registered state. ✅
-- **ACCOUNT**: Notify clients when a user's account status changes. ✅
-- **CHGHOST**: Forcefully change a user's ident and hostname. ✅
-- **INVITE**: Extended with account tags and channel notifications. ✅
-- **JOIN**: Extended to include account name and real name in join messages. ✅
 - **MONITOR**: Track when specific nicknames go online or offline. ✅
-- **NAMES**: Extended to include full user hostmasks in replies. ✅
 - **TAGMSG**: Send messages with tags but without text content. ✅
 - **WEBIRC**: Allow gateways to pass real client IP and hostname to the server. ✅
-- **WHO**: Extended to include additional information (WHOX). ✅
-- **BATCH**: Group related server messages for batch delivery. ✅
+- **BATCH**: Group server messages and accept bounded client multiline batches. ✅
 - **SETNAME**: Allow clients to change their real name (GECOS). ✅
+
+The `account-notify`, `extended-join`, `invite-notify`, and `userhost-in-names` capabilities extend the core commands listed above. WHOX extends `WHO`; `ACCOUNT` is a server notification.
 
 #### Capabilities
 
@@ -426,14 +417,13 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Batches** (batch): Sending messages in batches. ✅
 - **Capability Notifications** (cap-notify): Notify clients when server capabilities change dynamically. ✅
 - **Change Host** (chghost): Real-time notifications when a user's hostname changes. ✅
-- **Client-Only Tags** (client-tags): Attaching metadata to messages not transmitted to the server. ✅
 - **Echo Message** (echo-message): Clients receive a copy of their sent messages. ✅
 - **Extended Join** (extended-join): Extended JOIN messages with account name and real name. ✅
 - **Extended Monitor** (extended-monitor): Extend account, away, host, and real-name notifications to MONITOR subscribers. ✅
 - **Userhost in Names** (userhost-in-names): Adds full user hostmasks to NAMES replies. ✅
 - **Invite Notify** (invite-notify): Notifications when a user is invited to a channel. ✅
 - **Labeled Responses** (labeled-response): Associating responses with sent commands. ✅
-- **Message Tags** (message-tags): Additional metadata in messages. ✅
+- **Message Tags** (message-tags): Additional metadata, including relayed client-only `+` tags. ✅
 - **Persistent History** (`draft/chathistory`, `draft/event-playback`): Privacy-scoped replay of messages and channel events with stable `msgid` and `time` tags. ✅
 - **Message Redaction** (`draft/message-redaction`): Permission-checked removal from persistent history. ✅
 - **Metadata** (`draft/metadata-2`, `draft/metadata-3`): Persistent account/channel values, subscriptions, WHOIS exposure, and registration/join synchronization. ✅
@@ -445,7 +435,6 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Set Name** (setname): Allow clients to change their real name during the session. ✅
 - **Standard Replies** (standard-replies): Standardized format for server and client replies. ✅
 - **Strict Transport Security (sts)** (sts): Automatic TLS encryption upgrade. ✅
-- **UTF-8 Only** (utf8only): Configurable support for UTF-8 only traffic. ✅
 
 #### ISUPPORT and interoperability
 
@@ -455,6 +444,7 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **List and extban discovery** (`EXCEPTS`, `INVEX`, `MAXLIST`, `EXTBAN`, `ACCOUNTEXTBAN`). ✅
 - **History discovery** (`CHATHISTORY`, `MSGREFTYPES`): Advertises request bounds and supported reference forms. ✅
 - **Case mappings** (`ascii`, `rfc1459`, `strict-rfc1459`): Configurable and advertised using canonical ISUPPORT values. ✅
+- **UTF-8 only** (`UTF8ONLY`): Advertised when UTF-8 validation is required. ✅
 
 ### Server Features
 

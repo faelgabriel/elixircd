@@ -8,6 +8,7 @@ defmodule ElixIRCd.Metadata do
   alias ElixIRCd.Repositories.Metadata, as: MetadataRepository
   alias ElixIRCd.Repositories.MetadataSubscriptions
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.ResponseContext
@@ -41,8 +42,28 @@ defmodule ElixIRCd.Metadata do
   @spec valid_value?(term()) :: boolean()
   def valid_value?(value) do
     is_binary(value) and String.valid?(value) and
-      byte_size(value) <= Application.fetch_env!(:elixircd, :metadata)[:max_value_bytes] and
+      byte_size(value) <= max_value_bytes() and
       not String.contains?(value, ["\r", "\n", <<0>>])
+  end
+
+  @doc "Maximum value size that fits a worst-case metadata reply within the IRC message budget."
+  @spec max_value_bytes() :: pos_integer()
+  def max_value_bytes do
+    configured = Application.fetch_env!(:elixircd, :metadata)[:max_value_bytes]
+    max_nick = Application.fetch_env!(:elixircd, :user)[:max_nick_length]
+    max_channel = Application.fetch_env!(:elixircd, :channel)[:max_channel_name_length] + 1
+
+    overhead =
+      %Message{
+        prefix: Dispatcher.server_prefix(),
+        command: "761",
+        params: [String.duplicate("n", max_nick), String.duplicate("#", max_channel), String.duplicate("k", 64), "*"],
+        trailing: ""
+      }
+      |> Message.unparse_unbounded!()
+      |> byte_size()
+
+    min(configured, max(1, 512 - overhead))
   end
 
   @doc "Returns the configured metadata-key limit per target."
@@ -215,11 +236,23 @@ defmodule ElixIRCd.Metadata do
   def sync_target(user, target) do
     subscriptions = MapSet.new(subscriptions(user))
 
+    targets =
+      case target do
+        %{entity: %Channel{name: name}} ->
+          members = name |> UserChannels.get_by_channel_name() |> Enum.map(& &1.user_pid) |> Users.get_by_pids()
+          [target | Enum.map(members, &user_target/1)]
+
+        _ ->
+          [target]
+      end
+
     ResponseContext.with_batch("metadata", [target.name], fn ->
-      target
-      |> list()
-      |> Enum.filter(&MapSet.member?(subscriptions, &1.key))
-      |> Enum.each(&send_metadata_message(user, target.name, &1))
+      Enum.each(targets, fn visible_target ->
+        visible_target
+        |> list()
+        |> Enum.filter(&MapSet.member?(subscriptions, &1.key))
+        |> Enum.each(&send_metadata_message(user, visible_target.name, &1))
+      end)
     end)
   end
 
@@ -273,7 +306,8 @@ defmodule ElixIRCd.Metadata do
   end
 
   defp receives_updates?(recipient, %{entity: %User{} = target_user}) do
-    recipient.pid == target_user.pid or shared_channel?(recipient, target_user)
+    recipient.pid == target_user.pid or shared_channel?(recipient, target_user) or
+      Enum.any?(UserMonitors.get_by_target_nick_key(target_user.nick_key), &(&1.user_pid == recipient.pid))
   end
 
   defp receives_updates?(recipient, %{entity: %Channel{name: name}}) do

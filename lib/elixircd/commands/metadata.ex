@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.Metadata do
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.WireChunks
 
   @impl true
   def handle(user, message) do
@@ -81,7 +82,7 @@ defmodule ElixIRCd.Commands.Metadata do
       {:error, :invalid_target} -> target_error(user, target, :invalid_target)
       {:error, :no_permission} -> fail(user, "KEY_NO_PERMISSION", [target, key], "Permission denied")
       {:error, :invalid_key} -> fail(user, "KEY_INVALID", key, "Invalid metadata key")
-      {:error, :invalid_value} -> fail(user, "INVALID_VALUE", key, "Invalid metadata value")
+      {:error, :invalid_value} -> fail(user, "VALUE_INVALID", [], "Invalid metadata value")
       {:error, :limit_reached} -> fail(user, "LIMIT_REACHED", target, "Metadata limit reached")
       {:error, :not_set} -> fail(user, "KEY_NOT_SET", [target, key], "Metadata key is not set")
     end
@@ -122,8 +123,7 @@ defmodule ElixIRCd.Commands.Metadata do
       end)
 
     if valid != [] do
-      %Message{command: "771", params: [reply_target(user) | valid]}
-      |> Dispatcher.broadcast(:server, user)
+      send_key_list(user, "771", valid)
     end
   end
 
@@ -134,8 +134,7 @@ defmodule ElixIRCd.Commands.Metadata do
           :ok
 
         subscriptions ->
-          %Message{command: "772", params: [reply_target(user) | subscriptions]}
-          |> Dispatcher.broadcast(:server, user)
+          send_key_list(user, "772", subscriptions)
       end
     end)
   end
@@ -203,9 +202,15 @@ defmodule ElixIRCd.Commands.Metadata do
       end)
 
     if accepted != [] do
-      %Message{command: "770", params: [reply_target(user) | accepted]}
-      |> Dispatcher.broadcast(:server, user)
+      send_key_list(user, "770", accepted)
     end
+  end
+
+  defp send_key_list(user, command, keys) do
+    WireChunks.split(keys, fn chunk, _continuation? ->
+      %Message{prefix: Dispatcher.server_prefix(), command: command, params: [reply_target(user) | chunk]}
+    end)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp set_value(user, target, key, nil) do

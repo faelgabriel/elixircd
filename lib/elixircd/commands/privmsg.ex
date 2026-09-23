@@ -73,19 +73,20 @@ defmodule ElixIRCd.Commands.Privmsg do
         handle_channel_message(user, channel_name, message_text, message.tags, target, status_prefix)
 
       :error ->
-        cond do
-          fantasy_command_message?(target, message_text) ->
-            handle_fantasy_channel_message(user, target, message_text)
+        handle_plain_target(user, target, message_text, message)
+    end
+  end
 
-          channel_name?(target) ->
-            handle_channel_message(user, target, message_text, message.tags)
+  defp handle_plain_target(user, target, message_text, message) do
+    fantasy? = fantasy_command_message?(target, message_text)
+    service? = service_name?(target)
 
-          service_name?(target) ->
-            handle_service_message(user, target, %{message | params: [target | tl(message.params)]})
-
-          true ->
-            handle_user_message(user, target, message_text, message.tags)
-        end
+    cond do
+      ElixIRCd.Multiline.collecting?() and (fantasy? or service?) -> :ok
+      fantasy? -> handle_fantasy_channel_message(user, target, message_text)
+      channel_name?(target) -> handle_channel_message(user, target, message_text, message.tags)
+      service? -> handle_service_message(user, target, %{message | params: [target | tl(message.params)]})
+      true -> handle_user_message(user, target, message_text, message.tags)
     end
   end
 

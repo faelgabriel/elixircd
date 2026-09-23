@@ -6,6 +6,7 @@ defmodule ElixIRCd.Utils.MnesiaTest do
 
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Tables.ChatHistory
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.SaslSession
   alias ElixIRCd.Tables.User
@@ -162,7 +163,7 @@ defmodule ElixIRCd.Utils.MnesiaTest do
       end)
     end
 
-    test "warns instead of guessing an unknown registered-nick schema" do
+    test "fails clearly rather than guessing an unknown registered-nick schema" do
       attributes = List.delete(RegisteredNick.__info__().attributes, :email)
       assert {:atomic, :ok} = :mnesia.delete_table(RegisteredNick)
 
@@ -175,8 +176,24 @@ defmodule ElixIRCd.Utils.MnesiaTest do
                )
 
       assert :ok = :mnesia.wait_for_tables([RegisteredNick], 5_000)
-      log = ExUnit.CaptureLog.capture_log(fn -> assert :ok = Mnesia.upgrade_schemas() end)
-      assert log =~ "unexpected attributes"
+
+      assert_raise RuntimeError, ~r/RegisteredNick table has unexpected attributes/, fn ->
+        Mnesia.upgrade_schemas()
+      end
+    end
+
+    test "restores missing history indexes and fails clearly when a table is absent" do
+      assert {:atomic, :ok} = :mnesia.del_table_index(ChatHistory, :sender_account_key)
+      assert :ok = Mnesia.upgrade_schemas()
+
+      assert {:aborted, {:already_exists, ChatHistory, _position}} =
+               :mnesia.add_table_index(ChatHistory, :sender_account_key)
+
+      assert {:atomic, :ok} = :mnesia.delete_table(ChatHistory)
+
+      assert_raise RuntimeError, ~r/Failed adding.*ChatHistory.*index/, fn ->
+        Mnesia.upgrade_schemas()
+      end
     end
   end
 

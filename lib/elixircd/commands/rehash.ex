@@ -23,6 +23,7 @@ defmodule ElixIRCd.Commands.Rehash do
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Isupport
   alias ElixIRCd.Utils.Monitor
+  alias ElixIRCd.Utils.WireChunks
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -176,13 +177,11 @@ defmodule ElixIRCd.Commands.Rehash do
         |> Enum.sort()
 
       if has_cap_notify?(user) and changed != [] do
-        %Message{command: "CAP", params: [user_reply(user), "NEW"], trailing: Enum.join(changed, " ")}
-        |> Dispatcher.broadcast(:server, user)
+        send_cap_delta(user, "NEW", changed)
       end
 
       if has_cap_notify?(user) and removed != [] do
-        %Message{command: "CAP", params: [user_reply(user), "DEL"], trailing: Enum.join(removed, " ")}
-        |> Dispatcher.broadcast(:server, user)
+        send_cap_delta(user, "DEL", removed)
       end
 
       removed_from_session = if has_cap_notify?(user), do: removed, else: List.delete(removed, "account-notify")
@@ -190,6 +189,18 @@ defmodule ElixIRCd.Commands.Rehash do
     end)
 
     :ok
+  end
+
+  defp send_cap_delta(user, verb, capabilities) do
+    WireChunks.split(capabilities, fn chunk, _continuation? ->
+      %Message{
+        prefix: Dispatcher.server_prefix(),
+        command: "CAP",
+        params: [user_reply(user), verb],
+        trailing: Enum.join(chunk, " ")
+      }
+    end)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec notify_sts_changes(keyword(), keyword()) :: :ok

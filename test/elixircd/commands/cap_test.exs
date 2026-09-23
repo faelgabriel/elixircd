@@ -12,6 +12,8 @@ defmodule ElixIRCd.Commands.CapTest do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.Utils.Protocol
+  alias ElixIRCd.Utils.WireChunks
 
   describe "handle/2 - CAP LS" do
     test "handles CAP LS command for listing supported capabilities for IRCv3.1" do
@@ -63,6 +65,55 @@ defmodule ElixIRCd.Commands.CapTest do
       end)
     end
 
+    test "legacy CAP LS stays on one complete wire line with a long server name" do
+      original_server = Application.fetch_env!(:elixircd, :server)
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_server) end)
+      hostname = String.duplicate("a", 63) <> "." <> String.duplicate("b", 63)
+      Application.put_env(:elixircd, :server, Keyword.put(original_server, :hostname, hostname))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: String.duplicate("N", 30), cap_version: 301, capabilities: [])
+        all_capabilities = Cap.get_capabilities_list(user)
+
+        refute WireChunks.fits?(%Message{
+                 prefix: hostname,
+                 command: "CAP",
+                 params: [Protocol.user_reply(user), "LS"],
+                 trailing: all_capabilities
+               })
+
+        assert :ok = Cap.handle(user, %Message{command: "CAP", params: ["LS"]})
+        [{_, line}] = Agent.get(@agent_name, & &1)
+        assert byte_size(line) <= 512
+        refute String.contains?(line, " LS * :")
+        advertised = line |> String.split(" LS :", parts: 2) |> List.last() |> String.split()
+
+        for capability <- ["sasl", "message-tags", "batch", "server-time"] do
+          assert capability in advertised
+        end
+
+        assert length(advertised) < length(String.split(all_capabilities))
+      end)
+    end
+
+    test "legacy CAP REQ rejects an enabled set that cannot fit in CAP LIST" do
+      original_server = Application.fetch_env!(:elixircd, :server)
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_server) end)
+      hostname = String.duplicate("a", 63) <> "." <> String.duplicate("b", 63)
+      Application.put_env(:elixircd, :server, Keyword.put(original_server, :hostname, hostname))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: String.duplicate("N", 30), cap_version: 301, capabilities: [])
+        requested = Cap.get_capabilities_list(user)
+        assert :ok = Cap.handle(user, %Message{command: "CAP", params: ["REQ"], trailing: requested})
+        lines = Agent.get(@agent_name, & &1) |> Enum.map(&elem(&1, 1))
+        assert length(lines) > 1
+        assert Enum.all?(lines, &(byte_size(&1) <= 512))
+        assert Enum.all?(lines, &String.contains?(&1, " NAK :"))
+        assert Users.get_by_pid(user.pid) |> elem(1) |> Map.fetch!(:capabilities) == []
+      end)
+    end
+
     test "CAP LS keeps cap_negotiating enabled if already active" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false, cap_negotiating: true)
@@ -105,9 +156,15 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert :ok = Cap.handle(user, message)
 
+        lines = Agent.get(@agent_name, & &1) |> Enum.map(&elem(&1, 1))
+        assert Enum.all?(lines, &(byte_size(&1) <= 512))
+        max_value_bytes = ElixIRCd.Metadata.max_value_bytes()
+
         assert_sent_messages([
           {user.pid,
-           ":irc.test CAP * LS :account-tag account-notify draft/account-registration away-notify batch cap-notify chghost draft/chathistory draft/channel-rename draft/event-playback echo-message extended-join extended-monitor invite-notify draft/message-redaction draft/metadata-2=before-connect,max-subs=50,max-keys=20,max-value-bytes=400 draft/metadata-3=before-connect,max-subs=50,max-keys=20,max-value-bytes=400 labeled-response multi-prefix draft/multiline=max-bytes=4096,max-lines=32 draft/read-marker sasl=PLAIN,SCRAM-SHA-256 setname standard-replies server-time message-tags userhost-in-names\r\n"}
+           ":irc.test CAP * LS * :account-tag account-notify draft/account-registration away-notify batch cap-notify chghost draft/chathistory draft/channel-rename draft/event-playback echo-message extended-join extended-monitor invite-notify draft/message-redaction draft/metadata-2=before-connect,max-subs=50,max-keys=20,max-value-bytes=#{max_value_bytes} draft/metadata-3=before-connect,max-subs=50,max-keys=20,max-value-bytes=#{max_value_bytes} labeled-response multi-prefix draft/multiline=max-bytes=4096,max-lines=32 draft/read-marker\r\n"},
+          {user.pid,
+           ":irc.test CAP * LS :sasl=PLAIN,SCRAM-SHA-256 setname standard-replies server-time message-tags userhost-in-names\r\n"}
         ])
       end)
     end
@@ -311,7 +368,7 @@ defmodule ElixIRCd.Commands.CapTest do
         assert user.cap_version == 307
         assert "cap-notify" in user.capabilities
         assert_sent_messages_count_containing(user.pid, ~r/sasl=PLAIN/, 2)
-        assert_sent_messages_amount(user.pid, 4)
+        assert_sent_messages_amount(user.pid, 6)
 
         Cap.handle(user, %Message{command: "CAP", params: ["LS"]})
         assert_sent_messages_count_containing(user.pid, ~r/sasl=/, 0)
@@ -354,6 +411,17 @@ defmodule ElixIRCd.Commands.CapTest do
   end
 
   describe "handle/2 - CAP REQ" do
+    test "rejects a single capability name that cannot fit in any reply" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, capabilities: [])
+        name = String.duplicate("x", 500)
+
+        assert :ok = Cap.handle(user, %Message{command: "CAP", params: ["REQ"], trailing: name})
+        assert_sent_message_contains(user.pid, ~r/ 410 \S+ REQ :Capability name is too long to reply to/)
+        assert Users.get_by_pid(user.pid) |> elem(1) |> Map.fetch!(:capabilities) == []
+      end)
+    end
+
     test "handles CAP REQ command to request userhost-in-names capability" do
       Memento.transaction!(fn ->
         user = insert(:user, capabilities: [])
@@ -992,7 +1060,7 @@ defmodule ElixIRCd.Commands.CapTest do
 
         assert :ok = Cap.handle(user, message)
 
-        assert_sent_messages_amount(user.pid, 1)
+        assert_sent_messages_amount(user.pid, 2)
       end)
     end
 

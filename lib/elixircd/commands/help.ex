@@ -65,7 +65,8 @@ defmodule ElixIRCd.Commands.Help do
     "REDACT" =>
       {"REDACT <target> <msgid> [:reason]", "Redacts an authorized persisted message and notifies capable clients."},
     "REGISTER" =>
-      {"REGISTER * <email|*> <password>", "Creates and identifies a services account using IRCv3 account-registration."},
+      {"REGISTER * <email|*> <password>",
+       "Creates a services account; email registrations require VERIFY before login."},
     "REHASH" => {"REHASH", "Atomically validates and reloads supported configuration; IRC operator only."},
     "RENAME" =>
       {"RENAME <old-channel> <new-channel> [:reason]",
@@ -83,6 +84,7 @@ defmodule ElixIRCd.Commands.Help do
     "USER" => {"USER <ident> 0 * :<realname>", "Supplies registration identity fields."},
     "USERHOST" => {"USERHOST <nick> [nick ...]", "Shows compact identity, away and operator information."},
     "USERS" => {"USERS", "Shows local users using the traditional USERS reply format."},
+    "VERIFY" => {"VERIFY <account|*> <code>", "Completes email verification and authenticates the account."},
     "VERSION" => {"VERSION [server]", "Shows the ElixIRCd version and advertised feature tokens."},
     "WALLOPS" => {"WALLOPS :<message>", "Sends a message to users with wallops mode +w; IRC operator only."},
     "WEBIRC" =>
@@ -194,7 +196,7 @@ defmodule ElixIRCd.Commands.Help do
 
   defp related_help("METADATA"), do: "Related: HELP METADATA"
 
-  defp related_help(subject) when subject in ["CAP", "AUTHENTICATE", "REGISTER"],
+  defp related_help(subject) when subject in ["CAP", "AUTHENTICATE", "REGISTER", "VERIFY"],
     do: "Related: HELP CAPABILITIES and HELP SASL"
 
   defp related_help(_subject), do: "Use HELP INDEX to browse all commands and feature topics."

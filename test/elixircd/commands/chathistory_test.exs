@@ -8,6 +8,7 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
   alias ElixIRCd.Command
   alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Tables.ClientBatch
 
   test "replays channel history in a chathistory batch with stable msgids and timestamps" do
     Memento.transaction!(fn ->
@@ -105,6 +106,62 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
     end)
   end
 
+  test "paginates visible messages before the limit and supports clients without batch" do
+    Memento.transaction!(fn ->
+      user = insert(:user, nick: "Alice", identified_as: "Alice", capabilities: ["draft/chathistory"])
+      channel = insert(:channel, name: "#history")
+      insert(:user_channel, user: user, channel: channel)
+      base = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.add(-5, :second)
+
+      event = %{history_message("Alice", "#history", "topic", "event", base) | command: "TOPIC"}
+      History.record(event, user)
+      History.record(history_message("Alice", "#history", "first", "one", DateTime.add(base, 1, :second)), user)
+      History.record(history_message("Alice", "#history", "second", "two", DateTime.add(base, 2, :second)), user)
+
+      assert :ok =
+               Command.dispatch(user, %Message{
+                 command: "CHATHISTORY",
+                 params: ["AFTER", "#history", "msgid=event", "2"]
+               })
+
+      assert_sent_message_contains(user.pid, ~r/ PRIVMSG #history :first\r\n$/)
+      assert_sent_message_contains(user.pid, ~r/ PRIVMSG #history :second\r\n$/)
+      refute Enum.any?(Agent.get(@agent_name, & &1), fn {_pid, line} -> String.contains?(line, " BATCH ") end)
+    end)
+  end
+
+  test "replays multiline as component messages for clients without multiline" do
+    Memento.transaction!(fn ->
+      user =
+        insert(:user,
+          nick: "Alice",
+          identified_as: "Alice",
+          capabilities: ["draft/chathistory", "batch", "message-tags", "server-time"]
+        )
+
+      channel = insert(:channel, name: "#history")
+      insert(:user_channel, user: user, channel: channel)
+      batch = ClientBatch.new(%{id: {user.pid, "r"}, user_pid: user.pid, reference: "r", target: "#history"})
+      now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+
+      lines = [
+        history_message("Alice", "#history", "first", "line-1", now),
+        history_message("Alice", "#history", "", "line-blank", now),
+        history_message("Alice", "#history", "second", "line-2", now)
+      ]
+
+      History.record_multiline(user, batch, Enum.map(lines, &{&1, []}), "combined", DateTime.to_iso8601(now))
+      assert :ok = Command.dispatch(user, %Message{command: "CHATHISTORY", params: ["LATEST", "#history", "*", "10"]})
+
+      messages = Agent.get(@agent_name, & &1) |> Enum.map(&elem(&1, 1))
+      assert Enum.count(messages, &String.contains?(&1, " BATCH ")) == 2
+      assert Enum.any?(messages, &String.contains?(&1, "msgid=combined"))
+      assert Enum.any?(messages, &String.contains?(&1, " PRIVMSG #history :first"))
+      assert Enum.any?(messages, &String.contains?(&1, " PRIVMSG #history :second"))
+      refute Enum.any?(messages, &String.contains?(&1, " PRIVMSG #history :\r\n"))
+    end)
+  end
+
   test "serves TARGETS and BETWEEN and validates registration, capabilities, references and limits" do
     Memento.transaction!(fn ->
       unregistered =
@@ -133,7 +190,12 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
       History.record(history_message("Alice", "#history", "first", "one", ~U[2026-09-19 12:00:00Z]), user)
       History.record(history_message("Alice", "#history", "second", "two", ~U[2026-09-19 12:00:01Z]), user)
 
-      assert :ok = Command.dispatch(user, %Message{command: "CHATHISTORY", params: ["TARGETS", "*", "*", "999"]})
+      assert :ok =
+               Command.dispatch(user, %Message{
+                 command: "CHATHISTORY",
+                 params: ["TARGETS", "timestamp=2026-09-19T11:00:00Z", "timestamp=2026-09-19T13:00:00Z", "999"]
+               })
+
       assert_sent_message_contains(user.pid, ~r/ CHATHISTORY TARGETS #history 2026-09-19T12:00:01(?:\.000)?Z/)
       Agent.update(@agent_name, fn _ -> [] end)
 

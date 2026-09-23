@@ -11,7 +11,7 @@ defmodule ElixIRCd.Tables.ChannelInvite do
       :setter,
       :created_at
     ],
-    index: [],
+    index: [:channel_name_key],
     type: :bag
 
   @type t :: %__MODULE__{

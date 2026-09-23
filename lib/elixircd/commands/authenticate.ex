@@ -535,6 +535,11 @@ defmodule ElixIRCd.Commands.Authenticate do
   end
 
   @spec complete_sasl_authentication(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
+  defp complete_sasl_authentication(user, %{verify_code: code, verified_at: nil}) when is_binary(code) do
+    send_sasl_failure(user, "SASL authentication failed: Account verification is required")
+    SaslSessions.delete(user.pid)
+  end
+
   defp complete_sasl_authentication(user, registered_nick) do
     Logger.info("SASL authentication successful for #{registered_nick.nickname} from #{user_mask(user)}")
 

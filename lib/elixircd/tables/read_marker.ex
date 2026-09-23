@@ -4,7 +4,7 @@ defmodule ElixIRCd.Tables.ReadMarker do
   @enforce_keys [:id, :owner_key, :target_key, :target, :timestamp, :updated_at]
   use Memento.Table,
     attributes: [:id, :owner_key, :target_key, :target, :timestamp, :updated_at],
-    index: [:owner_key],
+    index: [:owner_key, :target_key],
     type: :set
 
   @type t :: %__MODULE__{

@@ -249,7 +249,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
         labeled_response: labeled?
       } do
         :ok = :gen_tcp.send(socket, "CAP LS 302\r\n")
-        read_until(socket, &(&1.command == "CAP"))
+        read_until(socket, &(&1.command == "CAP" and Enum.at(&1.params, 1) == "LS" and length(&1.params) == 2))
 
         if labeled? do
           :ok = :gen_tcp.send(socket, "CAP REQ :batch labeled-response\r\n")

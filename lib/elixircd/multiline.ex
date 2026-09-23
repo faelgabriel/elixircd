@@ -39,7 +39,7 @@ defmodule ElixIRCd.Multiline do
     config = Application.fetch_env!(:elixircd, :multiline)
 
     cond do
-      not config[:enabled] or "draft/multiline" not in user.capabilities ->
+      not config[:enabled] or "draft/multiline" not in user.capabilities or "batch" not in user.capabilities ->
         fail(user, "MULTILINE_INVALID", [], "Multiline capability is required")
 
       reference == "" or target == "" or String.contains?(target, ",") or ClientBatches.for_user(user.pid) != [] ->
@@ -67,7 +67,21 @@ defmodule ElixIRCd.Multiline do
     case ClientBatches.get(user.pid, reference) do
       {:ok, batch} ->
         ClientBatches.delete(batch)
-        if not batch.invalid and batch.lines != [], do: deliver(user, batch)
+
+        cond do
+          batch.invalid ->
+            :ok
+
+          batch.lines == [] ->
+            fail(user, "MULTILINE_INVALID", [], "Multiline batch is empty")
+
+          Enum.all?(batch.lines, &blank_line?/1) ->
+            fail(user, "MULTILINE_INVALID", [], "Multiline message cannot be blank")
+
+          true ->
+            deliver(user, batch)
+        end
+
         :ok
 
       {:error, :client_batch_not_found} ->
@@ -106,7 +120,8 @@ defmodule ElixIRCd.Multiline do
     config = Application.fetch_env!(:elixircd, :multiline)
     text = message.trailing || message.params |> Enum.drop(1) |> Enum.join(" ")
     line_count = length(batch.lines) + 1
-    total_bytes = batch.bytes + byte_size(text)
+    separator_bytes = if batch.lines != [] and not Map.has_key?(message.tags, @concat_tag), do: 1, else: 0
+    total_bytes = batch.bytes + separator_bytes + byte_size(text)
 
     case validate_line(batch, message, text, line_count, total_bytes, config) do
       :ignore -> :ok
@@ -115,25 +130,44 @@ defmodule ElixIRCd.Multiline do
     end
   end
 
+  defp validate_line(%ClientBatch{invalid: true}, _message, _text, _line_count, _total_bytes, _config), do: :ignore
+
   defp validate_line(batch, message, text, line_count, total_bytes, config) do
+    with :ok <- validate_line_shape(batch, message, text),
+         :ok <- validate_line_limits(line_count, total_bytes, config) do
+      if batch.command in [nil, message.command],
+        do: :ok,
+        else: invalid_line("All lines must use the same command")
+    end
+  end
+
+  defp validate_line_shape(batch, message, text) do
     cond do
-      batch.invalid ->
-        :ignore
+      message.command in ["PRIVMSG", "NOTICE"] and List.first(message.params) != batch.target ->
+        {:error, "MULTILINE_INVALID_TARGET", [batch.target, List.first(message.params) || "*"],
+         "Invalid multiline target"}
 
       not valid_line_target?(batch, message) ->
         invalid_line("All lines must use one target and message command")
 
+      Map.keys(message.tags) -- ["batch", @concat_tag] != [] ->
+        invalid_line("Unexpected tags on multiline line")
+
       Map.has_key?(message.tags, @concat_tag) and text == "" ->
         invalid_line("A blank line cannot use multiline-concat")
 
+      true ->
+        :ok
+    end
+  end
+
+  defp validate_line_limits(line_count, total_bytes, config) do
+    cond do
       line_count > config[:max_lines] ->
         limit_error("MULTILINE_MAX_LINES", config[:max_lines], "Multiline line limit exceeded")
 
       total_bytes > config[:max_bytes] ->
         limit_error("MULTILINE_MAX_BYTES", config[:max_bytes], "Multiline byte limit exceeded")
-
-      batch.command not in [nil, message.command] ->
-        invalid_line("All lines must use the same command")
 
       true ->
         :ok
@@ -142,6 +176,10 @@ defmodule ElixIRCd.Multiline do
 
   defp valid_line_target?(batch, message),
     do: message.command in ["PRIVMSG", "NOTICE"] and List.first(message.params) == batch.target
+
+  defp blank_line?(message) do
+    (message.trailing || message.params |> Enum.drop(1) |> Enum.join(" ")) == ""
+  end
 
   defp invalid_line(description), do: {:error, "MULTILINE_INVALID", [], description}
 
@@ -183,7 +221,10 @@ defmodule ElixIRCd.Multiline do
         end)
 
       state = Process.get(@delivery_key)
-      if not state.failed, do: send_collected(user, batch, state.records)
+
+      if state.failed,
+        do: fail(user, "MULTILINE_INVALID", [], "Multiline message could not be delivered"),
+        else: send_collected(user, batch, state.records)
     after
       if previous, do: Process.put(@delivery_key, previous), else: Process.delete(@delivery_key)
     end

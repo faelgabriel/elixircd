@@ -9,6 +9,7 @@ defmodule ElixIRCd.Commands.RedactTest do
   alias ElixIRCd.History
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChatHistory
+  alias ElixIRCd.Tables.ClientBatch
 
   test "the author and channel operator can redact, while another member cannot" do
     Memento.transaction!(fn ->
@@ -56,6 +57,80 @@ defmodule ElixIRCd.Commands.RedactTest do
       assert :ok = Command.dispatch(alice, %Message{command: "REDACT", params: ["#redact", "msg-3"]})
       assert_sent_messages([{alice.pid, ":Alice!~username@hostname REDACT #redact msg-3\r\n"}])
       assert_sent_messages_amount(legacy.pid, 0)
+    end)
+  end
+
+  test "an IRC operator can redact a channel message without joining it" do
+    Memento.transaction!(fn ->
+      channel = insert(:channel, name: "#redact")
+      author = insert(:user, nick: "Author", capabilities: ["draft/message-redaction"])
+      operator = insert(:user, nick: "Oper", modes: [:o], capabilities: ["draft/message-redaction"])
+      insert(:user_channel, user: author, channel: channel)
+      History.record(history_message("Author", "#redact", "oper-redaction"), author)
+
+      assert :ok = Command.dispatch(operator, %Message{command: "REDACT", params: ["#redact", "oper-redaction"]})
+      assert {:ok, redacted} = ChatHistory.get_by_msgid("oper-redaction")
+      assert redacted.redacted_at
+      assert_sent_message_contains(author.pid, ~r/ REDACT #redact oper-redaction/)
+    end)
+  end
+
+  test "does not redact stored channel events" do
+    Memento.transaction!(fn ->
+      channel = insert(:channel, name: "#redact")
+      operator = insert(:user, nick: "Oper", modes: [:o], capabilities: ["draft/message-redaction"])
+      insert(:user_channel, user: operator, channel: channel, modes: [:o])
+
+      History.record_channel_event(
+        %Message{command: "TOPIC", params: ["#redact"], trailing: "topic"},
+        operator,
+        "#redact"
+      )
+
+      event = ChatHistory.for_target("channel:#redact") |> Enum.find(&(&1.message.command == "TOPIC"))
+      assert :ok = Command.dispatch(operator, %Message{command: "REDACT", params: ["#redact", event.msgid]})
+      assert_sent_message_contains(operator.pid, ~r/ FAIL REDACT UNKNOWN_MSGID #redact /)
+      assert {:ok, unchanged} = ChatHistory.get_by_msgid(event.msgid)
+      refute unchanged.redacted_at
+    end)
+  end
+
+  test "redacts valid multiline history and rejects malformed stored entries" do
+    Memento.transaction!(fn ->
+      channel = insert(:channel, name: "#redact")
+      user = insert(:user, nick: "Alice", capabilities: ["draft/message-redaction"])
+      insert(:user_channel, user: user, channel: channel, modes: [:o])
+      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
+      batch = ClientBatch.new(%{id: {user.pid, "r"}, user_pid: user.pid, reference: "r", target: "#redact"})
+      line = history_message("Alice", "#redact", "line")
+
+      History.record_multiline(user, batch, [{line, []}], "multiline", timestamp)
+      assert :ok = Command.dispatch(user, %Message{command: "REDACT", params: ["#redact", "multiline"]})
+      assert {:ok, redacted} = ChatHistory.get_by_msgid("multiline")
+      assert redacted.redacted_at
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      for {msgid, message} <- [
+            {"invalid-multiline", %{kind: :multiline, lines: [%Message{command: "TOPIC", params: ["#redact"]}]}},
+            {"invalid-kind", %{kind: :other}}
+          ] do
+        ChatHistory.create(%{
+          id: {"channel:#redact", DateTime.utc_now() |> DateTime.to_unix(:microsecond), msgid},
+          target_type: :channel,
+          target_key: "channel:#redact",
+          target_name: "#redact",
+          msgid: msgid,
+          message: message,
+          sender_account_key: History.identity_key(user),
+          occurred_at: DateTime.utc_now()
+        })
+
+        assert :ok = Command.dispatch(user, %Message{command: "REDACT", params: ["#redact", msgid]})
+        assert_sent_message_contains(user.pid, ~r/ FAIL REDACT UNKNOWN_MSGID #redact /)
+        assert {:ok, unchanged} = ChatHistory.get_by_msgid(msgid)
+        refute unchanged.redacted_at
+        Agent.update(@agent_name, fn _ -> [] end)
+      end
     end)
   end
 

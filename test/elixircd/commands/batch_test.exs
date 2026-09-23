@@ -8,6 +8,7 @@ defmodule ElixIRCd.Commands.BatchTest do
   alias ElixIRCd.Command
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChatHistory
+  alias ElixIRCd.Repositories.RegisteredNicks
 
   test "delivers multiline as a shared batch and a coherent legacy fallback" do
     Memento.transaction!(fn ->
@@ -59,7 +60,7 @@ defmodule ElixIRCd.Commands.BatchTest do
     Application.put_env(:elixircd, :multiline, enabled: true, max_bytes: 8, max_lines: 2)
 
     Memento.transaction!(fn ->
-      user = insert(:user, nick: "Alice", capabilities: ["draft/multiline"])
+      user = insert(:user, nick: "Alice", capabilities: ["batch", "draft/multiline"])
       assert :ok = Command.dispatch(user, %Message{command: "BATCH", params: ["+one", "draft/multiline", "#test"]})
       assert :ok = Command.dispatch(user, line("wrong", "hello", %{}))
       assert_sent_message_contains(user.pid, ~r/ FAIL BATCH MULTILINE_INVALID /)
@@ -130,7 +131,7 @@ defmodule ElixIRCd.Commands.BatchTest do
       assert :ok = Command.dispatch(sender, %Message{command: "BATCH", params: ["-atomic"]})
 
       assert_sent_message_contains(sender.pid, ~r/ 404 Alice #test :Cannot send to channel \(\+c - no colors allowed\)/)
-      assert_sent_messages_amount(sender.pid, 1)
+      assert_sent_messages_amount(sender.pid, 2)
       assert_sent_messages_amount(recipient.pid, 0)
       assert ChatHistory.all() == []
     end)
@@ -145,7 +146,7 @@ defmodule ElixIRCd.Commands.BatchTest do
 
       assert_sent_message_contains(unavailable.pid, ~r/ FAIL BATCH MULTILINE_INVALID/)
 
-      user = insert(:user, nick: "Alice", capabilities: ["draft/multiline"])
+      user = insert(:user, nick: "Alice", capabilities: ["batch", "draft/multiline"])
       assert :ok = Command.dispatch(user, %Message{command: "BATCH", params: []})
       assert :ok = Command.dispatch(user, line("absent", "ignored", %{}))
       assert :ok = Command.dispatch(user, %Message{command: "BATCH", params: ["-missing"]})
@@ -168,7 +169,7 @@ defmodule ElixIRCd.Commands.BatchTest do
     on_exit(fn -> Application.put_env(:elixircd, :multiline, original) end)
 
     Memento.transaction!(fn ->
-      user = insert(:user, nick: "Alice", capabilities: ["draft/multiline"])
+      user = insert(:user, nick: "Alice", capabilities: ["batch", "draft/multiline"])
 
       start_batch(user, "target")
 
@@ -180,7 +181,7 @@ defmodule ElixIRCd.Commands.BatchTest do
                  tags: %{"batch" => "target"}
                })
 
-      assert_sent_message_contains(user.pid, ~r/All lines must use one target/)
+      assert_sent_message_contains(user.pid, ~r/ FAIL BATCH MULTILINE_INVALID_TARGET #test #other/)
       finish_batch(user, "target")
 
       Application.put_env(:elixircd, :multiline, enabled: true, max_bytes: 100, max_lines: 1)
@@ -210,6 +211,64 @@ defmodule ElixIRCd.Commands.BatchTest do
 
       assert_sent_message_contains(user.pid, ~r/All lines must use the same command/)
       finish_batch(user, "command")
+    end)
+  end
+
+  test "counts line separators, rejects all-blank messages, and does not execute services during validation" do
+    original = Application.fetch_env!(:elixircd, :multiline)
+    on_exit(fn -> Application.put_env(:elixircd, :multiline, original) end)
+    Application.put_env(:elixircd, :multiline, enabled: true, max_bytes: 3, max_lines: 10)
+
+    Memento.transaction!(fn ->
+      user = insert(:user, nick: "Alice", capabilities: ["batch", "draft/multiline"])
+      start_batch(user, "bytes")
+      Command.dispatch(user, line("bytes", "a", %{}))
+      Command.dispatch(user, line("bytes", "bc", %{}))
+      assert_sent_message_contains(user.pid, ~r/ FAIL BATCH MULTILINE_MAX_BYTES 3/)
+      finish_batch(user, "bytes")
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      start_batch(user, "blank")
+      Command.dispatch(user, line("blank", "", %{}))
+      finish_batch(user, "blank")
+      assert_sent_message_contains(user.pid, ~r/ FAIL BATCH MULTILINE_INVALID :Multiline message cannot be blank/)
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      Application.put_env(:elixircd, :multiline, enabled: true, max_bytes: 100, max_lines: 10)
+      start_batch(user, "empty")
+      finish_batch(user, "empty")
+      assert_sent_message_contains(user.pid, ~r/ FAIL BATCH MULTILINE_INVALID :Multiline batch is empty/)
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      start_batch(user, "tags")
+      Command.dispatch(user, line("tags", "hello", %{"unexpected" => "value"}))
+      assert_sent_message_contains(user.pid, ~r/Unexpected tags on multiline line/)
+      finish_batch(user, "tags")
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      start_batch(user, "command")
+      Command.dispatch(user, %Message{command: "PING", params: ["#test"], tags: %{"batch" => "command"}})
+      assert_sent_message_contains(user.pid, ~r/All lines must use one target and message command/)
+      finish_batch(user, "command")
+      Agent.update(@agent_name, fn _ -> [] end)
+
+      Command.dispatch(user, %Message{command: "BATCH", params: ["+service", "draft/multiline", "NickServ"]})
+
+      Command.dispatch(user, %Message{
+        command: "PRIVMSG",
+        params: ["NickServ"],
+        trailing: "REGISTER long-password",
+        tags: %{"batch" => "service"}
+      })
+
+      finish_batch(user, "service")
+
+      assert_sent_message_contains(
+        user.pid,
+        ~r/ FAIL BATCH MULTILINE_INVALID :Multiline message could not be delivered/
+      )
+
+      assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname("Alice")
     end)
   end
 

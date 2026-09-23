@@ -13,7 +13,7 @@ defmodule ElixIRCd.Repositories.ChatHistory do
   def for_target(target_key) do
     :mnesia.index_read(ChatHistory, target_key, :target_key)
     |> Enum.map(&Data.load/1)
-    |> Enum.sort_by(&DateTime.to_unix(&1.occurred_at, :microsecond))
+    |> Enum.sort_by(& &1.id)
   end
 
   @doc "Lists all persisted history entries in chronological order."
@@ -21,7 +21,17 @@ defmodule ElixIRCd.Repositories.ChatHistory do
   def all do
     ChatHistory
     |> Memento.Query.all()
-    |> Enum.sort_by(&DateTime.to_unix(&1.occurred_at, :microsecond))
+    |> Enum.sort_by(fn entry -> {DateTime.to_unix(entry.occurred_at, :microsecond), entry.msgid} end)
+  end
+
+  @doc "Lists direct history involving one stable identity using Mnesia indices."
+  @spec for_identity(String.t()) :: [ChatHistory.t()]
+  def for_identity(identity) do
+    (:mnesia.index_read(ChatHistory, identity, :sender_account_key) ++
+       :mnesia.index_read(ChatHistory, identity, :recipient_account_key))
+    |> Enum.uniq_by(&elem(&1, 1))
+    |> Enum.map(&Data.load/1)
+    |> Enum.filter(&(&1.target_type == :direct))
   end
 
   @doc "Finds a history entry by its stable message ID."

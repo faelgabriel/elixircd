@@ -185,7 +185,7 @@ config :elixircd,
     # Enable unique message IDs for clients using message-tags
     enabled: true
   ],
-  # Persistent chat history. Retention and per-target limits are enforced on writes.
+  # Persistent chat history. Retention is enforced on reads, writes, and periodic cleanup.
   history: [
     enabled: true,
     max_entries_per_target: 1_000,

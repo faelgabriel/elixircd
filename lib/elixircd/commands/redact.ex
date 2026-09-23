@@ -25,6 +25,7 @@ defmodule ElixIRCd.Commands.Redact do
          {:ok, target_info} <- redact_target(user, target),
          {:ok, entry} <- ChatHistory.get_by_msgid(msgid),
          true <- entry.target_key == target_info.key,
+         true <- redactable_entry?(entry),
          :ok <- authorize(user, entry, target_info),
          _entry <- ChatHistory.redact(entry, DateTime.utc_now()) do
       relay_redaction(user, target_info, msgid, reason)
@@ -70,10 +71,11 @@ defmodule ElixIRCd.Commands.Redact do
     actor_key = History.identity_key(user)
     own_message? = entry.sender_account_key == actor_key
 
-    # Channel targets are resolved only for current members in the same Mnesia
-    # transaction, so membership is an invariant at this point.
-    {:ok, membership} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
-    channel_operator? = :o in membership.modes
+    channel_operator? =
+      case UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name) do
+        {:ok, membership} -> :o in membership.modes
+        {:error, :user_channel_not_found} -> false
+      end
 
     if own_message? or channel_operator? or irc_operator?(user), do: :ok, else: {:error, :forbidden}
   end
@@ -83,6 +85,13 @@ defmodule ElixIRCd.Commands.Redact do
       do: :ok,
       else: {:error, :forbidden}
   end
+
+  defp redactable_entry?(%{message: %Message{command: command}}), do: command in ["PRIVMSG", "NOTICE", "TAGMSG"]
+
+  defp redactable_entry?(%{message: %{kind: :multiline, lines: [%Message{command: command} | _]}}),
+    do: command in ["PRIVMSG", "NOTICE"]
+
+  defp redactable_entry?(_entry), do: false
 
   defp relay_redaction(user, %{type: :channel, name: channel_name}, msgid, reason) do
     recipients =

@@ -16,8 +16,8 @@ defmodule ElixIRCd.Commands.Chathistory do
 
   def handle(user, %{params: ["TARGETS", lower, upper, limit]}) do
     with :ok <- available(user),
-         {:ok, lower_reference} <- History.parse_reference(lower),
-         {:ok, upper_reference} <- History.parse_reference(upper),
+         {:ok, lower_reference} <- parse_target_timestamp(lower),
+         {:ok, upper_reference} <- parse_target_timestamp(upper),
          {:ok, parsed_limit} <- parse_limit(limit) do
       send_targets(user, lower_reference, upper_reference, parsed_limit)
     else
@@ -55,12 +55,18 @@ defmodule ElixIRCd.Commands.Chathistory do
   def handle(user, _message), do: fail(user, "INVALID_PARAMS", "*", "Invalid CHATHISTORY parameters")
 
   defp available(user) do
-    if History.enabled?() and "draft/chathistory" in user.capabilities and "batch" in user.capabilities do
+    if History.enabled?() and "draft/chathistory" in user.capabilities do
       :ok
     else
       {:error, :unavailable}
     end
   end
+
+  defp parse_target_timestamp("timestamp=" <> _ = value) do
+    History.parse_reference(value)
+  end
+
+  defp parse_target_timestamp(_value), do: {:error, :invalid_reference}
 
   defp parse_limit(value) do
     max_limit = Application.fetch_env!(:elixircd, :history)[:max_request_limit]
@@ -72,12 +78,9 @@ defmodule ElixIRCd.Commands.Chathistory do
   end
 
   defp send_history(user, target, subcommand, first, second, limit) do
-    entries = History.query(target.key, subcommand, first, second, limit)
-    entries = if "draft/event-playback" in user.capabilities, do: entries, else: Enum.reject(entries, &History.event?/1)
+    entries = History.query(target.key, subcommand, first, second, limit, "draft/event-playback" in user.capabilities)
 
-    ResponseContext.with_batch("chathistory", [target.name], fn ->
-      Enum.each(entries, &History.replay(&1, user))
-    end)
+    send_reply(user, "chathistory", [target.name], fn -> Enum.each(entries, &History.replay(&1, user)) end)
 
     :ok
   end
@@ -85,7 +88,7 @@ defmodule ElixIRCd.Commands.Chathistory do
   defp send_targets(user, lower, upper, limit) do
     targets = History.targets_for_request(user, lower, upper, limit)
 
-    ResponseContext.with_batch("draft/chathistory-targets", [], fn ->
+    send_reply(user, "draft/chathistory-targets", [], fn ->
       Enum.each(targets, fn {target, timestamp} ->
         %ElixIRCd.Message{
           command: "CHATHISTORY",
@@ -98,11 +101,17 @@ defmodule ElixIRCd.Commands.Chathistory do
     :ok
   end
 
+  defp send_reply(user, type, params, callback) do
+    if "batch" in user.capabilities,
+      do: ResponseContext.with_batch(type, params, callback),
+      else: callback.()
+  end
+
   defp handle_error(user, subcommand, target, :invalid_target),
     do: fail(user, "INVALID_TARGET", [subcommand, target], "Invalid history target")
 
   defp handle_error(user, subcommand, _target, :unavailable),
-    do: fail(user, "NEED_CAP", subcommand, "CHATHISTORY capability and batch are required")
+    do: fail(user, "NEED_CAP", subcommand, "CHATHISTORY capability is required")
 
   defp handle_error(user, subcommand, _target, _reason),
     do: fail(user, "INVALID_PARAMS", subcommand, "Invalid CHATHISTORY parameters")

@@ -20,11 +20,13 @@ defmodule ElixIRCd.Commands.Cap do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Metadata
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.WireChunks
 
   @supported_capabilities %{
     "account-tag" => %{
@@ -144,6 +146,7 @@ defmodule ElixIRCd.Commands.Cap do
   # Capabilities that are announced via CAP LS but cannot be requested via CAP REQ
   # As per IRCv3 specifications, these capabilities are informational only
   @non_requestable_capabilities ["sts"]
+  @legacy_priority ["sasl", "message-tags", "batch", "server-time"]
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -184,17 +187,46 @@ defmodule ElixIRCd.Commands.Cap do
     capabilities = if version >= 302, do: Enum.uniq(user.capabilities ++ ["cap-notify"]), else: user.capabilities
     updated_user = Users.update(user, %{cap_negotiating: true, cap_version: version, capabilities: capabilities})
     capabilities_list = get_capabilities_list(%{updated_user | cap_version: requested_version})
+    reply_target = user_reply(updated_user)
 
-    %Message{command: "CAP", params: [user_reply(updated_user), "LS"], trailing: capabilities_list}
-    |> Dispatcher.broadcast(:server, updated_user)
+    messages =
+      if requested_version >= 302 do
+        capabilities_list
+        |> String.split(" ", trim: true)
+        |> WireChunks.split(fn chunk, continuation? ->
+          %Message{
+            prefix: Dispatcher.server_prefix(),
+            command: "CAP",
+            params: [reply_target, "LS"] ++ if(continuation?, do: ["*"], else: []),
+            trailing: Enum.join(chunk, " ")
+          }
+        end)
+      else
+        [legacy_ls_message(reply_target, capabilities_list)]
+      end
+
+    Dispatcher.broadcast(messages, :server, updated_user)
   end
 
   @spec handle_cap_list(User.t()) :: :ok
   defp handle_cap_list(user) do
-    enabled_caps = Enum.join(user.capabilities, " ")
+    reply_target = user_reply(user)
 
-    %Message{command: "CAP", params: [user_reply(user), "LIST"], trailing: enabled_caps}
-    |> Dispatcher.broadcast(:server, user)
+    messages =
+      if user.cap_version >= 302 do
+        WireChunks.split(user.capabilities, fn chunk, continuation? ->
+          %Message{
+            prefix: Dispatcher.server_prefix(),
+            command: "CAP",
+            params: [reply_target, "LIST"] ++ if(continuation?, do: ["*"], else: []),
+            trailing: Enum.join(chunk, " ")
+          }
+        end)
+      else
+        [legacy_cap_message(reply_target, "LIST", user.capabilities)]
+      end
+
+    Dispatcher.broadcast(messages, :server, user)
   end
 
   @spec handle_cap_req(User.t(), String.t()) :: :ok
@@ -202,25 +234,79 @@ defmodule ElixIRCd.Commands.Cap do
     # IRCv3 forbids completing registration mid-negotiation; REQ must mark the session like LS does.
     user = if user.registered, do: user, else: Users.update(user, %{cap_negotiating: true})
 
+    if reply_tokens_fit?(user, capabilities_string) do
+      handle_fitting_cap_req(user, capabilities_string)
+    else
+      %Message{
+        command: :err_invalidcapcmd,
+        params: [user_reply(user), "REQ"],
+        trailing: "Capability name is too long to reply to"
+      }
+      |> Dispatcher.broadcast(:server, user)
+    end
+  end
+
+  defp handle_fitting_cap_req(user, capabilities_string) do
     capabilities = parse_capabilities_request(capabilities_string)
     {acked, nacked} = validate_capabilities(user, capabilities)
 
-    case nacked do
-      [] ->
-        %Message{command: "CAP", params: [user_reply(user), "ACK"], trailing: capabilities_string}
-        |> Dispatcher.broadcast(:server, user)
+    if nacked == [] and legacy_list_fits?(user, acked) do
+      send_cap_reply(user, "ACK", capabilities_string)
 
-        # IRCv3 requires the final CAP ACK to be sent before the negotiated set
-        # changes. This is also important when disabling batch or
-        # labeled-response on a labeled CAP REQ.
-        ResponseContext.flush(user)
-        apply_capability_changes(user, acked)
-        :ok
-
-      _ ->
-        %Message{command: "CAP", params: [user_reply(user), "NAK"], trailing: capabilities_string}
-        |> Dispatcher.broadcast(:server, user)
+      # IRCv3 requires the final CAP ACK to be sent before the negotiated set
+      # changes. This is also important when disabling batch or
+      # labeled-response on a labeled CAP REQ.
+      ResponseContext.flush(user)
+      apply_capability_changes(user, acked)
+      :ok
+    else
+      send_cap_reply(user, "NAK", capabilities_string)
     end
+  end
+
+  defp reply_tokens_fit?(user, capabilities_string) do
+    Enum.all?(String.split(capabilities_string), fn capability ->
+      WireChunks.fits?(legacy_cap_message(user_reply(user), "ACK", [capability]))
+    end)
+  end
+
+  defp send_cap_reply(user, verb, capabilities_string) do
+    capabilities_string
+    |> String.split()
+    |> WireChunks.split(fn chunk, _continuation? ->
+      legacy_cap_message(user_reply(user), verb, chunk)
+    end)
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp legacy_ls_message(reply_target, capabilities_list) do
+    words = String.split(capabilities_list)
+    complete = legacy_cap_message(reply_target, "LS", words)
+
+    if WireChunks.fits?(complete) do
+      complete
+    else
+      preferred = Enum.filter(@legacy_priority, &(&1 in words))
+      ordered = preferred ++ Enum.reject(words, &(&1 in preferred))
+      selected = WireChunks.take_fitting(ordered, &legacy_cap_message(reply_target, "LS", &1))
+      legacy_cap_message(reply_target, "LS", selected)
+    end
+  end
+
+  defp legacy_cap_message(reply_target, verb, capabilities) do
+    %Message{
+      prefix: Dispatcher.server_prefix(),
+      command: "CAP",
+      params: [reply_target, verb],
+      trailing: Enum.join(capabilities, " ")
+    }
+  end
+
+  defp legacy_list_fits?(%User{cap_version: version}, _changes) when version >= 302, do: true
+
+  defp legacy_list_fits?(user, changes) do
+    enabled = Enum.reduce(changes, user.capabilities, &apply_capability_change/2)
+    WireChunks.fits?(legacy_cap_message(user_reply(user), "LIST", enabled))
   end
 
   @spec handle_cap_end(User.t()) :: :ok
@@ -364,7 +450,7 @@ defmodule ElixIRCd.Commands.Cap do
         if(config[:before_connect], do: "before-connect"),
         "max-subs=#{config[:max_subscriptions]}",
         "max-keys=#{config[:max_keys]}",
-        "max-value-bytes=#{config[:max_value_bytes]}"
+        "max-value-bytes=#{Metadata.max_value_bytes()}"
       ]
       |> Enum.reject(&is_nil/1)
 

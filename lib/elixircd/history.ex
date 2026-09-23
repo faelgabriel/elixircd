@@ -121,17 +121,36 @@ defmodule ElixIRCd.History do
   @doc "Emits one stored history entry, preserving nested multiline structure."
   @spec replay(ChatHistory.t(), User.t()) :: :ok
   def replay(%ChatHistory{message: %{kind: :multiline} = multiline, msgid: msgid, occurred_at: occurred_at}, user) do
-    tags =
-      multiline.tags
-      |> Map.put("msgid", msgid)
-      |> Map.put("time", occurred_at |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601())
+    timestamp = occurred_at |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
 
-    ResponseContext.with_batch("draft/multiline", [multiline.target], tags, fn ->
-      Enum.each(multiline.lines, &Dispatcher.enqueue_prepared_message(&1, user))
-    end)
+    if "batch" in user.capabilities and "draft/multiline" in user.capabilities do
+      tags = multiline.tags |> Map.put("msgid", msgid) |> Map.put("time", timestamp)
+
+      ResponseContext.with_batch("draft/multiline", [multiline.target], tags, fn ->
+        Enum.each(multiline.lines, &Dispatcher.enqueue_prepared_message(&1, user))
+      end)
+    else
+      replay_multiline_fallback(multiline, msgid, timestamp, user)
+    end
   end
 
   def replay(%ChatHistory{message: %Message{} = message}, user), do: Dispatcher.broadcast(message, nil, user)
+
+  defp replay_multiline_fallback(multiline, msgid, timestamp, user) do
+    multiline.lines
+    |> Enum.reject(&((&1.trailing || "") == ""))
+    |> Enum.with_index()
+    |> Enum.each(fn {message, index} ->
+      tags =
+        message.tags
+        |> Map.drop(["batch", "draft/multiline-concat", "label", "msgid", "time"])
+        |> Map.merge(Map.drop(multiline.tags, ["batch", "label", "msgid", "time"]))
+        |> Map.put("time", timestamp)
+
+      tags = if index == 0, do: Map.put(tags, "msgid", msgid), else: tags
+      %{message | tags: tags} |> Dispatcher.enqueue_prepared_message(user)
+    end)
+  end
 
   defp do_record(message, sender) do
     if enabled?() and persist_message?(message) do
@@ -186,17 +205,20 @@ defmodule ElixIRCd.History do
   end
 
   @doc "Selects visible, non-redacted entries according to a CHATHISTORY subcommand."
-  @spec query(String.t(), String.t(), history_reference(), history_reference() | nil, pos_integer()) :: [
+  @spec query(String.t(), String.t(), history_reference(), history_reference() | nil, pos_integer(), boolean()) :: [
           ChatHistory.t()
         ]
-  def query(target_key, subcommand, first_reference, second_reference, limit) do
+  def query(target_key, subcommand, first_reference, second_reference, limit, include_events? \\ true) do
+    cutoff = retention_cutoff(DateTime.utc_now())
+
     entries =
       target_key
       |> HistoryRepository.for_target()
-      |> Enum.reject(& &1.redacted_at)
+      |> Enum.reject(&(DateTime.compare(&1.occurred_at, cutoff) == :lt))
 
     first_reference = normalize_reference(entries, first_reference)
     second_reference = normalize_reference(entries, second_reference)
+    entries = Enum.filter(entries, &(is_nil(&1.redacted_at) and (include_events? or not event?(&1))))
 
     case subcommand do
       "LATEST" -> latest(entries, first_reference, limit)
@@ -213,15 +235,28 @@ defmodule ElixIRCd.History do
         ]
   def targets_for_request(%User{} = user, lower, upper, limit) do
     requester_identity = identity_key(user)
+    cutoff = retention_cutoff(DateTime.utc_now())
+    reverse? = compare_reference_values(lower, upper) == :gt
+    {earlier, later} = if reverse?, do: {upper, lower}, else: {lower, upper}
 
-    HistoryRepository.all()
-    |> Enum.reject(& &1.redacted_at)
+    channel_entries =
+      user.pid
+      |> UserChannels.get_by_user_pid()
+      |> Enum.map(fn membership -> "channel:" <> membership.channel_name_key end)
+      |> Enum.flat_map(&HistoryRepository.for_target/1)
+
+    direct_entries = if is_binary(requester_identity), do: HistoryRepository.for_identity(requester_identity), else: []
+
+    (channel_entries ++ direct_entries)
+    |> Enum.reject(&(not is_nil(&1.redacted_at) or DateTime.compare(&1.occurred_at, cutoff) == :lt))
     |> Enum.filter(&target_visible_to?(&1, user, requester_identity))
     |> Enum.group_by(& &1.target_key)
-    |> Enum.map(fn {_key, entries} -> Enum.max_by(entries, &DateTime.to_unix(&1.occurred_at, :microsecond)) end)
-    |> Enum.filter(&(after_bound?(&1, lower) and before_bound?(&1, upper)))
-    |> Enum.sort_by(&DateTime.to_unix(&1.occurred_at, :microsecond))
-    |> Enum.take(limit)
+    |> Enum.map(fn {_key, entries} -> Enum.max_by(entries, & &1.id) end)
+    |> Enum.filter(&(after_bound?(&1, earlier) and before_bound?(&1, later)))
+    |> Enum.sort_by(fn entry -> {DateTime.to_unix(entry.occurred_at, :microsecond), entry.msgid} end)
+    |> then(fn entries ->
+      if reverse?, do: Enum.take(entries, -limit), else: Enum.take(entries, limit)
+    end)
     |> Enum.map(&{target_name_for(&1, requester_identity), &1.occurred_at})
   end
 
@@ -326,8 +361,6 @@ defmodule ElixIRCd.History do
     entry.sender_account_key == identity or entry.recipient_account_key == identity
   end
 
-  defp target_visible_to?(_entry, _user, _identity), do: false
-
   defp after_bound?(_entry, :all), do: true
   defp after_bound?(entry, reference), do: compare_reference(entry, reference) == :gt
 
@@ -342,12 +375,17 @@ defmodule ElixIRCd.History do
     prefix |> String.split("!", parts: 2) |> hd()
   end
 
+  defp target_name_for(%ChatHistory{message: %{kind: :multiline, lines: [%Message{prefix: prefix} | _]}}, _identity)
+       when is_binary(prefix) do
+    prefix |> String.split("!", parts: 2) |> hd()
+  end
+
   defp target_name_for(%ChatHistory{target_name: name}, _identity), do: name
 
   @spec prune_target(String.t(), DateTime.t()) :: :ok
   defp prune_target(target_key, now) do
     config = Application.fetch_env!(:elixircd, :history)
-    cutoff = DateTime.add(now, -config[:retention_seconds], :second)
+    cutoff = retention_cutoff(now)
 
     retained =
       target_key
@@ -366,7 +404,7 @@ defmodule ElixIRCd.History do
   end
 
   defp latest(entries, :all, limit), do: take_last(entries, limit)
-  defp latest(entries, reference, limit), do: entries |> after_reference(reference) |> Enum.take(limit)
+  defp latest(entries, reference, limit), do: entries |> after_reference(reference) |> take_last(limit)
 
   defp before(entries, reference), do: Enum.filter(entries, &(compare_reference(&1, reference) == :lt))
   defp after_reference(entries, reference), do: Enum.filter(entries, &(compare_reference(&1, reference) == :gt))
@@ -388,10 +426,14 @@ defmodule ElixIRCd.History do
     end
   end
 
+  defp around(_entries, :missing, _limit), do: []
+
   defp around(entries, reference, limit) do
-    case Enum.find_index(entries, &(compare_reference(&1, reference) == :eq)) do
+    index = Enum.find_index(entries, &(compare_reference(&1, reference) in [:eq, :gt]))
+
+    case index do
       nil ->
-        []
+        take_last(entries, limit)
 
       index ->
         before_count = div(limit - 1, 2)
@@ -406,7 +448,7 @@ defmodule ElixIRCd.History do
     second_entry = Enum.find(entries, &(compare_reference(&1, second) == :eq))
 
     case {first_entry, second_entry} do
-      {%ChatHistory{} = left, %ChatHistory{} = right} -> DateTime.compare(left.occurred_at, right.occurred_at)
+      {%ChatHistory{} = left, %ChatHistory{} = right} -> compare_ids(left.id, right.id)
       _ -> compare_reference_values(first, second)
     end
   end
@@ -414,10 +456,13 @@ defmodule ElixIRCd.History do
   defp compare_reference(%ChatHistory{occurred_at: timestamp}, {:timestamp, reference}),
     do: DateTime.compare(timestamp, reference)
 
+  defp compare_reference(%ChatHistory{id: id}, {:cursor, reference}), do: compare_ids(id, reference)
+
   defp compare_reference(_entry, :all), do: :gt
   defp compare_reference(_entry, :missing), do: :unrelated
 
   defp compare_reference_values({:timestamp, left}, {:timestamp, right}), do: DateTime.compare(left, right)
+  defp compare_reference_values({:cursor, left}, {:cursor, right}), do: compare_ids(left, right)
   defp compare_reference_values(_left, _right), do: :eq
 
   defp normalize_reference(_entries, nil), do: nil
@@ -427,8 +472,29 @@ defmodule ElixIRCd.History do
   defp normalize_reference(entries, {:msgid, msgid}) do
     case Enum.find(entries, &(&1.msgid == msgid)) do
       nil -> :missing
-      entry -> {:timestamp, entry.occurred_at}
+      entry -> {:cursor, entry.id}
     end
+  end
+
+  defp compare_ids(left, right) when left < right, do: :lt
+  defp compare_ids(left, right) when left > right, do: :gt
+  defp compare_ids(_left, _right), do: :eq
+
+  defp retention_cutoff(now) do
+    DateTime.add(now, -Application.fetch_env!(:elixircd, :history)[:retention_seconds], :second)
+  end
+
+  @doc "Deletes expired entries, including targets with no new writes."
+  @spec prune_expired(DateTime.t()) :: non_neg_integer()
+  def prune_expired(now \\ DateTime.utc_now()) do
+    cutoff = retention_cutoff(now)
+
+    transactional(fn ->
+      HistoryRepository.all()
+      |> Enum.filter(&(DateTime.compare(&1.occurred_at, cutoff) == :lt))
+      |> Enum.map(&HistoryRepository.delete/1)
+      |> length()
+    end)
   end
 
   defp take_last(entries, limit), do: Enum.take(entries, -limit)

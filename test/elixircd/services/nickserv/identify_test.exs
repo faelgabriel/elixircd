@@ -108,6 +108,25 @@ defmodule ElixIRCd.Services.Nickserv.IdentifyTest do
       end)
     end
 
+    test "does not identify an account while email verification is pending" do
+      Memento.transaction!(fn ->
+        account =
+          insert(:registered_nick,
+            nickname: "Pending",
+            password: "correct_password",
+            verify_code: "code",
+            verified_at: nil
+          )
+
+        user = insert(:user, nick: account.nickname)
+
+        assert :ok = Identify.handle(user, ["IDENTIFY", "correct_password"])
+        assert_sent_message_contains(user.pid, ~r/requires email verification before authentication/)
+        assert {:ok, unchanged} = Users.get_by_pid(user.pid)
+        assert is_nil(unchanged.identified_as)
+      end)
+    end
+
     test "handles IDENTIFY command with current nickname and correct password" do
       Memento.transaction!(fn ->
         password = "correct_password"
