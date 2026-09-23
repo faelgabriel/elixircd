@@ -8,6 +8,8 @@ defmodule ElixIRCd.Tables.UserAccept do
     attributes: [
       :user_pid,
       :accepted_user_pid,
+      :user_uid,
+      :accepted_user_uid,
       :created_at
     ],
     index: [:accepted_user_pid],
@@ -16,12 +18,16 @@ defmodule ElixIRCd.Tables.UserAccept do
   @type t :: %__MODULE__{
           user_pid: pid(),
           accepted_user_pid: pid(),
+          user_uid: String.t() | nil,
+          accepted_user_uid: String.t() | nil,
           created_at: DateTime.t()
         }
 
   @type t_attrs :: %{
           optional(:user_pid) => pid(),
           optional(:accepted_user_pid) => pid(),
+          optional(:user_uid) => String.t() | nil,
+          optional(:accepted_user_uid) => String.t() | nil,
           optional(:created_at) => DateTime.t()
         }
 

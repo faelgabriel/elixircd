@@ -195,7 +195,7 @@ defmodule ElixIRCd.Commands.AcceptTest do
         insert(:user_accept, user: user, accepted_user: target_user2)
 
         # Simulate the accepted user being deleted
-        Memento.Query.delete(User, target_user1.pid)
+        Memento.Query.delete(User, target_user1.uid)
 
         message = %Message{command: "ACCEPT", params: []}
         assert :ok = Accept.handle(user, message)

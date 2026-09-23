@@ -26,6 +26,7 @@ defmodule ElixIRCd do
       [
         ElixIRCd.Server.RateLimiter,
         ElixIRCd.Server.NickEnforcement,
+        ElixIRCd.Server.S2S,
         ElixIRCd.Server.Listeners,
         ElixIRCd.JobQueue
       ],

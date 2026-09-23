@@ -163,6 +163,8 @@ defmodule ElixIRCd.Utils.Nickserv do
   Account authentication alone does not make an unrelated nickname registered.
   """
   @spec sync_registered_mode(User.t()) :: User.t()
+  def sync_registered_mode(%User{pid: nil} = user), do: user
+
   def sync_registered_mode(user) do
     registered =
       with nick when is_binary(nick) <- user.nick,

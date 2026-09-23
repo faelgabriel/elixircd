@@ -18,7 +18,7 @@ defmodule ElixIRCd.DataCase do
       Memento.transaction!(fn ->
         Memento.Query.all(User)
         |> Enum.each(fn user ->
-          if Process.alive?(user.pid), do: capture_log(fn -> Process.exit(user.pid, :kill) end)
+          if is_pid(user.pid) and Process.alive?(user.pid), do: capture_log(fn -> Process.exit(user.pid, :kill) end)
         end)
       end)
 

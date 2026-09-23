@@ -4,6 +4,7 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   """
 
   alias ElixIRCd.Tables.RegisteredNick.Settings
+  alias ElixIRCd.Server.S2S.Identity
   alias ElixIRCd.Utils.CaseMapping
 
   @enforce_keys [
@@ -21,6 +22,8 @@ defmodule ElixIRCd.Tables.RegisteredNick do
       :nickname,
       :account_name_key,
       :account_name,
+      :account_id,
+      :auth_epoch,
       :password_hash,
       :scram_sha_256,
       :email,
@@ -43,6 +46,8 @@ defmodule ElixIRCd.Tables.RegisteredNick do
           nickname: String.t(),
           account_name_key: String.t(),
           account_name: String.t(),
+          account_id: Identity.id() | nil,
+          auth_epoch: pos_integer() | nil,
           password_hash: String.t(),
           scram_sha_256: ElixIRCd.Sasl.ScramSha256.credentials() | nil,
           email: String.t() | nil,
@@ -61,6 +66,8 @@ defmodule ElixIRCd.Tables.RegisteredNick do
   @type t_attrs :: %{
           optional(:nickname) => String.t(),
           optional(:account_name) => String.t(),
+          optional(:account_id) => Identity.id(),
+          optional(:auth_epoch) => pos_integer(),
           optional(:password_hash) => String.t(),
           optional(:scram_sha_256) => ElixIRCd.Sasl.ScramSha256.credentials() | nil,
           optional(:email) => String.t() | nil,
@@ -84,6 +91,8 @@ defmodule ElixIRCd.Tables.RegisteredNick do
     new_attrs =
       attrs
       |> Map.put_new(:scram_sha_256, nil)
+      |> Map.put_new(:account_id, Identity.new_id())
+      |> Map.put_new(:auth_epoch, Identity.auth_epoch())
       |> Map.put_new(:settings, Settings.new())
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> put_default_account_name()

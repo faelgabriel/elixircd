@@ -19,6 +19,7 @@ defmodule ElixIRCd.Commands.Nick do
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Server.NickChange
   alias ElixIRCd.Server.NickEnforcement
+  alias ElixIRCd.Server.S2S.State
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -81,14 +82,18 @@ defmodule ElixIRCd.Commands.Nick do
 
   @spec check_reserved_nick(User.t(), String.t()) :: :ok | {:error, :nick_reserved}
   defp check_reserved_nick(user, input_nick) do
-    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
-         {:reserved, true} <- {:reserved, reserved?(registered_nick)},
-         {:identified, false} <- {:identified, belongs_to_account?(registered_nick, user.identified_as)} do
+    if State.fallback_nickname?(input_nick) and not State.fallback_nickname_for?(input_nick, user.uid) do
       {:error, :nick_reserved}
     else
-      {:error, :registered_nick_not_found} -> :ok
-      {:reserved, false} -> :ok
-      {:identified, true} -> :ok
+      with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
+           {:reserved, true} <- {:reserved, reserved?(registered_nick)},
+           {:identified, false} <- {:identified, belongs_to_account?(registered_nick, user.identified_as)} do
+        {:error, :nick_reserved}
+      else
+        {:error, :registered_nick_not_found} -> :ok
+        {:reserved, false} -> :ok
+        {:identified, true} -> :ok
+      end
     end
   end
 
@@ -113,8 +118,7 @@ defmodule ElixIRCd.Commands.Nick do
   @spec check_nick_in_use(User.t(), String.t()) :: :ok | {:error, :nick_in_use}
   defp check_nick_in_use(user, input_nick) do
     case Users.get_by_nick(input_nick) do
-      {:ok, %{pid: pid}} when pid == user.pid -> :ok
-      {:ok, _user} -> {:error, :nick_in_use}
+      {:ok, target} -> if User.same_identity?(target, user), do: :ok, else: {:error, :nick_in_use}
       {:error, :user_not_found} -> :ok
     end
   end

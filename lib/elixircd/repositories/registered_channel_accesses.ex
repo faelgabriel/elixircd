@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannelAccesses do
   """
 
   alias ElixIRCd.Tables.RegisteredChannelAccess
+  alias ElixIRCd.Server.S2S.Publication
   alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
 
@@ -14,7 +15,12 @@ defmodule ElixIRCd.Repositories.RegisteredChannelAccesses do
   def create(attrs) do
     RegisteredChannelAccess.new(attrs)
     |> Memento.Query.write()
+    |> tap(fn _record -> Publication.policy_changed() end)
   end
+
+  @doc "Lists every registered channel access entry for authority projection."
+  @spec get_all() :: [RegisteredChannelAccess.t()]
+  def get_all, do: Memento.Query.all(RegisteredChannelAccess)
 
   @doc """
   Lists all access entries for a channel.
@@ -66,8 +72,12 @@ defmodule ElixIRCd.Repositories.RegisteredChannelAccesses do
   @spec delete(String.t(), String.t()) :: :ok
   def delete(channel_name, account_name) do
     case get_by_channel_name_and_account_name(channel_name, account_name) do
-      nil -> :ok
-      entry -> Memento.Query.delete_record(entry)
+      nil ->
+        :ok
+
+      entry ->
+        Memento.Query.delete_record(entry)
+        Publication.policy_changed()
     end
 
     :ok
@@ -80,7 +90,10 @@ defmodule ElixIRCd.Repositories.RegisteredChannelAccesses do
   def delete_by_channel_name(channel_name) do
     channel_name
     |> get_by_channel_name()
-    |> Enum.each(&Memento.Query.delete_record/1)
+    |> Enum.each(fn entry ->
+      Memento.Query.delete_record(entry)
+      Publication.policy_changed()
+    end)
 
     :ok
   end

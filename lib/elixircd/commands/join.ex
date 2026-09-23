@@ -34,6 +34,7 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.LocalChannel
   alias ElixIRCd.Service
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -90,11 +91,20 @@ defmodule ElixIRCd.Commands.Join do
       case check_modes(channel_state, channel, user, join_value) do
         :ok ->
           user_channel =
-            UserChannels.create(%{
-              user_pid: user.pid,
-              channel_name_key: channel.name_key,
-              modes: determine_user_channel_modes(channel_state)
-            })
+            UserChannels.create(
+              %{
+                user_pid: user.pid,
+                channel_name_key: channel.name_key,
+                modes: determine_user_channel_modes(channel_state)
+              },
+              %{
+                "action" => "join",
+                "channel" => channel.name,
+                "join_id" => nil,
+                "by" => %{"user" => user.uid},
+                "reason" => ""
+              }
+            )
 
           ChannelInvites.delete_by_user_pid_and_channel_name(user.pid, channel.name)
           send_join_channel(user, channel, user_channel)
@@ -115,12 +125,11 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec get_or_create_channel(String.t()) :: {channel_states(), Channel.t()}
   defp get_or_create_channel(channel_name) do
-    Channels.get_by_name(channel_name)
-    |> case do
+    case LocalChannel.ensure(channel_name) do
       {:ok, channel} ->
         {:existing, channel}
 
-      _ ->
+      {:error, :channel_not_found} ->
         channel = Channels.create(%{name: channel_name, topic: restored_topic(channel_name)})
         {:created, channel}
     end
@@ -544,7 +553,10 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec directly_invited?(Channel.t(), User.t()) :: boolean()
   defp directly_invited?(channel, user) do
-    match?({:ok, _}, ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name))
+    case ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+      {:ok, invite} -> ChannelInvites.active?(invite, System.system_time(:millisecond))
+      {:error, :channel_invite_not_found} -> false
+    end
   end
 
   @spec get_user_channels_nicks(User.t(), [UserChannel.t()]) :: [ElixIRCd.Utils.Protocol.word_choice()]

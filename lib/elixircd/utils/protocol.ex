@@ -41,7 +41,7 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec irc_operator_visible?(User.t(), User.t()) :: boolean()
   def irc_operator_visible?(target, viewer) do
-    irc_operator?(target) and (:H not in target.modes or target.pid == viewer.pid or irc_operator?(viewer))
+    irc_operator?(target) and (:H not in target.modes or User.same_identity?(target, viewer) or irc_operator?(viewer))
   end
 
   @doc """

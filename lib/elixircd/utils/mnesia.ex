@@ -9,6 +9,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelExcept
   alias ElixIRCd.Tables.ChannelInvex
+  alias ElixIRCd.Tables.ChannelListTombstone
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.ChatHistory
   alias ElixIRCd.Tables.ClientBatch
@@ -18,6 +19,9 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.Metadata
   alias ElixIRCd.Tables.MetadataSubscription
   alias ElixIRCd.Tables.Metric
+  alias ElixIRCd.Tables.NativePolicyState
+  alias ElixIRCd.Tables.NativeOutputControl
+  alias ElixIRCd.Tables.NativeOutputGroup
   alias ElixIRCd.Tables.NickAccess
   alias ElixIRCd.Tables.ReadMarker
   alias ElixIRCd.Tables.RegisteredChannel
@@ -37,12 +41,14 @@ defmodule ElixIRCd.Utils.Mnesia do
     ChannelBan,
     ChannelExcept,
     ChannelInvex,
+    ChannelListTombstone,
     ChannelInvite,
     ClientBatch,
     HistoricalUser,
     Metric,
     MetadataSubscription,
     SaslSession,
+    NativeOutputGroup,
     User,
     UserAccept,
     UserChannel,
@@ -59,7 +65,9 @@ defmodule ElixIRCd.Utils.Mnesia do
     ReadMarker,
     RegisteredChannel,
     RegisteredChannelAccess,
-    RegisteredNick
+    RegisteredNick,
+    NativePolicyState,
+    NativeOutputControl
   ]
 
   @doc """
@@ -88,12 +96,14 @@ defmodule ElixIRCd.Utils.Mnesia do
     create_tables(opts)
     wait_for_tables(opts)
     upgrade_schemas()
+    validate_current_schema!()
+    ElixIRCd.Server.S2S.PolicyStore.ensure!()
 
     if opts[:verbose], do: Logger.info("Mnesia database setup successfully.")
     :ok
   end
 
-  @doc "Runs compatible table migrations after local table copies are available."
+  @doc "Runs the current schema upgrades after local tables are available."
   @spec upgrade_schemas() :: :ok
   def upgrade_schemas do
     upgrade_user_cap_version()
@@ -200,6 +210,22 @@ defmodule ElixIRCd.Utils.Mnesia do
       end)
 
     List.to_tuple([RegisteredNick | values])
+  end
+
+  defp validate_current_schema! do
+    Enum.each(all_tables(), fn table ->
+      expected = table.__info__()
+      actual_attributes = :mnesia.table_info(table, :attributes)
+      actual_type = :mnesia.table_info(table, :type)
+
+      if actual_attributes != expected.attributes or actual_type != expected.type do
+        raise "Incompatible Mnesia table #{inspect(table)}: expected type #{inspect(expected.type)} " <>
+                "and attributes #{inspect(expected.attributes)}, got type #{inspect(actual_type)} " <>
+                "and attributes #{inspect(actual_attributes)}"
+      end
+    end)
+
+    :ok
   end
 
   @spec recreate_schema(keyword()) :: :ok

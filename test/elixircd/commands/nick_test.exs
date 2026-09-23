@@ -14,6 +14,8 @@ defmodule ElixIRCd.Commands.NickTest do
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Server.NickEnforcement
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.State
   alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
@@ -117,6 +119,23 @@ defmodule ElixIRCd.Commands.NickTest do
         assert_sent_messages([
           {user.pid, ":irc.test 433 #{user.nick} #{target.nick} :Nickname is already in use\r\n"}
         ])
+      end)
+    end
+
+    test "rejects another user's generated network fallback nickname" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false)
+        reserved_fallback = State.fallback_nickname(Identity.uid())
+
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: [reserved_fallback]})
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 433 * #{reserved_fallback} :This nickname is reserved. Please identify to NickServ first.\r\n"}
+        ])
+
+        assert {:ok, persisted} = Users.get_by_uid(user.uid)
+        assert persisted.nick != reserved_fallback
       end)
     end
 

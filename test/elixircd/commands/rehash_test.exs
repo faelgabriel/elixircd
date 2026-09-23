@@ -255,7 +255,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert :ok = Rehash.handle(oper, %Message{command: "REHASH", params: []})
         assert_sent_message_contains(client.pid, ~r/CAP .* DEL :draft\/message-redaction/)
         assert_sent_messages_amount(client.pid, 1)
-        updated = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+        updated = Memento.Query.read(ElixIRCd.Tables.User, client.uid)
         assert updated.capabilities == client.capabilities
       end)
     end
@@ -298,11 +298,11 @@ defmodule ElixIRCd.Commands.RehashTest do
           operation = if unquote(enabled), do: "NEW", else: "DEL"
           assert_sent_message_contains(client.pid, ":irc.test CAP #{client.nick} #{operation} :userhost-in-names\r\n")
           assert_sent_messages_amount(silent_client.pid, 0)
-          updated = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+          updated = Memento.Query.read(ElixIRCd.Tables.User, client.uid)
           assert "userhost-in-names" not in updated.capabilities
 
           unless unquote(enabled) do
-            updated_silent = Memento.Query.read(ElixIRCd.Tables.User, silent_client.pid)
+            updated_silent = Memento.Query.read(ElixIRCd.Tables.User, silent_client.uid)
             assert "userhost-in-names" not in updated_silent.capabilities
           end
         end)
@@ -351,7 +351,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert_sent_message_contains(client.pid, ~r/CAP .* DEL :away-notify/)
 
-        updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+        updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.uid)
         assert "away-notify" not in updated_client.capabilities
         assert "cap-notify" in updated_client.capabilities
       end)
@@ -482,7 +482,7 @@ defmodule ElixIRCd.Commands.RehashTest do
 
         assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*server-time/)
 
-        updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+        updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.uid)
         assert "server-time" not in updated_client.capabilities
         assert "cap-notify" in updated_client.capabilities
       end)
@@ -598,7 +598,7 @@ defmodule ElixIRCd.Commands.RehashTest do
         assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*batch/)
         assert_sent_message_contains(client.pid, ~r/CAP .* DEL :.*labeled-response/)
 
-        updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.pid)
+        updated_client = Memento.Query.read(ElixIRCd.Tables.User, client.uid)
         refute "batch" in updated_client.capabilities
         refute "labeled-response" in updated_client.capabilities
         assert "cap-notify" in updated_client.capabilities

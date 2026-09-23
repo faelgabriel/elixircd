@@ -38,7 +38,7 @@ defmodule ElixIRCd.Repositories.UserChannelsTest do
     test "deletes a user channel" do
       user_channel = insert(:user_channel)
       Memento.transaction!(fn -> UserChannels.delete(user_channel) end)
-      assert nil == Memento.transaction!(fn -> Memento.Query.read(UserChannel, user_channel.user_pid) end)
+      assert nil == Memento.transaction!(fn -> Memento.Query.read(UserChannel, user_channel.id) end)
     end
   end
 

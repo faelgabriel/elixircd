@@ -91,7 +91,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
   defp regain_nickname(user, registered_nick) do
     case Users.get_by_nick(registered_nick.nickname) do
       {:ok, target_user} ->
-        if user.pid == target_user.pid do
+        if User.same_identity?(user, target_user) do
           notify(user, "You cannot regain your own session.")
           :ok
         else

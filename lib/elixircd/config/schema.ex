@@ -16,6 +16,89 @@ defmodule ElixIRCd.Config.Schema do
     [
       {ElixIRCd.Utils.Mailer, {:variant, :adapter, mailer_variants()}},
       server: {:keyword, [name: :text, hostname: :server_hostname, password: {:nullable, :text}, motd: :motd]},
+      s2s:
+        {:keyword,
+         [
+           enabled: :boolean,
+           network_id: :s2s_network_id,
+           semantic_revision: :positive_integer,
+           server_id: :s2s_sid,
+           server_name: :hostname,
+           roster: {:nonempty_list, {:keyword, [sid: :s2s_sid, name: :hostname, parent: {:nullable, :s2s_sid}]}},
+           services_authority: {:nullable, :s2s_sid},
+           listener:
+             {:keyword,
+              [
+                ip: :ip_tuple,
+                port: :port,
+                keyfile: :path,
+                certfile: :path,
+                cacertfile: :path,
+                versions: {:nonempty_list, {:enum, [:"tlsv1.2", :"tlsv1.3"]}},
+                backlog: :positive_integer
+              ]},
+           parent_connection:
+             {:nullable,
+              {:keyword,
+               [
+                 address: :hostname,
+                 port: :port,
+                 sni: :hostname,
+                 bind_ip: :ip_tuple,
+                 pins: {:nonempty_list, :fingerprint}
+               ]}},
+           children: {:map, :s2s_sid, {:keyword, [pins: {:nonempty_list, :fingerprint}, ips: {:list, :ip_or_cidr}]}},
+           budgets:
+             {:keyword,
+              [
+                max_frame_bytes: :positive_integer,
+                max_connections_per_acceptor: :positive_integer,
+                max_inbound_queue_bytes: :positive_integer,
+                per_link_queue_bytes: :positive_integer,
+                snapshot_delta_queue_bytes: :positive_integer,
+                aggregate_output_bytes: :positive_integer,
+                aggregate_pending_frames: :positive_integer,
+                aggregate_pending_bytes: :positive_integer,
+                snapshot_staging_bytes: :positive_integer,
+                max_pending_requests_origin: :positive_integer,
+                max_pending_requests_node: :positive_integer,
+                sasl_workers: :positive_integer,
+                max_pending_frames: :positive_integer,
+                max_stream_parts: :positive_integer,
+                max_stream_bytes: :positive_integer,
+                max_repairs: :positive_integer,
+                max_list_slots: :positive_integer,
+                max_memberships: :positive_integer,
+                max_policy_objects: :positive_integer
+              ]},
+           timeouts:
+             {:keyword,
+              [
+                tls_hello_ms: :positive_integer,
+                incomplete_frame_ms: :positive_integer,
+                snapshot_ms: :positive_integer,
+                request_ms: :positive_integer,
+                heartbeat_ms: :positive_integer,
+                heartbeat_timeout_ms: :positive_integer,
+                shutdown_ms: :positive_integer
+              ]},
+           remote_admin:
+             {:keyword,
+              [
+                enabled: :boolean,
+                actions: {:list, {:enum, [:rehash, :restart, :shutdown, :enable_edge, :disable_edge]}},
+                origin_sids: {:list, :s2s_sid},
+                operator_roles: {:list, :text}
+              ]},
+           reconnect:
+             {:keyword,
+              [
+                initial_ms: :positive_integer,
+                max_ms: :positive_integer,
+                jitter_ms: :non_negative_integer,
+                stable_ms: :positive_integer
+              ]}
+         ]},
       settings: {:keyword, [case_mapping: {:enum, [:rfc1459, :strict_rfc1459, :ascii]}, utf8_only: :boolean]},
       compatibility:
         {:keyword,

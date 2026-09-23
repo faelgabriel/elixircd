@@ -53,4 +53,12 @@ defmodule ElixIRCd.Utils.CaseMappingTest do
       assert CaseMapping.normalize("{|}~") == "[\\]^"
     end
   end
+
+  describe "normalize/2" do
+    test "supports each explicit mapping without reading application state" do
+      assert CaseMapping.normalize("{|}~", :ascii) == "{|}~"
+      assert CaseMapping.normalize("{|}~", :rfc1459) == "[\\]^"
+      assert CaseMapping.normalize("{|}~", :strict_rfc1459) == "[\\]~"
+    end
+  end
 end

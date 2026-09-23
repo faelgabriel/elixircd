@@ -15,6 +15,7 @@ defmodule ElixIRCd.Commands.Rename do
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelExcept
   alias ElixIRCd.Tables.ChannelInvex
+  alias ElixIRCd.Tables.ChannelListTombstone
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Tables.ChatHistory
   alias ElixIRCd.Tables.ReadMarker
@@ -89,6 +90,11 @@ defmodule ElixIRCd.Commands.Rename do
     migrate_channel_key(ChannelBan, old_key, new_key, fn record -> %{record | channel_name_key: new_key} end)
     migrate_channel_key(ChannelExcept, old_key, new_key, fn record -> %{record | channel_name_key: new_key} end)
     migrate_channel_key(ChannelInvex, old_key, new_key, fn record -> %{record | channel_name_key: new_key} end)
+
+    migrate_channel_key(ChannelListTombstone, old_key, new_key, fn record ->
+      %{record | id: {new_key, record.mode, record.mask}, channel_name_key: new_key}
+    end)
+
     migrate_channel_key(ChannelInvite, old_key, new_key, fn record -> %{record | channel_name_key: new_key} end)
     migrate_registered_channel(old_key, new_key, new_name)
     migrate_registered_access(old_key, new_key)

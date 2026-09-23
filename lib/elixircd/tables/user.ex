@@ -4,13 +4,21 @@ defmodule ElixIRCd.Tables.User do
   """
 
   alias ElixIRCd.ModeRegistry
+  alias ElixIRCd.Server.S2S.Identity
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.HostnameCloaking
 
-  @enforce_keys [:pid, :transport, :ip_address, :port_connected, :registered, :modes, :last_activity, :created_at]
+  @enforce_keys [:uid, :pid, :transport, :ip_address, :port_connected, :registered, :modes, :last_activity, :created_at]
   use Memento.Table,
     attributes: [
+      :uid,
       :pid,
+      :connection_generation,
+      :home_sid,
+      :home_boot,
+      :owner_rev,
+      :membership_rev,
+      :effective_nick,
       :transport,
       :ip_address,
       :port_connected,
@@ -42,11 +50,18 @@ defmodule ElixIRCd.Tables.User do
       :registered_at,
       :created_at
     ],
-    index: [:nick_key, :ip_address, :identified_as_key],
+    index: [:pid, :nick_key, :ip_address, :identified_as_key],
     type: :set
 
   @type t :: %__MODULE__{
-          pid: pid(),
+          pid: pid() | nil,
+          connection_generation: Identity.id() | nil,
+          uid: Identity.id(),
+          home_sid: String.t() | nil,
+          home_boot: Identity.id() | nil,
+          owner_rev: non_neg_integer(),
+          membership_rev: non_neg_integer(),
+          effective_nick: String.t() | nil,
           transport: :tcp | :tls | :ws | :wss,
           ip_address: :inet.ip_address(),
           port_connected: :inet.port_number(),
@@ -80,7 +95,14 @@ defmodule ElixIRCd.Tables.User do
         }
 
   @type t_attrs :: %{
-          optional(:pid) => pid(),
+          optional(:pid) => pid() | nil,
+          optional(:connection_generation) => Identity.id() | nil,
+          optional(:uid) => Identity.id(),
+          optional(:home_sid) => String.t() | nil,
+          optional(:home_boot) => Identity.id() | nil,
+          optional(:owner_rev) => non_neg_integer(),
+          optional(:membership_rev) => non_neg_integer(),
+          optional(:effective_nick) => String.t() | nil,
           optional(:transport) => :tcp | :tls | :ws | :wss,
           optional(:ip_address) => :inet.ip_address(),
           optional(:port_connected) => :inet.port_number(),
@@ -120,6 +142,13 @@ defmodule ElixIRCd.Tables.User do
     new_attrs =
       attrs
       |> Map.put_new(:registered, false)
+      |> Map.put_new(:uid, Identity.uid())
+      |> Map.put_new(:connection_generation, Identity.nonce())
+      |> Map.put_new(:home_sid, local_sid())
+      |> Map.put_new(:home_boot, nil)
+      |> Map.put_new(:owner_rev, 1)
+      |> Map.put_new(:membership_rev, 0)
+      |> Map.put_new(:effective_nick, Map.get(attrs, :nick))
       |> Map.put_new(:modes, [])
       |> Map.put_new(:capabilities, [])
       |> Map.put_new(:cap_version, 301)
@@ -139,12 +168,25 @@ defmodule ElixIRCd.Tables.User do
   def update(user, attrs) do
     new_attrs =
       attrs
+      |> Map.put_new(:owner_rev, (user.owner_rev || 1) + 1)
       |> handle_nick_key()
       |> handle_identified_as_key()
       |> maybe_generate_cloaked_hostname()
 
     struct!(user, new_attrs)
   end
+
+  @doc "Returns whether two user records identify the same network user."
+  @spec same_identity?(t(), t()) :: boolean()
+  def same_identity?(%__MODULE__{uid: left}, %__MODULE__{uid: right})
+      when is_binary(left) and is_binary(right),
+      do: left == right
+
+  def same_identity?(%__MODULE__{pid: left}, %__MODULE__{pid: right})
+      when is_pid(left) and is_pid(right),
+      do: left == right
+
+  def same_identity?(_left, _right), do: false
 
   @spec handle_nick_key(t_attrs()) :: t_attrs()
   defp handle_nick_key(%{nick: nick} = attrs) do
@@ -187,5 +229,14 @@ defmodule ElixIRCd.Tables.User do
     hostname = Map.get(attrs, :hostname)
     cloaked = HostnameCloaking.cloak(ip_address, hostname)
     Map.put(attrs, :cloaked_hostname, cloaked)
+  end
+
+  defp local_sid do
+    Application.get_env(:elixircd, :s2s, [])
+    |> case do
+      config when is_list(config) -> Keyword.get(config, :server_id, "local")
+      config when is_map(config) -> Map.get(config, :server_id, Map.get(config, "server_id", "local"))
+      _ -> "local"
+    end
   end
 end

@@ -29,6 +29,13 @@ defmodule ElixIRCd.MetadataTest do
       assert Metadata.writable?(oper, alice_target)
       refute Metadata.writable?(bob, alice_target)
 
+      remote_alice = %{alice | pid: nil}
+      remote_bob = %{bob | pid: nil}
+      remote_target = %{alice_target | entity: remote_alice}
+
+      assert Metadata.writable?(remote_alice, remote_target)
+      refute Metadata.writable?(remote_bob, remote_target)
+
       {:ok, private_target} = Metadata.resolve_target(oper, "#private")
       refute Metadata.writable?(alice, private_target)
       insert(:user_channel, user: alice, channel: private, modes: [:o])

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Wallops do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Audience
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -41,6 +42,8 @@ defmodule ElixIRCd.Commands.Wallops do
 
     %Message{command: "WALLOPS", params: [], trailing: message}
     |> Dispatcher.broadcast(user, target_users)
+
+    Audience.publish(user, "wallops", message)
   end
 
   @spec noprivileges_message(User.t()) :: :ok

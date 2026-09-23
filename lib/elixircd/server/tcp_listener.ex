@@ -55,6 +55,14 @@ defmodule ElixIRCd.Server.TcpListener do
   end
 
   @impl GenServer
+  def handle_info({:disconnect, uid, reason}, {socket, state}) when is_binary(uid) do
+    if Connection.current_uid() == uid do
+      {:stop, {:shutdown, :local_closed}, {socket, Map.put(state, :quit_reason, reason)}}
+    else
+      {:noreply, {socket, state}}
+    end
+  end
+
   def handle_info({:broadcast, message}, {socket, state}) when is_binary(message) do
     ThousandIsland.Socket.send(socket, message)
     {:noreply, {socket, state}}
@@ -62,6 +70,16 @@ defmodule ElixIRCd.Server.TcpListener do
 
   def handle_info({:disconnect, reason}, {socket, state}) do
     {:stop, {:shutdown, :local_closed}, {socket, Map.put(state, :quit_reason, reason)}}
+  end
+
+  def handle_info({:s2s_reply, uid, result}, {socket, state}) do
+    Connection.handle_s2s_reply(self(), uid, result)
+    {:noreply, {socket, state}}
+  end
+
+  def handle_info({:s2s_reply, uid, request_id, result, context}, {socket, state}) do
+    Connection.handle_s2s_reply(self(), uid, request_id, result, context)
+    {:noreply, {socket, state}}
   end
 
   def handle_info({:EXIT, _pid, _type}, {socket, state}), do: {:noreply, {socket, state}}

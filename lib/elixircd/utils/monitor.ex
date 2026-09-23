@@ -9,6 +9,8 @@ defmodule ElixIRCd.Utils.Monitor do
   alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.ServiceEndpoint
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
 
@@ -63,9 +65,7 @@ defmodule ElixIRCd.Utils.Monitor do
   @spec notify_online(User.t()) :: :ok
   def notify_online(user) do
     if enabled?() do
-      nick_key = CaseMapping.normalize(user.nick)
-      monitors = UserMonitors.get_by_target_nick_key(nick_key)
-      monitoring_users = Users.get_by_pids(Enum.map(monitors, & &1.user_pid))
+      monitoring_users = monitoring_users(user.nick)
 
       user_mask_str = user_mask(user)
 
@@ -84,9 +84,7 @@ defmodule ElixIRCd.Utils.Monitor do
   @spec notify_offline(User.t()) :: :ok
   def notify_offline(user) do
     if enabled?() do
-      nick_key = CaseMapping.normalize(user.nick)
-      monitors = UserMonitors.get_by_target_nick_key(nick_key)
-      monitoring_users = Users.get_by_pids(Enum.map(monitors, & &1.user_pid))
+      monitoring_users = monitoring_users(user.nick)
 
       Enum.each(monitoring_users, fn monitoring_user ->
         %Message{command: :rpl_monoffline, params: [monitoring_user.nick], trailing: user.nick}
@@ -95,5 +93,83 @@ defmodule ElixIRCd.Utils.Monitor do
     end
 
     :ok
+  end
+
+  @doc "Notifies local MONITOR subscribers for a user present only in S2S state."
+  @spec notify_online_projection(map(), map()) :: :ok
+  def notify_online_projection(projection, runtime) when is_map(projection) and is_map(runtime) do
+    if enabled?() do
+      case ServiceEndpoint.caller_user(runtime, projection["uid"]) do
+        {:ok, user} -> notify_online(user)
+        _ -> :ok
+      end
+    else
+      :ok
+    end
+  rescue
+    _ -> :ok
+  end
+
+  @doc "Notifies local MONITOR subscribers for a user leaving S2S state."
+  @spec notify_offline_projection(map(), map()) :: :ok
+  def notify_offline_projection(projection, runtime) when is_map(projection) and is_map(runtime) do
+    if enabled?() do
+      user = ServiceEndpoint.user_from_projection(projection, runtime)
+      notify_offline(user)
+    else
+      :ok
+    end
+  rescue
+    _ -> :ok
+  end
+
+  @doc "Notifies local MONITOR subscribers when the logical ChanServ endpoint changes reachability."
+  @spec notify_service_presence_change(map(), map()) :: :ok
+  def notify_service_presence_change(previous_runtime, runtime)
+      when is_map(previous_runtime) and is_map(runtime) do
+    if enabled?(), do: service_presence_transition(previous_runtime, runtime), else: :ok
+  rescue
+    _ -> :ok
+  end
+
+  defp service_presence_transition(previous_runtime, runtime) do
+    case {View.services_ready?(previous_runtime), View.services_ready?(runtime)} do
+      {false, true} -> notify_service_online(runtime)
+      {true, false} -> notify_service_offline(previous_runtime)
+      _ -> :ok
+    end
+  end
+
+  defp notify_service_online(runtime) do
+    case View.chanserv_user(runtime) do
+      {:ok, service} -> notify_online(service)
+      _ -> :ok
+    end
+  end
+
+  defp notify_service_offline(runtime) do
+    case View.chanserv_user(runtime) do
+      {:ok, service} -> notify_offline(service)
+      _ -> :ok
+    end
+  end
+
+  defp monitoring_users(nick) when is_binary(nick) do
+    read_monitoring_users(CaseMapping.normalize(nick))
+  end
+
+  defp monitoring_users(_nick), do: []
+
+  defp read_monitoring_users(nick_key) do
+    load = fn ->
+      nick_key
+      |> UserMonitors.get_by_target_nick_key()
+      |> Enum.map(& &1.user_pid)
+      |> Users.get_by_pids()
+    end
+
+    if :mnesia.is_transaction(), do: load.(), else: Memento.transaction!(load)
+  rescue
+    _ -> []
   end
 end

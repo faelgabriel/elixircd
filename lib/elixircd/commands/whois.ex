@@ -16,6 +16,8 @@ defmodule ElixIRCd.Commands.Whois do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.CaseMapping
@@ -82,7 +84,10 @@ defmodule ElixIRCd.Commands.Whois do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  defp add_metadata(messages, user, target_user), do: messages ++ Metadata.whois_messages(user, target_user)
+  defp add_metadata(messages, user, %User{pid: pid} = target_user) when is_pid(pid),
+    do: messages ++ Metadata.whois_messages(user, target_user)
+
+  defp add_metadata(messages, _user, _target_user), do: messages
 
   @spec add_whoisuser([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp add_whoisuser(messages, user, target_user) do
@@ -109,7 +114,7 @@ defmodule ElixIRCd.Commands.Whois do
 
   @spec maybe_add_whoismodes([Message.t()], User.t(), User.t()) :: [Message.t()]
   defp maybe_add_whoismodes(messages, user, target_user) do
-    if user.pid == target_user.pid or irc_operator?(user) do
+    if User.same_identity?(user, target_user) or irc_operator?(user) do
       modes = "+" <> (target_user.modes |> Enum.sort() |> Enum.map_join(&ModeRegistry.encode!(:user, &1)))
 
       messages ++
@@ -237,7 +242,73 @@ defmodule ElixIRCd.Commands.Whois do
         process_target_user(user, target_user)
 
       _ ->
+        network_target_user(user, target_nick)
+    end
+  end
+
+  defp network_target_user(user, target_nick) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager) do
+      case View.user_by_nick(runtime, target_nick) do
+        {:ok, _uid, target_user} ->
+          {target_user, network_target_channels(user, target_user, runtime)}
+
+        _ ->
+          network_service_target(user, target_nick, runtime)
+      end
+    else
+      _ -> {nil, []}
+    end
+  end
+
+  defp network_service_target(user, target_nick, runtime) do
+    case View.chanserv_user_by_nick(runtime, target_nick) do
+      {:ok, service} ->
+        channels = View.guarded_service_channels(runtime, user.uid) |> Enum.map(& &1.name)
+        {service, channels}
+
+      _ ->
         {nil, []}
+    end
+  end
+
+  defp network_target_channels(user, target_user, runtime) do
+    viewer_channels = network_membership_keys(runtime, user.uid)
+    target_channels = network_user_channels(runtime, target_user.uid)
+
+    target_channels
+    |> Enum.filter(fn {channel, _membership} ->
+      channel.name_key in viewer_channels or (:s not in channel.modes and :p not in channel.modes)
+    end)
+    |> Enum.map(fn {channel, membership} ->
+      membership_prefix(membership, "multi-prefix" in user.capabilities) <> channel.name
+    end)
+    |> Enum.reverse()
+  end
+
+  defp network_membership_keys(runtime, uid) do
+    case runtime.memberships[uid] do
+      %{entries: entries} -> Enum.map(entries, &CaseMapping.normalize(&1["channel"]))
+      _ -> []
+    end
+  end
+
+  defp network_user_channels(runtime, uid) do
+    case runtime.memberships[uid] do
+      %{entries: entries} ->
+        Enum.flat_map(entries, &network_user_channel(runtime, uid, &1))
+
+      _ ->
+        []
+    end
+  end
+
+  defp network_user_channel(runtime, uid, entry) do
+    with {:ok, channel, _runtime_channel} <- View.channel(runtime, entry["channel"]),
+         {:ok, membership} <- View.membership(runtime, uid, entry["channel"]) do
+      [{channel, membership}]
+    else
+      _ -> []
     end
   end
 

@@ -89,7 +89,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
     case Users.get_by_nick(registered_nick.nickname) do
       {:ok, target_user} ->
-        if user.pid == target_user.pid do
+        if User.same_identity?(user, target_user) do
           notify(user, "You cannot recover your own session.")
         else
           ghost_message = "Killed (#{user.nick} (RECOVER command used))"

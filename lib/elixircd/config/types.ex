@@ -43,6 +43,15 @@ defmodule ElixIRCd.Config.Types do
 
   def valid?(:server_hostname, value), do: valid?(:hostname, value) and byte_size(value) <= 63
 
+  def valid?(:s2s_sid, value),
+    do: is_binary(value) and Regex.match?(~r/\A[a-z][a-z0-9-]{0,15}\z/, value)
+
+  def valid?(:s2s_network_id, value),
+    do: is_binary(value) and byte_size(value) in 1..64 and Regex.match?(~r/\A[A-Za-z0-9._-]+\z/, value)
+
+  def valid?(:fingerprint, value),
+    do: is_binary(value) and byte_size(value) == 64 and Regex.match?(~r/\A[0-9a-fA-F]+\z/, value)
+
   def valid?(:email, value), do: valid?(:text, value) and Validation.validate_email(value) == :ok
 
   def valid?(:nickname, value),

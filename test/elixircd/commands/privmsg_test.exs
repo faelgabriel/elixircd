@@ -1,3 +1,31 @@
+defmodule ElixIRCd.Commands.PrivmsgTest.FantasyManager do
+  use GenServer
+
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.Manager
+
+  def start_link(runtime, parent), do: GenServer.start_link(__MODULE__, {runtime, parent}, name: Manager)
+
+  @impl true
+  def init({runtime, parent}), do: {:ok, %{runtime: runtime, parent: parent}}
+
+  @impl true
+  def handle_call(:runtime_view, _from, state), do: {:reply, state.runtime, state}
+
+  @impl true
+  def handle_call(:status, _from, state), do: {:reply, %{services_authority: "root"}, state}
+
+  @impl true
+  def handle_call(
+        {:request_with_reply_context, _target_sid, _actor, "service", args, _guards, _waiter, _ttl_ms},
+        _from,
+        state
+      ) do
+    send(state.parent, {:fantasy_request, args})
+    {:reply, {:ok, Identity.nonce()}, state}
+  end
+end
+
 defmodule ElixIRCd.Commands.PrivmsgTest do
   @moduledoc false
 
@@ -11,6 +39,10 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
   alias ElixIRCd.Commands.Privmsg
   alias ElixIRCd.Message
   alias ElixIRCd.Service
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.Policy
+  alias ElixIRCd.Commands.PrivmsgTest.FantasyManager
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
@@ -1150,5 +1182,88 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
+  end
+
+  test "routes a global fantasy command once to the channel service authority" do
+    Memento.transaction!(fn ->
+      user = insert(:user, identified_as: "helper")
+      another_user = insert(:user)
+      channel = insert(:channel, name: "#network-fantasy")
+      insert(:user_channel, user: user, channel: channel)
+      insert(:user_channel, user: another_user, channel: channel)
+
+      policy =
+        Policy.new(
+          epoch: Identity.nonce(),
+          revision: 1,
+          ready?: true,
+          objects: %{
+            {"channel", "#network-fantasy"} => %{
+              "settings" => %{"guard" => true, "fantasy" => true}
+            }
+          }
+        )
+
+      assert Process.whereis(Manager) == nil
+      {:ok, manager} = FantasyManager.start_link(%{policy: policy}, self())
+      Process.unlink(manager)
+
+      on_exit(fn ->
+        if Process.alive?(manager), do: GenServer.stop(manager)
+      end)
+
+      message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "!op AnotherNick"}
+
+      assert :ok = Privmsg.handle(user, message)
+
+      assert_receive {:fantasy_request, args}
+
+      assert args == %{
+               "service" => "ChanServ",
+               "arguments" => ["OP", "#network-fantasy", "AnotherNick"],
+               "scope" => "channel",
+               "channel" => "#network-fantasy"
+             }
+
+      assert_sent_messages_amount(another_user.pid, 0)
+    end)
+  end
+
+  test "keeps local fantasy commands on an ampersand channel" do
+    Memento.transaction!(fn ->
+      user = insert(:user, identified_as: "helper")
+      channel = insert(:channel, name: "&local-fantasy")
+      settings = Settings.new(%{guard: true, fantasy: true})
+
+      insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
+      insert(:user_channel, user: user, channel: channel)
+
+      policy = Policy.new(epoch: Identity.nonce(), revision: 1, ready?: true)
+
+      assert Process.whereis(Manager) == nil
+      {:ok, manager} = FantasyManager.start_link(%{policy: policy}, self())
+      Process.unlink(manager)
+
+      on_exit(fn ->
+        if Process.alive?(manager), do: GenServer.stop(manager)
+      end)
+
+      Service
+      |> expect(:dispatch, fn dispatched_user, service, command_list ->
+        assert dispatched_user == user
+        assert service == "ChanServ"
+        assert command_list == ["OP", "&local-fantasy", "AnotherNick"]
+        :ok
+      end)
+
+      assert :ok =
+               Privmsg.handle(
+                 user,
+                 %Message{command: "PRIVMSG", params: [channel.name], trailing: "!op AnotherNick"}
+               )
+
+      assert_sent_messages_amount(user.pid, 0)
+      verify!()
+    end)
   end
 end

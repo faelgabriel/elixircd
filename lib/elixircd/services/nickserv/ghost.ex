@@ -42,7 +42,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
 
   @spec disconnect_ghost(User.t(), User.t(), String.t() | nil) :: :ok
   defp disconnect_ghost(user, target_user, password) do
-    if user.pid == target_user.pid do
+    if User.same_identity?(user, target_user) do
       notify(user, "You cannot ghost yourself.")
     else
       case RegisteredNicks.get_by_nickname(target_user.nick) do

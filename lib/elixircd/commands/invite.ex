@@ -16,6 +16,12 @@ defmodule ElixIRCd.Commands.Invite do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.Server.S2S.Action
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.LocalChannel
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -48,17 +54,29 @@ defmodule ElixIRCd.Commands.Invite do
   end
 
   @impl true
-  def handle(user, %{command: "INVITE", params: [first, second | _rest]}) do
+  def handle(user, %{command: "INVITE", params: [first, second | _rest], tags: tags}) do
+    response_context = Action.response_context(user, tags, "INVITE target server is unavailable")
+
     if legacy_order_enabled?() and channel_name?(first) do
-      handle_legacy_order(user, first, second)
+      handle_legacy_order(user, first, second, response_context)
     else
-      handle_modern_order(user, first, second)
+      handle_modern_order(user, first, second, response_context)
     end
   end
 
-  defp handle_modern_order(user, target_nick, channel_name) do
+  defp handle_modern_order(user, target_nick, channel_name, response_context) do
+    case remote_invite_context(target_nick) do
+      {:ok, manager, runtime, target_uid, target_user, target_sid} ->
+        remote_invite(user, manager, runtime, target_uid, target_user, target_sid, channel_name, response_context)
+
+      :local ->
+        local_modern_invite(user, target_nick, channel_name)
+    end
+  end
+
+  defp local_modern_invite(user, target_nick, channel_name) do
     with {:ok, target_user} <- get_target_user(target_nick),
-         {:ok, channel} <- Channels.get_by_name(channel_name),
+         {:ok, channel} <- LocalChannel.ensure(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel, channel),
          :ok <- check_target_user_on_channel(target_user, channel) do
@@ -69,15 +87,78 @@ defmodule ElixIRCd.Commands.Invite do
     end
   end
 
-  defp handle_legacy_order(user, channel_name, target_nick) do
-    case get_target_user(target_nick) do
-      {:ok, target_user} ->
-        %Message{command: "INVITE", params: [channel_name, target_user.nick]}
-        |> Dispatcher.broadcast(user, [user, target_user])
+  defp handle_legacy_order(user, channel_name, target_nick, response_context) do
+    case remote_invite_context(target_nick) do
+      {:ok, manager, runtime, target_uid, target_user, target_sid} ->
+        remote_invite(user, manager, runtime, target_uid, target_user, target_sid, channel_name, response_context)
 
-      {:error, error} ->
-        send_user_invite_error(error, user, target_nick, channel_name)
+      :local ->
+        case get_target_user(target_nick) do
+          {:ok, target_user} ->
+            %Message{command: "INVITE", params: [channel_name, target_user.nick]}
+            |> Dispatcher.broadcast(user, [user, target_user])
+
+          {:error, error} ->
+            send_user_invite_error(error, user, target_nick, channel_name)
+        end
     end
+  end
+
+  defp remote_invite(user, manager, runtime, target_uid, target_user, target_sid, channel_name, response_context) do
+    with {:ok, channel, actor_membership} <- Action.actor_channel_context(runtime, channel_name, user),
+         :ok <- check_user_permission(actor_membership, channel),
+         {:error, :membership_not_found} <- View.membership(runtime, target_uid, channel_name),
+         invite_id <- Identity.nonce(),
+         args <- %{
+           "invite_id" => invite_id,
+           "inviter_uid" => user.uid,
+           "target_uid" => target_uid,
+           "channel" => channel.ref,
+           "expires_ms" => 0
+         },
+         guards <- Action.invite_guards(runtime, user, actor_membership, target_user, channel),
+         response_context <-
+           Action.success_context(response_context, %{
+             "command" => "341",
+             "params" => [user.nick, target_user.nick, channel.name],
+             "trailing" => nil
+           }),
+         :queued <- Action.enqueue(manager, target_sid, user, "invite", args, guards, response_context) do
+      ResponseContext.defer_response(user)
+      :ok
+    else
+      {:error, :channel_not_found} ->
+        send_user_invite_error(:channel_not_found, user, target_user.nick, channel_name)
+
+      {:error, :membership_not_found} ->
+        send_user_invite_error(:user_channel_not_found, user, target_user.nick, channel_name)
+
+      {:ok, _target_membership} ->
+        send_user_invite_error(:user_already_on_channel, user, target_user.nick, channel_name)
+
+      {:error, :channel_context_unavailable} ->
+        send_remote_error(user, "INVITE target state is unavailable")
+
+      {:error, _reason} ->
+        send_remote_error(user, "INVITE target server is unavailable")
+    end
+  end
+
+  defp remote_invite_context(target_nick) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, target_uid, target_user, target_sid} <- Action.remote_target(runtime, target_nick) do
+      {:ok, manager, runtime, target_uid, target_user, target_sid}
+    else
+      :local -> :local
+      {:error, :not_found} -> :local
+      _ -> :local
+    end
+  end
+
+  defp send_remote_error(user, message) do
+    %Message{command: "NOTICE", params: [user.nick], trailing: message}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   defp legacy_order_enabled? do

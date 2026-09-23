@@ -27,10 +27,16 @@ defmodule ElixIRCd.Commands.Privmsg do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.Policy
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Service
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Statusmsg
   alias ElixIRCd.Utils.Targets
 
@@ -75,7 +81,7 @@ defmodule ElixIRCd.Commands.Privmsg do
       :error ->
         cond do
           fantasy_command_message?(target, message_text) ->
-            handle_fantasy_channel_message(user, target, message_text)
+            handle_fantasy_channel_message(user, target, message_text, message.tags)
 
           channel_name?(target) ->
             handle_channel_message(user, target, message_text, message.tags)
@@ -113,18 +119,91 @@ defmodule ElixIRCd.Commands.Privmsg do
       users = Users.get_by_pids(user_pids)
 
       %Message{command: "PRIVMSG", params: [wire_target], trailing: message_text, tags: message_tags}
-      |> Dispatcher.broadcast_with_echo(user, users)
+      |> then(fn local_message ->
+        Dispatcher.broadcast_with_echo(local_message, user, users)
+        publish_remote_channel_message(user, channel, user_channel, message_text, message_tags, status_prefix)
+      end)
     end)
+  end
+
+  @spec publish_remote_channel_message(
+          User.t(),
+          Channel.t(),
+          UserChannel.t() | nil,
+          String.t(),
+          Message.tags(),
+          String.t() | nil
+        ) :: :ok
+  defp publish_remote_channel_message(user, channel, user_channel, message_text, message_tags, status_prefix) do
+    if String.starts_with?(channel.name, "&") do
+      :ok
+    else
+      case Process.whereis(Manager) do
+        nil ->
+          :ok
+
+        manager ->
+          with {:ok, runtime} <- View.runtime(manager),
+               {:ok, _projected_channel, runtime_channel} <- View.channel(runtime, channel.name),
+               target <- %{
+                 "channel" => runtime_channel.ref,
+                 "minimum_status" => minimum_status(channel, user_channel, status_prefix)
+               } do
+            _ =
+              Manager.publish_message(
+                manager,
+                user.uid,
+                target,
+                "PRIVMSG",
+                message_text,
+                message_tags,
+                nil,
+                deliver_local: false
+              )
+
+            :ok
+          else
+            _ -> :ok
+          end
+      end
+    end
+  end
+
+  defp minimum_status(channel, user_channel, status_prefix) do
+    requested =
+      case status_prefix do
+        "@" -> "o"
+        "+" -> "v"
+        _ -> nil
+      end
+
+    privileged? = user_channel != nil and (channel_operator?(user_channel) or channel_voice?(user_channel))
+
+    if :U in channel.modes and not privileged?,
+      do: "o",
+      else: requested
   end
 
   @spec maybe_filter_status([UserChannel.t()], String.t() | nil) :: [UserChannel.t()]
   defp maybe_filter_status(user_channels, nil), do: user_channels
   defp maybe_filter_status(user_channels, prefix), do: Enum.filter(user_channels, &Statusmsg.eligible?(&1, prefix))
 
-  @spec handle_fantasy_channel_message(User.t(), String.t(), String.t()) :: :ok
-  defp handle_fantasy_channel_message(user, channel_name, message_text) do
+  @spec handle_fantasy_channel_message(User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp handle_fantasy_channel_message(user, channel_name, message_text, message_tags) do
     with_channel_message_permissions(user, channel_name, message_text, fn channel, _user_channel ->
-      Service.dispatch(user, "ChanServ", fantasy_command_list(channel.name, message_text))
+      command_list = fantasy_command_list(channel.name, message_text)
+
+      case remote_service_request(user, "ChanServ", command_list, message_tags, "channel", channel.name) do
+        :local ->
+          Service.dispatch(user, "ChanServ", command_list)
+
+        :queued ->
+          ResponseContext.defer_response(user)
+
+        {:error, reason} ->
+          %Message{command: "NOTICE", params: [user.nick], trailing: reason}
+          |> Dispatcher.broadcast(:server, user)
+      end
     end)
   end
 
@@ -211,7 +290,19 @@ defmodule ElixIRCd.Commands.Privmsg do
         registered_channel.settings.guard and registered_channel.settings.fantasy
 
       {:error, :registered_channel_not_found} ->
-        false
+        network_fantasy_enabled?(channel_name)
+    end
+  end
+
+  defp network_fantasy_enabled?(channel_name) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         true <- Policy.grant_ready?(runtime.policy),
+         {:ok, %{"settings" => settings}} <-
+           Policy.get(runtime.policy, "channel", CaseMapping.normalize(channel_name)) do
+      settings["guard"] == true and settings["fantasy"] == true
+    else
+      _ -> false
     end
   end
 
@@ -243,14 +334,165 @@ defmodule ElixIRCd.Commands.Privmsg do
   @spec handle_service_message(User.t(), String.t(), Message.t()) :: :ok
   defp handle_service_message(user, target_service, message) do
     command_list = extract_command_list(message)
-    Service.dispatch(user, target_service, command_list)
+
+    case remote_service_request(user, target_service, command_list, message.tags) do
+      :local ->
+        Service.dispatch(user, target_service, command_list)
+
+      :queued ->
+        ResponseContext.defer_response(user)
+        :ok
+
+      {:error, reason} ->
+        %Message{command: "NOTICE", params: [user.nick], trailing: reason}
+        |> Dispatcher.broadcast(:server, user)
+    end
+  end
+
+  defp remote_service_request(user, service, command_list, message_tags),
+    do: remote_service_request(user, service, command_list, message_tags, "global", nil)
+
+  defp remote_service_request(user, service, command_list, message_tags, scope, channel) do
+    case Process.whereis(Manager) do
+      nil ->
+        :local
+
+      manager ->
+        try do
+          status = Manager.status(manager)
+
+          cond do
+            local_service_scope?(service, command_list) ->
+              :local
+
+            not is_binary(status[:services_authority]) ->
+              :local
+
+            true ->
+              args = %{
+                "service" => service,
+                "arguments" => command_list,
+                "scope" => scope,
+                "channel" => channel
+              }
+
+              response_context = %{label: remote_label(user, message_tags)}
+
+              case Manager.request_with_reply_context(
+                     manager,
+                     status.services_authority,
+                     %{"user" => user.uid},
+                     "service",
+                     args,
+                     empty_service_guards(),
+                     self(),
+                     user.uid,
+                     response_context
+                   ) do
+                {:ok, _request_id} ->
+                  :queued
+
+                {:error, :target_unreachable} ->
+                  {:error, "Services are currently unavailable."}
+
+                {:error, _reason} ->
+                  {:error, "Services are currently unavailable."}
+              end
+          end
+        catch
+          :exit, _ -> {:error, "Services are currently unavailable."}
+        end
+    end
+  end
+
+  defp remote_label(user, tags) when is_map(tags) do
+    label = Map.get(tags, "label")
+
+    if "batch" in user.capabilities and "labeled-response" in user.capabilities and
+         is_binary(label) and byte_size(label) in 1..64,
+       do: label,
+       else: nil
+  end
+
+  defp remote_label(_user, _tags), do: nil
+
+  defp local_service_scope?("ChanServ", [command | arguments]) when is_binary(command) do
+    command = String.upcase(command)
+
+    command != "HELP" and
+      case List.first(arguments) do
+        channel when is_binary(channel) -> String.starts_with?(channel, "&")
+        _ -> false
+      end
+  end
+
+  defp local_service_scope?(_service, _command_list), do: false
+
+  defp empty_service_guards do
+    %{
+      "actor_uid" => nil,
+      "actor_user_rev" => nil,
+      "actor_join_id" => nil,
+      "target_user_rev" => nil,
+      "target_join_id" => nil,
+      "channel" => nil,
+      "policy_epoch" => nil,
+      "policy_revision" => nil
+    }
   end
 
   @spec handle_user_message(User.t(), String.t(), String.t(), Message.tags()) :: :ok
   defp handle_user_message(user, target_nick, message_text, message_tags) do
     case Users.get_by_nick(target_nick) do
       {:ok, target_user} -> send_user_message(user, target_user, target_nick, message_text, message_tags)
-      {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
+      {:error, :user_not_found} -> handle_network_user_message(user, target_nick, message_text, message_tags)
+    end
+  end
+
+  @spec handle_network_user_message(User.t(), String.t(), String.t(), Message.tags()) :: :ok
+  defp handle_network_user_message(user, target_nick, message_text, message_tags) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, _uid, target_user} <- View.user_by_nick(runtime, target_nick) do
+      send_network_user_message(user, target_user, target_nick, message_text, message_tags, manager)
+    else
+      _ -> handle_user_not_found(user, target_nick)
+    end
+  end
+
+  @spec send_network_user_message(User.t(), User.t(), String.t(), String.t(), Message.tags(), pid()) :: :ok
+  defp send_network_user_message(user, target_user, target_nick, message_text, message_tags, manager) do
+    cond do
+      :R in target_user.modes and :r not in user.modes ->
+        handle_restricted_user_message(user, target_user)
+
+      true ->
+        target = %{"user" => target_user.uid}
+
+        case Manager.publish_message(
+               manager,
+               user.uid,
+               target,
+               "PRIVMSG",
+               message_text,
+               message_tags,
+               Identity.nonce(),
+               reply_to: {user.pid, user.uid, %{}}
+             ) do
+          :ok ->
+            %Message{command: "PRIVMSG", params: [target_nick], trailing: message_text, tags: message_tags}
+            |> Dispatcher.broadcast_with_echo(user, [])
+
+            if target_user.away_message do
+              %Message{command: :rpl_away, params: [user.nick, target_user.nick], trailing: target_user.away_message}
+              |> Dispatcher.broadcast(:server, user)
+            end
+
+            :ok
+
+          {:error, _reason} ->
+            handle_user_not_found(user, target_nick)
+        end
     end
   end
 

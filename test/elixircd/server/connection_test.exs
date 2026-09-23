@@ -5,6 +5,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
   use ElixIRCd.MessageCase
   use Mimic
 
+  import ExUnit.CaptureLog
   import ElixIRCd.Factory
 
   alias ElixIRCd.Command
@@ -331,6 +332,20 @@ defmodule ElixIRCd.Server.ConnectionTest do
       ])
     end
 
+    test "does not log incoming private payloads on UTF-8 rejection", %{user: user} do
+      private_payload = "private-sasl-or-message-content"
+      incoming = "PRIVMSG #test :#{private_payload}" <> <<0xFF>>
+
+      log =
+        capture_log([level: :debug], fn ->
+          Logger.put_process_level(self(), :debug)
+          Connection.handle_receive(user.pid, incoming)
+        end)
+
+      assert log =~ "Invalid UTF-8 message"
+      refute log =~ private_payload
+    end
+
     test "allows invalid UTF-8 message when utf8_only is disabled", %{user: user} do
       original_settings = Application.get_env(:elixircd, :settings)
       Application.put_env(:elixircd, :settings, Keyword.merge(original_settings, utf8_only: false))
@@ -520,6 +535,51 @@ defmodule ElixIRCd.Server.ConnectionTest do
     test "sends a {:broadcast, data} message to the given pid" do
       assert :ok = Connection.handle_send(self(), "hello")
       assert_received {:broadcast, "hello"}
+    end
+
+    test "does not log outgoing private message contents" do
+      private_payload = "private-message-content"
+      wire = ":alice PRIVMSG bob :#{private_payload}\r\n"
+      target = self()
+
+      log =
+        capture_log(
+          [level: :debug],
+          fn ->
+            Logger.put_process_level(self(), :debug)
+            assert :ok = Connection.handle_send(target, wire)
+          end
+        )
+
+      assert_received {:broadcast, ^wire}
+      assert log =~ "#{byte_size(wire)} bytes"
+      refute log =~ private_payload
+    end
+  end
+
+  describe "handle_s2s_reply/5" do
+    test "renders a command success item after the remote owner completes" do
+      user = insert(:user, pid: self(), capabilities: ["batch", "labeled-response"])
+
+      assert :ok =
+               Connection.handle_s2s_reply(
+                 self(),
+                 user.uid,
+                 "request-1",
+                 %{status: "OK", done: true, payload: %{"items" => []}},
+                 %{
+                   label: "request-1",
+                   success_item: %{
+                     "command" => "341",
+                     "params" => [user.nick, "remote", "#ops"],
+                     "trailing" => nil
+                   }
+                 }
+               )
+
+      assert_sent_messages([
+        {user.pid, "@label=request-1 :irc.test 341 #{user.nick} remote #ops\r\n"}
+      ])
     end
   end
 

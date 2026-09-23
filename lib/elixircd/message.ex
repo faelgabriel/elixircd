@@ -220,6 +220,11 @@ defmodule ElixIRCd.Message do
     end
   end
 
+  @doc "Returns the wire command token for a command string or known numeric atom."
+  @spec command_name(String.t() | atom()) :: String.t()
+  def command_name(command) when is_binary(command), do: command
+  def command_name(command) when is_atom(command), do: numeric_reply(command)
+
   # Parses a tags string into a map.
   # Format: tag1=value1;tag2=value2;tag3
   @spec parse_tags(String.t()) :: tags()

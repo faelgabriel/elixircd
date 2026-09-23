@@ -119,7 +119,7 @@ defmodule ElixIRCd.Commands.Redact do
     do: %Message{command: "REDACT", params: [target, msgid], trailing: reason}
 
   defp maybe_include_actor(recipients, user) do
-    if Enum.any?(recipients, &(&1.pid == user.pid)), do: recipients, else: [user | recipients]
+    if Enum.any?(recipients, &User.same_identity?(&1, user)), do: recipients, else: [user | recipients]
   end
 
   defp fail(user, code, target, msgid, description) do

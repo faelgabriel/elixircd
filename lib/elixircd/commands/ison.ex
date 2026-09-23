@@ -12,6 +12,8 @@ defmodule ElixIRCd.Commands.Ison do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -43,7 +45,29 @@ defmodule ElixIRCd.Commands.Ison do
   defp fetch_user_nick(target_nick) do
     case Users.get_by_nick(target_nick) do
       {:ok, user} -> user.nick
-      {:error, :user_not_found} -> nil
+      {:error, :user_not_found} -> network_user_nick(target_nick)
+    end
+  end
+
+  defp network_user_nick(target_nick) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager) do
+      case View.user_by_nick(runtime, target_nick) do
+        {:ok, _uid, user} ->
+          user.nick
+
+        _ ->
+          chanserv_nick(runtime, target_nick)
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  defp chanserv_nick(runtime, target_nick) do
+    case View.chanserv_user_by_nick(runtime, target_nick) do
+      {:ok, service} -> service.nick
+      _ -> nil
     end
   end
 end

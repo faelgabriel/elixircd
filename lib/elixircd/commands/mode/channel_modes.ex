@@ -16,6 +16,9 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
+  alias ElixIRCd.Server.S2S.Publication
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelExcept
@@ -520,25 +523,72 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   @spec user_channel_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
   defp user_channel_mode_applied?(user, {_action, {_mode_flag, target_nick}} = mode_change, channel_name) do
-    with {:ok, target_user} <- Users.get_by_nick(target_nick),
-         {:ok, target_user_channel} <- UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel_name) do
-      user_channel_mode_changed?(mode_change, target_user_channel)
+    case remote_user_channel_mode_applied?(user, mode_change, channel_name, target_nick) do
+      {:remote, changed?} ->
+        changed?
+
+      :local ->
+        with {:ok, target_user} <- Users.get_by_nick(target_nick),
+             {:ok, target_user_channel} <- UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel_name) do
+          user_channel_mode_changed?(mode_change, target_user_channel)
+        else
+          {:error, :user_channel_not_found} ->
+            %Message{
+              command: :err_usernotinchannel,
+              params: [user.nick, channel_name, target_nick],
+              trailing: "They aren't on that channel"
+            }
+            |> Dispatcher.broadcast(:server, user)
+
+            false
+
+          {:error, :user_not_found} ->
+            %Message{command: :err_nosuchnick, params: [user.nick, channel_name, target_nick], trailing: "No such nick"}
+            |> Dispatcher.broadcast(:server, user)
+
+            false
+        end
+    end
+  end
+
+  defp remote_user_channel_mode_applied?(_user, {_action, {mode_flag, _mode_target}}, _channel_name, _target_nick)
+       when mode_flag not in [:o, :v],
+       do: :local
+
+  defp remote_user_channel_mode_applied?(user, {action, {mode_flag, target_nick}}, channel_name, _target_nick)
+       when action in [:add, :remove] and mode_flag in [:o, :v] do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, target_uid, _target_user} <- remote_target(runtime, target_nick),
+         {:ok, _channel_struct, channel} <- View.channel(runtime, channel_name),
+         {:ok, membership} <- View.membership(runtime, target_uid, channel_name) do
+      current? = mode_flag in membership.modes
+      wanted? = action == :add
+
+      if current? != wanted? do
+        Publication.member_status_changed(
+          channel.ref,
+          target_uid,
+          membership.join_id,
+          Atom.to_string(mode_flag),
+          wanted?,
+          user.uid
+        )
+      end
+
+      {:remote, current? != wanted?}
     else
-      {:error, :user_channel_not_found} ->
-        %Message{
-          command: :err_usernotinchannel,
-          params: [user.nick, channel_name, target_nick],
-          trailing: "They aren't on that channel"
-        }
-        |> Dispatcher.broadcast(:server, user)
+      :local -> :local
+      _ -> :local
+    end
+  end
 
-        false
+  defp remote_user_channel_mode_applied?(_user, _mode_change, _channel_name, _target_nick), do: :local
 
-      {:error, :user_not_found} ->
-        %Message{command: :err_nosuchnick, params: [user.nick, channel_name, target_nick], trailing: "No such nick"}
-        |> Dispatcher.broadcast(:server, user)
-
-        false
+  defp remote_target(runtime, target_nick) do
+    case View.user_by_nick(runtime, target_nick) do
+      {:ok, uid, target_user} when target_user.home_sid != runtime.sid -> {:ok, uid, target_user}
+      _ -> :local
     end
   end
 

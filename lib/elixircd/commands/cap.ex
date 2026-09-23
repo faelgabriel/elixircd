@@ -20,9 +20,12 @@ defmodule ElixIRCd.Commands.Cap do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
+  alias ElixIRCd.Server.S2S.Output
+  alias ElixIRCd.Server.S2S.RemoteSASL
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
 
@@ -225,13 +228,26 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec handle_cap_end(User.t()) :: :ok
   defp handle_cap_end(user) do
+    abort_sasl_session(user)
     updated_user = Users.update(user, %{cap_negotiating: false})
     Handshake.handle(updated_user)
   end
 
+  defp abort_sasl_session(user) do
+    with {:ok, session} <- SaslSessions.get(user.pid),
+         %{state: %{remote_sasl: _}} <- session do
+      _ = RemoteSASL.abort(user, session)
+    else
+      _ -> :ok
+    end
+
+    SaslSessions.delete(user.pid)
+    :ok
+  end
+
   @doc "Returns the space-separated capabilities currently available to a user."
-  @spec get_capabilities_list(User.t()) :: String.t()
-  def get_capabilities_list(user) do
+  @spec get_capabilities_list(User.t(), map() | nil) :: String.t()
+  def get_capabilities_list(user, runtime \\ nil) do
     capabilities_config = Application.fetch_env!(:elixircd, :capabilities)
 
     capabilities =
@@ -257,7 +273,7 @@ defmodule ElixIRCd.Commands.Cap do
             {:multi_prefix, "multi-prefix"},
             {:multiline, build_multiline_capability_value()},
             {:read_marker, "draft/read-marker"},
-            {:sasl, build_sasl_capability_value()},
+            {:sasl, build_sasl_capability_value(user, runtime)},
             {:setname, "setname"},
             {:standard_replies, "standard-replies"},
             {:sts, build_sts_capability_value(user)},
@@ -276,15 +292,52 @@ defmodule ElixIRCd.Commands.Cap do
   end
 
   @doc "Returns advertised capability names mapped to their complete per-user values."
-  @spec capability_map(User.t()) :: %{String.t() => String.t()}
-  def capability_map(user) do
+  @spec capability_map(User.t(), map() | nil) :: %{String.t() => String.t()}
+  def capability_map(user, runtime \\ nil) do
     user
-    |> get_capabilities_list()
+    |> get_capabilities_list(runtime)
     |> String.split()
     |> Map.new(fn capability ->
       name = capability |> String.split("=", parts: 2) |> hd()
       {name, capability}
     end)
+  end
+
+  @doc "Returns the SASL mechanisms eligible for one client and current runtime."
+  @spec available_sasl_mechanisms(User.t(), map() | nil) :: [String.t()]
+  def available_sasl_mechanisms(user, runtime \\ nil) do
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+    mechanisms = get_enabled_sasl_mechanisms(sasl_config)
+
+    mechanisms =
+      if remote_authority_configured?(user, runtime) do
+        if remote_authority_available?(user, runtime),
+          do: Enum.filter(mechanisms, &(&1 in RemoteSASL.mechanisms())),
+          else: []
+      else
+        mechanisms
+      end
+
+    Enum.filter(mechanisms, &transport_allows_mechanism?(&1, user, sasl_config))
+  end
+
+  @doc "Publishes dynamic CAP changes after native authority reachability changes."
+  @spec notify_dynamic_changes(map(), map()) :: :ok | {:error, term()}
+  def notify_dynamic_changes(old_capability_maps, runtime)
+      when is_map(old_capability_maps) and is_map(runtime) do
+    Output.transaction(
+      fn ->
+        Users.get_all()
+        |> Enum.each(&notify_dynamic_change(&1, old_capability_maps, runtime))
+
+        :ok
+      end,
+      drain_fun: &drain_dynamic_change/1
+    )
+  rescue
+    error -> {:error, {:capability_notification_failed, Exception.message(error)}}
+  catch
+    kind, reason -> {:error, {:capability_notification_failed, {kind, reason}}}
   end
 
   @spec capability_advertised?(atom(), User.t(), keyword()) :: boolean()
@@ -340,14 +393,109 @@ defmodule ElixIRCd.Commands.Cap do
 
   defp capability_enabled?(config, key), do: Keyword.fetch!(config, key)
 
-  @spec build_sasl_capability_value() :: String.t() | nil
-  defp build_sasl_capability_value do
-    sasl_config = Application.fetch_env!(:elixircd, :sasl)
-    mechanisms = get_enabled_sasl_mechanisms(sasl_config)
+  @spec build_sasl_capability_value(User.t(), map() | nil) :: String.t() | nil
+  defp build_sasl_capability_value(user, runtime) do
+    mechanisms = available_sasl_mechanisms(user, runtime)
 
     case mechanisms do
       [] -> nil
       mechs -> "sasl=#{Enum.join(mechs, ",")}"
+    end
+  end
+
+  defp remote_authority_configured?(%User{} = user, nil), do: RemoteSASL.configured?(user)
+
+  defp remote_authority_configured?(_user, %{services_authority: authority, sid: sid})
+       when is_binary(authority),
+       do: authority != sid
+
+  defp remote_authority_configured?(_user, _runtime), do: false
+
+  defp remote_authority_available?(%User{} = user, nil), do: RemoteSASL.remote?(user)
+
+  defp remote_authority_available?(_user, %{services_authority: authority, reachable_sids: reachable})
+       when is_binary(authority) and is_struct(reachable, MapSet),
+       do: MapSet.member?(reachable, authority)
+
+  defp remote_authority_available?(_user, _runtime), do: false
+
+  defp transport_allows_mechanism?("PLAIN", user, sasl_config) do
+    not Keyword.get(sasl_config[:plain] || [], :require_tls, false) or secure_transport?(user)
+  end
+
+  defp transport_allows_mechanism?(_mechanism, _user, _sasl_config), do: true
+
+  defp secure_transport?(%User{transport: transport}), do: transport in [:tls, :wss]
+  defp secure_transport?(_user), do: false
+
+  defp notify_dynamic_change(%User{pid: pid} = user, old_capability_maps, runtime) when is_pid(pid) do
+    case Map.fetch(old_capability_maps, pid) do
+      {:ok, old_map} ->
+        new_map = capability_map(user, runtime)
+        changed = changed_capabilities(old_map, new_map)
+        removed = removed_capabilities(old_map, new_map)
+
+        if changed != [] or removed != [] do
+          ResponseContext.flush(user)
+
+          if changed != [] and has_cap_notify?(user) do
+            %Message{command: "CAP", params: [user_reply(user), "NEW"], trailing: Enum.join(changed, " ")}
+            |> Dispatcher.broadcast(:server, user)
+          end
+
+          if removed != [] and has_cap_notify?(user) do
+            %Message{command: "CAP", params: [user_reply(user), "DEL"], trailing: Enum.join(removed, " ")}
+            |> Dispatcher.broadcast(:server, user)
+          end
+
+          capabilities = Enum.reject(user.capabilities, &(&1 in removed))
+          if capabilities != user.capabilities, do: Users.update(user, %{capabilities: capabilities})
+          if "sasl" in removed, do: abort_dynamic_sasl(user)
+        end
+
+        :ok
+
+      :error ->
+        :ok
+    end
+  end
+
+  defp notify_dynamic_change(_user, _old_capability_maps, _runtime), do: :ok
+
+  defp changed_capabilities(old_map, new_map) do
+    new_map
+    |> Enum.filter(fn {name, value} -> name != "sts" and old_map[name] != value end)
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.map(&elem(&1, 1))
+  end
+
+  defp removed_capabilities(old_map, new_map) do
+    old_map
+    |> Map.keys()
+    |> Enum.reject(&(Map.has_key?(new_map, &1) or &1 == "sts"))
+    |> Enum.sort()
+  end
+
+  defp has_cap_notify?(user), do: "cap-notify" in user.capabilities or user.cap_version >= 302
+
+  defp drain_dynamic_change(%{kind: :c2s_message} = intent), do: Dispatcher.drain_intent(intent)
+  defp drain_dynamic_change(%{kind: :s2s_sasl_cancel} = intent), do: Dispatcher.drain_intent(intent)
+  defp drain_dynamic_change(_intent), do: :ok
+
+  defp abort_dynamic_sasl(%User{} = user) do
+    with {:ok, session} <- SaslSessions.get(user.pid),
+         %{state: %{remote_sasl: _}} <- session do
+      %Message{
+        command: :err_saslaborted,
+        params: [user_reply(user)],
+        trailing: "SASL authentication authority is unavailable"
+      }
+      |> Dispatcher.broadcast(:server, user)
+
+      _ = RemoteSASL.cancel_local(user, session)
+      SaslSessions.delete(user.pid)
+    else
+      _ -> :ok
     end
   end
 

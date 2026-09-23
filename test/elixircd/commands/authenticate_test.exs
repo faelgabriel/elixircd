@@ -311,7 +311,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
 
         # Verify user was updated
-        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.uid)
         assert updated_user.identified_as == "testuser"
         assert updated_user.sasl_authenticated == true
         refute :r in updated_user.modes

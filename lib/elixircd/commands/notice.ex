@@ -26,6 +26,8 @@ defmodule ElixIRCd.Commands.Notice do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -99,10 +101,57 @@ defmodule ElixIRCd.Commands.Notice do
       users = Users.get_by_pids(user_pids)
 
       %Message{command: "NOTICE", params: [wire_target], trailing: message_text, tags: message_tags}
-      |> Dispatcher.broadcast_with_echo(user, users)
+      |> then(fn local_message ->
+        Dispatcher.broadcast_with_echo(local_message, user, users)
+        publish_remote_channel_notice(user, channel, user_channel, message_text, message_tags, status_prefix)
+      end)
     else
       _error -> :ok
     end
+  end
+
+  defp publish_remote_channel_notice(user, channel, user_channel, message_text, message_tags, status_prefix) do
+    if String.starts_with?(channel.name, "&") do
+      :ok
+    else
+      case Process.whereis(Manager) do
+        nil ->
+          :ok
+
+        manager ->
+          with {:ok, runtime} <- View.runtime(manager),
+               {:ok, _projected, runtime_channel} <- View.channel(runtime, channel.name) do
+            target = %{
+              "channel" => runtime_channel.ref,
+              "minimum_status" => minimum_status(channel, user_channel, status_prefix)
+            }
+
+            _ =
+              Manager.publish_message(manager, user.uid, target, "NOTICE", message_text, message_tags, nil,
+                deliver_local: false
+              )
+
+            :ok
+          else
+            _ -> :ok
+          end
+      end
+    end
+  end
+
+  defp minimum_status(channel, user_channel, status_prefix) do
+    requested =
+      case status_prefix do
+        "@" -> "o"
+        "+" -> "v"
+        _ -> nil
+      end
+
+    privileged? = user_channel != nil and (channel_operator?(user_channel) or channel_voice?(user_channel))
+
+    if :U in channel.modes and not privileged?,
+      do: "o",
+      else: requested
   end
 
   @spec maybe_filter_status([UserChannel.t()], String.t() | nil) :: [UserChannel.t()]
@@ -112,7 +161,29 @@ defmodule ElixIRCd.Commands.Notice do
   defp handle_user_message(user, target_nick, message_text, message_tags) do
     case Users.get_by_nick(target_nick) do
       {:ok, receiver_user} -> handle_user_message(user, receiver_user, target_nick, message_text, message_tags)
-      {:error, :user_not_found} -> :ok
+      {:error, :user_not_found} -> handle_network_user_message(user, target_nick, message_text, message_tags)
+    end
+  end
+
+  defp handle_network_user_message(user, target_nick, message_text, message_tags) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, _uid, receiver_user} <- View.user_by_nick(runtime, target_nick),
+         true <- not (:R in receiver_user.modes and :r not in user.modes),
+         :ok <-
+           Manager.publish_message(
+             manager,
+             user.uid,
+             %{"user" => receiver_user.uid},
+             "NOTICE",
+             message_text,
+             message_tags,
+             nil
+           ) do
+      %Message{command: "NOTICE", params: [target_nick], trailing: message_text, tags: message_tags}
+      |> Dispatcher.broadcast_with_echo(user, [])
+    else
+      _ -> :ok
     end
   end
 

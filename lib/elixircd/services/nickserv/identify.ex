@@ -10,8 +10,6 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   require Logger
 
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2, sync_registered_mode: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-
   alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -42,7 +40,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   @spec identify_nickname(User.t(), String.t(), String.t()) :: :ok
   defp identify_nickname(user, nickname, password) do
-    Logger.debug("IDENTIFY attempt for nickname #{nickname} from #{user_mask(user)}")
+    Logger.debug("NickServ IDENTIFY attempt")
 
     case RegisteredNicks.get_by_nickname(nickname) do
       {:ok, registered_nick} ->

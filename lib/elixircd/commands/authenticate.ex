@@ -35,6 +35,8 @@ defmodule ElixIRCd.Commands.Authenticate do
   alias ElixIRCd.Sasl.ScramSha256
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.NickEnforcement
+  alias ElixIRCd.Commands.Cap
+  alias ElixIRCd.Server.S2S.RemoteSASL
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Ecdsa
@@ -111,7 +113,9 @@ defmodule ElixIRCd.Commands.Authenticate do
     sasl_config = Application.fetch_env!(:elixircd, :sasl)
     max_attempts = Keyword.fetch!(sasl_config, :max_attempts_per_connection)
     current_attempts = user.sasl_attempts || 0
-    supported_mechanisms = supported_mechanisms()
+    supported_mechanisms = supported_mechanisms(user)
+    remote_authority_configured? = RemoteSASL.configured?(user)
+    remote_authority_available? = RemoteSASL.remote?(user)
 
     cond do
       current_attempts >= max_attempts ->
@@ -137,6 +141,10 @@ defmodule ElixIRCd.Commands.Authenticate do
         }
         |> Dispatcher.broadcast(:server, user)
 
+      remote_authority_configured? and not remote_authority_available? ->
+        Users.update(user, %{sasl_attempts: current_attempts + 1})
+        send_sasl_failure(user, "SASL authentication authority is unavailable")
+
       normalized_mechanism not in supported_mechanisms ->
         Users.update(user, %{sasl_attempts: current_attempts + 1})
         send_available_mechanisms(user)
@@ -150,23 +158,17 @@ defmodule ElixIRCd.Commands.Authenticate do
 
       true ->
         Users.update(user, %{sasl_attempts: current_attempts + 1})
-        start_sasl_session(user, normalized_mechanism)
+
+        if remote_authority_available? do
+          start_remote_sasl_session(user, normalized_mechanism)
+        else
+          start_sasl_session(user, normalized_mechanism)
+        end
     end
   end
 
-  @spec supported_mechanisms() :: [String.t()]
-  defp supported_mechanisms do
-    sasl_config = Application.fetch_env!(:elixircd, :sasl)
-
-    []
-    |> maybe_add_mechanism(sasl_config[:plain], "PLAIN")
-    |> maybe_add_mechanism(sasl_config[:scram_sha_256], @scram_mechanism)
-    |> maybe_add_mechanism(sasl_config[:ecdsa], @ecdsa_mechanism)
-  end
-
-  defp maybe_add_mechanism(mechanisms, config, mechanism) do
-    if Keyword.get(config || [], :enabled, false), do: mechanisms ++ [mechanism], else: mechanisms
-  end
+  @spec supported_mechanisms(User.t()) :: [String.t()]
+  defp supported_mechanisms(user), do: Cap.available_sasl_mechanisms(user)
 
   @spec start_sasl_session(User.t(), String.t()) :: :ok
   defp start_sasl_session(user, mechanism) do
@@ -180,8 +182,29 @@ defmodule ElixIRCd.Commands.Authenticate do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  @spec start_remote_sasl_session(User.t(), String.t()) :: :ok
+  defp start_remote_sasl_session(user, mechanism) do
+    case RemoteSASL.start_state(user, mechanism) do
+      {:ok, state} ->
+        SaslSessions.create(%{user_pid: user.pid, mechanism: mechanism, buffer: "", state: state})
+
+        case RemoteSASL.enqueue_start(user, state) do
+          :queued ->
+            :ok
+
+          _ ->
+            SaslSessions.delete(user.pid)
+            send_sasl_failure(user, "SASL authentication authority is unavailable")
+        end
+
+      _ ->
+        SaslSessions.delete(user.pid)
+        send_sasl_failure(user, "SASL authentication authority is unavailable")
+    end
+  end
+
   @spec handle_auth_data(User.t(), String.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
-  defp handle_auth_data(user, data, _session) when byte_size(data) > @max_authenticate_length do
+  defp handle_auth_data(user, data, session) when byte_size(data) > @max_authenticate_length do
     %Message{
       command: :err_sasltoolong,
       params: [user_reply(user)],
@@ -189,7 +212,7 @@ defmodule ElixIRCd.Commands.Authenticate do
     }
     |> Dispatcher.broadcast(:server, user)
 
-    SaslSessions.delete(user.pid)
+    delete_sasl_session(user, session)
   end
 
   defp handle_auth_data(user, data, session) when byte_size(session.buffer) + byte_size(data) > @max_sasl_length do
@@ -200,7 +223,7 @@ defmodule ElixIRCd.Commands.Authenticate do
     }
     |> Dispatcher.broadcast(:server, user)
 
-    SaslSessions.delete(user.pid)
+    delete_sasl_session(user, session)
   end
 
   defp handle_auth_data(user, "+", session) do
@@ -221,6 +244,18 @@ defmodule ElixIRCd.Commands.Authenticate do
   end
 
   @spec process_sasl_data(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
+  defp process_sasl_data(user, %{state: %{remote_sasl: _}} = session) do
+    case RemoteSASL.enqueue_step(user, session) do
+      {:ok, state} ->
+        SaslSessions.update(session, %{buffer: "", state: state})
+        :ok
+
+      {:error, _reason} ->
+        send_sasl_failure(user, "SASL authentication authority is unavailable")
+        delete_sasl_session(user, session)
+    end
+  end
+
   defp process_sasl_data(user, %{mechanism: "PLAIN"} = session) do
     process_plain_auth(user, session)
   end
@@ -426,8 +461,8 @@ defmodule ElixIRCd.Commands.Authenticate do
         username = if authcid != "", do: authcid, else: authzid
         authenticate_user(user, username, password)
 
-      {:error, reason} ->
-        Logger.debug("SASL PLAIN decode error from #{user_mask(user)}: #{reason}")
+      {:error, _reason} ->
+        Logger.debug("SASL PLAIN payload rejected")
 
         %Message{
           command: :err_saslfail,
@@ -465,14 +500,14 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec authenticate_user(User.t(), String.t(), String.t()) :: :ok
   defp authenticate_user(user, username, password) do
-    Logger.debug("SASL authentication attempt for user #{username} from #{user_mask(user)}")
+    Logger.debug("SASL authentication attempt")
 
     case RegisteredNicks.get_by_nickname(username) do
       {:ok, registered_nick} ->
         verify_password(user, registered_nick, password)
 
       {:error, :registered_nick_not_found} ->
-        Logger.debug("SASL authentication failed: user #{username} not found")
+        Logger.debug("SASL authentication rejected")
 
         %Message{
           command: :err_saslfail,
@@ -489,7 +524,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   defp verify_password(user, registered_nick, password) do
     case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
       {:ok, account_nick} ->
-        verify_account_password(user, registered_nick, account_nick, password)
+        verify_account_password(user, account_nick, password)
 
       {:error, :registered_nick_not_found} ->
         %Message{
@@ -503,22 +538,22 @@ defmodule ElixIRCd.Commands.Authenticate do
     end
   end
 
-  defp verify_account_password(user, registered_nick, account_nick, password) do
+  defp verify_account_password(user, account_nick, password) do
     if Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] do
       send_sasl_failure(user, "SASL authentication requires a secure TLS connection for this account")
       SaslSessions.delete(user.pid)
     else
-      complete_password_verification(user, registered_nick, account_nick, password)
+      complete_password_verification(user, account_nick, password)
     end
   end
 
-  defp complete_password_verification(user, registered_nick, account_nick, password) do
+  defp complete_password_verification(user, account_nick, password) do
     case Password.verify_and_upgrade(account_nick, password) do
       {:ok, upgraded_account} ->
         complete_sasl_authentication(user, upgraded_account)
 
       :error ->
-        Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
+        Logger.debug("SASL authentication rejected")
         send_sasl_failure(user, "SASL authentication failed")
         SaslSessions.delete(user.pid)
     end
@@ -534,9 +569,17 @@ defmodule ElixIRCd.Commands.Authenticate do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  @spec delete_sasl_session(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
+  defp delete_sasl_session(user, %{state: %{remote_sasl: _}} = session) do
+    _ = RemoteSASL.abort(user, session)
+    SaslSessions.delete(user.pid)
+  end
+
+  defp delete_sasl_session(user, _session), do: SaslSessions.delete(user.pid)
+
   @spec complete_sasl_authentication(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: :ok
   defp complete_sasl_authentication(user, registered_nick) do
-    Logger.info("SASL authentication successful for #{registered_nick.nickname} from #{user_mask(user)}")
+    Logger.info("SASL authentication succeeded")
 
     RegisteredNicks.update(registered_nick, %{
       last_seen_at: DateTime.utc_now()
@@ -583,6 +626,13 @@ defmodule ElixIRCd.Commands.Authenticate do
     if SaslSessions.exists?(user.pid) do
       Logger.debug("SASL authentication aborted by client #{user_mask(user)}")
 
+      with {:ok, session} <- SaslSessions.get(user.pid),
+           %{state: %{remote_sasl: _}} <- session do
+        _ = RemoteSASL.abort(user, session)
+      else
+        _ -> :ok
+      end
+
       %Message{
         command: :err_saslaborted,
         params: [user_reply(user)],
@@ -617,7 +667,7 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec send_available_mechanisms(User.t()) :: :ok
   defp send_available_mechanisms(user) do
-    mechanisms = Enum.join(supported_mechanisms(), ",")
+    mechanisms = Enum.join(supported_mechanisms(user), ",")
 
     %Message{
       command: :rpl_saslmechs,

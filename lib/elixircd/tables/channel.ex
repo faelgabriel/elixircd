@@ -8,6 +8,8 @@ defmodule ElixIRCd.Tables.Channel do
     attributes: [
       :name_key,
       :name,
+      :born_ms,
+      :cid,
       :topic,
       :modes,
       :created_at
@@ -22,6 +24,8 @@ defmodule ElixIRCd.Tables.Channel do
   @type t :: %__MODULE__{
           name_key: String.t(),
           name: String.t(),
+          born_ms: non_neg_integer(),
+          cid: ElixIRCd.Server.S2S.Identity.id(),
           topic: Channel.Topic.t() | nil,
           modes: [ModeRegistry.channel_mode() | {ModeRegistry.channel_mode(), String.t()}],
           created_at: DateTime.t()
@@ -29,6 +33,8 @@ defmodule ElixIRCd.Tables.Channel do
 
   @type t_attrs :: %{
           optional(:name) => String.t(),
+          optional(:born_ms) => non_neg_integer(),
+          optional(:cid) => ElixIRCd.Server.S2S.Identity.id(),
           optional(:topic) => Channel.Topic.t() | nil,
           optional(:modes) => [ModeRegistry.channel_mode() | {ModeRegistry.channel_mode(), String.t()}],
           optional(:created_at) => DateTime.t()
@@ -43,6 +49,8 @@ defmodule ElixIRCd.Tables.Channel do
       attrs
       |> Map.put_new(:modes, [])
       |> Map.put_new(:created_at, DateTime.utc_now())
+      |> Map.put_new(:born_ms, System.system_time(:millisecond))
+      |> Map.put_new(:cid, ElixIRCd.Server.S2S.Identity.cid())
       |> handle_name_key()
 
     struct!(__MODULE__, new_attrs)

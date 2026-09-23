@@ -50,7 +50,7 @@ defmodule ElixIRCd.Repositories.UsersTest do
 
       Memento.transaction!(fn -> Users.delete(user) end)
 
-      assert nil == Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert nil == Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
     end
   end
 
@@ -86,7 +86,7 @@ defmodule ElixIRCd.Repositories.UsersTest do
       user2 = insert(:user)
 
       assert [user1, user2] ==
-               Memento.transaction!(fn -> Users.get_by_pids([user1.pid, user2.pid]) |> Enum.sort() end)
+               Memento.transaction!(fn -> Users.get_by_pids([user1.pid, user2.pid]) |> Enum.sort_by(& &1.pid) end)
     end
 
     test "returns an empty list when no users are found" do

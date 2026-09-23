@@ -8,11 +8,18 @@ defmodule ElixIRCd.Accounts.Password do
   @doc "Verifies Argon2 and lazily adds a SCRAM verifier without retaining the password."
   @spec verify_and_upgrade(RegisteredNick.t(), String.t()) :: {:ok, RegisteredNick.t()} | :error
   def verify_and_upgrade(%RegisteredNick{} = account, password) when is_binary(password) do
-    if Argon2.verify_pass(password, account.password_hash) do
-      {:ok, maybe_add_scram_verifier(account, password)}
-    else
-      :error
+    case verify_without_upgrade(account, password) do
+      {:ok, upgraded} -> {:ok, maybe_add_scram_verifier(upgraded, password)}
+      :error -> :error
     end
+  end
+
+  @doc "Verifies Argon2 and returns the in-memory SCRAM projection without writing it."
+  @spec verify_without_upgrade(RegisteredNick.t(), String.t()) :: {:ok, RegisteredNick.t()} | :error
+  def verify_without_upgrade(%RegisteredNick{} = account, password) when is_binary(password) do
+    if Argon2.verify_pass(password, account.password_hash),
+      do: {:ok, put_scram_verifier(account, password)},
+      else: :error
   end
 
   @spec maybe_add_scram_verifier(RegisteredNick.t(), String.t()) :: RegisteredNick.t()
@@ -24,4 +31,13 @@ defmodule ElixIRCd.Accounts.Password do
   end
 
   defp maybe_add_scram_verifier(account, _password), do: account
+
+  defp put_scram_verifier(%{scram_sha_256: nil} = account, password) do
+    case ScramSha256.configured_credentials(password) do
+      nil -> account
+      credentials -> %{account | scram_sha_256: credentials}
+    end
+  end
+
+  defp put_scram_verifier(account, _password), do: account
 end

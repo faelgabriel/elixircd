@@ -12,8 +12,12 @@ defmodule ElixIRCd.Commands.List do
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.Policy
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Protocol
 
   @type detailed_channel :: %{
@@ -43,7 +47,13 @@ defmodule ElixIRCd.Commands.List do
   def handle(user, %{command: "LIST", params: params}) do
     search_string = Enum.at(params, 0, nil)
 
-    handle_list(search_string, user)
+    list =
+      case network_runtime() do
+        {:ok, runtime} -> handle_network_list(search_string, user, runtime)
+        :unavailable -> handle_list(search_string, user)
+      end
+
+    list
     |> Enum.sort_by(& &1.channel.name)
     |> Enum.map(fn detailed_channel ->
       name = detailed_channel.channel.name
@@ -56,6 +66,80 @@ defmodule ElixIRCd.Commands.List do
 
     %Message{command: :rpl_listend, params: [user.nick], trailing: "End of LIST"}
     |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp network_runtime do
+    case Process.whereis(Manager) do
+      nil ->
+        :unavailable
+
+      manager ->
+        case View.runtime(manager) do
+          {:ok, runtime} -> {:ok, runtime}
+          {:error, _} -> :unavailable
+        end
+    end
+  end
+
+  @spec handle_network_list(String.t() | nil, User.t(), map()) :: [detailed_channel()]
+  defp handle_network_list(search_string, user, runtime) do
+    {general_filters, channel_name_filters} = parse_filters(search_string)
+    exact_names = MapSet.new(Enum.map(channel_name_filters, &elem(&1, 1)), &CaseMapping.normalize/1)
+
+    runtime.channels
+    |> Map.values()
+    |> Enum.reject(&String.starts_with?(&1.ref["name"], "&"))
+    |> Enum.flat_map(fn runtime_channel ->
+      case View.channel(runtime, runtime_channel.ref["name"]) do
+        {:ok, channel, _} -> [channel]
+        {:error, _} -> []
+      end
+    end)
+    |> Enum.filter(fn channel -> MapSet.size(exact_names) == 0 or MapSet.member?(exact_names, channel.name_key) end)
+    |> filter_network_hidden_channels(user, runtime)
+    |> convert_network_to_detailed_channels(runtime)
+    |> apply_general_filters(general_filters)
+  end
+
+  defp filter_network_hidden_channels(channels, user, runtime) do
+    user_channel_names =
+      case runtime.memberships[user.uid] do
+        %{entries: entries} -> MapSet.new(Enum.map(entries, &CaseMapping.normalize(&1["channel"])))
+        _ -> MapSet.new()
+      end
+
+    Enum.reject(channels, fn channel ->
+      hidden? =
+        (:p in channel.modes or :s in channel.modes) and not MapSet.member?(user_channel_names, channel.name_key)
+
+      hidden? or network_registered_channel_private?(channel, user, runtime, user_channel_names)
+    end)
+  end
+
+  defp network_registered_channel_private?(channel, user, runtime, user_channel_names) do
+    if MapSet.member?(user_channel_names, channel.name_key) do
+      false
+    else
+      case Policy.get(runtime.policy, "channel", channel.name_key) do
+        {:ok, %{"settings" => %{"private" => true}, "founder_account_id" => founder_id}} ->
+          get_in(runtime.users, [user.uid, "binding", "account_id"]) != founder_id
+
+        _ ->
+          false
+      end
+    end
+  end
+
+  defp convert_network_to_detailed_channels(channels, runtime) do
+    Enum.map(channels, fn channel ->
+      users_count =
+        runtime.memberships
+        |> Enum.count(fn {_uid, %{entries: entries}} ->
+          Enum.any?(entries, &(CaseMapping.normalize(&1["channel"]) == channel.name_key))
+        end)
+
+      %{channel: channel, users_count: users_count}
+    end)
   end
 
   @spec handle_list(String.t(), User.t()) :: [detailed_channel()]

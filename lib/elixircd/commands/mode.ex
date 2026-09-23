@@ -16,11 +16,11 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Repositories.ChannelBans
   alias ElixIRCd.Repositories.ChannelExcepts
   alias ElixIRCd.Repositories.ChannelInvexes
-  alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.LocalChannel
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -59,7 +59,7 @@ defmodule ElixIRCd.Commands.Mode do
 
   @spec handle_channel_mode(User.t(), String.t(), String.t() | nil, list(String.t()) | nil) :: :ok
   defp handle_channel_mode(user, channel_name, nil, nil) do
-    with {:ok, channel} <- Channels.get_by_name(channel_name),
+    with {:ok, channel} <- LocalChannel.ensure(channel_name),
          {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
       mode_params =
         case ChannelModes.display_modes(channel.modes) do
@@ -81,7 +81,7 @@ defmodule ElixIRCd.Commands.Mode do
   end
 
   defp handle_channel_mode(user, channel_name, mode_string, values) do
-    with {:ok, channel} <- Channels.get_by_name(channel_name),
+    with {:ok, channel} <- LocalChannel.ensure(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          {validated_modes, invalid_modes} <- ChannelModes.parse_mode_changes(mode_string, values),
          :ok <- check_mode_limit(validated_modes) do

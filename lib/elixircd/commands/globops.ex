@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Globops do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Audience
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -39,6 +40,8 @@ defmodule ElixIRCd.Commands.Globops do
 
     %Message{command: "GLOBOPS", params: [], trailing: message}
     |> Dispatcher.broadcast(user, target_operators)
+
+    Audience.publish(user, "operators", message)
   end
 
   @spec noprivileges_message(User.t()) :: :ok

@@ -13,6 +13,10 @@ defmodule ElixIRCd.Commands.Chghost do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.Server.S2S.Action
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Monitor
@@ -29,10 +33,30 @@ defmodule ElixIRCd.Commands.Chghost do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  def handle(user, %{command: "CHGHOST", params: [target_nick, new_ident, new_host]}) do
-    with {:operator, true} <- {:operator, irc_operator?(user)},
-         {:ok, target_user} <- Users.get_by_nick(target_nick) do
-      change_host(user, target_user, new_ident, new_host)
+  def handle(user, %{command: "CHGHOST", params: [target_nick, new_ident, new_host], tags: tags}) do
+    with {:operator, true} <- {:operator, irc_operator?(user)} do
+      response_context = Action.response_context(user, tags, "CHGHOST target server is unavailable")
+
+      case remote_target_context(target_nick) do
+        {:ok, manager, runtime, target_uid, target_user, target_sid} ->
+          remote_change_host(
+            user,
+            manager,
+            runtime,
+            target_uid,
+            target_user,
+            target_sid,
+            new_ident,
+            new_host,
+            response_context
+          )
+
+        :local ->
+          case Users.get_by_nick(target_nick) do
+            {:ok, target_user} -> change_host(user, target_user, new_ident, new_host)
+            {:error, :user_not_found} -> target_not_found(user, target_nick)
+          end
+      end
     else
       {:operator, false} ->
         %Message{
@@ -41,11 +65,121 @@ defmodule ElixIRCd.Commands.Chghost do
           trailing: "Permission denied - You're not an IRC operator"
         }
         |> Dispatcher.broadcast(:server, user)
-
-      {:error, :user_not_found} ->
-        %Message{command: :err_nosuchnick, params: [user_reply(user), target_nick], trailing: "No such nick/channel"}
-        |> Dispatcher.broadcast(:server, user)
     end
+  end
+
+  defp remote_change_host(
+         operator,
+         manager,
+         runtime,
+         target_uid,
+         target_user,
+         target_sid,
+         new_ident,
+         new_host,
+         response_context
+       ) do
+    with :ok <- validate_ident(new_ident),
+         :ok <- validate_hostname(new_host) do
+      guards = %{
+        "actor_uid" => operator.uid,
+        "actor_user_rev" => operator.owner_rev,
+        "actor_join_id" => nil,
+        "target_user_rev" => target_user.owner_rev,
+        "target_join_id" => nil,
+        "channel" => nil,
+        "policy_epoch" => runtime.policy.epoch,
+        "policy_revision" => runtime.policy.revision
+      }
+
+      requests = [
+        %{
+          method: "user_action",
+          args: %{
+            "action" => "host",
+            "target_uid" => target_uid,
+            "value" => %{"displayhost" => new_host},
+            "reason" => "CHGHOST"
+          },
+          guards: guards
+        },
+        %{
+          method: "user_action",
+          args: %{
+            "action" => "ident",
+            "target_uid" => target_uid,
+            "value" => %{"ident" => new_ident},
+            "reason" => "CHGHOST"
+          },
+          guards: guards
+        }
+      ]
+
+      response_context =
+        Action.success_context(response_context, %{
+          "command" => "NOTICE",
+          "params" => [operator.nick],
+          "trailing" =>
+            "Changed host for #{target_user.nick} from #{target_user.ident}@#{target_user.hostname} to " <>
+              "#{new_ident}@#{new_host}"
+        })
+
+      result = Action.enqueue_sequence(manager, target_sid, operator, requests, response_context)
+
+      case result do
+        :queued ->
+          ResponseContext.defer_response(operator)
+          :ok
+
+        {:error, _reason} ->
+          send_remote_error(operator, "CHGHOST target server is unavailable")
+      end
+    else
+      {:error, :ident_empty} ->
+        invalid_ident(operator, "Invalid ident: cannot be empty")
+
+      {:error, :ident_too_long} ->
+        invalid_ident(operator, "Invalid ident: too long")
+
+      {:error, :ident_invalid_chars} ->
+        invalid_ident(operator, "Invalid ident: contains invalid characters")
+
+      {:error, :hostname_empty} ->
+        invalid_hostname(operator, target_user, "Invalid hostname: cannot be empty")
+
+      {:error, :hostname_too_long} ->
+        invalid_hostname(operator, target_user, "Invalid hostname: too long (maximum 253 characters)")
+
+      {:error, :hostname_invalid_chars} ->
+        invalid_hostname(operator, target_user, "Invalid hostname: contains invalid characters")
+    end
+  end
+
+  defp remote_target_context(target_nick) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, target_uid, target_user, target_sid} <- Action.remote_target(runtime, target_nick) do
+      {:ok, manager, runtime, target_uid, target_user, target_sid}
+    else
+      :local -> :local
+      {:error, :not_found} -> :local
+      _ -> :local
+    end
+  end
+
+  defp target_not_found(user, target_nick) do
+    %Message{command: :err_nosuchnick, params: [user_reply(user), target_nick], trailing: "No such nick/channel"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp invalid_ident(user, description) do
+    %Message{command: :err_invalidusername, params: [user_reply(user)], trailing: description}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_remote_error(user, message) do
+    %Message{command: "NOTICE", params: [user_reply(user)], trailing: message}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec change_host(User.t(), User.t(), String.t(), String.t()) :: :ok

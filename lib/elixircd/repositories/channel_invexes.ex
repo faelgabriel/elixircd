@@ -6,14 +6,31 @@ defmodule ElixIRCd.Repositories.ChannelInvexes do
   """
 
   alias ElixIRCd.Tables.ChannelInvex
+  alias ElixIRCd.Repositories.ChannelListTombstones
+  alias ElixIRCd.Server.S2S.Publication
 
   @doc """
   Create a new channel invex and write it to the database.
   """
   @spec create(map()) :: ChannelInvex.t()
   def create(attrs) do
-    ChannelInvex.new(attrs)
+    record = ChannelInvex.new(Map.put(attrs, :stamp, Publication.next_local_stamp()))
+
+    record
     |> Memento.Query.write()
+    |> tap(fn record ->
+      ChannelListTombstones.delete(record.channel_name_key, "I", record.mask)
+
+      Publication.channel_list_changed(
+        record.channel_name_key,
+        "I",
+        record.mask,
+        true,
+        record.setter,
+        DateTime.to_unix(record.created_at, :millisecond),
+        record.stamp
+      )
+    end)
   end
 
   @doc """
@@ -21,7 +38,30 @@ defmodule ElixIRCd.Repositories.ChannelInvexes do
   """
   @spec delete(ChannelInvex.t()) :: :ok
   def delete(channel_invex) do
-    Memento.Query.delete_record(channel_invex)
+    result = Memento.Query.delete_record(channel_invex)
+    set_ms = System.system_time(:millisecond)
+    stamp = Publication.next_local_stamp()
+
+    ChannelListTombstones.put(%{
+      channel_name_key: channel_invex.channel_name_key,
+      mode: "I",
+      mask: channel_invex.mask,
+      set_by: channel_invex.setter,
+      set_ms: set_ms,
+      stamp: stamp
+    })
+
+    Publication.channel_list_changed(
+      channel_invex.channel_name_key,
+      "I",
+      channel_invex.mask,
+      false,
+      channel_invex.setter,
+      set_ms,
+      stamp
+    )
+
+    result
   end
 
   @doc """

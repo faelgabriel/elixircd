@@ -167,8 +167,9 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
             assert :ok = Set.handle(user, ["SET", "HIDEMAIL", "ON"])
           end)
 
-        assert log =~ "Error updating settings for nonexistent_nick"
-        assert log =~ ":registered_nick_not_found"
+        assert log =~ "Error updating registered account settings"
+        refute log =~ "nonexistent_nick"
+        refute log =~ ":registered_nick_not_found"
 
         assert_sent_messages([
           {user.pid,
@@ -464,8 +465,9 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
             assert :ok = Set.handle(missing_user, ["SET", "DISPLAY", "ValidNick"])
           end)
 
-        assert length(Regex.scan(~r/Error updating settings for missing_account/, missing_account_log)) == 12
-        assert missing_account_log =~ ":registered_nick_not_found"
+        assert length(Regex.scan(~r/Error updating registered account settings/, missing_account_log)) == 12
+        refute missing_account_log =~ "missing_account"
+        refute missing_account_log =~ ":registered_nick_not_found"
 
         assert :ok = Set.handle(user, ["SET", "EMAIL", "OFF"])
         assert :ok = Set.handle(user, ["SET", "EMAIL", "email@example.com"])

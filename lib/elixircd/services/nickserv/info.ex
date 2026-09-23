@@ -19,14 +19,23 @@ defmodule ElixIRCd.Services.Nickserv.Info do
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
-  def handle(user, ["INFO", target_nick | _command_params]) do
+  def handle(user, arguments), do: handle_with_online_lookup(user, arguments, &Users.get_by_nick/1)
+
+  @doc "Runs INFO with an injected authoritative online-user lookup."
+  @spec handle_with_online_lookup(
+          User.t(),
+          [String.t()],
+          (String.t() -> {:ok, User.t()} | {:error, term()})
+        ) :: :ok
+  def handle_with_online_lookup(user, ["INFO", target_nick | _command_params], online_lookup)
+      when is_function(online_lookup, 1) do
     case RegisteredNicks.get_by_nickname(target_nick) do
       {:ok, registered_nick} ->
         case get_account_nick(registered_nick) do
           {:ok, account_nick} ->
             has_full_access = belongs_to_account?(registered_nick, user.identified_as) || irc_operator?(user)
 
-            show_info(user, registered_nick, account_nick, has_full_access)
+            show_info(user, registered_nick, account_nick, has_full_access, online_lookup)
 
           {:error, :registered_nick_not_found} ->
             notify(user, "Nick \x02#{target_nick}\x02 is not registered.")
@@ -37,16 +46,16 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     end
   end
 
-  def handle(user, ["INFO"]) do
-    handle(user, ["INFO", user.nick])
+  def handle_with_online_lookup(user, ["INFO"], online_lookup) when is_function(online_lookup, 1) do
+    handle_with_online_lookup(user, ["INFO", user.nick], online_lookup)
   end
 
-  @spec show_info(User.t(), RegisteredNick.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp show_info(user, registered_nick, account_nick, has_full_access) do
+  @spec show_info(User.t(), RegisteredNick.t(), RegisteredNick.t(), boolean(), function()) :: :ok
+  defp show_info(user, registered_nick, account_nick, has_full_access, online_lookup) do
     notify(user, "\x02\x0312*** \x0304#{registered_nick.nickname}\x0312 ***\x03\x02")
 
     viewer_is_owner? = belongs_to_account?(registered_nick, user.identified_as)
-    display_online_status(user, registered_nick, account_nick, has_full_access)
+    display_online_status(user, registered_nick, account_nick, has_full_access, online_lookup)
 
     if has_full_access do
       display_registration_info(user, registered_nick, account_nick, viewer_is_owner?)
@@ -58,10 +67,10 @@ defmodule ElixIRCd.Services.Nickserv.Info do
     end
   end
 
-  @spec display_online_status(User.t(), RegisteredNick.t(), RegisteredNick.t(), boolean()) :: :ok
-  defp display_online_status(user, registered_nick, account_nick, has_full_access) do
+  @spec display_online_status(User.t(), RegisteredNick.t(), RegisteredNick.t(), boolean(), function()) :: :ok
+  defp display_online_status(user, registered_nick, account_nick, has_full_access, online_lookup) do
     currently_used =
-      case Users.get_by_nick(registered_nick.nickname) do
+      case online_lookup.(registered_nick.nickname) do
         {:ok, _online_user} -> true
         {:error, :user_not_found} -> false
       end

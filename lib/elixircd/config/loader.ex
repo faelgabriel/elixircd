@@ -29,6 +29,58 @@ defmodule ElixIRCd.Config.Loader do
     multiline: false,
     read_marker: false
   ]
+  @s2s_defaults [
+    enabled: false,
+    network_id: "local",
+    semantic_revision: 1,
+    server_id: "local",
+    server_name: "local.example.test",
+    roster: [[sid: "local", name: "local.example.test", parent: nil]],
+    services_authority: nil,
+    listener: [
+      ip: {127, 0, 0, 1},
+      port: 7000,
+      keyfile: "data/cert/selfsigned_key.pem",
+      certfile: "data/cert/selfsigned.pem",
+      cacertfile: "data/cert/selfsigned.pem",
+      versions: [:"tlsv1.2", :"tlsv1.3"],
+      backlog: 128
+    ],
+    parent_connection: nil,
+    children: %{},
+    budgets: [
+      max_frame_bytes: 1_048_576,
+      max_connections_per_acceptor: 256,
+      max_inbound_queue_bytes: 2 * 1_048_576,
+      per_link_queue_bytes: 16 * 1_048_576,
+      snapshot_delta_queue_bytes: 16 * 1_048_576,
+      aggregate_output_bytes: 128 * 1_048_576,
+      aggregate_pending_frames: 262_144,
+      aggregate_pending_bytes: 128 * 1_048_576,
+      snapshot_staging_bytes: 128 * 1_048_576,
+      max_pending_requests_origin: 128,
+      max_pending_requests_node: 1_024,
+      sasl_workers: 4,
+      max_pending_frames: 65_536,
+      max_stream_parts: 4_096,
+      max_stream_bytes: 16 * 1_048_576,
+      max_repairs: 16,
+      max_list_slots: 4_096,
+      max_memberships: 20,
+      max_policy_objects: 65_536
+    ],
+    timeouts: [
+      tls_hello_ms: 15_000,
+      incomplete_frame_ms: 15_000,
+      snapshot_ms: 120_000,
+      request_ms: 15_000,
+      heartbeat_ms: 30_000,
+      heartbeat_timeout_ms: 60_000,
+      shutdown_ms: 15_000
+    ],
+    remote_admin: [enabled: false, actions: [], origin_sids: [], operator_roles: []],
+    reconnect: [initial_ms: 1_000, max_ms: 60_000, jitter_ms: 500, stable_ms: 30_000]
+  ]
   @legacy_section_defaults [
     compatibility: [
       legacy_invite_order: false,
@@ -54,6 +106,7 @@ defmodule ElixIRCd.Config.Loader do
   defp upgrade_legacy_config(config) do
     upgraded =
       config
+      |> merge_section_defaults(:s2s, @s2s_defaults)
       |> merge_section_defaults(:capabilities, @legacy_capability_defaults)
       |> merge_section_defaults(:sasl, scram_sha_256: [enabled: false, iterations: 15_000])
       |> merge_nested_section_defaults(:sasl, :scram_sha_256, enabled: false, iterations: 15_000)

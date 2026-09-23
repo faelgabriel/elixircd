@@ -293,6 +293,10 @@ defmodule ElixIRCd.Server.ResponseContext do
     :ok
   end
 
+  @doc "Defers the terminal response until an external continuation completes."
+  @spec defer_response(User.t()) :: :ok
+  def defer_response(%User{pid: pid}) when is_pid(pid), do: mark_response_satisfied(pid)
+
   @spec render_events(t(), User.t()) :: [{Message.t(), User.t()}]
   defp render_events(%{stream_batches: batches} = context, user) when is_list(batches) do
     {messages, remaining_batches} =

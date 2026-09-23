@@ -3,6 +3,7 @@ defmodule ElixIRCd.Config.Validator do
 
   alias ElixIRCd.Config.Schema
   alias ElixIRCd.Config.Types
+  alias ElixIRCd.Server.S2S.Profile
 
   @doc "Returns all structural errors, followed by semantic checks when the structure is sound."
   @spec validate(term()) :: :ok | {:error, [String.t()]}
@@ -152,7 +153,27 @@ defmodule ElixIRCd.Config.Validator do
         "requires cloaking.enabled"
       ) ++
       capability_relationships(config, capabilities) ++
-      unique_operators(config[:operators]) ++ resource_paths(config)
+      unique_operators(config[:operators]) ++ resource_paths(config) ++ s2s_relationships(config)
+  end
+
+  defp s2s_relationships(config) do
+    case Keyword.get(config, :s2s) do
+      nil ->
+        []
+
+      s2s when is_list(s2s) ->
+        if Keyword.get(s2s, :enabled, false) do
+          case Profile.validate(config) do
+            :ok -> []
+            {:error, errors} -> Enum.map(errors, &"elixircd.s2s: #{inspect(&1)}")
+          end
+        else
+          []
+        end
+
+      _ ->
+        []
+    end
   end
 
   defp capability_relationships(config, capabilities) do
@@ -215,12 +236,23 @@ defmodule ElixIRCd.Config.Validator do
 
   @spec resource_paths(keyword()) :: [String.t()]
   defp resource_paths(config) do
-    pairs =
+    listener_pairs =
       Enum.flat_map(config[:listeners], fn
         {:tls, opts} -> [opts[:transport_options]]
         {:https, opts} -> [opts]
         _ -> []
       end)
+
+    s2s_pairs =
+      case Keyword.get(config, :s2s) do
+        s2s when is_list(s2s) ->
+          if Keyword.get(s2s, :enabled, false), do: [Keyword.fetch!(s2s, :listener)], else: []
+
+        _ ->
+          []
+      end
+
+    pairs = listener_pairs ++ s2s_pairs
 
     roles =
       [{config[:cloaking][:cloak_key_file], :cloak}] ++

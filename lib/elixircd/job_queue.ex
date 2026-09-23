@@ -9,6 +9,8 @@ defmodule ElixIRCd.JobQueue do
 
   alias ElixIRCd.Jobs.JobBehavior
   alias ElixIRCd.Repositories.Jobs
+  alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Output
   alias ElixIRCd.Tables.Job
 
   @poll_interval 5_000
@@ -30,12 +32,28 @@ defmodule ElixIRCd.JobQueue do
           | {:max_attempts, pos_integer()}
           | {:retry_delay_ms, pos_integer()}
           | {:repeat_interval_ms, pos_integer() | nil}
-        ]) :: Job.t()
+        ]) :: Job.t() | :queued
   def enqueue(job_module, payload \\ %{}, opts \\ []) do
     unless implements_job_behavior?(job_module) do
       raise ArgumentError, "Module #{job_module} does not implement ElixIRCd.Jobs.JobBehavior"
     end
 
+    if Memento.Transaction.inside?() and Output.collecting?() do
+      case Output.collect_intent(%{kind: :job_enqueue, module: job_module, payload: payload, opts: opts}) do
+        :ok -> :queued
+        {:error, reason} -> raise ArgumentError, "job enqueue intent rejected: #{inspect(reason)}"
+        :inactive -> enqueue_now(job_module, payload, opts)
+      end
+    else
+      enqueue_now(job_module, payload, opts)
+    end
+  end
+
+  @doc "Enqueues a job after its transaction has committed."
+  @spec enqueue_committed(module(), map(), keyword()) :: Job.t()
+  def enqueue_committed(job_module, payload, opts), do: enqueue_now(job_module, payload, opts)
+
+  defp enqueue_now(job_module, payload, opts) do
     job_params = %{
       module: job_module,
       payload: payload,
@@ -237,7 +255,11 @@ defmodule ElixIRCd.JobQueue do
         })
       end)
 
-    result = updated_job.module.run(updated_job)
+    result =
+      Output.transaction(
+        fn -> updated_job.module.run(updated_job) end,
+        drain_fun: &Dispatcher.drain_intent/1
+      )
 
     Memento.transaction!(fn ->
       case result do

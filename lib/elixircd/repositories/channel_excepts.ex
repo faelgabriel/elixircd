@@ -6,14 +6,31 @@ defmodule ElixIRCd.Repositories.ChannelExcepts do
   """
 
   alias ElixIRCd.Tables.ChannelExcept
+  alias ElixIRCd.Repositories.ChannelListTombstones
+  alias ElixIRCd.Server.S2S.Publication
 
   @doc """
   Create a new channel except and write it to the database.
   """
   @spec create(map()) :: ChannelExcept.t()
   def create(attrs) do
-    ChannelExcept.new(attrs)
+    record = ChannelExcept.new(Map.put(attrs, :stamp, Publication.next_local_stamp()))
+
+    record
     |> Memento.Query.write()
+    |> tap(fn record ->
+      ChannelListTombstones.delete(record.channel_name_key, "e", record.mask)
+
+      Publication.channel_list_changed(
+        record.channel_name_key,
+        "e",
+        record.mask,
+        true,
+        record.setter,
+        DateTime.to_unix(record.created_at, :millisecond),
+        record.stamp
+      )
+    end)
   end
 
   @doc """
@@ -21,7 +38,30 @@ defmodule ElixIRCd.Repositories.ChannelExcepts do
   """
   @spec delete(ChannelExcept.t()) :: :ok
   def delete(channel_except) do
-    Memento.Query.delete_record(channel_except)
+    result = Memento.Query.delete_record(channel_except)
+    set_ms = System.system_time(:millisecond)
+    stamp = Publication.next_local_stamp()
+
+    ChannelListTombstones.put(%{
+      channel_name_key: channel_except.channel_name_key,
+      mode: "e",
+      mask: channel_except.mask,
+      set_by: channel_except.setter,
+      set_ms: set_ms,
+      stamp: stamp
+    })
+
+    Publication.channel_list_changed(
+      channel_except.channel_name_key,
+      "e",
+      channel_except.mask,
+      false,
+      channel_except.setter,
+      set_ms,
+      stamp
+    )
+
+    result
   end
 
   @doc """

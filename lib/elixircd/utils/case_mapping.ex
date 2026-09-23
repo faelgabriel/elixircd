@@ -19,12 +19,13 @@ defmodule ElixIRCd.Utils.CaseMapping do
     end
   end
 
+  @doc "Normalizes a string using an explicit IRC case mapping."
   @spec normalize(String.t(), case_mapping()) :: String.t()
-  defp normalize(string, :ascii) do
+  def normalize(string, :ascii) do
     ascii_lower(string)
   end
 
-  defp normalize(string, :rfc1459) do
+  def normalize(string, :rfc1459) do
     string
     |> ascii_lower()
     |> String.replace(["{", "}", "|", "~"], fn
@@ -35,7 +36,7 @@ defmodule ElixIRCd.Utils.CaseMapping do
     end)
   end
 
-  defp normalize(string, :strict_rfc1459) do
+  def normalize(string, :strict_rfc1459) do
     string
     |> ascii_lower()
     |> String.replace(["{", "}", "|"], fn

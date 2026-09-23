@@ -26,7 +26,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       user = insert(:user, nick: nil, registered: false, hostname: nil, ident: nil, realname: nil)
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
-      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
       assert updated_user.hostname == nil
       assert updated_user.registered == false
       assert updated_user.registered_at == nil
@@ -72,7 +72,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
         validate_order?: false
       )
 
-      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
       assert updated_user.hostname == "localhost"
       assert updated_user.ident == "anyuserid"
       assert updated_user.registered == true
@@ -119,7 +119,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
         validate_order?: false
       )
 
-      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
       assert updated_user.hostname == "127.0.0.1"
       assert updated_user.ident == "~username"
       assert updated_user.registered == true
@@ -161,7 +161,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
         # MOTD messages are mocked as we don't care about it here
       ])
 
-      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
       assert updated_user.hostname == "localhost"
       assert updated_user.ident == "~username"
       assert updated_user.registered == true
@@ -209,7 +209,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
         validate_order?: false
       )
 
-      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
       assert updated_user.hostname == "127.0.0.1"
       assert updated_user.ident == "~username"
       assert updated_user.registered == true
@@ -240,7 +240,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
 
       assert_sent_messages_amount(user.pid, 8)
 
-      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
       assert updated_user.hostname == "localhost"
       assert updated_user.registered == true
     end
@@ -281,7 +281,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       user = insert(:user, registered: false, hostname: nil, modes: [:Z])
       assert :ok = Memento.transaction!(fn -> Handshake.handle(user) end)
 
-      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.pid) end)
+      assert %User{} = updated_user = Memento.transaction!(fn -> Memento.Query.read(User, user.uid) end)
       assert :x in updated_user.modes
       assert :Z in updated_user.modes
     end

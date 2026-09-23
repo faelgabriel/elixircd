@@ -57,8 +57,26 @@ defmodule ElixIRCd.Server.WsListener do
     {:push, frame, state}
   end
 
+  def handle_info({:disconnect, uid, reason}, state) when is_binary(uid) do
+    if Connection.current_uid() == uid do
+      {:stop, :normal, {1000, reason}, Map.put(state, :quit_reason, reason)}
+    else
+      {:ok, state}
+    end
+  end
+
   def handle_info({:disconnect, reason}, state) do
     {:stop, :normal, {1000, reason}, Map.put(state, :quit_reason, reason)}
+  end
+
+  def handle_info({:s2s_reply, uid, result}, state) do
+    Connection.handle_s2s_reply(self(), uid, result)
+    {:ok, state}
+  end
+
+  def handle_info({:s2s_reply, uid, request_id, result, context}, state) do
+    Connection.handle_s2s_reply(self(), uid, request_id, result, context)
+    {:ok, state}
   end
 
   def handle_info({:EXIT, _pid, _type}, state), do: {:ok, state}

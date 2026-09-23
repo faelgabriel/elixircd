@@ -91,7 +91,8 @@ defmodule ElixIRCd.Metadata do
 
   @doc "Reports whether a user may modify the resolved target."
   @spec writable?(User.t(), target()) :: boolean()
-  def writable?(user, %{entity: %User{pid: pid}}), do: user.pid == pid or irc_operator?(user)
+  def writable?(user, %{entity: %User{} = target_user}),
+    do: User.same_identity?(user, target_user) or irc_operator?(user)
 
   def writable?(user, %{entity: %Channel{name: name}}) do
     irc_operator?(user) or
@@ -273,7 +274,7 @@ defmodule ElixIRCd.Metadata do
   end
 
   defp receives_updates?(recipient, %{entity: %User{} = target_user}) do
-    recipient.pid == target_user.pid or shared_channel?(recipient, target_user)
+    User.same_identity?(recipient, target_user) or shared_channel?(recipient, target_user)
   end
 
   defp receives_updates?(recipient, %{entity: %Channel{name: name}}) do

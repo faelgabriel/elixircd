@@ -20,6 +20,9 @@ defmodule ElixIRCd.Commands.Help do
       {"CHATHISTORY <LATEST|BEFORE|AFTER|AROUND> <target> <ref> <limit>",
        "Reads persistent history; BETWEEN accepts two references. See HELP HISTORY."},
     "CHGHOST" => {"CHGHOST <ident> <host>", "Operator command that changes the caller's displayed ident and hostname."},
+    "CONNECT" =>
+      {"CONNECT <configured-neighbor>",
+       "Retries a configured parent edge or enables a configured child edge; IRC operator only."},
     "DIE" => {"DIE", "Stops the server. IRC operator privileges are required."},
     "GLOBOPS" => {"GLOBOPS :<message>", "Sends a server-wide notice to IRC operators."},
     "HELP" => {"HELP [topic]", "Shows command and feature documentation. HELP INDEX lists all topics."},
@@ -34,7 +37,7 @@ defmodule ElixIRCd.Commands.Help do
       {"KICK <channel>[,<channel>...] <nick>[,<nick>...] [:reason]",
        "Removes channel members; channel operator privileges are required."},
     "KILL" => {"KILL <nick> :<reason>", "Disconnects a user. IRC operator privileges are required."},
-    "LINKS" => {"LINKS [server-mask]", "Shows this standalone server; ElixIRCd intentionally has no S2S links."},
+    "LINKS" => {"LINKS [server-mask]", "Shows reachable configured native links with topology redaction."},
     "LIST" => {"LIST [channels] [elist-options]", "Lists visible channels with safe filtering and pagination limits."},
     "LUSERS" => {"LUSERS", "Shows current local user, operator and channel counts."},
     "MARKREAD" =>
@@ -72,6 +75,8 @@ defmodule ElixIRCd.Commands.Help do
        "Atomically renames a channel and all local persistent references."},
     "RESTART" => {"RESTART", "Restarts the server. IRC operator privileges are required."},
     "SETNAME" => {"SETNAME :<realname>", "Changes the caller's real name and notifies capable shared-channel users."},
+    "SQUIT" =>
+      {"SQUIT <direct-neighbor> [:reason]", "Closes and disables one configured direct native link; IRC operator only."},
     "SILENCE" =>
       {"SILENCE [+|-]<mask> | SILENCE", "Manages masks whose private messages and notices are silently ignored."},
     "STATS" =>

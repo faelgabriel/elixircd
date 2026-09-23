@@ -6,6 +6,7 @@ defmodule ElixIRCd.Repositories.Users do
   import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2]
 
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.Server.S2S.Publication
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
@@ -17,14 +18,18 @@ defmodule ElixIRCd.Repositories.Users do
   def create(attrs) do
     User.new(attrs)
     |> Memento.Query.write()
+    |> tap(&Publication.user_changed/1)
   end
 
   @doc """
   Update a user and write it to the database.
   """
   @spec update(User.t(), map()) :: User.t()
+  def update(%User{pid: nil} = user, attrs) when is_map(attrs), do: User.update(user, attrs)
+
   def update(user, attrs) do
     updated_user = user |> User.update(attrs) |> Memento.Query.write()
+    Publication.user_changed(updated_user)
 
     if is_nil(user.identified_as_key) and is_binary(updated_user.identified_as_key) do
       ElixIRCd.Metadata.migrate_to_account(updated_user)
@@ -33,12 +38,31 @@ defmodule ElixIRCd.Repositories.Users do
     updated_user
   end
 
+  @doc "Advances only the public membership revision for one stable UID."
+  @spec bump_membership_revision(String.t()) :: :ok | {:error, :user_not_found}
+  def bump_membership_revision(uid) when is_binary(uid) do
+    case Memento.Query.select(User, {:==, :uid, uid}, limit: 1) do
+      [user] ->
+        user
+        |> Map.put(:membership_rev, (user.membership_rev || 0) + 1)
+        |> Memento.Query.write()
+
+        :ok
+
+      [] ->
+        {:error, :user_not_found}
+    end
+  end
+
+  def bump_membership_revision(_uid), do: {:error, :user_not_found}
+
   @doc """
   Delete a user from the database.
   """
   @spec delete(User.t()) :: :ok
   def delete(user) do
-    Memento.Query.delete(User, user.pid)
+    Publication.user_deleted(user, "connection closed")
+    if is_binary(user.uid), do: Memento.Query.delete(User, user.uid), else: :ok
   end
 
   @doc """
@@ -54,10 +78,37 @@ defmodule ElixIRCd.Repositories.Users do
   """
   @spec get_by_pid(pid()) :: {:ok, User.t()} | {:error, :user_not_found}
   def get_by_pid(pid) do
-    Memento.Query.read(User, pid)
+    if is_pid(pid) do
+      :mnesia.index_read(User, pid, :pid)
+      |> Enum.map(&Data.load/1)
+      |> Enum.take(1)
+      |> case do
+        [] -> {:error, :user_not_found}
+        [user] -> {:ok, user}
+      end
+    else
+      {:error, :invalid_local_pid}
+    end
+  end
+
+  @doc "Get a user by its stable network UID."
+  @spec get_by_uid(String.t()) :: {:ok, User.t()} | {:error, :user_not_found}
+  def get_by_uid(uid) when is_binary(uid) do
+    Memento.Query.select(User, {:==, :uid, uid}, limit: 1)
     |> case do
-      nil -> {:error, :user_not_found}
-      user -> {:ok, user}
+      [] -> {:error, :user_not_found}
+      [user] -> {:ok, user}
+    end
+  end
+
+  def get_by_uid(_uid), do: {:error, :user_not_found}
+
+  @doc "Returns the local UID for a proven local PID."
+  @spec uid_for_pid(pid()) :: {:ok, String.t()} | {:error, term()}
+  def uid_for_pid(pid) do
+    case get_by_pid(pid) do
+      {:ok, user} -> {:ok, user.uid}
+      {:error, _} = error -> error
     end
   end
 
@@ -93,11 +144,35 @@ defmodule ElixIRCd.Repositories.Users do
   def get_by_pids([]), do: []
 
   def get_by_pids(pids) do
-    conditions =
-      Enum.map(pids, fn pid -> {:==, :pid, pid} end)
-      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
+    pids = Enum.filter(pids, &is_pid/1)
 
-    Memento.Query.select(User, conditions)
+    if pids == [] do
+      []
+    else
+      conditions =
+        Enum.map(pids, fn pid -> {:==, :pid, pid} end)
+        |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
+
+      Memento.Query.select(User, conditions)
+    end
+  end
+
+  @doc "Returns users for stable UIDs."
+  @spec get_by_uids([String.t()]) :: [User.t()]
+  def get_by_uids(uids) do
+    uids = Enum.filter(uids, &is_binary/1)
+
+    case uids do
+      [] ->
+        []
+
+      _ ->
+        conditions =
+          Enum.map(uids, fn uid -> {:==, :uid, uid} end)
+          |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
+
+        Memento.Query.select(User, conditions)
+    end
   end
 
   @doc """
@@ -167,18 +242,18 @@ defmodule ElixIRCd.Repositories.Users do
   @spec get_in_shared_channels_with_capability(User.t(), String.t(), include_self :: boolean()) :: [User.t()]
   def get_in_shared_channels_with_capability(user, capability, include_self \\ false) do
     user_channel_name_keys =
-      UserChannels.get_by_user_pid(user.pid)
+      UserChannels.get_by_uid(user.uid)
       |> Enum.map(& &1.channel_name_key)
 
-    shared_user_pids =
+    shared_uids =
       UserChannels.get_by_channel_names(user_channel_name_keys)
-      |> Enum.map(& &1.user_pid)
+      |> Enum.map(& &1.uid)
       |> Enum.uniq()
 
-    get_by_pids(shared_user_pids)
+    get_by_uids(shared_uids)
     |> Enum.filter(fn other_user ->
       has_capability = capability in other_user.capabilities
-      is_self = other_user.pid == user.pid
+      is_self = User.same_identity?(other_user, user)
 
       if include_self do
         has_capability

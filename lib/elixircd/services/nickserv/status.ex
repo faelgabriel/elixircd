@@ -18,16 +18,21 @@ defmodule ElixIRCd.Services.Nickserv.Status do
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
-  def handle(user, ["STATUS" | nicks]) when nicks != [] do
+  def handle(user, arguments), do: handle_with_online_lookup(user, arguments, &Users.get_by_nick/1)
+
+  @doc "Runs STATUS with an injected authoritative online-user lookup."
+  @spec handle_with_online_lookup(User.t(), [String.t()], (String.t() -> {:ok, User.t()} | {:error, term()})) :: :ok
+  def handle_with_online_lookup(user, ["STATUS" | nicks], online_lookup)
+      when nicks != [] and is_function(online_lookup, 1) do
     Enum.each(nicks, fn nick ->
-      status_code = calculate_status_for_nick(nick)
+      status_code = calculate_status_for_nick(nick, online_lookup)
       notify(user, "STATUS #{nick} #{status_code}")
     end)
 
     :ok
   end
 
-  def handle(user, ["STATUS"]) do
+  def handle_with_online_lookup(user, ["STATUS"], _online_lookup) do
     notify(user, [
       "Insufficient parameters for \x02STATUS\x02.",
       "Syntax: \x02STATUS <nickname> [nickname2 ...]\x02"
@@ -36,21 +41,21 @@ defmodule ElixIRCd.Services.Nickserv.Status do
     :ok
   end
 
-  @spec calculate_status_for_nick(String.t()) :: 0 | 1 | 2 | 3
-  defp calculate_status_for_nick(target_nick) do
+  @spec calculate_status_for_nick(String.t(), (String.t() -> {:ok, User.t()} | {:error, term()})) :: 0 | 1 | 2 | 3
+  defp calculate_status_for_nick(target_nick, online_lookup) do
     case RegisteredNicks.get_by_nickname(target_nick) do
       {:error, :registered_nick_not_found} ->
         # STATUS 0: Nick not registered
         0
 
       {:ok, registered_nick} ->
-        calculate_status_for_registered(registered_nick)
+        calculate_status_for_registered(registered_nick, online_lookup)
     end
   end
 
-  @spec calculate_status_for_registered(struct()) :: 1 | 2 | 3
-  defp calculate_status_for_registered(registered_nick) do
-    case Users.get_by_nick(registered_nick.nickname) do
+  @spec calculate_status_for_registered(struct(), (String.t() -> {:ok, User.t()} | {:error, term()})) :: 1 | 2 | 3
+  defp calculate_status_for_registered(registered_nick, online_lookup) do
+    case online_lookup.(registered_nick.nickname) do
       {:error, :user_not_found} ->
         # STATUS 1: Registered but not online
         1

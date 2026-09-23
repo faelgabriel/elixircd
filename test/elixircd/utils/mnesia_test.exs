@@ -44,6 +44,26 @@ defmodule ElixIRCd.Utils.MnesiaTest do
       # No error means success
     end
 
+    test "rejects an incompatible current table instead of clearing it" do
+      current_attributes = User.__info__().attributes
+      incompatible_attributes = List.delete(current_attributes, :uid)
+
+      assert {:atomic, :ok} = :mnesia.delete_table(User)
+
+      assert {:atomic, :ok} =
+               :mnesia.create_table(User,
+                 attributes: incompatible_attributes,
+                 ram_copies: [node()],
+                 type: :set
+               )
+
+      assert :ok = :mnesia.wait_for_tables([User], 5_000)
+
+      assert_raise RuntimeError, ~r/Incompatible Mnesia table ElixIRCd\.Tables\.User/, fn ->
+        Mnesia.setup_mnesia()
+      end
+    end
+
     test "raises error if failed to create Mnesia schema" do
       Memento.Schema
       |> stub(:create, fn _nodes -> {:error, :any} end)
@@ -156,7 +176,7 @@ defmodule ElixIRCd.Utils.MnesiaTest do
       assert :mnesia.table_info(SaslSession, :attributes) == SaslSession.__info__().attributes
 
       Memento.transaction!(fn ->
-        assert Memento.Query.read(User, user.pid).cap_version == 301
+        assert Memento.Query.read(User, user.uid).cap_version == 301
         assert Memento.Query.all(UserMonitor) |> hd() |> Map.fetch!(:target_nick) == monitor.target_nick_key
         assert Memento.Query.read(SaslSession, session.user_pid).state == nil
       end)
