@@ -3,10 +3,15 @@ defmodule ElixIRCd.Utils.Protocol do
   Module for utility functions related to the IRC protocol.
   """
 
+  alias ElixIRCd.Message
   alias ElixIRCd.Service
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.CaseMapping
+
+  @max_irc_message_bytes 512
+
+  @type word_choice :: String.t() | {String.t(), String.t()}
 
   @doc """
   Determines if a target is a channel name.
@@ -36,7 +41,7 @@ defmodule ElixIRCd.Utils.Protocol do
   """
   @spec irc_operator_visible?(User.t(), User.t()) :: boolean()
   def irc_operator_visible?(target, viewer) do
-    irc_operator?(target) and (:H not in target.modes or target.pid == viewer.pid or irc_operator?(viewer))
+    irc_operator?(target) and (:H not in target.modes or User.same_identity?(target, viewer) or irc_operator?(viewer))
   end
 
   @doc """
@@ -55,6 +60,15 @@ defmodule ElixIRCd.Utils.Protocol do
   Determines if a user mask matches a user.
   """
   @spec match_user_mask?(User.t(), String.t()) :: boolean()
+  def match_user_mask?(user, "$a:" <> account_pattern) do
+    is_binary(user.identified_as) and match_glob?(user.identified_as, account_pattern)
+  end
+
+  def match_user_mask?(user, "$r:" <> realname_pattern) do
+    is_binary(user.realname) and match_glob?(user.realname, realname_pattern)
+  end
+
+  def match_user_mask?(_user, "$m:" <> _mask), do: false
   def match_user_mask?(%{registered: false}, mask), do: match_mask(mask, "*", nil)
 
   def match_user_mask?(user, mask) do
@@ -64,6 +78,117 @@ defmodule ElixIRCd.Utils.Protocol do
     match_mask(CaseMapping.normalize(nick), CaseMapping.normalize(user_nick), nil) and
       match_mask(ascii_lower(ident), ascii_lower(user_ident), nil) and
       match_mask(ascii_lower(host), ascii_lower(user_host), nil)
+  end
+
+  @doc "Matches an IRC glob using the configured IRC case mapping."
+  @spec match_glob?(String.t(), String.t()) :: boolean()
+  def match_glob?(value, pattern) when is_binary(value) and is_binary(pattern) do
+    regex_source =
+      pattern
+      |> CaseMapping.normalize()
+      |> Regex.escape()
+      |> String.replace("\\*", ".*")
+      |> String.replace("\\?", ".")
+
+    Regex.match?(Regex.compile!("^#{regex_source}$", "u"), CaseMapping.normalize(value))
+  end
+
+  def match_glob?(_value, _pattern), do: false
+
+  @doc "Returns whether a mute extban matches a user."
+  @spec match_mute_mask?(User.t(), String.t()) :: boolean()
+  def match_mute_mask?(user, "$m:" <> mask), do: match_user_mask?(user, mask)
+  def match_mute_mask?(_user, _mask), do: false
+
+  @spec message_fits?(Message.t(), pos_integer()) :: boolean()
+  defp message_fits?(%Message{} = message, max_bytes) do
+    message
+    |> Map.put(:tags, %{})
+    |> Message.unparse_unbounded!()
+    |> byte_size()
+    |> Kernel.<=(max_bytes)
+  end
+
+  @doc "Splits a word-based trailing response without splitting a protocol token."
+  @spec chunk_message_words(Message.t(), [word_choice()], pos_integer()) :: [Message.t()]
+  def chunk_message_words(%Message{} = message, words, max_bytes \\ @max_irc_message_bytes)
+      when is_list(words) and is_integer(max_bytes) and max_bytes > 0 do
+    {chunks, current} =
+      Enum.reduce(words, {[], []}, fn word_choice, {chunks, current} ->
+        choices = word_choices(word_choice)
+
+        case choose_word(message, current, choices, max_bytes) do
+          {:current, word} ->
+            {chunks, current ++ [word]}
+
+          {:new, word} ->
+            {[%{message | trailing: Enum.join(current, " ")} | chunks], [word]}
+
+          :error ->
+            raise ArgumentError, "IRC response contains a protocol token that cannot fit on one line"
+        end
+      end)
+
+    chunks = if current == [], do: chunks, else: [%{message | trailing: Enum.join(current, " ")} | chunks]
+    Enum.reverse(chunks)
+  end
+
+  @doc "Splits arbitrary UTF-8 trailing text on grapheme boundaries to fit IRC wire limits."
+  @spec chunk_message_text(Message.t(), String.t(), pos_integer()) :: [Message.t()]
+  def chunk_message_text(%Message{} = message, text, max_bytes \\ @max_irc_message_bytes)
+      when is_binary(text) and is_integer(max_bytes) and max_bytes > 0 do
+    {chunks, current} =
+      text
+      |> String.graphemes()
+      |> Enum.reduce({[], ""}, &append_text_grapheme(message, max_bytes, &1, &2))
+
+    chunks = if current == "" and chunks != [], do: chunks, else: [%{message | trailing: current} | chunks]
+    Enum.reverse(chunks)
+  end
+
+  @spec append_text_grapheme(Message.t(), pos_integer(), String.t(), {[Message.t()], String.t()}) ::
+          {[Message.t()], String.t()}
+  defp append_text_grapheme(message, max_bytes, grapheme, {chunks, current}) do
+    candidate = current <> grapheme
+
+    cond do
+      message_fits?(%{message | trailing: candidate}, max_bytes) ->
+        {chunks, candidate}
+
+      current == "" ->
+        raise ArgumentError, "IRC response overhead leaves no room for one UTF-8 grapheme"
+
+      message_fits?(%{message | trailing: grapheme}, max_bytes) ->
+        {[%{message | trailing: current} | chunks], grapheme}
+
+      true ->
+        raise ArgumentError, "IRC response overhead leaves no room for one UTF-8 grapheme"
+    end
+  end
+
+  @spec word_choices(word_choice()) :: [String.t()]
+  defp word_choices({preferred, fallback}) when is_binary(preferred) and is_binary(fallback),
+    do: Enum.uniq([preferred, fallback])
+
+  defp word_choices(word) when is_binary(word), do: [word]
+
+  @spec choose_word(Message.t(), [String.t()], [String.t()], pos_integer()) ::
+          {:current | :new, String.t()} | :error
+  defp choose_word(message, current, choices, max_bytes) do
+    with nil <- Enum.find(choices, &word_fits?(message, current, &1, max_bytes)),
+         false <- current == [],
+         word when is_binary(word) <- Enum.find(choices, &word_fits?(message, [], &1, max_bytes)) do
+      {:new, word}
+    else
+      word when is_binary(word) -> {:current, word}
+      true -> :error
+      nil -> :error
+    end
+  end
+
+  @spec word_fits?(Message.t(), [String.t()], String.t(), pos_integer()) :: boolean()
+  defp word_fits?(message, current, word, max_bytes) do
+    message_fits?(%{message | trailing: Enum.join(current ++ [word], " ")}, max_bytes)
   end
 
   # Nickname equivalences such as ^/~ must not change ident or hostname matching.
@@ -160,6 +285,10 @@ defmodule ElixIRCd.Utils.Protocol do
   Normalizes a mask to the *!*@* IRC format.
   """
   @spec normalize_mask(String.t()) :: String.t()
+  def normalize_mask("$a:" <> account), do: "$a:" <> account
+  def normalize_mask("$r:" <> realname), do: "$r:" <> realname
+  def normalize_mask("$m:" <> mask), do: "$m:" <> normalize_mask(mask)
+
   def normalize_mask(mask) do
     {nick, user, host} = parse_mask_parts(mask)
     "#{empty_mask_part_to_wildcard(nick)}!#{empty_mask_part_to_wildcard(user)}@#{empty_mask_part_to_wildcard(host)}"

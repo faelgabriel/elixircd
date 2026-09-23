@@ -119,10 +119,64 @@ defmodule ElixIRCd.Config.ValidatorTest do
     assert Enum.any?(errors, &String.contains?(&1, "max_nick_length: duplicate field"))
   end
 
+  test "unknown and missing fields are rejected in every configurable branch", %{config: config} do
+    command_throttle = config[:rate_limiter][:message][:throttle]
+
+    cases = [
+      Keyword.update!(config, ElixIRCd.Utils.Mailer, &Keyword.put(&1, :not_declared, true)),
+      put_in(config, [:listeners, :tcp, :not_declared], true),
+      put_in(config, [:channel, :max_list_entries], %{b: 100, e: 100, I: 100, not_declared: 100}),
+      put_in(config, [:webirc, :gateways], [
+        %{ips: ["192.0.2.1"], password: "secret", name: "Gateway", not_declared: true}
+      ]),
+      put_in(config, [:rate_limiter, :message, :command_throttle], %{
+        "JOIN" => Keyword.put(command_throttle, :not_declared, 1)
+      }),
+      Keyword.update!(config, ElixIRCd.Utils.Mailer, &Keyword.delete(&1, :adapter)),
+      put_in(
+        config,
+        [:listeners, :tls, :transport_options],
+        Keyword.delete(config[:listeners][:tls][:transport_options], :keyfile)
+      ),
+      put_in(config, [:channel, :max_list_entries], %{b: 100, e: 100}),
+      put_in(config, [:webirc, :gateways], [%{ips: ["192.0.2.1"], password: "secret"}]),
+      put_in(config, [:rate_limiter, :message, :command_throttle], %{
+        "JOIN" => Keyword.delete(command_throttle, :cost)
+      })
+    ]
+
+    for invalid <- cases do
+      assert {:error, errors} = Validator.validate(invalid)
+      assert match?([_ | _], errors)
+    end
+  end
+
+  test "required fields inside every shipped listener variant cannot be omitted", %{config: config} do
+    paths = [
+      [:listeners, :tcp, :port],
+      [:listeners, :tls, :port],
+      [:listeners, :tls, :transport_options, :keyfile],
+      [:listeners, :tls, :transport_options, :certfile],
+      [:listeners, :http, :port],
+      [:listeners, :http, :startup_log],
+      [:listeners, :http, :websocket_options, :compress],
+      [:listeners, :https, :port],
+      [:listeners, :https, :startup_log],
+      [:listeners, :https, :websocket_options, :compress],
+      [:listeners, :https, :keyfile],
+      [:listeners, :https, :certfile]
+    ]
+
+    for path <- paths do
+      assert {:error, errors} = Validator.validate(delete_field(config, path)), inspect(path)
+      assert Enum.any?(errors, &String.contains?(&1, "required field is missing")), inspect(path)
+    end
+  end
+
   for {path, values} <- [
         {[:settings, :case_mapping], [:unicode, "ascii", nil]},
         {[:settings, :utf8_only], ["false", 0, nil]},
-        {[:server, :hostname], ["bad host", "host\nINJECT", "-invalid.test"]},
+        {[:server, :hostname], ["bad host", "host\nINJECT", "-invalid.test", String.duplicate("a", 64)]},
         {[:admin_info, :email], ["invalid", "a@b", "a\nb@c.test"]},
         {[:user, :max_nick_length], [0, -1, 1.5, "30"]},
         {[:ident_service, :timeout], [0, 5_001, :infinity]},
@@ -191,6 +245,35 @@ defmodule ElixIRCd.Config.ValidatorTest do
     for operators <- [[{"root", "plain-secret"}], [{"root", "$argon2id$broken"}], [%{name: "root"}]] do
       assert {:error, errors} = Validator.validate(Keyword.put(config, :operators, operators))
       refute Enum.any?(errors, &String.contains?(&1, "plain-secret"))
+    end
+  end
+
+  test "enforces capability dependencies and history limit relationships", %{config: config} do
+    sasl_without_mechanisms =
+      config
+      |> put_in([:sasl, :plain, :enabled], false)
+      |> put_in([:sasl, :scram_sha_256, :enabled], false)
+      |> put_in([:sasl, :ecdsa, :enabled], false)
+
+    cases = [
+      {put_in(config, [:capabilities, :batch], false), "capabilities.chathistory: requires batch"},
+      {put_in(config, [:history, :enabled], false), "capabilities.chathistory: requires history.enabled"},
+      {put_in(config, [:message_ids, :enabled], false), "capabilities.message_redaction: requires message_ids.enabled"},
+      {put_in(config, [:multiline, :enabled], false), "capabilities.multiline: requires multiline.enabled"},
+      {put_in(config, [:metadata, :enabled], false), "capabilities.metadata: requires metadata.enabled"},
+      {put_in(config, [:read_markers, :enabled], false), "capabilities.read_marker: requires read_markers.enabled"},
+      {put_in(config, [:account_registration, :enabled], false),
+       "capabilities.account_registration: requires account_registration.enabled"},
+      {put_in(config, [:channel_rename, :enabled], false),
+       "capabilities.channel_rename: requires channel_rename.enabled"},
+      {sasl_without_mechanisms, "capabilities.sasl: requires at least one enabled SASL mechanism"},
+      {put_in(config, [:history, :max_request_limit], config[:history][:max_entries_per_target] + 1),
+       "history.max_request_limit: must not exceed max_entries_per_target"}
+    ]
+
+    for {invalid, expected} <- cases do
+      assert {:error, errors} = Validator.validate(invalid)
+      assert Enum.any?(errors, &String.contains?(&1, expected)), "#{expected}: #{inspect(errors)}"
     end
   end
 

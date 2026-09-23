@@ -4,14 +4,31 @@ defmodule ElixIRCd.Repositories.ChannelBans do
   """
 
   alias ElixIRCd.Tables.ChannelBan
+  alias ElixIRCd.Repositories.ChannelListTombstones
+  alias ElixIRCd.Server.S2S.Publication
 
   @doc """
   Create a new channel ban and write it to the database.
   """
   @spec create(map()) :: ChannelBan.t()
   def create(attrs) do
-    ChannelBan.new(attrs)
+    record = ChannelBan.new(Map.put(attrs, :stamp, Publication.next_local_stamp()))
+
+    record
     |> Memento.Query.write()
+    |> tap(fn record ->
+      ChannelListTombstones.delete(record.channel_name_key, "b", record.mask)
+
+      Publication.channel_list_changed(
+        record.channel_name_key,
+        "b",
+        record.mask,
+        true,
+        record.setter,
+        DateTime.to_unix(record.created_at, :millisecond),
+        record.stamp
+      )
+    end)
   end
 
   @doc """
@@ -19,7 +36,30 @@ defmodule ElixIRCd.Repositories.ChannelBans do
   """
   @spec delete(ChannelBan.t()) :: :ok
   def delete(channel_ban) do
-    Memento.Query.delete_record(channel_ban)
+    result = Memento.Query.delete_record(channel_ban)
+    set_ms = System.system_time(:millisecond)
+    stamp = Publication.next_local_stamp()
+
+    ChannelListTombstones.put(%{
+      channel_name_key: channel_ban.channel_name_key,
+      mode: "b",
+      mask: channel_ban.mask,
+      set_by: channel_ban.setter,
+      set_ms: set_ms,
+      stamp: stamp
+    })
+
+    Publication.channel_list_changed(
+      channel_ban.channel_name_key,
+      "b",
+      channel_ban.mask,
+      false,
+      channel_ban.setter,
+      set_ms,
+      stamp
+    )
+
+    result
   end
 
   @doc """

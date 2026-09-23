@@ -3,8 +3,11 @@ defmodule ElixIRCd.Utils.MessageFilter do
   Utility functions for filtering messages and broadcast recipients.
   """
 
-  import ElixIRCd.Utils.Protocol, only: [match_user_mask?: 2, channel_operator?: 1, channel_voice?: 1]
+  import ElixIRCd.Utils.Protocol,
+    only: [match_mute_mask?: 2, match_user_mask?: 2, channel_operator?: 1, channel_voice?: 1]
 
+  alias ElixIRCd.Repositories.ChannelBans
+  alias ElixIRCd.Repositories.ChannelExcepts
   alias ElixIRCd.Repositories.UserSilences
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -54,6 +57,48 @@ defmodule ElixIRCd.Utils.MessageFilter do
       is_nil(user_channel) -> {:error, :registered_only_speak}
       channel_operator?(user_channel) or channel_voice?(user_channel) -> :ok
       true -> {:error, :registered_only_speak}
+    end
+  end
+
+  @doc """
+  Checks channel mute extbans. Channel operators and voiced members bypass a
+  mute, as do matching mute exceptions.
+  """
+  @spec check_channel_mute(Channel.t(), User.t(), UserChannel.t() | nil) ::
+          :ok | {:error, :user_muted}
+  def check_channel_mute(channel, user, %UserChannel{} = user_channel) do
+    if channel_operator?(user_channel) or channel_voice?(user_channel) do
+      :ok
+    else
+      check_channel_mute(channel, user, nil)
+    end
+  end
+
+  def check_channel_mute(channel, user, _user_channel) do
+    muted? =
+      channel.name_key
+      |> ChannelBans.get_by_channel_name_key()
+      |> Enum.any?(&match_mute_mask?(user, &1.mask))
+
+    excepted? =
+      channel.name_key
+      |> ChannelExcepts.get_by_channel_name_key()
+      |> Enum.any?(&match_mute_mask?(user, &1.mask))
+
+    if muted? and not excepted?, do: {:error, :user_muted}, else: :ok
+  end
+
+  @doc "Routes unprivileged messages in +U channels only to channel operators."
+  @spec filter_op_moderated_users([UserChannel.t()], UserChannel.t() | nil, [term()]) :: [UserChannel.t()]
+  def filter_op_moderated_users(user_channels, sender_membership, channel_modes) do
+    privileged? =
+      sender_membership &&
+        (channel_operator?(sender_membership) or channel_voice?(sender_membership))
+
+    if :U in channel_modes and not privileged? do
+      Enum.filter(user_channels, &channel_operator?/1)
+    else
+      user_channels
     end
   end
 end

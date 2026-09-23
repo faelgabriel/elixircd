@@ -354,5 +354,63 @@ defmodule ElixIRCd.Commands.TagmsgTest do
         assert_sent_messages([])
       end)
     end
+
+    test "delivers TAGMSG to each advertised comma-separated target" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, capabilities: ["message-tags"])
+        first = insert(:user, nick: "first", capabilities: ["message-tags"])
+        second = insert(:user, nick: "second", capabilities: ["message-tags"])
+
+        assert :ok =
+                 Tagmsg.handle(sender, %Message{
+                   command: "TAGMSG",
+                   params: ["#{first.nick},#{second.nick}"],
+                   tags: %{"+example" => "1"}
+                 })
+
+        assert_sent_messages_amount(first.pid, 1)
+        assert_sent_messages_amount(second.pid, 1)
+      end)
+    end
+
+    test "delivers STATUSMSG TAGMSG only to capable channel operators" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, capabilities: ["message-tags"])
+        operator = insert(:user, capabilities: ["message-tags"])
+        regular = insert(:user, capabilities: ["message-tags"])
+        channel = insert(:channel)
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+        insert(:user_channel, user: regular, channel: channel)
+
+        assert :ok =
+                 Tagmsg.handle(sender, %Message{
+                   command: "TAGMSG",
+                   params: ["@#{channel.name}"],
+                   tags: %{"+example" => "1"}
+                 })
+
+        assert_sent_messages_amount(operator.pid, 1)
+        assert_sent_messages_amount(regular.pid, 0)
+      end)
+    end
+
+    test "reports a channel mute extban" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, nick: "muted", capabilities: ["message-tags"])
+        channel = insert(:channel)
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:channel_ban, channel: channel, mask: "$m:muted!*@*")
+
+        assert :ok =
+                 Tagmsg.handle(sender, %Message{
+                   command: "TAGMSG",
+                   params: [channel.name],
+                   tags: %{"+example" => "1"}
+                 })
+
+        assert_sent_message_contains(sender.pid, ~r/ 404 .* :Cannot send to channel/)
+      end)
+    end
   end
 end

@@ -16,6 +16,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
       secure_connection?: 1
     ]
 
+  alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.RegisteredNick
@@ -70,7 +71,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
           account_requires_secure_connection?(account_nick.account_name) and not secure_connection?(user) ->
             notify(user, "This account requires a secure TLS connection for password authentication.")
 
-          Argon2.verify_pass(password, account_nick.password_hash) ->
+          match?({:ok, _}, Password.verify_and_upgrade(account_nick, password)) ->
             recover_nickname(user, registered_nick)
 
           true ->
@@ -88,7 +89,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
 
     case Users.get_by_nick(registered_nick.nickname) do
       {:ok, target_user} ->
-        if user.pid == target_user.pid do
+        if User.same_identity?(user, target_user) do
           notify(user, "You cannot recover your own session.")
         else
           ghost_message = "Killed (#{user.nick} (RECOVER command used))"

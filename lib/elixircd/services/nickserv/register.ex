@@ -13,6 +13,8 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Sasl.ScramSha256
+  alias ElixIRCd.Server.S2S.State
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -24,12 +26,18 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     email_required? = Application.fetch_env!(:elixircd, :services)[:nickserv][:email_required]
     wait_register_time = Application.fetch_env!(:elixircd, :services)[:nickserv][:wait_register_time]
 
-    case RegisteredNicks.get_by_nickname(user.nick) do
-      {:ok, _registered_nick} ->
-        notify(user, "This nick is already registered. Please choose a different nick.")
+    case validate_fallback_nickname(user) do
+      {:error, :reserved_fallback_nickname} ->
+        notify(user, "This generated nickname is reserved for its network owner.")
 
-      {:error, :registered_nick_not_found} ->
-        validate_registration(user, password, email, min_password_length, email_required?, wait_register_time)
+      :ok ->
+        case RegisteredNicks.get_by_nickname(user.nick) do
+          {:ok, _registered_nick} ->
+            notify(user, "This nick is already registered. Please choose a different nick.")
+
+          {:error, :registered_nick_not_found} ->
+            validate_registration(user, password, email, min_password_length, email_required?, wait_register_time)
+        end
     end
   end
 
@@ -40,6 +48,40 @@ defmodule ElixIRCd.Services.Nickserv.Register do
       "Insufficient parameters for \x02REGISTER\x02.",
       "Syntax: \x02REGISTER <password> #{email_required_format(email_required?)}\x02"
     ])
+  end
+
+  @doc "Validates a registration before the expensive password hash is computed."
+  @spec prepare_registration(User.t(), [String.t()]) :: {:ok, String.t()} | {:error, term()}
+  def prepare_registration(user, ["REGISTER", password | rest_params]) when is_binary(password) do
+    email = Enum.at(rest_params, 0)
+    config = Application.fetch_env!(:elixircd, :services)[:nickserv]
+
+    with :ok <- validate_fallback_nickname(user),
+         :ok <- validate_password(password, config[:min_password_length]),
+         :ok <- validate_email(email, config[:email_required]),
+         :ok <- validate_connection_time(user, config[:wait_register_time]) do
+      {:ok, password}
+    end
+  end
+
+  def prepare_registration(_user, _arguments), do: {:error, :invalid_parameters}
+
+  @doc "Completes a validated registration with a password hash prepared by a worker."
+  @spec handle_prepared(User.t(), String.t() | nil, String.t(), map() | nil) :: :ok
+  def handle_prepared(user, email, password_hash, scram_sha_256) when is_binary(password_hash) do
+    case validate_fallback_nickname(user) do
+      {:error, :reserved_fallback_nickname} ->
+        notify(user, "This generated nickname is reserved for its network owner.")
+
+      :ok ->
+        case RegisteredNicks.get_by_nickname(user.nick) do
+          {:ok, _registered_nick} ->
+            notify(user, "This nick is already registered. Please choose a different nickname.")
+
+          {:error, :registered_nick_not_found} ->
+            register_nickname_with_hash(user, password_hash, scram_sha_256, email)
+        end
+    end
   end
 
   @spec validate_registration(User.t(), String.t(), String.t() | nil, integer(), boolean(), integer()) :: :ok
@@ -78,6 +120,12 @@ defmodule ElixIRCd.Services.Nickserv.Register do
     end
   end
 
+  defp validate_fallback_nickname(user) do
+    if State.fallback_nickname?(user.nick) and not State.fallback_nickname_for?(user.nick, user.uid),
+      do: {:error, :reserved_fallback_nickname},
+      else: :ok
+  end
+
   @spec validate_email(String.t() | nil, boolean()) :: :ok | {:error, :missing_email} | {:error, :invalid_email}
   defp validate_email(email, email_required?) do
     cond do
@@ -111,15 +159,24 @@ defmodule ElixIRCd.Services.Nickserv.Register do
   @spec register_nickname(User.t(), String.t(), String.t() | nil) :: :ok
   defp register_nickname(user, password, email) do
     password_hash = Argon2.hash_pwd_salt(password)
-    verify_code = if is_nil(email), do: nil, else: :rand.bytes(4) |> Base.encode16(case: :lower)
+    scram_sha_256 = ScramSha256.configured_credentials(password)
+    register_nickname_with_hash(user, password_hash, scram_sha_256, email)
+  end
+
+  defp register_nickname_with_hash(user, password_hash, scram_sha_256, email) do
+    verify_code = if is_nil(email), do: nil, else: :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
 
     registered_nick =
       RegisteredNicks.create(%{
         nickname: user.nick,
         password_hash: password_hash,
+        scram_sha_256: scram_sha_256,
         email: email,
         registered_by: user_mask(user),
-        verify_code: verify_code
+        verify_code: verify_code,
+        pending_email: nil,
+        pending_email_verify_code: nil,
+        pending_email_requested_at: nil
       })
 
     if is_nil(registered_nick.email) do

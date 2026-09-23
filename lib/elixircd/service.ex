@@ -11,6 +11,13 @@ defmodule ElixIRCd.Service do
     "NICKSERV" => Services.Nickserv
   }
 
+  @service_identities %{
+    chanserv: {"ChanServ", "service"},
+    nickserv: {"NickServ", "service"}
+  }
+
+  @type service :: :chanserv | :nickserv
+
   @doc """
   Defines the behaviour for handling incoming service commands.
   """
@@ -34,5 +41,13 @@ defmodule ElixIRCd.Service do
     normalized_target_service = String.upcase(target_service)
     service_module = Map.fetch!(@services, normalized_target_service)
     service_module.handle(user, command_list)
+  end
+
+  @doc "Returns the canonical IRC mask for a network service."
+  @spec mask(service()) :: String.t()
+  def mask(service) do
+    {nick, ident} = Map.fetch!(@service_identities, service)
+    hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
+    "#{nick}!#{ident}@#{hostname}"
   end
 end

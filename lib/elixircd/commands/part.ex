@@ -15,6 +15,7 @@ defmodule ElixIRCd.Commands.Part do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.LocalChannel
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -40,13 +41,19 @@ defmodule ElixIRCd.Commands.Part do
 
   @spec handle_channel(User.t(), String.t(), String.t()) :: :ok
   defp handle_channel(user, channel_name, part_message) do
-    with {:ok, channel} <- Channels.get_by_name(channel_name),
+    with {:ok, channel} <- LocalChannel.ensure(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
       user_channels =
         UserChannels.get_by_channel_name(channel.name)
         |> filter_auditorium_users(user_channel, channel.modes)
 
-      UserChannels.delete(user_channel)
+      UserChannels.delete(user_channel, %{
+        "action" => "part",
+        "channel" => channel.name,
+        "join_id" => user_channel.join_id,
+        "by" => %{"user" => user.uid},
+        "reason" => part_message || ""
+      })
 
       # Delete the channel if there are no other users
       if user_channels == [user_channel] do

@@ -7,7 +7,13 @@ defmodule ElixIRCd.Commands.Tagmsg do
 
   @behaviour ElixIRCd.Command
 
-  import ElixIRCd.Utils.MessageFilter, only: [check_registered_only_speak: 3, should_silence_message?: 2]
+  import ElixIRCd.Utils.MessageFilter,
+    only: [
+      check_channel_mute: 3,
+      check_registered_only_speak: 3,
+      filter_op_moderated_users: 3,
+      should_silence_message?: 2
+    ]
 
   import ElixIRCd.Utils.Protocol,
     only: [channel_name?: 1, channel_operator?: 1, channel_voice?: 1, service_name?: 1]
@@ -17,9 +23,13 @@ defmodule ElixIRCd.Commands.Tagmsg do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Statusmsg
+  alias ElixIRCd.Utils.Targets
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -39,12 +49,11 @@ defmodule ElixIRCd.Commands.Tagmsg do
     end
   end
 
-  defp do_handle(user, %{params: [target | _]} = message) do
-    cond do
-      channel_name?(target) -> handle_channel_tagmsg(user, target, message)
-      service_name?(target) -> :ok
-      true -> handle_user_tagmsg(user, target, message)
-    end
+  defp do_handle(user, %{params: [targets | _]} = message) do
+    Targets.split("TAGMSG", targets)
+    |> Enum.each(&handle_target(user, &1, message))
+
+    :ok
   end
 
   defp do_handle(user, _message) do
@@ -52,8 +61,28 @@ defmodule ElixIRCd.Commands.Tagmsg do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  @spec handle_target(User.t(), String.t(), Message.t()) :: :ok
+  defp handle_target(user, target, message) do
+    case Statusmsg.parse(target) do
+      {:ok, channel_name, status_prefix} ->
+        handle_channel_tagmsg(user, channel_name, message, target, status_prefix)
+
+      :error ->
+        cond do
+          channel_name?(target) -> handle_channel_tagmsg(user, target, message)
+          service_name?(target) -> :ok
+          true -> handle_user_tagmsg(user, target, message)
+        end
+    end
+  end
+
   @spec handle_channel_tagmsg(User.t(), String.t(), Message.t()) :: :ok
   defp handle_channel_tagmsg(user, channel_name, message) do
+    handle_channel_tagmsg(user, channel_name, message, channel_name, nil)
+  end
+
+  @spec handle_channel_tagmsg(User.t(), String.t(), Message.t(), String.t(), String.t() | nil) :: :ok
+  defp handle_channel_tagmsg(user, channel_name, message, wire_target, status_prefix) do
     user_channel =
       UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name)
       |> case do
@@ -63,10 +92,13 @@ defmodule ElixIRCd.Commands.Tagmsg do
 
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          :ok <- check_user_channel_modes(channel, user_channel),
+         :ok <- check_channel_mute(channel, user, user_channel),
          :ok <- check_registered_only_speak(channel, user, user_channel) do
       channel_users_without_user =
         UserChannels.get_by_channel_name(channel.name)
         |> Enum.reject(&(&1.user_pid == user.pid))
+        |> maybe_filter_status(status_prefix)
+        |> filter_op_moderated_users(user_channel, channel.modes)
 
       user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
 
@@ -76,8 +108,11 @@ defmodule ElixIRCd.Commands.Tagmsg do
         |> Enum.filter(&tagmsg_enabled?/1)
 
       # Preserve tags from original message
-      %Message{command: "TAGMSG", params: [channel.name], trailing: nil, tags: message.tags}
-      |> Dispatcher.broadcast_with_echo(user, users)
+      %Message{command: "TAGMSG", params: [wire_target], trailing: nil, tags: message.tags}
+      |> then(fn local_message ->
+        Dispatcher.broadcast_with_echo(local_message, user, users)
+        publish_remote_channel_tagmsg(user, channel, user_channel, message, status_prefix)
+      end)
     else
       {:error, :channel_not_found} ->
         %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
@@ -94,14 +129,85 @@ defmodule ElixIRCd.Commands.Tagmsg do
       {:error, :user_can_not_send} ->
         %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
         |> Dispatcher.broadcast(:server, user)
+
+      {:error, :user_muted} ->
+        %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
+        |> Dispatcher.broadcast(:server, user)
     end
   end
+
+  defp publish_remote_channel_tagmsg(user, channel, user_channel, message, status_prefix) do
+    if String.starts_with?(channel.name, "&") do
+      :ok
+    else
+      case Process.whereis(Manager) do
+        nil ->
+          :ok
+
+        manager ->
+          with {:ok, runtime} <- View.runtime(manager),
+               {:ok, _projected, runtime_channel} <- View.channel(runtime, channel.name) do
+            target = %{
+              "channel" => runtime_channel.ref,
+              "minimum_status" => minimum_status(channel, user_channel, status_prefix)
+            }
+
+            _ =
+              Manager.publish_message(manager, user.uid, target, "TAGMSG", nil, message.tags, nil, deliver_local: false)
+
+            :ok
+          else
+            _ -> :ok
+          end
+      end
+    end
+  end
+
+  defp minimum_status(channel, user_channel, status_prefix) do
+    requested =
+      case status_prefix do
+        "@" -> "o"
+        "+" -> "v"
+        _ -> nil
+      end
+
+    privileged? = user_channel != nil and (channel_operator?(user_channel) or channel_voice?(user_channel))
+
+    if :U in channel.modes and not privileged?,
+      do: "o",
+      else: requested
+  end
+
+  @spec maybe_filter_status([UserChannel.t()], String.t() | nil) :: [UserChannel.t()]
+  defp maybe_filter_status(user_channels, nil), do: user_channels
+  defp maybe_filter_status(user_channels, prefix), do: Enum.filter(user_channels, &Statusmsg.eligible?(&1, prefix))
 
   @spec handle_user_tagmsg(User.t(), String.t(), Message.t()) :: :ok
   defp handle_user_tagmsg(user, target_nick, message) do
     case Users.get_by_nick(target_nick) do
       {:ok, target_user} -> handle_user_tagmsg(user, target_user, target_nick, message)
-      {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
+      {:error, :user_not_found} -> handle_network_user_tagmsg(user, target_nick, message)
+    end
+  end
+
+  defp handle_network_user_tagmsg(user, target_nick, message) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, _uid, target_user} <- View.user_by_nick(runtime, target_nick),
+         true <- not (:R in target_user.modes and :r not in user.modes),
+         :ok <-
+           Manager.publish_message(
+             manager,
+             user.uid,
+             %{"user" => target_user.uid},
+             "TAGMSG",
+             nil,
+             message.tags,
+             nil
+           ) do
+      maybe_echo_tagmsg(user, target_nick, message)
+    else
+      _ -> handle_user_not_found(user, target_nick)
     end
   end
 

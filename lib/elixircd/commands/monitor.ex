@@ -20,6 +20,8 @@ defmodule ElixIRCd.Commands.Monitor do
   alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Monitor, as: MonitorUtils
@@ -149,8 +151,14 @@ defmodule ElixIRCd.Commands.Monitor do
     end
 
     case Users.get_by_nick(target) do
-      {:ok, target_user} -> {[user_mask(target_user) | online_acc], offline_acc}
-      {:error, :user_not_found} -> {online_acc, [target | offline_acc]}
+      {:ok, target_user} ->
+        {[user_mask(target_user) | online_acc], offline_acc}
+
+      {:error, :user_not_found} ->
+        case network_user_by_nick(target) do
+          {:ok, target_user} -> {[user_mask(target_user) | online_acc], offline_acc}
+          :error -> {online_acc, [target | offline_acc]}
+        end
     end
   end
 
@@ -198,11 +206,8 @@ defmodule ElixIRCd.Commands.Monitor do
     monitors = UserMonitors.get_by_user_pid(user.pid)
 
     {online, offline} =
-      Enum.reduce(monitors, {[], []}, fn monitor, {online_acc, offline_acc} ->
-        case Users.get_by_nick(monitor.target_nick_key) do
-          {:ok, target_user} -> {[user_mask(target_user) | online_acc], offline_acc}
-          {:error, :user_not_found} -> {online_acc, [monitor.target_nick | offline_acc]}
-        end
+      Enum.reduce(monitors, {[], []}, fn monitor, status ->
+        merge_monitor_status(status, monitor)
       end)
 
     if online != [] do
@@ -222,9 +227,42 @@ defmodule ElixIRCd.Commands.Monitor do
     :ok
   end
 
+  defp merge_monitor_status({online_acc, offline_acc}, monitor) do
+    case monitor_status(monitor) do
+      {:online, mask} -> {[mask | online_acc], offline_acc}
+      {:offline, nick} -> {online_acc, [nick | offline_acc]}
+    end
+  end
+
+  defp monitor_status(monitor) do
+    case Users.get_by_nick(monitor.target_nick_key) do
+      {:ok, target_user} -> {:online, user_mask(target_user)}
+      {:error, :user_not_found} -> network_monitor_status(monitor)
+    end
+  end
+
+  defp network_monitor_status(monitor) do
+    case network_user_by_nick(monitor.target_nick_key) do
+      {:ok, target_user} -> {:online, user_mask(target_user)}
+      :error -> {:offline, monitor.target_nick}
+    end
+  end
+
   @spec get_max_targets() :: non_neg_integer()
   defp get_max_targets do
     Application.fetch_env!(:elixircd, :monitor)
     |> Keyword.fetch!(:max_targets)
+  end
+
+  defp network_user_by_nick(target_nick) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager) do
+      case View.user_by_nick(runtime, target_nick) do
+        {:ok, _uid, user} -> {:ok, user}
+        _ -> View.chanserv_user_by_nick(runtime, target_nick)
+      end
+    else
+      _ -> :error
+    end
   end
 end

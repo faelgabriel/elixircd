@@ -16,6 +16,7 @@ defmodule ElixIRCd.Commands.Topic do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.LocalChannel
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
@@ -44,7 +45,7 @@ defmodule ElixIRCd.Commands.Topic do
 
   @impl true
   def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: nil}) do
-    Channels.get_by_name(channel_name)
+    LocalChannel.ensure(channel_name)
     |> case do
       {:ok, channel} ->
         # Secret (+s) channels hide topic and existence from non-members, like in NAMES.
@@ -61,7 +62,7 @@ defmodule ElixIRCd.Commands.Topic do
 
   @impl true
   def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: new_topic_text}) do
-    with {:ok, channel} <- Channels.get_by_name(channel_name),
+    with {:ok, channel} <- LocalChannel.ensure(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(channel, user, user_channel),
          :ok <- check_topic_length(new_topic_text) do

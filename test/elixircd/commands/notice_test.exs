@@ -790,5 +790,48 @@ defmodule ElixIRCd.Commands.NoticeTest do
         ])
       end)
     end
+
+    test "delivers NOTICE to each advertised comma-separated target" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        first = insert(:user, nick: "first")
+        second = insert(:user, nick: "second")
+
+        assert :ok =
+                 Notice.handle(sender, %Message{
+                   command: "NOTICE",
+                   params: ["#{first.nick},#{second.nick}"],
+                   trailing: "hello"
+                 })
+
+        assert_sent_messages([
+          {first.pid, ":#{user_mask(sender)} NOTICE #{first.nick} :hello\r\n"},
+          {second.pid, ":#{user_mask(sender)} NOTICE #{second.nick} :hello\r\n"}
+        ])
+      end)
+    end
+
+    test "delivers STATUSMSG NOTICE only to channel operators" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        operator = insert(:user)
+        regular = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+        insert(:user_channel, user: regular, channel: channel)
+
+        assert :ok =
+                 Notice.handle(sender, %Message{
+                   command: "NOTICE",
+                   params: ["@#{channel.name}"],
+                   trailing: "ops"
+                 })
+
+        assert_sent_messages([
+          {operator.pid, ":#{user_mask(sender)} NOTICE @#{channel.name} :ops\r\n"}
+        ])
+      end)
+    end
   end
 end

@@ -21,6 +21,13 @@ defmodule ElixIRCd.ServiceTest do
     end
   end
 
+  describe "mask/1" do
+    test "returns the canonical service masks on the configured server" do
+      assert Service.mask(:chanserv) == "ChanServ!service@irc.test"
+      assert Service.mask(:nickserv) == "NickServ!service@irc.test"
+    end
+  end
+
   describe "dispatch/3" do
     setup do
       user = build(:user)

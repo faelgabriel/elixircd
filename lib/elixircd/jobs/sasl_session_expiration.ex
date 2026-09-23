@@ -16,6 +16,8 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Output
+  alias ElixIRCd.Server.S2S.RemoteSASL
   alias ElixIRCd.Tables.Job
 
   # Check every 30 seconds
@@ -52,17 +54,20 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
     timeout_ms = Keyword.fetch!(sasl_config, :session_timeout_ms)
     cutoff_time = DateTime.add(DateTime.utc_now(), -timeout_ms, :millisecond)
 
-    Memento.transaction!(fn ->
-      expired_sessions =
-        ElixIRCd.Tables.SaslSession
-        |> Memento.Query.all()
-        |> Enum.filter(fn session ->
-          DateTime.compare(session.created_at, cutoff_time) == :lt
-        end)
+    Output.transaction(
+      fn ->
+        expired_sessions =
+          ElixIRCd.Tables.SaslSession
+          |> Memento.Query.all()
+          |> Enum.filter(fn session ->
+            DateTime.compare(session.created_at, cutoff_time) == :lt
+          end)
 
-      Enum.each(expired_sessions, &cleanup_expired_session/1)
-      length(expired_sessions)
-    end)
+        Enum.each(expired_sessions, &cleanup_expired_session/1)
+        length(expired_sessions)
+      end,
+      drain_fun: &Dispatcher.drain_intent/1
+    )
   end
 
   @spec cleanup_expired_session(ElixIRCd.Tables.SaslSession.t()) :: :ok
@@ -71,6 +76,8 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
 
     case Users.get_by_pid(session.user_pid) do
       {:ok, user} ->
+        _ = RemoteSASL.abort(user, session)
+
         %Message{
           command: :err_saslaborted,
           params: [user.nick || "*"],

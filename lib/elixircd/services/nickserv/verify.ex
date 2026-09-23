@@ -7,10 +7,12 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2, sync_registered_mode: 1]
+  import ElixIRCd.Utils.Nickserv,
+    only: [notify: 2, notify_account_change: 2, pending_email_active?: 1, sync_registered_mode: 1]
 
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
@@ -39,6 +41,16 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
   @spec verify_code_and_state(User.t(), RegisteredNick.t(), String.t()) :: :ok
   defp verify_code_and_state(user, registered_nick, code) do
     cond do
+      is_binary(registered_nick.pending_email_verify_code) and not pending_email_active?(registered_nick) ->
+        expire_pending_email(user, registered_nick)
+
+      is_binary(registered_nick.pending_email_verify_code) ->
+        if registered_nick.pending_email_verify_code == code do
+          complete_pending_email(user, registered_nick)
+        else
+          notify(user, "Verification failed. Invalid code for nickname \x02#{registered_nick.nickname}\x02.")
+        end
+
       !is_nil(registered_nick.verified_at) ->
         notify(user, "Nickname \x02#{registered_nick.nickname}\x02 is already verified.")
 
@@ -51,6 +63,17 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
       true ->
         complete_verification(user, registered_nick)
     end
+  end
+
+  @spec expire_pending_email(User.t(), RegisteredNick.t()) :: :ok
+  defp expire_pending_email(user, registered_nick) do
+    RegisteredNicks.update(registered_nick, %{
+      pending_email: nil,
+      pending_email_verify_code: nil,
+      pending_email_requested_at: nil
+    })
+
+    notify(user, "The pending email change for nickname \x02#{registered_nick.nickname}\x02 has expired.")
   end
 
   @spec complete_verification(User.t(), RegisteredNick.t()) :: :ok
@@ -75,6 +98,20 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
     end
   end
 
+  @spec complete_pending_email(User.t(), RegisteredNick.t()) :: :ok
+  defp complete_pending_email(user, registered_nick) do
+    updated =
+      RegisteredNicks.update(registered_nick, %{
+        email: registered_nick.pending_email,
+        pending_email: nil,
+        pending_email_verify_code: nil,
+        pending_email_requested_at: nil,
+        last_seen_at: DateTime.utc_now()
+      })
+
+    notify(user, "The email address for nickname \x02#{updated.nickname}\x02 has been successfully verified.")
+  end
+
   # Mirror IDENTIFY's session effects; identified_as alone desynchronizes WHOX, WHOIS 330 and +R joins.
   @spec identify_user(User.t(), RegisteredNick.t()) :: :ok
   defp identify_user(user, registered_nick) do
@@ -86,6 +123,7 @@ defmodule ElixIRCd.Services.Nickserv.Verify do
     notify(updated_user, "You are now identified for \x02#{registered_nick.account_name}\x02.")
 
     updated_user = sync_registered_mode(updated_user)
+    NickEnforcement.schedule_enforcement(updated_user)
 
     notify_account_change(updated_user, registered_nick.account_name)
   end

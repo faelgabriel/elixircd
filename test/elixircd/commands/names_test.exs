@@ -42,6 +42,38 @@ defmodule ElixIRCd.Commands.NamesTest do
       end
     end
 
+    test "keeps NAMES replies within the wire budget with maximum protocol fields" do
+      original_server = Application.fetch_env!(:elixircd, :server)
+      server_name = String.duplicate("s", 63)
+      Application.put_env(:elixircd, :server, Keyword.put(original_server, :hostname, server_name))
+      on_exit(fn -> Application.put_env(:elixircd, :server, original_server) end)
+
+      Memento.transaction!(fn ->
+        requesting_nick = String.duplicate("r", 30)
+        target_nick = String.duplicate("t", 30)
+        channel_name = "#" <> String.duplicate("c", 199)
+        user = insert(:user, nick: requesting_nick, capabilities: ["userhost-in-names"])
+
+        target =
+          insert(:user,
+            nick: target_nick,
+            ident: String.duplicate("i", 64),
+            hostname: String.duplicate("h", 253)
+          )
+
+        channel = insert(:channel, name: channel_name)
+        insert(:user_channel, user: target, channel: channel)
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
+
+        names_reply = ":#{server_name} 353 #{user.nick} = #{channel.name} :#{target.nick}\r\n"
+        end_reply = ":#{server_name} 366 #{user.nick} #{channel.name} :End of /NAMES list\r\n"
+        assert byte_size(names_reply) <= 512
+        assert byte_size(end_reply) <= 512
+        assert_sent_messages([{user.pid, names_reply}, {user.pid, end_reply}])
+      end)
+    end
+
     test "handles NAMES command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -74,7 +106,6 @@ defmodule ElixIRCd.Commands.NamesTest do
 
         assert_sent_messages([
           {user.pid, ":irc.test 353 #{user.nick} = #{channel1.name} :@user1 +user2\r\n"},
-          {user.pid, ":irc.test 366 #{user.nick} #{channel1.name} :End of /NAMES list\r\n"},
           {user.pid, ":irc.test 353 #{user.nick} * * :free_user\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}
         ])
@@ -115,13 +146,44 @@ defmodule ElixIRCd.Commands.NamesTest do
         message = %Message{command: "NAMES", params: ["#channel1,#channel2"]}
         assert :ok = Names.handle(user, message)
 
-        # Since #channel2 is private, and the user is not a member, they should only see #channel1
-        # and receive the end-of-list reply for #channel2
+        # Since #channel2 is private, and the user is not a member, they should only see #channel1.
+        # A multi-target request has one terminator containing the accepted target list.
         assert_sent_messages([
           {user.pid, ":irc.test 353 #{user.nick} = #{channel1.name} :@user1\r\n"},
-          {user.pid, ":irc.test 366 #{user.nick} #{channel1.name} :End of /NAMES list\r\n"},
-          {user.pid, ":irc.test 366 #{user.nick} #channel2 :End of /NAMES list\r\n"}
+          {user.pid, ":irc.test 366 #{user.nick} #channel1,#channel2 :End of /NAMES list\r\n"}
         ])
+      end)
+    end
+
+    test "can emit the conflicting RFC 1459 RPL_NAMREPLY shape explicitly" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :rfc1459_names, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#channel")
+        insert(:user_channel, user: user, channel: channel, modes: [:o])
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} #channel :@#{user.nick}\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #channel :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "uses the RFC 1459 free-user reply shape when explicitly configured" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :rfc1459_names, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "Requester")
+        insert(:user, nick: "Free")
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: []})
+        assert_sent_message_contains(user.pid, ":irc.test 353 Requester * :Free\r\n")
       end)
     end
 
@@ -264,6 +326,21 @@ defmodule ElixIRCd.Commands.NamesTest do
         # The invisible user should not be shown in the free users list
         assert_sent_messages([
           {user.pid, ":irc.test 353 #{user.nick} * * :visible_free\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "does not expose connections that have not completed registration" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        _visible_user = insert(:user, nick: "visible")
+        _pending_user = insert(:user, nick: "pending", registered: false)
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: []})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} * * :visible\r\n"},
           {user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}
         ])
       end)

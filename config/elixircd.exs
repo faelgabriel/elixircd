@@ -13,6 +13,63 @@ config :elixircd,
     # A configured file must exist and be readable.
     motd: nil
   ],
+  # Native ENP/1 server-to-server configuration. It is deliberately disabled
+  # until certificates, the shared roster and the parent/child pins are
+  # provisioned for this deployment.
+  s2s: [
+    enabled: false,
+    network_id: "local",
+    semantic_revision: 1,
+    server_id: "local",
+    server_name: "local.example.test",
+    roster: [
+      [sid: "local", name: "local.example.test", parent: nil]
+    ],
+    services_authority: nil,
+    listener: [
+      ip: {127, 0, 0, 1},
+      port: 7000,
+      keyfile: "data/cert/selfsigned_key.pem",
+      certfile: "data/cert/selfsigned.pem",
+      cacertfile: "data/cert/selfsigned.pem",
+      versions: [:"tlsv1.2", :"tlsv1.3"],
+      backlog: 128
+    ],
+    parent_connection: nil,
+    children: %{},
+    budgets: [
+      max_frame_bytes: 1_048_576,
+      max_connections_per_acceptor: 256,
+      max_inbound_queue_bytes: 2 * 1_048_576,
+      per_link_queue_bytes: 16 * 1_048_576,
+      snapshot_delta_queue_bytes: 16 * 1_048_576,
+      aggregate_output_bytes: 128 * 1_048_576,
+      aggregate_pending_frames: 262_144,
+      aggregate_pending_bytes: 128 * 1_048_576,
+      snapshot_staging_bytes: 128 * 1_048_576,
+      max_pending_requests_origin: 128,
+      max_pending_requests_node: 1_024,
+      sasl_workers: 4,
+      max_pending_frames: 65_536,
+      max_stream_parts: 4_096,
+      max_stream_bytes: 16 * 1_048_576,
+      max_repairs: 16,
+      max_list_slots: 4_096,
+      max_memberships: 20,
+      max_policy_objects: 65_536
+    ],
+    timeouts: [
+      tls_hello_ms: 15_000,
+      incomplete_frame_ms: 15_000,
+      snapshot_ms: 120_000,
+      request_ms: 15_000,
+      heartbeat_ms: 30_000,
+      heartbeat_timeout_ms: 60_000,
+      shutdown_ms: 15_000
+    ],
+    remote_admin: [enabled: false, actions: [], origin_sids: [], operator_roles: []],
+    reconnect: [initial_ms: 1_000, max_ms: 60_000, jitter_ms: 500, stable_ms: 30_000]
+  ],
   # Rate Limiting Configuration
   rate_limiter: [
     # Connection Rate Limiting Configuration
@@ -87,6 +144,21 @@ config :elixircd,
     # Whether to enforce UTF-8 only traffic support
     utf8_only: true
   ],
+  # Explicit opt-ins for withdrawn or conflicting client-protocol behavior.
+  # These switches never enable server-to-server linking.
+  compatibility: [
+    # Accept the historical `INVITE <channel> <nick>` parameter order,
+    # including delivery for a channel that does not exist.
+    legacy_invite_order: false,
+    # Serve the withdrawn metadata-3.2 numeric protocol to clients that did
+    # not negotiate draft/metadata-2 or draft/metadata-3.
+    deprecated_metadata: false,
+    # Omit the channel symbol from RPL_NAMREPLY as required by RFC 1459.
+    # This conflicts with RFC 2812 and Modern IRC, so it is disabled by default.
+    rfc1459_names: false,
+    # Use ERR_NONICKNAMEGIVEN plus RPL_ENDOFWHOWAS for parameterless WHOWAS.
+    rfc1459_whowas_errors: false
+  ],
   # Hostname Cloaking Configuration
   cloaking: [
     # Enable or disable hostname cloaking feature
@@ -115,6 +187,8 @@ config :elixircd,
     account_tag: true,
     # Whether to send ACCOUNT notifications on identify/logout (account-notify capability)
     account_notify: true,
+    # Direct IRCv3 account registration; custom account names are intentionally not advertised.
+    account_registration: true,
     # Whether to send AWAY notifications to interested clients (away-notify capability)
     away_notify: true,
     # Whether to support IRCv3 BATCH for grouping related server messages
@@ -123,14 +197,28 @@ config :elixircd,
     cap_notify: true,
     # Whether to send CHGHOST notifications when ident/hostname changes (chghost capability)
     chghost: true,
+    # Persistent IRCv3 message history and optional event playback.
+    chathistory: true,
+    channel_rename: true,
+    event_playback: true,
     # Whether to echo accepted PRIVMSG/NOTICE/TAGMSG commands back to senders (echo-message capability)
     echo_message: true,
     # Whether to support extended JOIN with account information (extended-join capability)
     extended_join: true,
+    # Whether MONITOR subscriptions extend supported presence notifications
+    extended_monitor: true,
     # Whether to notify channel members when users are invited (invite-notify capability)
     invite_notify: true,
+    # Whether clients can redact persisted messages with server-enforced authorization.
+    message_redaction: true,
+    # Current metadata-2 plus the metadata-3 draft alias used by older clients.
+    metadata: true,
+    # Client-originated multiline message batches with bounded buffering.
+    multiline: true,
     # Whether to support multiple status prefixes in channel responses (multi-prefix capability)
     multi_prefix: true,
+    # Persistent, monotonic per-account read markers.
+    read_marker: true,
     # Whether to enable SASL authentication before registration (sasl capability)
     sasl: true,
     # Whether to allow clients to change their real name during the session (setname capability)
@@ -153,6 +241,40 @@ config :elixircd,
   message_ids: [
     # Enable unique message IDs for clients using message-tags
     enabled: true
+  ],
+  # Persistent chat history. Retention and per-target limits are enforced on writes.
+  history: [
+    enabled: true,
+    max_entries_per_target: 1_000,
+    max_request_limit: 100,
+    retention_seconds: 604_800
+  ],
+  redaction: [
+    enabled: true,
+    max_reason_length: 300
+  ],
+  metadata: [
+    enabled: true,
+    before_connect: true,
+    max_keys: 20,
+    max_subscriptions: 50,
+    max_value_bytes: 400
+  ],
+  read_markers: [
+    enabled: true
+  ],
+  multiline: [
+    enabled: true,
+    max_bytes: 4_096,
+    max_lines: 32
+  ],
+  account_registration: [
+    enabled: true,
+    before_connect: false
+  ],
+  channel_rename: [
+    enabled: true,
+    max_reason_length: 300
   ],
   # MONITOR Command Configuration
   monitor: [
@@ -181,6 +303,14 @@ config :elixircd,
       enabled: true,
       # Require TLS for PLAIN authentication (recommended for security)
       require_tls: true
+    ],
+    # SCRAM-SHA-256 authenticates without sending the password to the server.
+    # Existing accounts receive a verifier after their next valid password login.
+    scram_sha_256: [
+      enabled: true,
+      # RFC 7677 requires at least 4096 iterations. Raising this value affects
+      # only newly generated or lazily migrated verifiers.
+      iterations: 15_000
     ],
     # ECDSA-NIST256P-CHALLENGE configuration (public-key authentication)
     ecdsa: [
@@ -273,6 +403,24 @@ config :elixircd,
       recover_reservation_duration: 60,
       # Maximum number of ACCESS entries per registered nickname
       max_access_entries: 10,
+      # Maximum stored inbox memos per NickServ account
+      max_memos_per_account: 100,
+      # Maximum UTF-8 bytes stored across one account's inbox memos
+      max_memo_bytes_per_account: 40_000,
+      # Maximum custom properties per NickServ account
+      max_properties: 50,
+      # Maximum UTF-8 bytes across one account's custom properties
+      max_property_bytes: 10_000,
+      # Maximum rows returned by NickServ LIST
+      max_list_results: 100,
+      # Maximum NickServ LIST glob pattern length
+      max_list_pattern_length: 128,
+      # Maximum user-configurable nickname enforcement grace period (7 days)
+      max_enforce_time: 604_800,
+      # Maximum grace period used by SET KILL QUICK
+      quick_enforce_time: 20,
+      # Lifetime of a pending email-change verification code
+      email_verification_ttl_seconds: 86_400,
       # Default User Settings (Users can change these via /msg NickServ SET)
       settings: [
         # Default for: SET EMAILMEMOS {ON|OFF|ONLY}
@@ -280,7 +428,7 @@ config :elixircd,
         # Default for: SET ENFORCE {ON|OFF}
         enforce: false,
         # Default for: SET ENFORCETIME <seconds>
-        enforce_time: 0,
+        enforce_time: 60,
         # Default for: SET HIDE EMAIL {ON|OFF}
         hide_email: false,
         # Default for: SET HIDE STATUS {ON|OFF}

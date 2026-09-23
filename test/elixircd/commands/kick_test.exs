@@ -176,5 +176,65 @@ defmodule ElixIRCd.Commands.KickTest do
         ])
       end)
     end
+
+    test "kicks multiple users from one channel and pairs multiple channel targets" do
+      Memento.transaction!(fn ->
+        operator = insert(:user, nick: "operator")
+        first_channel = insert(:channel, name: "#first")
+        second_channel = insert(:channel, name: "#second")
+
+        insert(:user_channel, user: operator, channel: first_channel, modes: [:o])
+        insert(:user_channel, user: operator, channel: second_channel, modes: [:o])
+
+        first = insert(:user, nick: "first")
+        second = insert(:user, nick: "second")
+        third = insert(:user, nick: "third")
+        insert(:user_channel, user: first, channel: first_channel)
+        insert(:user_channel, user: second, channel: first_channel)
+        insert(:user_channel, user: third, channel: second_channel)
+
+        assert :ok =
+                 Kick.handle(operator, %Message{
+                   command: "KICK",
+                   params: ["#first", "first,second"],
+                   trailing: "bye"
+                 })
+
+        assert :ok =
+                 Kick.handle(operator, %Message{
+                   command: "KICK",
+                   params: ["#first,#second", "operator,third"],
+                   trailing: "paired"
+                 })
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(first.pid, first_channel.name)
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(second.pid, first_channel.name)
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(third.pid, second_channel.name)
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(operator.pid, first_channel.name)
+      end)
+    end
+
+    test "rejects mismatched multi-target KICK lists" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok =
+                 Kick.handle(user, %Message{
+                   command: "KICK",
+                   params: ["#one,#two", "first,second,third"]
+                 })
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 461 #{user.nick} KICK :Not enough parameters\r\n"}
+        ])
+      end)
+    end
   end
 end

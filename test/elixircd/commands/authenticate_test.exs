@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Sasl.ScramSha256
   alias ElixIRCd.Tables.RegisteredNick.Settings
 
   setup do
@@ -42,7 +43,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
   end
 
   describe "handle/2 - AUTHENTICATE - already registered" do
-    test "rejects AUTHENTICATE after registration" do
+    test "requires the SASL capability after registration" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: true)
         message = %Message{command: "AUTHENTICATE", params: ["PLAIN"]}
@@ -50,14 +51,24 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert :ok = Authenticate.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 462 #{user.nick} :You may not reregister\r\n"}
+          {user.pid, ":irc.test 421 #{user.nick} AUTHENTICATE :You must negotiate SASL capability first\r\n"}
         ])
+      end)
+    end
+
+    test "starts SASL after registration when the capability is negotiated" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: true, capabilities: ["sasl"])
+
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: ["PLAIN"]})
+
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
       end)
     end
   end
 
   describe "handle/2 - AUTHENTICATE - already authenticated" do
-    test "rejects AUTHENTICATE when already authenticated via SASL" do
+    test "allows reauthentication when already authenticated via SASL" do
       Memento.transaction!(fn ->
         user =
           insert(:user,
@@ -72,16 +83,11 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert :ok = Authenticate.handle(user, message)
 
-        # When user is not registered yet, nick might be nil, so we use "*"
-        expected_nick = if user.nick, do: user.nick, else: "*"
-
-        assert_sent_messages([
-          {user.pid, ":irc.test 907 #{expected_nick} :You have already authenticated using SASL\r\n"}
-        ])
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
       end)
     end
 
-    test "rejects re-authentication using asterisk when user has no nick" do
+    test "allows reauthentication before a nick is selected" do
       Memento.transaction!(fn ->
         user =
           insert(:user,
@@ -97,10 +103,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert :ok = Authenticate.handle(user, message)
 
-        # When user has no nick set, the error response should use "*" instead of a nick
-        assert_sent_messages([
-          {user.pid, ":irc.test 907 * :You have already authenticated using SASL\r\n"}
-        ])
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
       end)
     end
   end
@@ -195,7 +198,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       end)
     end
 
-    test "rejects authentication when mechanism is disabled" do
+    test "does not advertise a disabled mechanism when rejecting it" do
       Application.put_env(:elixircd, :sasl, put_in(Application.fetch_env!(:elixircd, :sasl), [:plain, :enabled], false))
 
       Memento.transaction!(fn ->
@@ -205,8 +208,8 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert :ok = Authenticate.handle(user, message)
 
         assert_sent_messages([
-          {user.pid, ":irc.test 908 * PLAIN :are available SASL mechanisms\r\n"},
-          {user.pid, ":irc.test 904 * :SASL mechanism is disabled by server configuration\r\n"}
+          {user.pid, ":irc.test 908 *  :are available SASL mechanisms\r\n"},
+          {user.pid, ":irc.test 904 * :SASL mechanism not supported\r\n"}
         ])
       end)
     end
@@ -270,6 +273,15 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
   describe "handle/2 - AUTHENTICATE - PLAIN authentication" do
     test "successfully authenticates with valid credentials" do
+      Application.put_env(
+        :elixircd,
+        :sasl,
+        Keyword.put(Application.fetch_env!(:elixircd, :sasl), :scram_sha_256,
+          enabled: true,
+          iterations: 4096
+        )
+      )
+
       Memento.transaction!(fn ->
         # Create a registered user
         registered_nick = insert(:registered_nick, nickname: "testuser", password: "password123")
@@ -299,7 +311,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
 
         # Verify user was updated
-        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.pid)
+        updated_user = Memento.Query.read(ElixIRCd.Tables.User, user.uid)
         assert updated_user.identified_as == "testuser"
         assert updated_user.sasl_authenticated == true
         refute :r in updated_user.modes
@@ -307,13 +319,15 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         # Verify registered nick was updated
         updated_nick = Memento.Query.read(ElixIRCd.Tables.RegisteredNick, registered_nick.nickname_key)
         assert updated_nick.last_seen_at != nil
+        assert is_map(updated_nick.scram_sha_256)
+        assert Map.keys(updated_nick.scram_sha_256) |> Enum.sort() == [:iterations, :salt, :server_key, :stored_key]
       end)
     end
 
     test "rejects authentication with invalid password" do
       Memento.transaction!(fn ->
         # Create a registered user
-        insert(:registered_nick, nickname: "testuser", password: "password123")
+        registered_nick = insert(:registered_nick, nickname: "testuser", password: "password123")
         user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
 
         # Start authentication
@@ -335,6 +349,9 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         # Verify session was deleted
         assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+
+        unchanged = Memento.Query.read(ElixIRCd.Tables.RegisteredNick, registered_nick.nickname_key)
+        assert unchanged.scram_sha_256 == nil
       end)
     end
 
@@ -862,8 +879,104 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
     end)
   end
 
+  describe "handle/2 - AUTHENTICATE - SCRAM-SHA-256" do
+    test "authenticates without transmitting the password" do
+      Application.put_env(:elixircd, :sasl,
+        plain: [enabled: true, require_tls: false],
+        scram_sha_256: [enabled: true, iterations: 4096],
+        max_attempts_per_connection: 3,
+        session_timeout_ms: 60_000
+      )
+
+      password = "password123"
+      credentials = ScramSha256.derive(password, 4096)
+
+      Memento.transaction!(fn ->
+        insert(:registered_nick, nickname: "scram_user", password: password, scram_sha_256: credentials)
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: ["SCRAM-SHA-256"]})
+        assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE +\r\n"}])
+
+        client_first_bare = "n=scram_user,r=client-nonce"
+
+        assert :ok =
+                 Authenticate.handle(user, %Message{
+                   command: "AUTHENTICATE",
+                   params: [Base.encode64("n,," <> client_first_bare)]
+                 })
+
+        user_pid = user.pid
+        [{^user_pid, server_message}] = Agent.get(@agent_name, &Enum.reverse/1)
+        [":irc.test", "AUTHENTICATE", encoded_server_first] = server_message |> String.trim() |> String.split(" ")
+        server_first = Base.decode64!(encoded_server_first)
+        Agent.update(@agent_name, fn _ -> [] end)
+
+        client_final = scram_client_final(password, client_first_bare, server_first)
+
+        assert :ok =
+                 Authenticate.handle(user, %Message{
+                   command: "AUTHENTICATE",
+                   params: [Base.encode64(client_final)]
+                 })
+
+        assert_sent_messages([
+          {user.pid, ~r/^:irc\.test AUTHENTICATE [A-Za-z0-9+\/=]+\r\n$/},
+          {user.pid,
+           ":irc.test 900 #{user.nick} #{user.nick}!~username@hostname scram_user :You are now logged in as scram_user\r\n"},
+          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"}
+        ])
+      end)
+    end
+
+    test "fails malformed SCRAM starts and clears the session" do
+      enable_scram()
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "SCRAM-SHA-256", buffer: ""})
+
+        assert :ok =
+                 Authenticate.handle(user, %Message{
+                   command: "AUTHENTICATE",
+                   params: [Base.encode64("malformed")]
+                 })
+
+        assert_sent_message_contains(user.pid, ~r/ 904 \* :SASL authentication failed/)
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+      end)
+    end
+
+    test "uses fake credentials for unknown accounts and rejects the final proof" do
+      enable_scram()
+
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "SCRAM-SHA-256", buffer: ""})
+        client_first = "n,,n=missing,r=client-nonce"
+
+        assert :ok =
+                 Authenticate.handle(user, %Message{
+                   command: "AUTHENTICATE",
+                   params: [Base.encode64(client_first)]
+                 })
+
+        Agent.update(@agent_name, fn _ -> [] end)
+
+        assert :ok =
+                 Authenticate.handle(user, %Message{
+                   command: "AUTHENTICATE",
+                   params: [Base.encode64("c=biws,r=wrong,p=AAAA")]
+                 })
+
+        assert_sent_message_contains(user.pid, ~r/ 904 \* :SASL authentication failed/)
+        assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
+      end)
+    end
+  end
+
   describe "handle/2 - AUTHENTICATE - ECDSA-NIST256P-CHALLENGE" do
-    test "authenticates an account with its registered compressed P-256 public key" do
+    test "authenticates with a compressed P-256 key using the challenge directly as the digest" do
       Application.put_env(:elixircd, :sasl,
         plain: [enabled: true, require_tls: false],
         ecdsa: [enabled: true],
@@ -894,10 +1007,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert :ok =
                  Authenticate.handle(
                    user,
-                   %Message{
-                     command: "AUTHENTICATE",
-                     params: [Base.encode64(account.nickname)]
-                   }
+                   %Message{command: "AUTHENTICATE", params: [Base.encode64(account.nickname)]}
                  )
 
         {:ok, session} = SaslSessions.get(user.pid)
@@ -905,7 +1015,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         assert_sent_messages([{user.pid, ":irc.test AUTHENTICATE #{Base.encode64(challenge)}\r\n"}])
 
-        signature = :crypto.sign(:ecdsa, :sha256, challenge, [private_key, :secp256r1])
+        signature = :crypto.sign(:ecdsa, :sha256, {:digest, challenge}, [private_key, :secp256r1])
 
         assert :ok =
                  Authenticate.handle(
@@ -971,6 +1081,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
 
         for encoded_account <- [
               account.nickname <> <<0>> <> "other",
+              account.nickname <> <<0>> <> account.nickname <> <<0>>,
               account.nickname <> <<0>> <> account.nickname <> <<0>> <> "extra"
             ] do
           user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true, transport: :tls)
@@ -1064,6 +1175,41 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
       end)
     end
+  end
+
+  defp scram_client_final(password, client_first_bare, server_first) do
+    attrs =
+      server_first
+      |> String.split(",")
+      |> Map.new(fn part ->
+        [key, value] = String.split(part, "=", parts: 2)
+        {key, value}
+      end)
+
+    without_proof = "c=biws,r=#{attrs["r"]}"
+    auth_message = client_first_bare <> "," <> server_first <> "," <> without_proof
+
+    salted =
+      :crypto.pbkdf2_hmac(
+        :sha256,
+        password,
+        Base.decode64!(attrs["s"]),
+        String.to_integer(attrs["i"]),
+        32
+      )
+
+    client_key = :crypto.mac(:hmac, :sha256, salted, "Client Key")
+    signature = :crypto.mac(:hmac, :sha256, :crypto.hash(:sha256, client_key), auth_message)
+    without_proof <> ",p=" <> Base.encode64(:crypto.exor(client_key, signature))
+  end
+
+  defp enable_scram do
+    Application.put_env(:elixircd, :sasl,
+      plain: [enabled: true, require_tls: false],
+      scram_sha_256: [enabled: true, iterations: 4096],
+      max_attempts_per_connection: 3,
+      session_timeout_ms: 60_000
+    )
   end
 
   defp compress_public_key(public_key) do

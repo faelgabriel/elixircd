@@ -7,10 +7,137 @@ defmodule ElixIRCd.Server.DispatcherTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Output
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.StandardReply
+
+  test "drains channel list publication intents" do
+    intent = %{kind: :s2s_channel_list, channel_name_key: "#test", mode: "b", mask: "*!*@example"}
+
+    Mimic.copy(Output)
+    expect(Output, :drain_publication, fn ^intent -> :ok end)
+
+    assert :ok = Dispatcher.drain_intent(intent)
+  end
+
+  test "drains membership status publication intents" do
+    intent = %{kind: :s2s_member_status, uid: "uid", mode: "o", enabled: true}
+
+    Mimic.copy(Output)
+    expect(Output, :drain_publication, fn ^intent -> :ok end)
+
+    assert :ok = Dispatcher.drain_intent(intent)
+  end
+
+  test "keeps remote nil-pid users distinct for self delivery and recipient deduplication" do
+    sender = build(:user, pid: nil)
+    first = build(:user, pid: nil)
+    second = build(:user, pid: nil)
+    duplicate_first = %{first | nick: "Renamed"}
+    test_pid = self()
+    message = %Message{command: "PRIVMSG", params: ["#remote"], trailing: "hello"}
+
+    assert sender.uid != first.uid
+    assert first.uid != second.uid
+
+    Dispatcher.with_s2s_sink(
+      fn delivered ->
+        send(test_pid, {:remote_delivery, delivered.params})
+        :ok
+      end,
+      fn -> Dispatcher.broadcast_with_echo(message, sender, [first, second, duplicate_first]) end
+    )
+
+    assert_receive {:remote_delivery, ["#remote"]}
+    assert_receive {:remote_delivery, ["#remote"]}
+    refute_receive {:remote_delivery, _}, 50
+  end
+
+  test "does not drain a message into a stale pid after the user record changes" do
+    stale = build(:user, pid: self())
+    message = %Message{command: "NOTICE", params: ["stale"], trailing: "ignored"}
+
+    Mimic.copy(Connection)
+    reject(Connection, :handle_send, 2)
+
+    assert :ok =
+             Dispatcher.drain_intent(%{
+               kind: :c2s_message,
+               message: message,
+               recipient: %{uid: stale.uid, capability_revision: stale.cap_version}
+             })
+  end
+
+  test "persists an explicit local recipient and message context without a User struct" do
+    user = insert(:user, password: "credential-that-must-not-enter-the-outbox", cap_version: 307)
+    message = %Message{command: "NOTICE", params: [user.nick], trailing: "queued"}
+
+    assert {:ok, :committed, group} =
+             Output.transaction_deferred(fn ->
+               assert :ok = Dispatcher.send_prepared_message(message, user)
+               :committed
+             end)
+
+    assert [%{kind: :c2s_message, message: message_context, recipient: recipient}] = group.intents
+
+    assert recipient == %{
+             uid: user.uid,
+             connection_generation: user.connection_generation,
+             capability_revision: 307
+           }
+
+    refute Map.has_key?(recipient, :pid)
+    refute Map.has_key?(message_context, :__struct__)
+    refute inspect(group) =~ "credential-that-must-not-enter-the-outbox"
+
+    Mimic.copy(Connection)
+
+    expect(Connection, :handle_send, fn pid, wire ->
+      assert pid == user.pid
+      assert wire == "NOTICE #{user.nick} :queued\r\n"
+      :ok
+    end)
+
+    assert :ok = Output.drain_pending(group, &Dispatcher.drain_intent/1)
+    assert [] = Output.pending_groups()
+  end
+
+  test "does not drain a disconnect into a stale pid after the user record changes" do
+    stale = build(:user, pid: self())
+
+    assert :ok =
+             Dispatcher.drain_intent(%{
+               kind: :c2s_disconnect,
+               uid: stale.uid,
+               connection_generation: stale.connection_generation,
+               reason: "stale"
+             })
+
+    refute_received {:disconnect, "stale"}
+  end
+
+  test "drains an allow-missing disconnect through its transient endpoint after deletion" do
+    user = insert(:user, pid: self())
+    uid = user.uid
+    recipient_token = Dispatcher.transient_recipient_token(user.pid)
+
+    Memento.transaction!(fn -> Users.delete(user) end)
+
+    assert :ok =
+             Dispatcher.drain_intent(%{
+               kind: :c2s_disconnect,
+               allow_missing: true,
+               uid: user.uid,
+               connection_generation: user.connection_generation,
+               recipient_token: recipient_token,
+               reason: "gone"
+             })
+
+    assert_received {:disconnect, ^uid, "gone"}
+  end
 
   describe "broadcast/3 with context" do
     setup do
@@ -176,12 +303,17 @@ defmodule ElixIRCd.Server.DispatcherTest do
 
     test "broadcasts with User context to a pid target that is not the sender", %{user: user, message: message} do
       target_pid = self()
-      expected_message = ":testnick!testident@test.host PRIVMSG #test :hello\r\n"
 
       Connection
       |> expect(:handle_send, fn pid, received_message ->
         assert pid === target_pid
-        assert received_message == expected_message
+        parsed = Message.parse!(received_message)
+        assert parsed.prefix == "testnick!testident@test.host"
+        assert parsed.command == "PRIVMSG"
+        assert parsed.params == ["#test"]
+        assert parsed.trailing == "hello"
+        assert is_binary(parsed.tags["msgid"])
+        assert is_binary(parsed.tags["time"])
         :ok
       end)
 
@@ -196,12 +328,17 @@ defmodule ElixIRCd.Server.DispatcherTest do
       message: message
     } do
       sender_with_caps = %{user | capabilities: ["message-tags"], modes: [:B]}
-      expected_message = "@bot :testnick!testident@test.host PRIVMSG #test :hello\r\n"
 
       Connection
       |> expect(:handle_send, fn pid, received_message ->
         assert pid === sender_with_caps.pid
-        assert received_message == expected_message
+        parsed = Message.parse!(received_message)
+        assert parsed.prefix == "testnick!testident@test.host"
+        assert parsed.command == "PRIVMSG"
+        assert parsed.params == ["#test"]
+        assert parsed.trailing == "hello"
+        assert parsed.tags["bot"] == nil
+        assert is_binary(parsed.tags["msgid"])
         :ok
       end)
 
@@ -943,11 +1080,11 @@ defmodule ElixIRCd.Server.DispatcherTest do
       |> reject(:handle_send, 2)
     end
 
-    test "deduplicates the sender when the sender is already one of the targets" do
+    test "delivers and separately echoes when the sender messages themself" do
       sender = insert(:user, nick: "echoer", ident: "ident", hostname: "host.test", capabilities: ["echo-message"])
 
       Connection
-      |> expect(:handle_send, 1, fn pid, received_message ->
+      |> expect(:handle_send, 2, fn pid, received_message ->
         assert pid === sender.pid
         assert received_message == ":echoer!ident@host.test NOTICE echoer :hello\r\n"
         :ok
@@ -959,9 +1096,6 @@ defmodule ElixIRCd.Server.DispatcherTest do
                  sender,
                  sender.pid
                )
-
-      Connection
-      |> reject(:handle_send, 2)
     end
   end
 
@@ -980,6 +1114,34 @@ defmodule ElixIRCd.Server.DispatcherTest do
       end)
 
       assert :ok = Dispatcher.send_prepared_message(message, user)
+    end
+
+    test "sends an enqueued prepared message immediately without an active batch" do
+      user = build(:user, capabilities: ["batch"])
+      message = %Message{command: "NOTICE", params: [user.nick], trailing: "hello"}
+
+      expect(Connection, :handle_send, fn pid, wire ->
+        assert pid == user.pid
+        assert wire == "NOTICE #{user.nick} :hello\r\n"
+        :ok
+      end)
+
+      assert :ok = Dispatcher.enqueue_prepared_message(message, user)
+    end
+
+    test "preserves a preexisting history timestamp" do
+      sender = build(:user, nick: "sender")
+      target = build(:user, nick: "target", capabilities: ["message-tags", "server-time"])
+      timestamp = "2026-01-01T00:00:00.000Z"
+      message = %Message{command: "PRIVMSG", params: [target.nick], trailing: "hello", tags: %{"time" => timestamp}}
+
+      expect(Connection, :handle_send, fn pid, wire ->
+        assert pid == target.pid
+        assert wire =~ ";time="
+        :ok
+      end)
+
+      assert :ok = Dispatcher.broadcast(message, sender, target)
     end
   end
 

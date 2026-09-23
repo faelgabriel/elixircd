@@ -126,22 +126,32 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
         assert_sent_message_contains(user.pid, ~r/No .*MLOCK.* is set/)
         assert_sent_messages_amount(user.pid, 1)
 
-        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+kl", "25", "secret"])
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+lk", "25", "secret"])
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2MLOCK\2 for \2#{channel_name}\2 has been set to: \2+kl 25 secret\2\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2MLOCK\2 for \2#{channel_name}\2 has been set to: \2+lk 25 secret\2\r\n"}
         ])
 
         {:ok, channel} = RegisteredChannels.get_by_name(channel_name)
-        assert channel.settings.mlock == "+kl 25 secret"
+        assert channel.settings.mlock == "+lk 25 secret"
 
         assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK"])
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2MLOCK\2 for \2#{channel_name}\2 is: \2+kl 25 secret\2\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :\2MLOCK\2 for \2#{channel_name}\2 is: \2+lk 25 secret\2\r\n"}
         ])
+
+        assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+l", "abc"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :MLOCK contains an invalid parameter for a channel mode.\r\n"}
+        ])
+
+        {:ok, unchanged} = RegisteredChannels.get_by_name(channel_name)
+        assert unchanged.settings.mlock == "+lk 25 secret"
 
         assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "+k"])
 
@@ -167,7 +177,7 @@ defmodule ElixIRCd.Services.Chanserv.SetTest do
 
         assert_sent_messages([
           {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :Invalid MLOCK. Use channel modes such as +nt or +kl <limit> <key>.\r\n"}
+           ":ChanServ!service@irc.test NOTICE #{user.nick} :Invalid MLOCK. Use channel modes such as +nt or +lk <limit> <key>.\r\n"}
         ])
 
         assert :ok = Set.handle(user, ["SET", channel_name, "MLOCK", "OFF"])

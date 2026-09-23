@@ -3,7 +3,7 @@ defmodule ElixIRCd.Services.Nickserv.Memo do
 
   @behaviour ElixIRCd.Service
 
-  import ElixIRCd.Utils.Nickserv, only: [get_account_nick: 1, notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [get_account_nick: 1, notify: 2, notify_literal: 2]
 
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.MemoEmailDelivery
@@ -91,9 +91,9 @@ defmodule ElixIRCd.Services.Nickserv.Memo do
 
   @spec ensure_recipient_can_receive(ElixIRCd.Tables.RegisteredNick.t()) :: :ok | {:error, :recipient_has_no_email}
   defp ensure_recipient_can_receive(recipient_account) do
-    mode = Map.get(recipient_account.settings, :email_memos, :off)
+    mode = recipient_account.settings.email_memos
 
-    if mode == :only and is_nil(recipient_account.email) do
+    if mode == :only and not verified_email?(recipient_account) do
       {:error, :recipient_has_no_email}
     else
       :ok
@@ -102,18 +102,81 @@ defmodule ElixIRCd.Services.Nickserv.Memo do
 
   @spec deliver_memo(User.t(), ElixIRCd.Tables.RegisteredNick.t(), String.t()) :: :ok
   defp deliver_memo(user, recipient_account, body) do
-    mode = Map.get(recipient_account.settings, :email_memos, :off)
+    mode = recipient_account.settings.email_memos
     email = recipient_account.email
+    verified_email = verified_email?(recipient_account)
+    store_result = store_memo(user, recipient_account, mode, body)
 
-    if mode != :only do
-      Memos.create(%{
-        recipient_account: recipient_account.account_name,
-        sender_account: user.identified_as,
-        body: body
-      })
+    handle_delivery_result(user, recipient_account, mode, email, verified_email, body, store_result)
+  end
+
+  @spec store_memo(User.t(), ElixIRCd.Tables.RegisteredNick.t(), atom(), String.t()) ::
+          {:ok, boolean()} | {:error, :memo_count_limit | :memo_bytes_limit}
+  defp store_memo(_user, _recipient_account, :only, _body), do: {:ok, false}
+
+  defp store_memo(user, recipient_account, _mode, body) do
+    attrs = %{
+      recipient_account: recipient_account.account_name,
+      sender_account: user.identified_as,
+      body: body
+    }
+
+    case Memos.create_with_limits(attrs, memo_limits()) do
+      {:ok, _memo} -> {:ok, true}
+      error -> error
     end
+  end
 
-    if mode in [:on, :only] and is_binary(email) do
+  @spec handle_delivery_result(
+          User.t(),
+          ElixIRCd.Tables.RegisteredNick.t(),
+          atom(),
+          String.t() | nil,
+          boolean(),
+          String.t(),
+          {:ok, boolean()} | {:error, :memo_count_limit | :memo_bytes_limit}
+        ) :: :ok
+  defp handle_delivery_result(
+         user,
+         _recipient_account,
+         _mode,
+         _email,
+         _verified_email,
+         _body,
+         {:error, :memo_count_limit}
+       ) do
+    notify(user, "The recipient's NickServ memo inbox is full.")
+  end
+
+  defp handle_delivery_result(
+         user,
+         _recipient_account,
+         _mode,
+         _email,
+         _verified_email,
+         _body,
+         {:error, :memo_bytes_limit}
+       ) do
+    notify(user, "The recipient's NickServ memo inbox has reached its storage limit.")
+  end
+
+  defp handle_delivery_result(user, recipient_account, mode, email, verified_email, body, {:ok, stored?}) do
+    maybe_enqueue_email(user, recipient_account, mode, email, verified_email, stored?, body)
+    notify(user, confirmation_for(mode, stored?, verified_email))
+  end
+
+  @spec maybe_enqueue_email(
+          User.t(),
+          ElixIRCd.Tables.RegisteredNick.t(),
+          atom(),
+          String.t() | nil,
+          boolean(),
+          boolean(),
+          String.t()
+        ) ::
+          :ok
+  defp maybe_enqueue_email(user, recipient_account, mode, email, verified_email, stored?, body) do
+    if mode in [:on, :only] and verified_email and (mode == :only or stored?) do
       JobQueue.enqueue(
         MemoEmailDelivery,
         %{
@@ -127,14 +190,24 @@ defmodule ElixIRCd.Services.Nickserv.Memo do
       )
     end
 
-    confirmation =
-      case mode do
-        :only -> "Your memo was forwarded to the recipient's email address."
-        :on when is_binary(email) -> "Your memo was stored and queued for email delivery."
-        _ -> "Your memo was delivered to the NickServ inbox."
-      end
+    :ok
+  end
 
-    notify(user, confirmation)
+  @spec confirmation_for(atom(), boolean(), boolean()) :: String.t()
+  defp confirmation_for(:only, _stored?, _verified_email),
+    do: "Your memo was forwarded to the recipient's email address."
+
+  defp confirmation_for(:on, true, true), do: "Your memo was stored and queued for email delivery."
+  defp confirmation_for(_mode, _stored?, _verified_email), do: "Your memo was delivered to the NickServ inbox."
+
+  @spec verified_email?(ElixIRCd.Tables.RegisteredNick.t()) :: boolean()
+  defp verified_email?(%{email: email, verified_at: verified_at}),
+    do: is_binary(email) and not is_nil(verified_at)
+
+  @spec memo_limits() :: keyword()
+  defp memo_limits do
+    nickserv = Application.fetch_env!(:elixircd, :services)[:nickserv]
+    [max_count: nickserv[:max_memos_per_account], max_bytes: nickserv[:max_memo_bytes_per_account]]
   end
 
   @spec list_memos(User.t()) :: :ok
@@ -166,7 +239,7 @@ defmodule ElixIRCd.Services.Nickserv.Memo do
       {:ok, memo} ->
         memo = if memo.read_at, do: memo, else: Memos.update(memo, %{read_at: DateTime.utc_now()})
         notify(user, "Memo #{memo.id} from #{memo.sender_account} (#{format_datetime(memo.created_at)}):")
-        notify(user, memo.body)
+        notify_literal(user, memo.body)
 
       :error ->
         notify(user, "Memo \x02#{memo_id}\x02 was not found in your inbox.")

@@ -28,6 +28,29 @@ defmodule ElixIRCd.Tables.RegisteredNick.Settings do
     :display
   ]
 
+  @fields [
+    :email_memos,
+    :enforce,
+    :enforce_time,
+    :hide_email,
+    :hide_status,
+    :hide_usermask,
+    :hide_quit,
+    :kill,
+    :language,
+    :msg,
+    :never_group,
+    :never_op,
+    :no_greet,
+    :private,
+    :property,
+    :pubkey,
+    :quiet_chg,
+    :secure,
+    :url,
+    :display
+  ]
+
   @type email_memos() :: :on | :off | :only
   @type kill_mode() :: :on | :quick | :immed | :off
 
@@ -113,8 +136,34 @@ defmodule ElixIRCd.Tables.RegisteredNick.Settings do
   """
   @spec update(t(), t_attrs()) :: t()
   def update(settings, attrs) do
-    struct!(settings, attrs)
+    settings
+    |> normalize()
+    |> struct!(attrs)
   end
+
+  @doc "Completes settings values loaded from older persisted schemas."
+  @spec normalize(t() | map() | nil) :: t()
+  def normalize(%__MODULE__{} = settings) do
+    known_values =
+      settings
+      |> Map.from_struct()
+      |> Map.take(@fields)
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Map.new()
+
+    extras = Map.drop(settings, [:__struct__ | @fields])
+    Map.merge(new(known_values), extras)
+  end
+
+  def normalize(settings) when is_map(settings) do
+    settings
+    |> Map.take(@fields)
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+    |> new()
+  end
+
+  def normalize(nil), do: new()
 
   @spec get_config_settings() :: keyword()
   defp get_config_settings do

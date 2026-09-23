@@ -58,8 +58,13 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=beI,k,djl,CcimMnOprRstTuz WHOX UMODES=BgHiorRswxZ BOT=B UTF8ONLY :are supported by this server\r\n"},
-        {user.pid, ":irc.test 005 #{user.nick} MONITOR=100 :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=beI,k,djl,CcimMNnOprRstTUuz WHOX UMODES=BgHiorRswxZ BOT=B UTF8ONLY :are supported by this server\r\n"},
+        {user.pid,
+         ":irc.test 005 #{user.nick} MONITOR=100 TARGMAX=NAMES:20,LIST:1,KICK:4,WHOIS:1,PRIVMSG:4,NOTICE:4,TAGMSG:4,MONITOR:100 EXCEPTS=e INVEX=I ELIST=MNUCT :are supported by this server\r\n"},
+        {user.pid,
+         ":irc.test 005 #{user.nick} SAFELIST STATUSMSG=@+ CHANNELLEN=64 USERLEN=10 MAXLIST=I:100,b:100,e:100 :are supported by this server\r\n"},
+        {user.pid,
+         ":irc.test 005 #{user.nick} SILENCE=15 EXTBAN=$,amr ACCOUNTEXTBAN=a CHATHISTORY=100 MSGREFTYPES=msgid,timestamp :are supported by this server\r\n"}
       ])
     end
 
@@ -101,8 +106,35 @@ defmodule ElixIRCd.Utils.IsupportTest do
         {user.pid,
          ":irc.test 005 #{user.nick} NETWORK=Server Example CASEMAPPING=rfc1459 TOPICLEN=300 KICKLEN=255 AWAYLEN=200 :are supported by this server\r\n"},
         {user.pid,
-         ":irc.test 005 #{user.nick} CHANMODES=beI,k,djl,CcimMnOprRstTuz UMODES=BgHiorRswxZ BOT=B MONITOR=100 :are supported by this server\r\n"}
+         ":irc.test 005 #{user.nick} CHANMODES=beI,k,djl,CcimMNnOprRstTUuz UMODES=BgHiorRswxZ BOT=B MONITOR=100 TARGMAX=NAMES:20,LIST:1,KICK:4,WHOIS:1,PRIVMSG:4,NOTICE:4,TAGMSG:4,MONITOR:100 :are supported by this server\r\n"},
+        {user.pid,
+         ":irc.test 005 #{user.nick} EXCEPTS=e INVEX=I ELIST=MNUCT SAFELIST STATUSMSG=@+ :are supported by this server\r\n"},
+        {user.pid,
+         ":irc.test 005 #{user.nick} CHANNELLEN=64 USERLEN=10 MAXLIST=I:100,b:100,e:100 SILENCE=15 EXTBAN=$,amr :are supported by this server\r\n"},
+        {user.pid,
+         ":irc.test 005 #{user.nick} ACCOUNTEXTBAN=a CHATHISTORY=100 MSGREFTYPES=msgid,timestamp :are supported by this server\r\n"}
       ])
+    end
+
+    test "advertises the canonical strict-rfc1459 case mapping token" do
+      original_settings = Application.fetch_env!(:elixircd, :settings)
+
+      Application.put_env(
+        :elixircd,
+        :settings,
+        Keyword.put(original_settings, :case_mapping, :strict_rfc1459)
+      )
+
+      on_exit(fn -> Application.put_env(:elixircd, :settings, original_settings) end)
+
+      assert Enum.member?(Isupport.feature_tokens(), "CASEMAPPING=strict-rfc1459")
+    end
+
+    test "advertises deprecated metadata only when compatibility is enabled" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :deprecated_metadata, true))
+      assert "METADATA=20" in Isupport.feature_tokens()
     end
   end
 end

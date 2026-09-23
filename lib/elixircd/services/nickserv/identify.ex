@@ -10,10 +10,10 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   require Logger
 
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2, sync_registered_mode: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
-
+  alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -40,7 +40,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   @spec identify_nickname(User.t(), String.t(), String.t()) :: :ok
   defp identify_nickname(user, nickname, password) do
-    Logger.debug("IDENTIFY attempt for nickname #{nickname} from #{user_mask(user)}")
+    Logger.debug("NickServ IDENTIFY attempt")
 
     case RegisteredNicks.get_by_nickname(nickname) do
       {:ok, registered_nick} ->
@@ -72,19 +72,25 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   defp verify_password(user, registered_nick, password) do
     case RegisteredNicks.get_by_nickname(registered_nick.account_name) do
       {:ok, account_nick} ->
-        cond do
-          Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] ->
-            notify(user, "This account requires a secure TLS connection for authentication.")
-
-          Argon2.verify_pass(password, account_nick.password_hash) ->
-            complete_identification(user, registered_nick, account_nick)
-
-          true ->
-            handle_failed_identification(user)
-        end
+        verify_account_password(user, registered_nick, account_nick, password)
 
       {:error, :registered_nick_not_found} ->
         handle_failed_identification(user)
+    end
+  end
+
+  defp verify_account_password(user, registered_nick, account_nick, password) do
+    if Map.get(account_nick.settings, :secure) == true and user.transport not in [:tls, :wss] do
+      notify(user, "This account requires a secure TLS connection for authentication.")
+    else
+      complete_password_verification(user, registered_nick, account_nick, password)
+    end
+  end
+
+  defp complete_password_verification(user, registered_nick, account_nick, password) do
+    case Password.verify_and_upgrade(account_nick, password) do
+      {:ok, upgraded_account} -> complete_identification(user, registered_nick, upgraded_account)
+      :error -> handle_failed_identification(user)
     end
   end
 
@@ -102,6 +108,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
     notify(updated_user, "You are now identified for \x02#{account_nick.account_name}\x02.")
 
     updated_user = sync_registered_mode(updated_user)
+    NickEnforcement.schedule_enforcement(updated_user)
 
     notify_account_change(updated_user, account_nick.account_name)
   end

@@ -12,8 +12,13 @@ defmodule ElixIRCd.Commands.List do
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.Policy
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
+  alias ElixIRCd.Utils.Protocol
 
   @type detailed_channel :: %{
           channel: Channel.t(),
@@ -42,7 +47,13 @@ defmodule ElixIRCd.Commands.List do
   def handle(user, %{command: "LIST", params: params}) do
     search_string = Enum.at(params, 0, nil)
 
-    handle_list(search_string, user)
+    list =
+      case network_runtime() do
+        {:ok, runtime} -> handle_network_list(search_string, user, runtime)
+        :unavailable -> handle_list(search_string, user)
+      end
+
+    list
     |> Enum.sort_by(& &1.channel.name)
     |> Enum.map(fn detailed_channel ->
       name = detailed_channel.channel.name
@@ -55,6 +66,80 @@ defmodule ElixIRCd.Commands.List do
 
     %Message{command: :rpl_listend, params: [user.nick], trailing: "End of LIST"}
     |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp network_runtime do
+    case Process.whereis(Manager) do
+      nil ->
+        :unavailable
+
+      manager ->
+        case View.runtime(manager) do
+          {:ok, runtime} -> {:ok, runtime}
+          {:error, _} -> :unavailable
+        end
+    end
+  end
+
+  @spec handle_network_list(String.t() | nil, User.t(), map()) :: [detailed_channel()]
+  defp handle_network_list(search_string, user, runtime) do
+    {general_filters, channel_name_filters} = parse_filters(search_string)
+    exact_names = MapSet.new(Enum.map(channel_name_filters, &elem(&1, 1)), &CaseMapping.normalize/1)
+
+    runtime.channels
+    |> Map.values()
+    |> Enum.reject(&String.starts_with?(&1.ref["name"], "&"))
+    |> Enum.flat_map(fn runtime_channel ->
+      case View.channel(runtime, runtime_channel.ref["name"]) do
+        {:ok, channel, _} -> [channel]
+        {:error, _} -> []
+      end
+    end)
+    |> Enum.filter(fn channel -> MapSet.size(exact_names) == 0 or MapSet.member?(exact_names, channel.name_key) end)
+    |> filter_network_hidden_channels(user, runtime)
+    |> convert_network_to_detailed_channels(runtime)
+    |> apply_general_filters(general_filters)
+  end
+
+  defp filter_network_hidden_channels(channels, user, runtime) do
+    user_channel_names =
+      case runtime.memberships[user.uid] do
+        %{entries: entries} -> MapSet.new(Enum.map(entries, &CaseMapping.normalize(&1["channel"])))
+        _ -> MapSet.new()
+      end
+
+    Enum.reject(channels, fn channel ->
+      hidden? =
+        (:p in channel.modes or :s in channel.modes) and not MapSet.member?(user_channel_names, channel.name_key)
+
+      hidden? or network_registered_channel_private?(channel, user, runtime, user_channel_names)
+    end)
+  end
+
+  defp network_registered_channel_private?(channel, user, runtime, user_channel_names) do
+    if MapSet.member?(user_channel_names, channel.name_key) do
+      false
+    else
+      case Policy.get(runtime.policy, "channel", channel.name_key) do
+        {:ok, %{"settings" => %{"private" => true}, "founder_account_id" => founder_id}} ->
+          get_in(runtime.users, [user.uid, "binding", "account_id"]) != founder_id
+
+        _ ->
+          false
+      end
+    end
+  end
+
+  defp convert_network_to_detailed_channels(channels, runtime) do
+    Enum.map(channels, fn channel ->
+      users_count =
+        runtime.memberships
+        |> Enum.count(fn {_uid, %{entries: entries}} ->
+          Enum.any?(entries, &(CaseMapping.normalize(&1["channel"]) == channel.name_key))
+        end)
+
+      %{channel: channel, users_count: users_count}
+    end)
   end
 
   @spec handle_list(String.t(), User.t()) :: [detailed_channel()]
@@ -92,21 +177,27 @@ defmodule ElixIRCd.Commands.List do
   @spec parse_filter(String.t()) :: filter() | nil
   defp parse_filter(">" <> value), do: parse_numeric_filter(:users_greater, value)
   defp parse_filter("<" <> value), do: parse_numeric_filter(:users_less, value)
-  defp parse_filter("C>" <> value), do: parse_numeric_filter(:created_after, value)
-  defp parse_filter("C<" <> value), do: parse_numeric_filter(:created_before, value)
+  defp parse_filter("C>" <> value), do: parse_numeric_filter(:created_older, value)
+  defp parse_filter("C<" <> value), do: parse_numeric_filter(:created_newer, value)
   defp parse_filter("T>" <> value), do: parse_numeric_filter(:topic_older, value)
   defp parse_filter("T<" <> value), do: parse_numeric_filter(:topic_newer, value)
-  defp parse_filter("#" <> value), do: {:exact_name, "#" <> value}
 
   defp parse_filter(value) do
     cond do
-      # Regex to match string that starts and ends with "*"
-      Regex.match?(~r/^\*(.*?)\*$/, value) -> {:name_match, Regex.replace(~r/^\*|\*$/, value, "")}
-      # Regex to match string that starts with "!*" and ends with "*"
-      Regex.match?(~r/^!\*(.*?)\*$/, value) -> {:name_not_match, Regex.replace(~r/^!\*|\*$/, value, "")}
-      # Default case to consider the value as an exact name filter
-      true -> {:exact_name, "#" <> value}
+      String.starts_with?(value, "!") ->
+        {:name_not_match, value |> String.trim_leading("!") |> ensure_channel_pattern()}
+
+      String.contains?(value, ["*", "?"]) ->
+        {:name_match, ensure_channel_pattern(value)}
+
+      true ->
+        {:exact_name, ensure_channel_pattern(value)}
     end
+  end
+
+  @spec ensure_channel_pattern(String.t()) :: String.t()
+  defp ensure_channel_pattern(value) do
+    if String.starts_with?(value, ["#", "&"]), do: value, else: "#" <> value
   end
 
   @spec parse_numeric_filter(atom(), String.t()) :: {atom(), integer()} | nil
@@ -171,14 +262,14 @@ defmodule ElixIRCd.Commands.List do
   defp check_filter({:users_greater, val}, detailed_channel), do: detailed_channel.users_count > val
   defp check_filter({:users_less, val}, detailed_channel), do: detailed_channel.users_count < val
 
-  defp check_filter({:created_after, val}, detailed_channel) do
+  defp check_filter({:created_newer, val}, detailed_channel) do
     created_at = detailed_channel.channel.created_at
     now = DateTime.utc_now()
     minutes_ago = DateTime.add(now, -val, :minute)
     DateTime.compare(created_at, minutes_ago) != :lt and DateTime.compare(created_at, now) != :gt
   end
 
-  defp check_filter({:created_before, val}, detailed_channel) do
+  defp check_filter({:created_older, val}, detailed_channel) do
     created_at = detailed_channel.channel.created_at
     now = DateTime.utc_now()
     minutes_ago = DateTime.add(now, -val, :minute)
@@ -186,20 +277,30 @@ defmodule ElixIRCd.Commands.List do
   end
 
   defp check_filter({:topic_older, val}, detailed_channel) do
-    set_at = detailed_channel.channel.topic.set_at
-    minutes_ago = DateTime.add(DateTime.utc_now(), -val, :minute)
-    DateTime.compare(set_at, minutes_ago) == :lt
+    case detailed_channel.channel.topic do
+      %{set_at: set_at} ->
+        minutes_ago = DateTime.add(DateTime.utc_now(), -val, :minute)
+        DateTime.compare(set_at, minutes_ago) == :lt
+
+      nil ->
+        false
+    end
   end
 
   defp check_filter({:topic_newer, val}, detailed_channel) do
-    set_at = detailed_channel.channel.topic.set_at
-    minutes_ago = DateTime.add(DateTime.utc_now(), -val, :minute)
-    DateTime.compare(set_at, minutes_ago) != :lt
+    case detailed_channel.channel.topic do
+      %{set_at: set_at} ->
+        minutes_ago = DateTime.add(DateTime.utc_now(), -val, :minute)
+        DateTime.compare(set_at, minutes_ago) != :lt
+
+      nil ->
+        false
+    end
   end
 
-  defp check_filter({:name_match, match}, detailed_channel),
-    do: Regex.match?(~r/#{Regex.escape(match)}/, detailed_channel.channel.name)
+  defp check_filter({:name_match, pattern}, detailed_channel),
+    do: Protocol.match_glob?(detailed_channel.channel.name, pattern)
 
-  defp check_filter({:name_not_match, match}, detailed_channel),
-    do: not Regex.match?(~r/#{Regex.escape(match)}/, detailed_channel.channel.name)
+  defp check_filter({:name_not_match, pattern}, detailed_channel),
+    do: not Protocol.match_glob?(detailed_channel.channel.name, pattern)
 end

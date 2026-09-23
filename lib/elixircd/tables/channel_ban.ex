@@ -4,12 +4,15 @@ defmodule ElixIRCd.Tables.ChannelBan do
   """
 
   @enforce_keys [:channel_name_key, :mask, :setter, :created_at]
+  alias ElixIRCd.Server.S2S.Identity
+
   use Memento.Table,
     attributes: [
       :channel_name_key,
       :mask,
       :setter,
-      :created_at
+      :created_at,
+      :stamp
     ],
     index: [],
     type: :bag
@@ -18,14 +21,16 @@ defmodule ElixIRCd.Tables.ChannelBan do
           channel_name_key: String.t(),
           mask: String.t(),
           setter: String.t(),
-          created_at: DateTime.t()
+          created_at: DateTime.t(),
+          stamp: Identity.stamp() | nil
         }
 
   @type t_attrs :: %{
           optional(:channel_name_key) => String.t(),
           optional(:mask) => String.t(),
           optional(:setter) => String.t(),
-          optional(:created_at) => DateTime.t()
+          optional(:created_at) => DateTime.t(),
+          optional(:stamp) => Identity.stamp() | nil
         }
 
   @doc """
@@ -36,6 +41,7 @@ defmodule ElixIRCd.Tables.ChannelBan do
     new_attrs =
       attrs
       |> Map.put_new(:created_at, DateTime.utc_now())
+      |> Map.put_new(:stamp, nil)
 
     struct!(__MODULE__, new_attrs)
   end

@@ -2,6 +2,7 @@ defmodule ElixIRCd.Repositories.Memos do
   @moduledoc "Repository for account-owned NickServ memos."
 
   alias ElixIRCd.Tables.Memo
+  alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
 
@@ -10,6 +11,34 @@ defmodule ElixIRCd.Repositories.Memos do
   def create(attrs) do
     Memo.new(attrs)
     |> Memento.Query.write()
+  end
+
+  @doc "Creates a memo only when the recipient count and byte quotas allow it."
+  @spec create_with_limits(map(), keyword()) ::
+          {:ok, Memo.t()} | {:error, :memo_count_limit | :memo_bytes_limit}
+  def create_with_limits(attrs, limits) do
+    operation = fn -> create_with_limits_in_transaction(attrs, limits) end
+
+    if Memento.Transaction.inside?(), do: operation.(), else: Memento.transaction!(operation)
+  end
+
+  defp create_with_limits_in_transaction(attrs, limits) do
+    recipient_account = Map.fetch!(attrs, :recipient_account)
+    account_key = CaseMapping.normalize(recipient_account)
+    _account = Memento.Query.read(RegisteredNick, account_key, lock: :write)
+    memos = get_by_recipient(recipient_account)
+    body_bytes = byte_size(Map.fetch!(attrs, :body))
+
+    cond do
+      length(memos) >= Keyword.fetch!(limits, :max_count) ->
+        {:error, :memo_count_limit}
+
+      Enum.reduce(memos, 0, &(byte_size(&1.body) + &2)) + body_bytes > Keyword.fetch!(limits, :max_bytes) ->
+        {:error, :memo_bytes_limit}
+
+      true ->
+        {:ok, create(attrs)}
+    end
   end
 
   @doc "Gets a memo by its public identifier."

@@ -8,6 +8,8 @@ defmodule ElixIRCd.JobQueueTest do
   alias ElixIRCd.Jobs.RegisteredNickExpiration
   alias ElixIRCd.Jobs.UnverifiedNickExpiration
   alias ElixIRCd.Repositories.Jobs
+  alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Output
   alias ElixIRCd.Tables.Job
 
   defmodule TestJobModule do
@@ -73,6 +75,11 @@ defmodule ElixIRCd.JobQueueTest do
     wait_until_with_result(fn -> check_job_with_error(job_id) end)
   end
 
+  @spec wait_for_job_terminal(String.t()) :: Job.t()
+  defp wait_for_job_terminal(job_id) do
+    wait_until_with_result(fn -> check_job_terminal(job_id) end)
+  end
+
   @spec check_job_status_change(String.t(), atom()) :: {:ok, Job.t()} | :retry
   defp check_job_status_change(job_id, initial_status) do
     case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
@@ -97,6 +104,21 @@ defmodule ElixIRCd.JobQueueTest do
       {:ok, job} when job.current_attempt >= 1 and job.last_error != nil -> {:ok, job}
       {:ok, _job} -> :retry
       error -> flunk("Failed to get job: #{inspect(error)}")
+    end
+  end
+
+  @spec check_job_terminal(String.t()) :: {:ok, Job.t()} | :retry
+  defp check_job_terminal(job_id) do
+    case Memento.transaction!(fn -> Jobs.get_by_id(job_id) end) do
+      {:ok, %Job{current_attempt: attempt, status: status} = job}
+      when attempt >= 1 and status in [:done, :queued, :failed] ->
+        {:ok, job}
+
+      {:ok, _job} ->
+        :retry
+
+      error ->
+        flunk("Failed to get job: #{inspect(error)}")
     end
   end
 
@@ -154,6 +176,52 @@ defmodule ElixIRCd.JobQueueTest do
       assert_raise ArgumentError, ~r/Module.*does not implement.*JobBehavior/, fn ->
         JobQueue.enqueue(InvalidJobModule)
       end
+    end
+
+    test "creates a transaction-owned job only after the surrounding commit" do
+      payload = %{marker: System.unique_integer([:positive])}
+
+      assert :ok =
+               Output.transaction(
+                 fn ->
+                   assert :queued = JobQueue.enqueue(TestJobModule, payload)
+
+                   assert Memento.transaction!(fn ->
+                            Enum.find(Jobs.get_all(), &(&1.payload == payload))
+                          end) == nil
+
+                   :ok
+                 end,
+                 drain_fun: &Dispatcher.drain_intent/1
+               )
+
+      assert {:ok, job} =
+               Memento.transaction!(fn ->
+                 Jobs.get_all()
+                 |> Enum.find(&(&1.payload == payload))
+                 |> case do
+                   %Job{} = job -> {:ok, job}
+                   nil -> :error
+                 end
+               end)
+
+      assert job.module == TestJobModule
+    end
+
+    test "does not create a job when the surrounding transaction aborts" do
+      payload = %{marker: System.unique_integer([:positive])}
+
+      assert_raise RuntimeError, "abort job intent", fn ->
+        Output.transaction(
+          fn ->
+            assert :queued = JobQueue.enqueue(TestJobModule, payload)
+            raise "abort job intent"
+          end,
+          drain_fun: &Dispatcher.drain_intent/1
+        )
+      end
+
+      assert Memento.transaction!(fn -> Enum.all?(Jobs.get_all(), &(&1.payload != payload)) end)
     end
   end
 
@@ -601,7 +669,7 @@ defmodule ElixIRCd.JobQueueTest do
       pid = Process.whereis(JobQueue)
 
       send(pid, :poll_jobs)
-      final_job = wait_for_job_status_change(job.id, :queued)
+      final_job = wait_for_job_terminal(job.id)
       assert final_job.current_attempt >= 1
       assert final_job.status in [:done, :queued]
     end

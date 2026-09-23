@@ -127,5 +127,15 @@ defmodule ElixIRCd.Utils.MessageFilterTest do
         refute uc_normal in result
       end)
     end
+
+    test "lets a matching exception bypass a channel mute extban" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "muted")
+        channel = insert(:channel)
+        insert(:channel_ban, channel: channel, mask: "$m:muted!*@*")
+        insert(:channel_except, channel: channel, mask: "$m:muted!*@*")
+        assert :ok = MessageFilter.check_channel_mute(channel, user, nil)
+      end)
+    end
   end
 end

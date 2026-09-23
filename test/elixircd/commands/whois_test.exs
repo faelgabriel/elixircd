@@ -112,6 +112,18 @@ defmodule ElixIRCd.Commands.WhoisTest do
       end)
     end
 
+    test "shows all negotiated membership prefixes in rank order" do
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["multi-prefix"])
+        target_user = insert(:user, nick: "multi_prefix_target")
+        channel = insert(:channel)
+        insert(:user_channel, user: target_user, channel: channel, modes: [:o])
+
+        assert :ok = Whois.handle(user, %Message{command: "WHOIS", params: [target_user.nick]})
+        assert_sent_message_contains(user.pid, ":irc.test 319 #{user.nick} #{target_user.nick} :@#{channel.name}\r\n")
+      end)
+    end
+
     test "handles WHOIS command with orphaned channel reference (edge case)" do
       Memento.transaction!(fn ->
         user = insert(:user)

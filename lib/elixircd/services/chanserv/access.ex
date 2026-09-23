@@ -158,7 +158,7 @@ defmodule ElixIRCd.Services.Chanserv.Access do
       current_flags = Flags.flags_for_account(channel, account_name, access_entries)
 
       cond do
-        not Map.has_key?(access_entries, account_name) ->
+        current_flags == "" ->
           notify(user, "\x02#{account_name}\x02 is not in the access list for \x02#{channel.name}\x02.")
 
         not Flags.may_grant?(channel, user.identified_as, current_flags, "", access_entries) ->

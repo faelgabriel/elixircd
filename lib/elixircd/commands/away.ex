@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.Away do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.Monitor
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -59,7 +60,7 @@ defmodule ElixIRCd.Commands.Away do
     away_notify_supported = Application.fetch_env!(:elixircd, :capabilities)[:away_notify]
 
     if away_notify_supported do
-      watchers = Users.get_in_shared_channels_with_capability(user, "away-notify", false)
+      watchers = Monitor.notification_watchers(user, "away-notify", false)
 
       if watchers != [] do
         %Message{command: "AWAY", params: [], trailing: user.away_message}

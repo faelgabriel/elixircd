@@ -13,7 +13,7 @@ defmodule ElixIRCd.Tables.RegisteredNick.SettingsTest do
       assert settings.hide_email == false
       assert settings.email_memos == :off
       assert settings.enforce == false
-      assert settings.enforce_time == 0
+      assert settings.enforce_time == 60
       assert settings.hide_status == false
       assert settings.hide_usermask == false
       assert settings.hide_quit == false
@@ -107,6 +107,13 @@ defmodule ElixIRCd.Tables.RegisteredNick.SettingsTest do
       updated_settings = Settings.update(settings, attrs)
 
       assert updated_settings.hide_email == false
+    end
+  end
+
+  describe "normalize/1" do
+    test "normalizes persisted maps and nil using current defaults" do
+      assert %Settings{hide_email: true, url: nil} = Settings.normalize(%{hide_email: true, url: nil, unknown: true})
+      assert %Settings{} = Settings.normalize(nil)
     end
   end
 end

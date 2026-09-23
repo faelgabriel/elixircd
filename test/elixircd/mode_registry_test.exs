@@ -21,6 +21,7 @@ defmodule ElixIRCd.ModeRegistryTest do
              :l,
              :m,
              :M,
+             :N,
              :n,
              :O,
              :o,
@@ -30,6 +31,7 @@ defmodule ElixIRCd.ModeRegistryTest do
              :s,
              :t,
              :T,
+             :U,
              :u,
              :v,
              :z

@@ -1,3 +1,31 @@
+defmodule ElixIRCd.Commands.PrivmsgTest.FantasyManager do
+  use GenServer
+
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.Manager
+
+  def start_link(runtime, parent), do: GenServer.start_link(__MODULE__, {runtime, parent}, name: Manager)
+
+  @impl true
+  def init({runtime, parent}), do: {:ok, %{runtime: runtime, parent: parent}}
+
+  @impl true
+  def handle_call(:runtime_view, _from, state), do: {:reply, state.runtime, state}
+
+  @impl true
+  def handle_call(:status, _from, state), do: {:reply, %{services_authority: "root"}, state}
+
+  @impl true
+  def handle_call(
+        {:request_with_reply_context, _target_sid, _actor, "service", args, _guards, _waiter, _ttl_ms},
+        _from,
+        state
+      ) do
+    send(state.parent, {:fantasy_request, args})
+    {:reply, {:ok, Identity.nonce()}, state}
+  end
+end
+
 defmodule ElixIRCd.Commands.PrivmsgTest do
   @moduledoc false
 
@@ -11,6 +39,10 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
   alias ElixIRCd.Commands.Privmsg
   alias ElixIRCd.Message
   alias ElixIRCd.Service
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.Policy
+  alias ElixIRCd.Commands.PrivmsgTest.FantasyManager
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
@@ -86,6 +118,24 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         assert_sent_messages([
           {user.pid, ":irc.test 404 #{user.nick} #{channel.name} :Cannot send to channel\r\n"}
         ])
+      end)
+    end
+
+    test "routes unprivileged +U messages only to channel operators" do
+      Memento.transaction!(fn ->
+        sender = insert(:user, nick: "sender")
+        operator = insert(:user, nick: "operator")
+        member = insert(:user, nick: "member")
+        channel = insert(:channel, name: "#ops", modes: [:U])
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+        insert(:user_channel, user: member, channel: channel)
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{command: "PRIVMSG", params: [channel.name], trailing: "review me"})
+
+        assert_sent_message_contains(operator.pid, ":#{user_mask(sender)} PRIVMSG #ops :review me\r\n")
+        assert_sent_messages_amount(member.pid, 0)
       end)
     end
 
@@ -1046,5 +1096,174 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
         ])
       end)
     end
+
+    test "delivers PRIVMSG to each advertised comma-separated target" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        recipients = Enum.map(1..5, &insert(:user, nick: "target#{&1}"))
+        targets = Enum.map_join(recipients, ",", & &1.nick)
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{command: "PRIVMSG", params: [targets], trailing: "hello"})
+
+        assert_sent_messages_amount(List.last(recipients).pid, 0)
+
+        assert_sent_messages(
+          recipients
+          |> Enum.take(4)
+          |> Enum.map(fn recipient ->
+            {recipient.pid, ":#{user_mask(sender)} PRIVMSG #{recipient.nick} :hello\r\n"}
+          end)
+        )
+      end)
+    end
+
+    test "delivers STATUSMSG only to channel members with the requested status" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        operator = insert(:user, nick: "operator")
+        voiced = insert(:user, nick: "voiced")
+        regular = insert(:user, nick: "regular")
+        channel = insert(:channel)
+        insert(:user_channel, user: sender, channel: channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+        insert(:user_channel, user: voiced, channel: channel, modes: [:v])
+        insert(:user_channel, user: regular, channel: channel)
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{
+                   command: "PRIVMSG",
+                   params: ["@#{channel.name}"],
+                   trailing: "operators"
+                 })
+
+        assert_sent_messages([
+          {operator.pid, ":#{user_mask(sender)} PRIVMSG @#{channel.name} :operators\r\n"}
+        ])
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{
+                   command: "PRIVMSG",
+                   params: ["+#{channel.name}"],
+                   trailing: "voiced"
+                 })
+
+        assert_sent_messages([
+          {operator.pid, ":#{user_mask(sender)} PRIVMSG +#{channel.name} :voiced\r\n"},
+          {voiced.pid, ":#{user_mask(sender)} PRIVMSG +#{channel.name} :voiced\r\n"}
+        ])
+      end)
+    end
+
+    test "blocks a muted channel member and lets voice override the mute" do
+      Memento.transaction!(fn ->
+        muted = insert(:user, nick: "muted")
+        voiced = insert(:user, nick: "voiced")
+        recipient = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: muted, channel: channel)
+        insert(:user_channel, user: voiced, channel: channel, modes: [:v])
+        insert(:user_channel, user: recipient, channel: channel)
+        insert(:channel_ban, channel: channel, mask: "$m:*!*@*")
+
+        assert :ok =
+                 Privmsg.handle(muted, %Message{command: "PRIVMSG", params: [channel.name], trailing: "blocked"})
+
+        assert_sent_messages([
+          {muted.pid, ":irc.test 404 #{muted.nick} #{channel.name} :Cannot send to channel\r\n"}
+        ])
+
+        assert :ok =
+                 Privmsg.handle(voiced, %Message{command: "PRIVMSG", params: [channel.name], trailing: "allowed"})
+
+        assert_sent_messages([
+          {muted.pid, ":#{user_mask(voiced)} PRIVMSG #{channel.name} :allowed\r\n"},
+          {recipient.pid, ":#{user_mask(voiced)} PRIVMSG #{channel.name} :allowed\r\n"}
+        ])
+      end)
+    end
+  end
+
+  test "routes a global fantasy command once to the channel service authority" do
+    Memento.transaction!(fn ->
+      user = insert(:user, identified_as: "helper")
+      another_user = insert(:user)
+      channel = insert(:channel, name: "#network-fantasy")
+      insert(:user_channel, user: user, channel: channel)
+      insert(:user_channel, user: another_user, channel: channel)
+
+      policy =
+        Policy.new(
+          epoch: Identity.nonce(),
+          revision: 1,
+          ready?: true,
+          objects: %{
+            {"channel", "#network-fantasy"} => %{
+              "settings" => %{"guard" => true, "fantasy" => true}
+            }
+          }
+        )
+
+      assert Process.whereis(Manager) == nil
+      {:ok, manager} = FantasyManager.start_link(%{policy: policy}, self())
+      Process.unlink(manager)
+
+      on_exit(fn ->
+        if Process.alive?(manager), do: GenServer.stop(manager)
+      end)
+
+      message = %Message{command: "PRIVMSG", params: [channel.name], trailing: "!op AnotherNick"}
+
+      assert :ok = Privmsg.handle(user, message)
+
+      assert_receive {:fantasy_request, args}
+
+      assert args == %{
+               "service" => "ChanServ",
+               "arguments" => ["OP", "#network-fantasy", "AnotherNick"],
+               "scope" => "channel",
+               "channel" => "#network-fantasy"
+             }
+
+      assert_sent_messages_amount(another_user.pid, 0)
+    end)
+  end
+
+  test "keeps local fantasy commands on an ampersand channel" do
+    Memento.transaction!(fn ->
+      user = insert(:user, identified_as: "helper")
+      channel = insert(:channel, name: "&local-fantasy")
+      settings = Settings.new(%{guard: true, fantasy: true})
+
+      insert(:registered_channel, name: channel.name, founder: "founder", settings: settings)
+      insert(:user_channel, user: user, channel: channel)
+
+      policy = Policy.new(epoch: Identity.nonce(), revision: 1, ready?: true)
+
+      assert Process.whereis(Manager) == nil
+      {:ok, manager} = FantasyManager.start_link(%{policy: policy}, self())
+      Process.unlink(manager)
+
+      on_exit(fn ->
+        if Process.alive?(manager), do: GenServer.stop(manager)
+      end)
+
+      Service
+      |> expect(:dispatch, fn dispatched_user, service, command_list ->
+        assert dispatched_user == user
+        assert service == "ChanServ"
+        assert command_list == ["OP", "&local-fantasy", "AnotherNick"]
+        :ok
+      end)
+
+      assert :ok =
+               Privmsg.handle(
+                 user,
+                 %Message{command: "PRIVMSG", params: [channel.name], trailing: "!op AnotherNick"}
+               )
+
+      assert_sent_messages_amount(user.pid, 0)
+      verify!()
+    end)
   end
 end

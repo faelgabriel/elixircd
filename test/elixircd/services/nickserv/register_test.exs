@@ -11,6 +11,8 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
   alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Server.Connection
+  alias ElixIRCd.Server.S2S.Identity
+  alias ElixIRCd.Server.S2S.State
   alias ElixIRCd.Services.Nickserv.Register
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.RegisteredNick.Settings
@@ -72,6 +74,29 @@ defmodule ElixIRCd.Services.Nickserv.RegisterTest do
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :This nick is already registered. Please choose a different nick.\r\n"}
         ])
+      end)
+    end
+
+    test "rejects registration of another user's generated fallback nickname" do
+      Memento.transaction!(fn ->
+        fallback_uid = Identity.uid()
+
+        user =
+          insert(:user,
+            nick: State.fallback_nickname(fallback_uid),
+            registered: false,
+            created_at: DateTime.add(DateTime.utc_now(), -3600)
+          )
+
+        refute user.uid == fallback_uid
+        assert :ok = Register.handle(user, ["REGISTER", "password123"])
+
+        assert_sent_messages([
+          {user.pid,
+           ":NickServ!service@irc.test NOTICE * :This generated nickname is reserved for its network owner.\r\n"}
+        ])
+
+        assert {:error, :registered_nick_not_found} = RegisteredNicks.get_by_nickname(user.nick)
       end)
     end
 

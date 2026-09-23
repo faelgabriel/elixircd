@@ -473,6 +473,22 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
   end
 
   describe "apply_mode_changes/3" do
+    test "ignores an IRC-operator-only mode that a service adds twice" do
+      channel = insert(:channel, modes: [:O])
+
+      {updated_channel, applied_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes_as_service(channel, add: :O) end)
+
+      assert updated_channel.modes == [:O]
+      assert applied_changes == []
+
+      {removed_channel, removal_changes} =
+        Memento.transaction!(fn -> ChannelModes.apply_mode_changes_as_service(updated_channel, remove: :O) end)
+
+      assert removed_channel.modes == []
+      assert removal_changes == [remove: :O]
+    end
+
     test "handles add modes" do
       user = insert(:user)
       channel = insert(:channel, modes: [])

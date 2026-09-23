@@ -5,7 +5,15 @@ defmodule ElixIRCd.Utils.MnesiaTest do
   use Mimic
 
   alias ElixIRCd.JobQueue
+  alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Tables.RegisteredNick
+  alias ElixIRCd.Tables.SaslSession
+  alias ElixIRCd.Tables.User
+  alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Utils.Mnesia
+  alias Memento.Query.Data
+
+  import ElixIRCd.Factory
 
   setup do
     # The JobQueue GenServer can cause race conditions during tests due to the Jobs table,
@@ -34,6 +42,26 @@ defmodule ElixIRCd.Utils.MnesiaTest do
     test "recreates Mnesia database" do
       Mnesia.setup_mnesia(recreate: true)
       # No error means success
+    end
+
+    test "rejects an incompatible current table instead of clearing it" do
+      current_attributes = User.__info__().attributes
+      incompatible_attributes = List.delete(current_attributes, :uid)
+
+      assert {:atomic, :ok} = :mnesia.delete_table(User)
+
+      assert {:atomic, :ok} =
+               :mnesia.create_table(User,
+                 attributes: incompatible_attributes,
+                 ram_copies: [node()],
+                 type: :set
+               )
+
+      assert :ok = :mnesia.wait_for_tables([User], 5_000)
+
+      assert_raise RuntimeError, ~r/Incompatible Mnesia table ElixIRCd\.Tables\.User/, fn ->
+        Mnesia.setup_mnesia()
+      end
     end
 
     test "raises error if failed to create Mnesia schema" do
@@ -90,5 +118,112 @@ defmodule ElixIRCd.Utils.MnesiaTest do
         Mnesia.setup_mnesia(recreate: true)
       end
     end
+
+    test "migrates legacy registered nick rows without SCRAM or pending-email fields" do
+      current_attributes = RegisteredNick.__info__().attributes
+      additions = [:scram_sha_256, :pending_email, :pending_email_verify_code, :pending_email_requested_at]
+      legacy_attributes = current_attributes -- additions
+      account = build(:registered_nick, nickname: "Legacy", password: "correct horse battery staple")
+
+      values =
+        account
+        |> Data.dump()
+        |> Tuple.to_list()
+        |> tl()
+        |> Enum.zip(current_attributes)
+        |> Map.new(fn {value, field} -> {field, value} end)
+
+      legacy_row = List.to_tuple([RegisteredNick | Enum.map(legacy_attributes, &Map.fetch!(values, &1))])
+
+      assert {:atomic, :ok} = :mnesia.delete_table(RegisteredNick)
+
+      assert {:atomic, :ok} =
+               :mnesia.create_table(RegisteredNick,
+                 attributes: legacy_attributes,
+                 disc_copies: [node()],
+                 type: :set,
+                 index: [:account_name_key]
+               )
+
+      assert :ok = :mnesia.wait_for_tables([RegisteredNick], 5_000)
+      assert {:atomic, :ok} = :mnesia.transaction(fn -> :mnesia.write(legacy_row) end)
+
+      assert :ok = Mnesia.upgrade_schemas()
+      assert :mnesia.table_info(RegisteredNick, :attributes) == current_attributes
+
+      Memento.transaction!(fn ->
+        assert {:ok, migrated} = RegisteredNicks.get_by_nickname("Legacy")
+        assert migrated.password_hash == account.password_hash
+        assert migrated.scram_sha_256 == nil
+        assert migrated.pending_email == nil
+        assert migrated.pending_email_verify_code == nil
+        assert migrated.pending_email_requested_at == nil
+      end)
+    end
+
+    test "migrates legacy user, monitor and SASL session rows" do
+      user = build(:user, cap_version: 302)
+      monitor = build(:user_monitor, target_nick: "Target")
+      session = SaslSession.new(%{user_pid: user.pid, mechanism: "PLAIN"})
+
+      recreate_legacy_table(User, :cap_version, :set, [:nick_key, :ip_address, :identified_as_key], user)
+      recreate_legacy_table(UserMonitor, :target_nick, :bag, [:target_nick_key], monitor)
+      recreate_legacy_table(SaslSession, :state, :set, [], session)
+
+      assert :ok = Mnesia.upgrade_schemas()
+      assert :mnesia.table_info(User, :attributes) == User.__info__().attributes
+      assert :mnesia.table_info(UserMonitor, :attributes) == UserMonitor.__info__().attributes
+      assert :mnesia.table_info(SaslSession, :attributes) == SaslSession.__info__().attributes
+
+      Memento.transaction!(fn ->
+        assert Memento.Query.read(User, user.uid).cap_version == 301
+        assert Memento.Query.all(UserMonitor) |> hd() |> Map.fetch!(:target_nick) == monitor.target_nick_key
+        assert Memento.Query.read(SaslSession, session.user_pid).state == nil
+      end)
+    end
+
+    test "warns instead of guessing an unknown registered-nick schema" do
+      attributes = List.delete(RegisteredNick.__info__().attributes, :email)
+      assert {:atomic, :ok} = :mnesia.delete_table(RegisteredNick)
+
+      assert {:atomic, :ok} =
+               :mnesia.create_table(RegisteredNick,
+                 attributes: attributes,
+                 disc_copies: [node()],
+                 type: :set,
+                 index: [:account_name_key]
+               )
+
+      assert :ok = :mnesia.wait_for_tables([RegisteredNick], 5_000)
+      log = ExUnit.CaptureLog.capture_log(fn -> assert :ok = Mnesia.upgrade_schemas() end)
+      assert log =~ "unexpected attributes"
+    end
+  end
+
+  defp recreate_legacy_table(table, removed_field, type, indexes, record) do
+    current_attributes = table.__info__().attributes
+    legacy_attributes = List.delete(current_attributes, removed_field)
+
+    values =
+      record
+      |> Data.dump()
+      |> Tuple.to_list()
+      |> tl()
+      |> Enum.zip(current_attributes)
+      |> Map.new(fn {value, field} -> {field, value} end)
+
+    legacy_row = List.to_tuple([table | Enum.map(legacy_attributes, &Map.fetch!(values, &1))])
+    assert {:atomic, :ok} = :mnesia.delete_table(table)
+
+    assert {:atomic, :ok} =
+             :mnesia.create_table(table,
+               attributes: legacy_attributes,
+               ram_copies: [node()],
+               type: type,
+               index: indexes
+             )
+
+    assert :ok = :mnesia.wait_for_tables([table], 5_000)
+    assert {:atomic, :ok} = :mnesia.transaction(fn -> :mnesia.write(legacy_row) end)
   end
 end

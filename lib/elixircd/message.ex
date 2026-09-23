@@ -95,7 +95,7 @@ defmodule ElixIRCd.Message do
   def parse(raw_message) do
     {tags, rest_after_tags} =
       raw_message
-      |> String.trim_trailing()
+      |> strip_line_ending()
       |> extract_tags()
 
     {prefix, rest_raw_message} = extract_prefix(rest_after_tags)
@@ -108,6 +108,25 @@ defmodule ElixIRCd.Message do
       {:error, error} ->
         {:error, error}
     end
+  end
+
+  # Only the IRC frame delimiter is discarded. Spaces immediately before it
+  # are part of a trailing parameter (notably in draft/multiline) and must be
+  # preserved byte-for-byte.
+  defp strip_line_ending(message) do
+    stripped =
+      cond do
+        String.ends_with?(message, "\r\n") ->
+          binary_part(message, 0, byte_size(message) - 2)
+
+        String.ends_with?(message, "\n") or String.ends_with?(message, "\r") ->
+          binary_part(message, 0, byte_size(message) - 1)
+
+        true ->
+          message
+      end
+
+    if String.trim(stripped) == "", do: "", else: stripped
   end
 
   @spec extract_tags(String.t()) :: {tags(), String.t()}
@@ -175,25 +194,10 @@ defmodule ElixIRCd.Message do
   - the function unparses it into ":Freenode.net 001 user :Welcome to the freenode Internet Relay Chat Network user"
   """
   @spec unparse(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def unparse(%__MODULE__{command: command} = message) when is_atom(command) do
-    %{message | command: numeric_reply(command)}
-    |> unparse()
-  end
+  def unparse(%__MODULE__{} = message), do: do_unparse(message, true)
 
-  def unparse(%__MODULE__{command: ""} = message),
-    do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
-
-  def unparse(%__MODULE__{tags: tags, prefix: nil, command: command, params: params, trailing: trailing}) do
-    base = [command | params]
-    message_str = unparse_message(base, relay_trailing(command, base, trailing))
-    {:ok, prepend_tags(tags, message_str) <> "\r\n"}
-  end
-
-  def unparse(%__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing}) do
-    base = [":" <> prefix, command | params]
-    message_str = unparse_message(base, relay_trailing(command, base, trailing))
-    {:ok, prepend_tags(tags, message_str) <> "\r\n"}
-  end
+  @spec unparse_unbounded(__MODULE__.t()) :: {:ok, String.t()} | {:error, String.t()}
+  defp unparse_unbounded(%__MODULE__{} = message), do: do_unparse(message, false)
 
   @doc """
   Unparses the Message struct into a raw IRC message string.
@@ -206,6 +210,20 @@ defmodule ElixIRCd.Message do
       {:error, error} -> raise ArgumentError, error
     end
   end
+
+  @doc "Serializes without trailing truncation and raises when the message is invalid."
+  @spec unparse_unbounded!(__MODULE__.t()) :: String.t()
+  def unparse_unbounded!(message) do
+    case unparse_unbounded(message) do
+      {:ok, unparsed} -> unparsed
+      {:error, error} -> raise ArgumentError, error
+    end
+  end
+
+  @doc "Returns the wire command token for a command string or known numeric atom."
+  @spec command_name(String.t() | atom()) :: String.t()
+  def command_name(command) when is_binary(command), do: command
+  def command_name(command) when is_atom(command), do: numeric_reply(command)
 
   # Parses a tags string into a map.
   # Format: tag1=value1;tag2=value2;tag3
@@ -272,35 +290,33 @@ defmodule ElixIRCd.Message do
   # It returns {command, params, trailing} or {:error, error}.
   @spec parse_command_and_params(String.t()) :: {String.t(), [String.t()], String.t() | nil} | {:error, String.t()}
   defp parse_command_and_params(message) do
-    parts = String.split(message, " ", trim: true)
+    case Regex.run(~r/\A([^ ]+)(?: +(.*))?\z/s, message, capture: :all_but_first) do
+      [command] ->
+        {String.upcase(command), [], nil}
 
-    case parts do
-      [command | params_and_trailing] ->
-        {params, trailing} = extract_trailing(params_and_trailing)
+      [command, rest] ->
+        {params, trailing} = extract_trailing(rest)
         {String.upcase(command), params, trailing}
 
-      [] ->
+      _ ->
         {:error, "Invalid IRC message format on parsing command and params: #{inspect(message)}"}
     end
   end
 
-  # Extracts the trailing from the parameters if present.
-  @spec extract_trailing([String.t()]) :: {[String.t()], String.t() | nil}
-  defp extract_trailing(parts) do
-    # Find the index of the part where the trailing begins (first part starting with ':')
-    trailing_index = Enum.find_index(parts, &String.starts_with?(&1, ":"))
+  # Extracts the trailing parameter without normalizing its whitespace.
+  @spec extract_trailing(String.t()) :: {[String.t()], String.t() | nil}
+  defp extract_trailing(":" <> trailing), do: {[], trailing}
 
-    case trailing_index do
-      nil ->
-        # No trailing part; all parts are parameters
-        {parts, nil}
+  defp extract_trailing(rest) do
+    case :binary.match(rest, " :") do
+      {index, 2} ->
+        middle = binary_part(rest, 0, index)
+        trailing_offset = index + 2
+        trailing = binary_part(rest, trailing_offset, byte_size(rest) - trailing_offset)
+        {String.split(middle, " ", trim: true), trailing}
 
-      index ->
-        # Extract parameters and trailing
-        params = Enum.take(parts, index)
-        trailing_parts = Enum.drop(parts, index)
-        trailing = trailing_parts |> Enum.join(" ") |> String.trim_leading(":")
-        {params, trailing}
+      :nomatch ->
+        {String.split(rest, " ", trim: true), nil}
     end
   end
 
@@ -318,6 +334,23 @@ defmodule ElixIRCd.Message do
   end
 
   defp relay_trailing(_command, _base, trailing), do: trailing
+
+  @spec do_unparse(__MODULE__.t(), boolean()) :: {:ok, String.t()} | {:error, String.t()}
+  defp do_unparse(%__MODULE__{command: command} = message, truncate?) when is_atom(command) do
+    do_unparse(%{message | command: numeric_reply(command)}, truncate?)
+  end
+
+  defp do_unparse(%__MODULE__{command: ""} = message, _truncate?),
+    do: {:error, "Invalid IRC message format on unparsing command: #{inspect(message)}"}
+
+  defp do_unparse(
+         %__MODULE__{tags: tags, prefix: prefix, command: command, params: params, trailing: trailing},
+         truncate?
+       ) do
+    base = if is_nil(prefix), do: [command | params], else: [":" <> prefix, command | params]
+    trailing = if truncate?, do: relay_trailing(command, base, trailing), else: trailing
+    {:ok, prepend_tags(tags, unparse_message(base, trailing)) <> "\r\n"}
+  end
 
   @spec trim_partial_utf8(binary()) :: binary()
   defp trim_partial_utf8(text) do
@@ -356,6 +389,8 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_adminloc1), do: "257"
   defp numeric_reply(:rpl_adminloc2), do: "258"
   defp numeric_reply(:rpl_adminemail), do: "259"
+  defp numeric_reply(:rpl_links), do: "364"
+  defp numeric_reply(:rpl_endoflinks), do: "365"
   defp numeric_reply(:rpl_localusers), do: "265"
   defp numeric_reply(:rpl_globalusers), do: "266"
   defp numeric_reply(:rpl_acceptlist), do: "281"
@@ -410,6 +445,9 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:rpl_youreoper), do: "381"
   defp numeric_reply(:rpl_rehashing), do: "382"
   defp numeric_reply(:rpl_time), do: "391"
+  defp numeric_reply(:rpl_helpstart), do: "704"
+  defp numeric_reply(:rpl_helptxt), do: "705"
+  defp numeric_reply(:rpl_endofhelp), do: "706"
   defp numeric_reply(:rpl_umodegmsg), do: "716"
   defp numeric_reply(:rpl_mononline), do: "730"
   defp numeric_reply(:rpl_monoffline), do: "731"
@@ -460,5 +498,6 @@ defmodule ElixIRCd.Message do
   defp numeric_reply(:err_usersdontmatch), do: "502"
   defp numeric_reply(:err_silencelistfull), do: "511"
   defp numeric_reply(:err_ircoperonlychan), do: "520"
+  defp numeric_reply(:err_helpnotfound), do: "524"
   defp numeric_reply(:err_delaymessageblocked), do: "937"
 end

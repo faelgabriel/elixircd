@@ -83,15 +83,40 @@ defmodule ElixIRCd.Utils.NickservTest do
     end
   end
 
+  describe "notify_literal/2" do
+    test "sends each literal notice without translation" do
+      user = build(:user, nick: "test_user")
+
+      Dispatcher
+      |> expect(:broadcast, 2, fn msg, :nickserv, ^user ->
+        assert msg.trailing in ["literal one", "literal two"]
+        :ok
+      end)
+
+      assert Nickserv.notify_literal(user, ["literal one", "literal two"]) == :ok
+    end
+  end
+
+  describe "pending_email_active?/2" do
+    test "returns false when a pending request is incomplete" do
+      account =
+        build(:registered_nick,
+          pending_email: nil,
+          pending_email_verify_code: nil,
+          pending_email_requested_at: nil
+        )
+
+      refute Nickserv.pending_email_active?(account, DateTime.utc_now())
+    end
+  end
+
   describe "account settings helpers" do
     test "resolve settings, preserve false values, and apply defaults" do
       account = build(:registered_nick, nickname: "Account", settings: Settings.new(%{secure: false}))
-      nil_setting_account = build(:registered_nick, nickname: "NilSetting", settings: Settings.new(%{secure: nil}))
 
       RegisteredNicks
-      |> expect(:get_by_nickname, 8, fn
+      |> expect(:get_by_nickname, 6, fn
         "Account" -> {:ok, account}
-        "NilSetting" -> {:ok, nil_setting_account}
         "Missing" -> {:error, :registered_nick_not_found}
       end)
 
@@ -103,8 +128,6 @@ defmodule ElixIRCd.Utils.NickservTest do
       assert Nickserv.account_setting?("Missing", :secure) == false
       assert Nickserv.account_setting?(nil, :secure) == false
       assert Nickserv.account_setting("Account", :secure, true) == false
-      assert Nickserv.account_setting("Account", :not_present, :fallback) == :fallback
-      assert Nickserv.account_setting("NilSetting", :secure, :fallback) == :fallback
       assert Nickserv.account_setting("Missing", :secure, :fallback) == :fallback
       assert Nickserv.account_setting(nil, :secure, :fallback) == :fallback
     end
@@ -221,16 +244,7 @@ defmodule ElixIRCd.Utils.NickservTest do
         assert msg.command == "ACCOUNT"
         assert msg.params == ["*"]
         assert context_user == user
-        assert recipients == [user]
-        :ok
-      end)
-
-      Dispatcher
-      |> expect(:broadcast, fn msg, context_user, recipients ->
-        assert msg.command == "ACCOUNT"
-        assert msg.params == ["*"]
-        assert context_user == user
-        assert recipients == [watcher]
+        assert recipients == [user, watcher]
         :ok
       end)
 

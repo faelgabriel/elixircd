@@ -10,13 +10,18 @@ defmodule ElixIRCd.Commands.Kick do
   import ElixIRCd.Utils.MessageFilter, only: [filter_auditorium_users: 3]
 
   alias ElixIRCd.Message
-  alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.Server.S2S.Action
+  alias ElixIRCd.Server.S2S.LocalChannel
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.Targets
 
   @type kick_errors ::
           :channel_not_found
@@ -39,8 +44,49 @@ defmodule ElixIRCd.Commands.Kick do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  def handle(user, %{command: "KICK", params: [channel_name, target_nick | _rest], trailing: reason}) do
-    with {:ok, channel} <- Channels.get_by_name(channel_name),
+  def handle(user, %{command: "KICK", params: [channel_names, target_nicks | _rest], trailing: reason, tags: tags}) do
+    case target_pairs(channel_names, target_nicks) do
+      {:ok, pairs} ->
+        response_context = Action.response_context(user, tags, "KICK target server is unavailable")
+
+        Enum.each(pairs, fn {channel_name, target_nick} ->
+          kick_target(user, channel_name, target_nick, reason, response_context)
+        end)
+
+      {:error, :mismatched_targets} ->
+        send_need_more_params(user)
+    end
+
+    :ok
+  end
+
+  @spec target_pairs(String.t(), String.t()) ::
+          {:ok, [{String.t(), String.t()}]} | {:error, :mismatched_targets}
+  defp target_pairs(channel_names, target_nicks) do
+    channels = Targets.split("KICK", channel_names)
+    users = Targets.split("KICK", target_nicks)
+
+    cond do
+      length(channels) == length(users) -> {:ok, Enum.zip(channels, users)}
+      length(channels) == 1 -> {:ok, Enum.map(users, &{hd(channels), &1})}
+      length(users) == 1 -> {:ok, Enum.map(channels, &{&1, hd(users)})}
+      true -> {:error, :mismatched_targets}
+    end
+  end
+
+  @spec kick_target(User.t(), String.t(), String.t(), String.t() | nil, map()) :: :ok
+  defp kick_target(user, channel_name, target_nick, reason, response_context) do
+    case remote_target_context(target_nick) do
+      {:ok, manager, runtime, target_uid, target_user, target_sid} ->
+        remote_kick(user, manager, runtime, target_uid, target_user, target_sid, channel_name, reason, response_context)
+
+      :local ->
+        local_kick(user, channel_name, target_nick, reason)
+    end
+  end
+
+  defp local_kick(user, channel_name, target_nick, reason) do
+    with {:ok, channel} <- LocalChannel.ensure(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel),
          :ok <- check_message_length(reason),
@@ -50,12 +96,77 @@ defmodule ElixIRCd.Commands.Kick do
         UserChannels.get_by_channel_name(channel.name)
         |> filter_auditorium_users(target_user_channel, channel.modes)
 
-      UserChannels.delete(target_user_channel)
+      UserChannels.delete(target_user_channel, %{
+        "action" => "kick",
+        "channel" => channel.name,
+        "join_id" => target_user_channel.join_id,
+        "by" => %{"user" => user.uid},
+        "reason" => reason || ""
+      })
 
       send_user_kick_success(channel, user, target_user, reason, user_channels)
     else
       {:error, error} -> send_user_kick_error(error, user, channel_name, target_nick)
     end
+  end
+
+  defp remote_kick(user, manager, runtime, target_uid, target_user, target_sid, channel_name, reason, response_context) do
+    with :ok <- check_message_length(reason),
+         {:ok, channel, actor_membership, target_membership} <-
+           Action.channel_context(runtime, channel_name, user, target_uid, target_user),
+         :ok <- check_user_permission(actor_membership),
+         args <- %{
+           "action" => "kick",
+           "target_uid" => target_uid,
+           "value" => %{"channel" => channel.ref, "join_id" => target_membership.join_id},
+           "reason" => Action.reason(reason)
+         },
+         guards <- Action.guards(runtime, user, actor_membership, target_user, target_membership, channel),
+         :queued <- Action.enqueue(manager, target_sid, user, "user_action", args, guards, response_context) do
+      ResponseContext.defer_response(user)
+      :ok
+    else
+      {:error, :kick_message_too_long} ->
+        send_user_kick_error(:kick_message_too_long, user, channel_name, target_user.nick)
+
+      {:error, :channel_not_found} ->
+        send_user_kick_error(:channel_not_found, user, channel_name, target_user.nick)
+
+      {:error, :membership_not_found} ->
+        send_user_kick_error(:user_channel_not_found, user, channel_name, target_user.nick)
+
+      {:error, :target_not_found} ->
+        send_user_kick_error(:target_user_channel_not_found, user, channel_name, target_user.nick)
+
+      {:error, :channel_context_unavailable} ->
+        send_remote_error(user, "KICK target state is unavailable")
+
+      {:error, _reason} ->
+        send_remote_error(user, "KICK target server is unavailable")
+    end
+  end
+
+  defp remote_target_context(target_nick) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, target_uid, target_user, target_sid} <- Action.remote_target(runtime, target_nick) do
+      {:ok, manager, runtime, target_uid, target_user, target_sid}
+    else
+      :local -> :local
+      {:error, :not_found} -> :local
+      _ -> :local
+    end
+  end
+
+  defp send_remote_error(user, message) do
+    %Message{command: "NOTICE", params: [user.nick], trailing: message}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  @spec send_need_more_params(User.t()) :: :ok
+  defp send_need_more_params(user) do
+    %Message{command: :err_needmoreparams, params: [user.nick, "KICK"], trailing: "Not enough parameters"}
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec check_user_permission(UserChannel.t()) :: :ok | {:error, :user_is_not_operator}

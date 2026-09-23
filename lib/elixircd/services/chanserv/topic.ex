@@ -13,6 +13,7 @@ defmodule ElixIRCd.Services.Chanserv.Topic do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Service
   alias ElixIRCd.Services.Chanserv.Channel.Context, as: ChannelContext
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.RegisteredChannel
@@ -20,8 +21,6 @@ defmodule ElixIRCd.Services.Chanserv.Topic do
   alias ElixIRCd.Utils.Chanserv.Flags
 
   @command_name "TOPIC"
-  @chanserv_mask "ChanServ!service@irc.test"
-
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
   def handle(%{identified_as: nil} = user, [@command_name | _]),
@@ -73,7 +72,7 @@ defmodule ElixIRCd.Services.Chanserv.Topic do
   defp normalize_topic(topic_parts) do
     %Channel.Topic{
       text: Enum.join(topic_parts, " "),
-      setter: @chanserv_mask,
+      setter: Service.mask(:chanserv),
       set_at: DateTime.utc_now()
     }
   end

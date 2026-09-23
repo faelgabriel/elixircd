@@ -207,10 +207,14 @@ defmodule ElixIRCd.Server.ResponseContextTest do
   end
 
   for tag <- ["", "@label= ", "@label=" <> String.duplicate("x", 65) <> " "] do
-    test "preserves self-message deduplication without a valid label: #{inspect(tag)}" do
+    test "preserves distinct self-delivery and echo without a valid label: #{inspect(tag)}" do
       user = insert(:user, pid: self(), capabilities: ["batch", "labeled-response", "echo-message"])
       dispatch(user, unquote(tag) <> "PRIVMSG #{user.nick} :hello")
-      assert [%Message{command: "PRIVMSG", tags: %{}}] = wire_messages()
+
+      assert [
+               %Message{command: "PRIVMSG", tags: %{}},
+               %Message{command: "PRIVMSG", tags: %{}}
+             ] = wire_messages()
     end
   end
 

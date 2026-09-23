@@ -9,10 +9,12 @@ defmodule ElixIRCd.Server.Connection do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Command
-
+  alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Metadata
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.ClientBatches
   alias ElixIRCd.Repositories.HistoricalUsers
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.SaslSessions
@@ -22,9 +24,13 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Repositories.UserSilences
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.NickEnforcement
   alias ElixIRCd.Server.RateLimiter
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Server.Snotice
+  alias ElixIRCd.Server.S2S.Output
+  alias ElixIRCd.Server.S2S.RemoteSASL
+  alias ElixIRCd.Service
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.Monitor
@@ -37,12 +43,18 @@ defmodule ElixIRCd.Server.Connection do
   @max_message_length 512
   @max_wire_length @max_client_tag_data_length + 2 + @max_message_length
   @invalid_utf8_description "Message rejected, your IRC software MUST use UTF-8 encoding on this network"
+  @s2s_continuations_key {__MODULE__, :s2s_continuations}
+  @connection_uid_key {__MODULE__, :connection_uid}
 
   @doc """
   Maximum client wire size, including IRCv3 tags and CRLF.
   """
   @spec max_wire_length() :: pos_integer()
   def max_wire_length, do: @max_wire_length
+
+  @doc "Returns the stable UID bound to the current local connection process."
+  @spec current_uid() :: String.t() | nil
+  def current_uid, do: Process.get(@connection_uid_key)
 
   @doc """
   Handles the connection establishment.
@@ -69,11 +81,22 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_success_connection(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok
   defp handle_success_connection(pid, transport, connection_data) do
-    Memento.transaction!(fn ->
-      modes = if transport in [:tls, :wss], do: [:Z], else: []
-      Users.create(Map.merge(connection_data, %{pid: pid, transport: transport, modes: modes}))
-      update_connection_stats()
-    end)
+    case Output.transaction(
+           fn ->
+             modes = if transport in [:tls, :wss], do: [:Z], else: []
+             user = Users.create(Map.merge(connection_data, %{pid: pid, transport: transport, modes: modes}))
+             update_connection_stats()
+             user.uid
+           end,
+           drain_fun: &Dispatcher.drain_intent/1
+         ) do
+      uid when is_binary(uid) ->
+        Process.put(@connection_uid_key, uid)
+        :ok
+
+      _result ->
+        :close
+    end
   end
 
   @spec handle_throttled_connection(pid :: pid(), retry_after_ms :: non_neg_integer()) :: :close
@@ -95,12 +118,15 @@ defmodule ElixIRCd.Server.Connection do
   def handle_receive(pid, data) do
     Logger.debug("<- #{byte_size(data)} bytes")
 
-    Memento.transaction!(fn ->
-      case Users.get_by_pid(pid) do
-        {:ok, user} -> handle_check_message(user, data)
-        {:error, :user_not_found} -> Logger.debug("User not found on receive message for PID: #{inspect(pid)}")
-      end
-    end)
+    Output.transaction(
+      fn ->
+        case Users.get_by_pid(pid) do
+          {:ok, user} -> handle_check_message(user, data)
+          {:error, :user_not_found} -> Logger.debug("User not found on receive message for PID: #{inspect(pid)}")
+        end
+      end,
+      drain_fun: &Dispatcher.drain_intent/1
+    )
   end
 
   @spec handle_check_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
@@ -130,7 +156,7 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_invalid_utf8(user :: User.t(), data :: String.t()) :: :ok
   defp handle_invalid_utf8(user, data) do
-    Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
+    Logger.debug("Invalid UTF-8 IRC input (#{byte_size(data)} bytes)")
 
     description = @invalid_utf8_description
     request = rejected_request(data)
@@ -188,8 +214,8 @@ defmodule ElixIRCd.Server.Connection do
         updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
         Command.dispatch(updated_user, message)
 
-      {:error, error} ->
-        Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
+      {:error, _error} ->
+        Logger.debug("Failed to parse IRC message (#{byte_size(data)} bytes)")
     end
   end
 
@@ -271,6 +297,7 @@ defmodule ElixIRCd.Server.Connection do
   @spec handle_excess_flood(user :: User.t()) :: {:quit, String.t()}
   defp handle_excess_flood(user) do
     if SaslSessions.exists?(user.pid) do
+      abort_remote_sasl(user)
       SaslSessions.delete(user.pid)
 
       %Message{command: :err_saslfail, params: [user_reply(user)], trailing: "SASL authentication failed: Excess flood"}
@@ -296,26 +323,238 @@ defmodule ElixIRCd.Server.Connection do
   """
   @spec handle_send(pid(), String.t()) :: :ok
   def handle_send(pid, data) do
-    Logger.debug("-> #{inspect(data)}")
+    Logger.debug("-> #{byte_size(data)} bytes")
     send(pid, {:broadcast, data})
     :ok
   end
+
+  @doc "Renders one correlated native S2S reply for its original C2S connection."
+  @spec handle_s2s_reply(pid(), String.t(), map()) :: :ok
+  def handle_s2s_reply(pid, uid, %{status: status, payload: payload}) when is_pid(pid) and is_binary(uid) do
+    case Memento.transaction!(fn -> Users.get_by_uid(uid) end) do
+      {:ok, %User{pid: ^pid} = user} -> render_s2s_reply(user, status, payload)
+      _ -> :ok
+    end
+  rescue
+    _ -> :ok
+  end
+
+  def handle_s2s_reply(_pid, _uid, _result), do: :ok
+
+  @doc "Renders a reply with the request identity captured by the C2S continuation."
+  @spec handle_s2s_reply(pid(), String.t(), String.t(), map(), map()) :: :ok
+  def handle_s2s_reply(pid, uid, request_id, %{status: status, payload: payload} = result, context)
+      when is_pid(pid) and is_binary(uid) and is_binary(request_id) and is_map(context) do
+    case RemoteSASL.handle_reply(pid, uid, result, context) do
+      :handled ->
+        :ok
+
+      :ignored ->
+        case Memento.transaction!(fn -> Users.get_by_uid(uid) end) do
+          {:ok, %User{pid: ^pid} = user} ->
+            render_s2s_reply(user, status, payload, request_id, result, context)
+
+          _ ->
+            drop_s2s_continuation(request_id)
+            :ok
+        end
+    end
+  rescue
+    _ -> :ok
+  end
+
+  defp render_s2s_reply(user, "OK", %{"items" => items}) when is_list(items) do
+    Enum.each(items, &render_s2s_item(user, &1))
+    :ok
+  end
+
+  defp render_s2s_reply(user, _status, %{"items" => items}) when is_list(items) and items != [] do
+    Enum.each(items, &render_s2s_item(user, &1))
+    :ok
+  end
+
+  defp render_s2s_reply(user, status, %{"error" => %{"message" => message}}) when is_binary(message) do
+    %Message{command: "NOTICE", params: [user_reply(user)], trailing: "#{status}: #{message}"}
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp render_s2s_reply(_user, _status, _payload), do: :ok
+
+  defp render_s2s_reply(user, "OK", %{"items" => items}, request_id, result, context) when is_list(items) do
+    Enum.each(items, &render_s2s_item(user, &1, context[:label]))
+
+    if items == [] and result[:done] == true do
+      render_s2s_success(user, context)
+    end
+
+    if result[:done] == true, do: drop_s2s_continuation(request_id)
+    :ok
+  end
+
+  defp render_s2s_reply(user, _status, %{"items" => items}, request_id, result, context)
+       when is_list(items) and items != [] do
+    Enum.each(items, &render_s2s_item(user, &1, context[:label]))
+
+    if result[:done] == true, do: drop_s2s_continuation(request_id)
+    :ok
+  end
+
+  defp render_s2s_reply(user, status, %{"error" => %{"message" => message}}, request_id, _result, context)
+       when is_binary(message) do
+    %Message{
+      command: "NOTICE",
+      params: [user_reply(user)],
+      trailing: "#{status}: #{message}",
+      tags: response_tags(context[:label])
+    }
+    |> Dispatcher.broadcast(:server, user)
+
+    drop_s2s_continuation(request_id)
+    :ok
+  end
+
+  defp render_s2s_reply(_user, _status, _payload, _request_id, _result, _context), do: :ok
+
+  defp render_s2s_item(user, item), do: render_s2s_item(user, item, nil)
+
+  defp render_s2s_item(
+         user,
+         %{
+           "command" => command,
+           "params" => params,
+           "trailing" => trailing,
+           "source" => source,
+           "tags" => tags
+         },
+         label
+       ) do
+    message = %Message{
+      prefix: s2s_source_prefix(source),
+      command: command,
+      params: Enum.map(params, &decode_s2s_bytes/1),
+      trailing: if(is_nil(trailing), do: nil, else: decode_s2s_bytes(trailing)),
+      tags: Map.merge(tags, response_tags(label))
+    }
+
+    Dispatcher.broadcast(message, nil, user)
+  end
+
+  defp render_s2s_item(_user, _item, _label), do: :ok
+
+  defp render_s2s_success(
+         user,
+         %{success_item: %{"command" => command, "params" => params} = item} = context
+       )
+       when command in ["NOTICE", "341"] and is_list(params) do
+    %Message{
+      prefix: Dispatcher.server_prefix(),
+      command: command,
+      params: params,
+      trailing: Map.get(item, "trailing"),
+      tags: response_tags(context[:label])
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp render_s2s_success(_user, _context), do: :ok
+
+  defp response_tags(label) when is_binary(label), do: %{"label" => label}
+  defp response_tags(_label), do: %{}
+
+  defp drop_s2s_continuation(request_id) do
+    continuations = Process.get(@s2s_continuations_key, %{})
+    Process.put(@s2s_continuations_key, Map.delete(continuations, request_id))
+    :ok
+  end
+
+  defp s2s_source_prefix(%{"service" => "NickServ"}), do: Service.mask(:nickserv)
+  defp s2s_source_prefix(%{"service" => "ChanServ"}), do: Service.mask(:chanserv)
+  defp s2s_source_prefix(%{"server" => sid}) when is_binary(sid), do: sid
+  defp s2s_source_prefix(_source), do: nil
+
+  defp decode_s2s_bytes(value) when is_binary(value), do: value
+
+  defp decode_s2s_bytes(%{"b64" => encoded}) when is_binary(encoded) do
+    case Base.decode64(encoded) do
+      {:ok, decoded} -> decoded
+      :error -> ""
+    end
+  end
+
+  defp decode_s2s_bytes(_value), do: ""
 
   @doc """
   Handles the connection termination.
   """
   @spec handle_disconnect(pid :: pid(), transport :: transport(), reason :: String.t()) :: :ok
   def handle_disconnect(pid, transport, reason) do
-    Logger.debug("Connection #{inspect(pid)} (#{transport}) terminated: #{inspect(reason)}")
+    Logger.debug("Connection #{inspect(pid)} (#{transport}) terminated")
 
-    Memento.transaction!(fn ->
+    if Memento.Transaction.inside?() do
       Users.get_by_pid(pid)
       |> case do
-        {:ok, user} -> handle_quit(user, reason)
-        {:error, :user_not_found} -> :ok
+        {:ok, user} ->
+          abort_remote_sasl(user)
+          handle_quit(user, reason)
+          queue_disconnect_cleanup(user)
+
+        {:error, :user_not_found} ->
+          :ok
       end
-    end)
+    else
+      NickEnforcement.cancel(pid)
+
+      Output.transaction(
+        fn ->
+          Users.get_by_pid(pid)
+          |> case do
+            {:ok, user} ->
+              abort_remote_sasl(user)
+              handle_quit(user, reason)
+              queue_disconnect_cleanup(user)
+
+            {:error, :user_not_found} ->
+              :ok
+          end
+        end,
+        drain_fun: &Dispatcher.drain_intent/1
+      )
+    end
+
+    :ok
   end
+
+  defp abort_remote_sasl(user) do
+    with {:ok, session} <- SaslSessions.get(user.pid),
+         %{state: %{remote_sasl: _}} <- session do
+      _ = RemoteSASL.abort(user, session)
+    else
+      _ -> :ok
+    end
+
+    :ok
+  end
+
+  defp queue_disconnect_cleanup(%User{pid: pid, uid: uid, connection_generation: generation})
+       when is_pid(pid) and is_binary(uid) and is_binary(generation) do
+    recipient_token = Dispatcher.transient_recipient_token(pid)
+    intent = %{kind: :connection_cleanup, uid: uid, connection_generation: generation, recipient_token: recipient_token}
+
+    case Output.collect_intent(intent) do
+      :ok ->
+        :ok
+
+      :inactive ->
+        Dispatcher.release_transient_recipient(recipient_token)
+        :ok
+
+      {:error, _reason} = error ->
+        Dispatcher.release_transient_recipient(recipient_token)
+        raise ArgumentError, "connection cleanup intent rejected: #{inspect(error)}"
+    end
+  end
+
+  defp queue_disconnect_cleanup(_user), do: :ok
 
   @spec handle_quit(user :: User.t(), quit_message :: String.t()) :: :ok
   defp handle_quit(%{registered: true} = user, quit_message) do
@@ -357,7 +596,13 @@ defmodule ElixIRCd.Server.Connection do
         end)
       end)
 
+    Enum.each(all_channel_name_keys, fn channel_name ->
+      History.record_channel_event(%Message{command: "QUIT", params: [], trailing: quit_message}, user, channel_name)
+    end)
+
     Monitor.notify_offline(user)
+    Metadata.disconnect(user)
+    ClientBatches.delete_by_user_pid(user.pid)
 
     ChannelInvites.delete_by_user_pid(user.pid)
     UserChannels.delete_by_user_pid(user.pid)
@@ -388,6 +633,8 @@ defmodule ElixIRCd.Server.Connection do
   end
 
   defp handle_quit(user, _quit_message) do
+    Metadata.disconnect(user)
+    ClientBatches.delete_by_user_pid(user.pid)
     Users.delete(user)
   end
 

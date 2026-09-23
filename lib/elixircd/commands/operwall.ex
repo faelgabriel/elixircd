@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Operwall do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Audience
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -41,6 +42,8 @@ defmodule ElixIRCd.Commands.Operwall do
 
     %Message{command: "WALLOPS", params: [], trailing: message}
     |> Dispatcher.broadcast(sender, target_operators)
+
+    Audience.publish(sender, "operators", message)
   end
 
   @spec noprivileges_message(User.t()) :: :ok

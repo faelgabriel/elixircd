@@ -73,12 +73,23 @@ defmodule ElixIRCd.Config.Resources do
 
   @spec prepare_certificates!(keyword()) :: list()
   defp prepare_certificates!(config) do
-    pairs =
+    client_pairs =
       Enum.flat_map(config[:listeners], fn
         {:tls, opts} -> [opts[:transport_options]]
         {:https, opts} -> [opts]
         _ -> []
       end)
+
+    s2s_pairs =
+      case Keyword.get(config, :s2s) do
+        s2s when is_list(s2s) ->
+          if Keyword.get(s2s, :enabled, false), do: [Keyword.fetch!(s2s, :listener)], else: []
+
+        _ ->
+          []
+      end
+
+    pairs = client_pairs ++ s2s_pairs
 
     Enum.each(pairs, fn opts -> if opts[:cacertfile], do: validate_ca!(opts[:cacertfile]) end)
     mailer = config[ElixIRCd.Utils.Mailer]

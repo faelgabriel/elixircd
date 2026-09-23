@@ -12,6 +12,8 @@ defmodule ElixIRCd.Commands.Userhost do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
   alias ElixIRCd.Tables.User
 
   @command "USERHOST"
@@ -44,13 +46,44 @@ defmodule ElixIRCd.Commands.Userhost do
   @spec fetch_userhost_info(String.t(), User.t()) :: String.t() | nil
   defp fetch_userhost_info(target_nick, viewer) do
     case Users.get_by_nick(target_nick) do
-      {:ok, user} ->
+      {:ok, %{registered: true} = user} ->
         oper = if irc_operator_visible?(user, viewer), do: "*", else: ""
         presence = if user.away_message, do: "-", else: "+"
         "#{user.nick}#{oper}=#{presence}#{user_host(user, viewer)}"
 
-      {:error, :user_not_found} ->
+      {:ok, %{registered: false}} ->
         nil
+
+      {:error, :user_not_found} ->
+        network_userhost_info(target_nick, viewer)
     end
+  end
+
+  defp network_userhost_info(target_nick, viewer) do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager) do
+      case View.user_by_nick(runtime, target_nick) do
+        {:ok, _uid, user} ->
+          format_userhost_info(user, viewer)
+
+        _ ->
+          service_userhost_info(runtime, target_nick, viewer)
+      end
+    else
+      _ -> nil
+    end
+  end
+
+  defp service_userhost_info(runtime, target_nick, viewer) do
+    case View.chanserv_user_by_nick(runtime, target_nick) do
+      {:ok, service} -> format_userhost_info(service, viewer)
+      _ -> nil
+    end
+  end
+
+  defp format_userhost_info(user, viewer) do
+    oper = if irc_operator_visible?(user, viewer), do: "*", else: ""
+    presence = if user.away_message, do: "-", else: "+"
+    "#{user.nick}#{oper}=#{presence}#{user_host(user, viewer)}"
   end
 end

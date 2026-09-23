@@ -8,18 +8,19 @@ defmodule ElixIRCd.Commands.Nick do
   @behaviour ElixIRCd.Command
 
   import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2, sync_registered_mode: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
+  import ElixIRCd.Utils.Protocol, only: [channel_operator?: 1, channel_voice?: 1, user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
-  alias ElixIRCd.Server.Snotice
+  alias ElixIRCd.Server.NickChange
+  alias ElixIRCd.Server.NickEnforcement
+  alias ElixIRCd.Server.S2S.State
   alias ElixIRCd.Tables.User
-  alias ElixIRCd.Utils.CaseMapping
-  alias ElixIRCd.Utils.Monitor
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -37,8 +38,9 @@ defmodule ElixIRCd.Commands.Nick do
   def handle(user, %{command: "NICK", params: [input_nick | _rest]}) do
     with :ok <- validate_nick(input_nick),
          :ok <- check_reserved_nick(user, input_nick),
-         :ok <- check_enforced_nick(user, input_nick),
-         :ok <- check_nick_in_use(user, input_nick) do
+         :ok <- NickEnforcement.authorize_nick(user, input_nick),
+         :ok <- check_nick_in_use(user, input_nick),
+         :ok <- check_channel_nick_change(user) do
       change_nick(user, input_nick)
     else
       {:error, :nick_reserved} ->
@@ -58,13 +60,15 @@ defmodule ElixIRCd.Commands.Nick do
         |> Dispatcher.broadcast(:server, user)
 
       {:error, {:nick_enforced, action}} ->
-        send_enforced_nick_error(user, input_nick)
+        NickEnforcement.reject_nick(user, input_nick, action)
 
-        if action == :disconnect do
-          Dispatcher.disconnect(user, "Nickname #{input_nick} is reserved and enforced by NickServ")
-        end
-
-        :ok
+      {:error, {:nick_change_blocked, channel_name}} ->
+        %Message{
+          command: "447",
+          params: [user_reply(user), channel_name],
+          trailing: "Cannot change nickname while on channel (+N)"
+        }
+        |> Dispatcher.broadcast(:server, user)
 
       {:error, invalid_nick_error} ->
         %Message{
@@ -76,46 +80,20 @@ defmodule ElixIRCd.Commands.Nick do
     end
   end
 
-  @spec check_enforced_nick(User.t(), String.t()) :: :ok | {:error, {:nick_enforced, :reject | :disconnect}}
-  defp check_enforced_nick(user, input_nick) do
-    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
-         false <- belongs_to_account?(registered_nick, user.identified_as),
-         {:ok, account_nick} <- RegisteredNicks.get_by_nickname(registered_nick.account_name),
-         true <- Map.get(account_nick.settings, :enforce) == true,
-         true <- enforcement_grace_elapsed?(user, account_nick) do
-      action = if Map.get(account_nick.settings, :kill, :off) in [:quick, :immed], do: :disconnect, else: :reject
-      {:error, {:nick_enforced, action}}
-    else
-      _ -> :ok
-    end
-  end
-
-  @spec enforcement_grace_elapsed?(User.t(), ElixIRCd.Tables.RegisteredNick.t()) :: boolean()
-  defp enforcement_grace_elapsed?(user, account_nick) do
-    enforce_time = Map.get(account_nick.settings, :enforce_time, 0) || 0
-    DateTime.diff(DateTime.utc_now(), user.created_at, :second) >= enforce_time
-  end
-
-  @spec send_enforced_nick_error(User.t(), String.t()) :: :ok
-  defp send_enforced_nick_error(user, input_nick) do
-    %Message{
-      command: :err_nicknameinuse,
-      params: [user_reply(user), input_nick],
-      trailing: "Nickname is reserved and enforced by NickServ"
-    }
-    |> Dispatcher.broadcast(:server, user)
-  end
-
   @spec check_reserved_nick(User.t(), String.t()) :: :ok | {:error, :nick_reserved}
   defp check_reserved_nick(user, input_nick) do
-    with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
-         {:reserved, true} <- {:reserved, reserved?(registered_nick)},
-         {:identified, false} <- {:identified, belongs_to_account?(registered_nick, user.identified_as)} do
+    if State.fallback_nickname?(input_nick) and not State.fallback_nickname_for?(input_nick, user.uid) do
       {:error, :nick_reserved}
     else
-      {:error, :registered_nick_not_found} -> :ok
-      {:reserved, false} -> :ok
-      {:identified, true} -> :ok
+      with {:ok, registered_nick} <- RegisteredNicks.get_by_nickname(input_nick),
+           {:reserved, true} <- {:reserved, reserved?(registered_nick)},
+           {:identified, false} <- {:identified, belongs_to_account?(registered_nick, user.identified_as)} do
+        {:error, :nick_reserved}
+      else
+        {:error, :registered_nick_not_found} -> :ok
+        {:reserved, false} -> :ok
+        {:identified, true} -> :ok
+      end
     end
   end
 
@@ -123,53 +101,42 @@ defmodule ElixIRCd.Commands.Nick do
   defp change_nick(%{nick: nick}, nick), do: :ok
 
   defp change_nick(%{registered: false} = user, input_nick) do
+    NickEnforcement.cancel(user.pid)
     updated_user = Users.update(user, %{nick: input_nick})
     updated_user = sync_registered_mode(updated_user)
+    NickEnforcement.schedule_enforcement(updated_user)
     Handshake.handle(updated_user)
   end
 
   defp change_nick(user, input_nick) do
-    old_nick = user.nick
-    updated_user = Users.update(user, %{nick: input_nick})
-
-    all_channel_user_pids =
-      UserChannels.get_by_user_pid(user.pid)
-      |> Enum.map(& &1.channel_name_key)
-      |> UserChannels.get_by_channel_names()
-      |> Enum.reject(fn user_channel -> user_channel.user_pid == updated_user.pid end)
-      |> Enum.group_by(& &1.user_pid)
-      |> Enum.map(fn {_key, user_channels} -> hd(user_channels) end)
-      |> Enum.map(& &1.user_pid)
-
-    all_users = Users.get_by_pids(all_channel_user_pids)
-
-    %Message{command: "NICK", params: [input_nick]}
-    |> Dispatcher.broadcast(user, [updated_user | all_users])
-
-    updated_user = sync_registered_mode(updated_user)
-    send_nick_change_snotice(old_nick, updated_user)
-
-    if CaseMapping.normalize(old_nick) != updated_user.nick_key do
-      Monitor.notify_offline(user)
-      Monitor.notify_online(updated_user)
-    end
-
+    NickEnforcement.cancel(user.pid)
+    updated_user = NickChange.change(user, input_nick)
+    NickEnforcement.schedule_enforcement(updated_user)
     :ok
-  end
-
-  @spec send_nick_change_snotice(String.t(), User.t()) :: :ok
-  defp send_nick_change_snotice(old_nick, user) do
-    user_info = Snotice.format_user_info(user)
-    Snotice.broadcast(:nick, "Nick change: #{old_nick} -> #{user.nick} (#{user_info})")
   end
 
   @spec check_nick_in_use(User.t(), String.t()) :: :ok | {:error, :nick_in_use}
   defp check_nick_in_use(user, input_nick) do
     case Users.get_by_nick(input_nick) do
-      {:ok, %{pid: pid}} when pid == user.pid -> :ok
-      {:ok, _user} -> {:error, :nick_in_use}
+      {:ok, target} -> if User.same_identity?(target, user), do: :ok, else: {:error, :nick_in_use}
       {:error, :user_not_found} -> :ok
     end
+  end
+
+  defp check_channel_nick_change(%{registered: false}), do: :ok
+
+  defp check_channel_nick_change(user) do
+    user.pid
+    |> UserChannels.get_by_user_pid()
+    |> Enum.find_value(:ok, fn membership ->
+      with {:ok, channel} <- Channels.get_by_name(membership.channel_name_key),
+           true <- :N in channel.modes,
+           false <- channel_operator?(membership) or channel_voice?(membership) do
+        {:error, {:nick_change_blocked, channel.name}}
+      else
+        _ -> false
+      end
+    end)
   end
 
   @spec validate_nick(String.t()) :: :ok | {:error, String.t()}

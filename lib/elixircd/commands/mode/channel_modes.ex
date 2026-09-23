@@ -16,6 +16,9 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.Server.S2S.Manager
+  alias ElixIRCd.Server.S2S.View
+  alias ElixIRCd.Server.S2S.Publication
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelExcept
@@ -37,6 +40,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {:l, :c},
     {:m, :d},
     {:M, :d},
+    {:N, :d},
     {:n, :d},
     {:O, :d},
     {:o, :prefix},
@@ -46,6 +50,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {:s, :d},
     {:t, :d},
     {:T, :d},
+    {:U, :d},
     {:u, :d},
     {:v, :prefix},
     {:z, :d}
@@ -219,6 +224,15 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {updated_validated_modes, listing_modes, updated_missing_value_modes}
   end
 
+  @doc "Returns whether every parameter in a parsed mode change is semantically valid."
+  @spec valid_mode_parameters?([mode_change()]) :: boolean()
+  def valid_mode_parameters?(mode_changes) do
+    Enum.all?(mode_changes, fn
+      {_action, {mode_flag, _value} = mode} -> not should_ignore_invalid_mode?(mode_flag, mode)
+      _mode_change -> true
+    end)
+  end
+
   @spec filter_missing_value_modes([mode_change()]) :: {[mode_change()], [ModeRegistry.channel_mode()]}
   defp filter_missing_value_modes(changed_modes) do
     changed_modes
@@ -260,7 +274,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
   @doc """
   Applies the mode changes for a channel.
   """
-  @spec apply_mode_changes(User.t(), Channel.t(), [mode_change()]) :: {Channel.t(), [mode_change()]}
+  @spec apply_mode_changes(User.t() | :service, Channel.t(), [mode_change()]) :: {Channel.t(), [mode_change()]}
   def apply_mode_changes(user, channel, validated_modes) do
     {applied_changes, new_modes} =
       Enum.reduce(validated_modes, {[], channel.modes}, fn {action, mode}, acc ->
@@ -275,7 +289,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     {updated_channel, applied_changes}
   end
 
-  @spec apply_mode_change(User.t(), Channel.t(), mode_change(), {[mode_change()], [mode()]}) ::
+  @doc "Applies a persisted mode lock with ChanServ authority."
+  @spec apply_mode_changes_as_service(Channel.t(), [mode_change()]) :: {Channel.t(), [mode_change()]}
+  def apply_mode_changes_as_service(channel, validated_modes),
+    do: apply_mode_changes(:service, channel, validated_modes)
+
+  @spec apply_mode_change(User.t() | :service, Channel.t(), mode_change(), {[mode_change()], [mode()]}) ::
           {[mode_change()], [mode()]}
   defp apply_mode_change(user, channel, {:add, mode} = mode_change, acc) do
     mode_flag = extract_mode_flag(mode)
@@ -450,6 +469,18 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   @spec apply_irc_operator_mode(User.t(), mode_change(), String.t(), [mode_change()], [mode()]) ::
           {[mode_change()], [mode()]}
+  defp apply_irc_operator_mode(:service, {:add, mode} = mode_change, _channel_name, applied_changes, new_modes) do
+    if Enum.member?(new_modes, mode),
+      do: {applied_changes, new_modes},
+      else: {[mode_change | applied_changes], [mode | new_modes]}
+  end
+
+  defp apply_irc_operator_mode(:service, {:remove, mode} = mode_change, _channel_name, applied_changes, new_modes) do
+    if Enum.member?(new_modes, mode),
+      do: {[mode_change | applied_changes], List.delete(new_modes, mode)},
+      else: {applied_changes, new_modes}
+  end
+
   defp apply_irc_operator_mode(user, {:add, mode} = mode_change, _channel_name, applied_changes, new_modes) do
     if irc_operator?(user) do
       # ignore if the mode is already set
@@ -492,25 +523,72 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
 
   @spec user_channel_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
   defp user_channel_mode_applied?(user, {_action, {_mode_flag, target_nick}} = mode_change, channel_name) do
-    with {:ok, target_user} <- Users.get_by_nick(target_nick),
-         {:ok, target_user_channel} <- UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel_name) do
-      user_channel_mode_changed?(mode_change, target_user_channel)
+    case remote_user_channel_mode_applied?(user, mode_change, channel_name, target_nick) do
+      {:remote, changed?} ->
+        changed?
+
+      :local ->
+        with {:ok, target_user} <- Users.get_by_nick(target_nick),
+             {:ok, target_user_channel} <- UserChannels.get_by_user_pid_and_channel_name(target_user.pid, channel_name) do
+          user_channel_mode_changed?(mode_change, target_user_channel)
+        else
+          {:error, :user_channel_not_found} ->
+            %Message{
+              command: :err_usernotinchannel,
+              params: [user.nick, channel_name, target_nick],
+              trailing: "They aren't on that channel"
+            }
+            |> Dispatcher.broadcast(:server, user)
+
+            false
+
+          {:error, :user_not_found} ->
+            %Message{command: :err_nosuchnick, params: [user.nick, channel_name, target_nick], trailing: "No such nick"}
+            |> Dispatcher.broadcast(:server, user)
+
+            false
+        end
+    end
+  end
+
+  defp remote_user_channel_mode_applied?(_user, {_action, {mode_flag, _mode_target}}, _channel_name, _target_nick)
+       when mode_flag not in [:o, :v],
+       do: :local
+
+  defp remote_user_channel_mode_applied?(user, {action, {mode_flag, target_nick}}, channel_name, _target_nick)
+       when action in [:add, :remove] and mode_flag in [:o, :v] do
+    with manager when is_pid(manager) <- Process.whereis(Manager),
+         {:ok, runtime} <- View.runtime(manager),
+         {:ok, target_uid, _target_user} <- remote_target(runtime, target_nick),
+         {:ok, _channel_struct, channel} <- View.channel(runtime, channel_name),
+         {:ok, membership} <- View.membership(runtime, target_uid, channel_name) do
+      current? = mode_flag in membership.modes
+      wanted? = action == :add
+
+      if current? != wanted? do
+        Publication.member_status_changed(
+          channel.ref,
+          target_uid,
+          membership.join_id,
+          Atom.to_string(mode_flag),
+          wanted?,
+          user.uid
+        )
+      end
+
+      {:remote, current? != wanted?}
     else
-      {:error, :user_channel_not_found} ->
-        %Message{
-          command: :err_usernotinchannel,
-          params: [user.nick, channel_name, target_nick],
-          trailing: "They aren't on that channel"
-        }
-        |> Dispatcher.broadcast(:server, user)
+      :local -> :local
+      _ -> :local
+    end
+  end
 
-        false
+  defp remote_user_channel_mode_applied?(_user, _mode_change, _channel_name, _target_nick), do: :local
 
-      {:error, :user_not_found} ->
-        %Message{command: :err_nosuchnick, params: [user.nick, channel_name, target_nick], trailing: "No such nick"}
-        |> Dispatcher.broadcast(:server, user)
-
-        false
+  defp remote_target(runtime, target_nick) do
+    case View.user_by_nick(runtime, target_nick) do
+      {:ok, uid, target_user} when target_user.home_sid != runtime.sid -> {:ok, uid, target_user}
+      _ -> :local
     end
   end
 

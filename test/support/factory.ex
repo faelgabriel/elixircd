@@ -20,6 +20,7 @@ defmodule ElixIRCd.Factory do
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Tables.UserSilence
+  alias ElixIRCd.Server.S2S.Identity
   alias ElixIRCd.Utils.CaseMapping
 
   @doc """
@@ -45,7 +46,14 @@ defmodule ElixIRCd.Factory do
         else: Map.get(attrs, :registered_at, DateTime.utc_now())
 
     %User{
+      uid: Map.get(attrs, :uid, Identity.uid()),
       pid: Map.get(attrs, :pid, new_pid()),
+      connection_generation: Map.get(attrs, :connection_generation, Identity.nonce()),
+      home_sid: Map.get(attrs, :home_sid, "local"),
+      home_boot: Map.get(attrs, :home_boot, Identity.boot()),
+      owner_rev: Map.get(attrs, :owner_rev, 1),
+      membership_rev: Map.get(attrs, :membership_rev, 0),
+      effective_nick: Map.get(attrs, :effective_nick, nick),
       transport: Map.get(attrs, :transport, :tcp),
       ip_address: Map.get(attrs, :ip_address, {127, 0, 0, 1}),
       port_connected: Map.get(attrs, :port_connected, 6667),
@@ -62,6 +70,8 @@ defmodule ElixIRCd.Factory do
       capabilities: Map.get(attrs, :capabilities, []),
       cap_negotiating: Map.get(attrs, :cap_negotiating, nil),
       cap_version: Map.get(attrs, :cap_version, 301),
+      nick_enforcement_key: Map.get(attrs, :nick_enforcement_key, nil),
+      nick_enforcement_deadline_at: Map.get(attrs, :nick_enforcement_deadline_at, nil),
       webirc_gateway: Map.get(attrs, :webirc_gateway, nil),
       webirc_hostname: Map.get(attrs, :webirc_hostname, nil),
       webirc_ip: Map.get(attrs, :webirc_ip, nil),
@@ -112,6 +122,9 @@ defmodule ElixIRCd.Factory do
     %Channel{
       name_key: name_key,
       name: name,
+      born_ms:
+        Map.get(attrs, :born_ms, DateTime.to_unix(Map.get(attrs, :created_at, DateTime.utc_now()), :millisecond)),
+      cid: Map.get(attrs, :cid, Identity.cid()),
       topic: Map.get(attrs, :topic, build(:channel_topic)),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
@@ -127,9 +140,17 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:user_channel, attrs) do
+    uid = Map.get(attrs, :uid, Identity.uid())
+    channel_name_key = Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}")
+
     %UserChannel{
+      id: Map.get(attrs, :id, {uid, channel_name_key}),
+      uid: uid,
       user_pid: Map.get(attrs, :user_pid, new_pid()),
-      channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
+      channel_name_key: channel_name_key,
+      join_id: Map.get(attrs, :join_id, 1),
+      joined_ms:
+        Map.get(attrs, :joined_ms, DateTime.to_unix(Map.get(attrs, :created_at, DateTime.utc_now()), :millisecond)),
       modes: Map.get(attrs, :modes, []),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
@@ -166,6 +187,8 @@ defmodule ElixIRCd.Factory do
     %ChannelInvite{
       user_pid: Map.get(attrs, :user_pid, new_pid()),
       channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
+      invite_id: Map.get(attrs, :invite_id, Identity.nonce()),
+      expires_ms: Map.get(attrs, :expires_ms, 0),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
@@ -245,11 +268,17 @@ defmodule ElixIRCd.Factory do
       nickname: nickname,
       account_name_key: CaseMapping.normalize(account_name),
       account_name: account_name,
+      account_id: Map.get(attrs, :account_id, Identity.new_id()),
+      auth_epoch: Map.get(attrs, :auth_epoch, Identity.auth_epoch()),
       password_hash: password_hash,
+      scram_sha_256: Map.get(attrs, :scram_sha_256, nil),
       email: Map.get(attrs, :email, "email@example.com"),
       registered_by: Map.get(attrs, :registered_by, "user@host"),
       verify_code: Map.get(attrs, :verify_code, nil),
       verified_at: Map.get(attrs, :verified_at, DateTime.utc_now()),
+      pending_email: Map.get(attrs, :pending_email, nil),
+      pending_email_verify_code: Map.get(attrs, :pending_email_verify_code, nil),
+      pending_email_requested_at: Map.get(attrs, :pending_email_requested_at, nil),
       last_seen_at: Map.get(attrs, :last_seen_at, DateTime.utc_now()),
       reserved_until: Map.get(attrs, :reserved_until, nil),
       settings: Map.get(attrs, :settings, RegisteredNick.Settings.new()),
@@ -326,6 +355,7 @@ defmodule ElixIRCd.Factory do
     updated_attrs =
       attrs
       |> Map.put(:user_pid, user.pid)
+      |> Map.put(:uid, user.uid)
       |> Map.put(:channel_name_key, channel.name_key)
 
     Memento.transaction!(fn ->

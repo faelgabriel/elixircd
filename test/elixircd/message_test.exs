@@ -99,6 +99,14 @@ defmodule ElixIRCd.MessageTest do
       assert Message.parse(raw_message) == expected
     end
 
+    test "preserves trailing spaces while removing only the IRC line ending" do
+      assert {:ok, %Message{params: ["#channel"], trailing: "line  "}} =
+               Message.parse("PRIVMSG #channel :line  \r\n")
+
+      assert {:ok, %Message{params: ["#channel"], trailing: ""}} =
+               Message.parse("PRIVMSG #channel :\r\n")
+    end
+
     test "parses a raw message with multiple parameters" do
       raw_message = ":Nick!user@host MODE #channel +o User"
 
@@ -321,6 +329,18 @@ defmodule ElixIRCd.MessageTest do
     end
   end
 
+  describe "unparse_unbounded!/1" do
+    test "raises an ArgumentError on a malformed IRC message" do
+      message = %Message{tags: %{}, prefix: nil, command: "", params: [], trailing: nil}
+
+      assert_raise ArgumentError,
+                   "Invalid IRC message format on unparsing command: %ElixIRCd.Message{tags: %{}, prefix: nil, command: \"\", params: [], trailing: nil}",
+                   fn ->
+                     Message.unparse_unbounded!(message)
+                   end
+    end
+  end
+
   describe "parse/1 - IRCv3 message tags" do
     test "parses a message with a single tag without value" do
       raw_message = "@bot :irc.example.com PRIVMSG #channel :hello"
@@ -532,6 +552,14 @@ defmodule ElixIRCd.MessageTest do
 
       assert Message.unparse(message) ==
                {:ok, "@msgid=abc;+draft/reply=123 :irc.example.com PRIVMSG #channel :hello\r\n"}
+    end
+
+    test "unparses LINKS and SASL-already numerics" do
+      assert {:ok, "364 nick * :link\r\n"} =
+               Message.unparse(%Message{command: :rpl_links, params: ["nick", "*"], trailing: "link"})
+
+      assert {:ok, "907 nick :already\r\n"} =
+               Message.unparse(%Message{command: :err_saslalready, params: ["nick"], trailing: "already"})
     end
   end
 end

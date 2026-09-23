@@ -22,25 +22,43 @@ defmodule ElixIRCd.Commands.Whowas do
 
   @impl true
   def handle(user, %{command: "WHOWAS", params: []}) do
-    %Message{command: :err_needmoreparams, params: [user.nick, "WHOWAS"], trailing: "Not enough parameters"}
-    |> Dispatcher.broadcast(:server, user)
+    if Application.fetch_env!(:elixircd, :compatibility)[:rfc1459_whowas_errors] do
+      [
+        %Message{command: "431", params: [user.nick], trailing: "No nickname given"},
+        %Message{command: :rpl_endofwhowas, params: [user.nick, "*"], trailing: "End of WHOWAS list"}
+      ]
+      |> Dispatcher.broadcast(:server, user)
+    else
+      %Message{command: :err_needmoreparams, params: [user.nick, "WHOWAS"], trailing: "Not enough parameters"}
+      |> Dispatcher.broadcast(:server, user)
+    end
   end
 
   @impl true
   def handle(user, %{command: "WHOWAS", params: params}) do
     {target_nick, max_replies} = extract_parameters(params)
 
-    handle_whowas(user, target_nick, max_replies)
+    historical_users = handle_whowas(user, target_nick, max_replies)
 
-    %Message{command: :rpl_endofwhowas, params: [user.nick, target_nick], trailing: "End of WHOWAS list"}
+    reply_target =
+      case {String.contains?(target_nick, ["*", "?"]), historical_users} do
+        {true, [%HistoricalUser{nick: nick} | _]} -> nick
+        _ -> target_nick
+      end
+
+    %Message{command: :rpl_endofwhowas, params: [user.nick, reply_target], trailing: "End of WHOWAS list"}
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec handle_whowas(User.t(), String.t(), non_neg_integer() | nil) :: :ok
+  @spec handle_whowas(User.t(), String.t(), non_neg_integer() | nil) :: [HistoricalUser.t()]
   defp handle_whowas(user, target_nick, max_replies) do
-    historical_users = HistoricalUsers.get_by_nick(target_nick, max_replies)
+    historical_users =
+      if String.contains?(target_nick, ["*", "?"]),
+        do: HistoricalUsers.get_by_mask(target_nick, max_replies),
+        else: HistoricalUsers.get_by_nick(target_nick, max_replies)
 
     whowasuser_message(user, historical_users, target_nick)
+    historical_users
   end
 
   @spec extract_parameters([String.t()]) :: {String.t(), non_neg_integer() | nil}

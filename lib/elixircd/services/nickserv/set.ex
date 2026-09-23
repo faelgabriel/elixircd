@@ -11,7 +11,7 @@ defmodule ElixIRCd.Services.Nickserv.Set do
 
   require Logger
 
-  import ElixIRCd.Utils.Nickserv, only: [notify: 2]
+  import ElixIRCd.Utils.Nickserv, only: [notify: 2, pending_email_active?: 1]
   import ElixIRCd.Utils.Validation, only: [validate_email: 1]
 
   alias ElixIRCd.JobQueue
@@ -156,8 +156,10 @@ defmodule ElixIRCd.Services.Nickserv.Set do
 
   @spec handle_enforce_time(User.t(), [String.t()]) :: :ok
   defp handle_enforce_time(user, [value | _rest_params]) do
+    max_enforce_time = Application.fetch_env!(:elixircd, :services)[:nickserv][:max_enforce_time]
+
     case Integer.parse(value) do
-      {seconds, ""} when seconds >= 0 ->
+      {seconds, ""} when seconds >= 0 and seconds <= max_enforce_time ->
         case update_settings(user, %{enforce_time: seconds}) do
           {:ok, _account} -> maybe_notify_change(user, "ENFORCETIME", Integer.to_string(seconds))
           :error -> notify_settings_error(user)
@@ -227,19 +229,37 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   defp update_email(user, email) do
     with {:ok, account} <- get_account(user),
          :ok <- ensure_email_changed(account, email) do
-      {verify_code, verified_at} =
-        if email do
-          {:crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower), nil}
-        else
-          {nil, nil}
+      verify_code = if email, do: random_verification_code(), else: nil
+
+      attrs =
+        cond do
+          is_nil(email) ->
+            %{
+              email: nil,
+              verify_code: nil,
+              pending_email: nil,
+              pending_email_verify_code: nil,
+              pending_email_requested_at: nil
+            }
+
+          is_nil(account.verified_at) ->
+            %{
+              email: email,
+              verify_code: verify_code,
+              pending_email: nil,
+              pending_email_verify_code: nil,
+              pending_email_requested_at: nil
+            }
+
+          true ->
+            %{
+              pending_email: email,
+              pending_email_verify_code: verify_code,
+              pending_email_requested_at: DateTime.utc_now()
+            }
         end
 
-      updated =
-        RegisteredNicks.update(account, %{
-          email: email,
-          verify_code: verify_code,
-          verified_at: verified_at
-        })
+      updated = RegisteredNicks.update(account, attrs)
 
       if email do
         JobQueue.enqueue(
@@ -250,8 +270,11 @@ defmodule ElixIRCd.Services.Nickserv.Set do
         )
 
         notify(user, [
-          "Your email address has been changed to \x02#{email}\x02.",
-          "A verification email has been sent. Verify it with \x02/msg NickServ VERIFY #{updated.nickname} <code>\x02."
+          if(account.verified_at,
+            do: "A verification email has been sent to confirm \x02#{email}\x02.",
+            else: "Your email address has been changed to \x02#{email}\x02."
+          ),
+          "Verify it with \x02/msg NickServ VERIFY #{updated.nickname} <code>\x02."
         ])
       else
         notify(user, "Your email address has been removed from your account.")
@@ -263,8 +286,20 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   end
 
   @spec ensure_email_changed(RegisteredNick.t(), String.t() | nil) :: :ok | {:error, :same_email}
-  defp ensure_email_changed(%RegisteredNick{email: email}, email), do: {:error, :same_email}
+  defp ensure_email_changed(%RegisteredNick{email: email}, email),
+    do: {:error, :same_email}
+
+  defp ensure_email_changed(%RegisteredNick{pending_email: pending_email} = account, pending_email)
+       when is_binary(pending_email) do
+    if pending_email_active?(account), do: {:error, :same_email}, else: :ok
+  end
+
   defp ensure_email_changed(_account, _email), do: :ok
+
+  @spec random_verification_code() :: String.t()
+  defp random_verification_code do
+    :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+  end
 
   @spec handle_url(User.t(), [String.t()]) :: :ok
   defp handle_url(user, [value | _rest_params]) do
@@ -357,7 +392,7 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   defp handle_property_arguments(user, [key]) do
     case get_account(user) do
       {:ok, account} ->
-        properties = Map.get(account.settings, :property, %{}) || %{}
+        properties = account.settings.property
         notify(user, "PROPERTY #{key} = #{Map.get(properties, key, "(not set)")}")
 
       :error ->
@@ -369,7 +404,7 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   defp list_properties(user) do
     case get_account(user) do
       {:ok, account} ->
-        properties = Map.get(account.settings, :property, %{}) || %{}
+        properties = account.settings.property
         notify_properties(user, properties)
 
       :error ->
@@ -391,19 +426,33 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   @spec update_property(User.t(), String.t(), String.t() | nil) :: :ok
   defp update_property(user, key, value) do
     if valid_property_key?(key) and (is_nil(value) or valid_property_value?(value)) do
-      case get_account(user) do
-        {:ok, account} ->
-          properties = Map.get(account.settings, :property, %{}) || %{}
-          property = update_property_value(properties, key, value)
-
-          RegisteredNicks.update(account, %{settings: Settings.update(account.settings, %{property: property})})
-          maybe_notify_change(user, "PROPERTY", property_change_label(key, value))
-
-        :error ->
-          notify_settings_error(user)
-      end
+      update_property_for_account(user, key, value)
     else
       notify(user, "Invalid PROPERTY name or value. Names must be 1-64 characters and values 1-300 characters.")
+    end
+  end
+
+  @spec update_property_for_account(User.t(), String.t(), String.t() | nil) :: :ok
+  defp update_property_for_account(user, key, value) do
+    case get_account(user) do
+      {:ok, account} ->
+        {:ok, account} = RegisteredNicks.get_by_nickname_for_update(account.nickname)
+        properties = account.settings.property
+        property = update_property_value(properties, key, value)
+        persist_property(user, account, properties, property, key, value)
+
+      :error ->
+        notify_settings_error(user)
+    end
+  end
+
+  @spec persist_property(User.t(), RegisteredNick.t(), map(), map(), String.t(), String.t() | nil) :: :ok
+  defp persist_property(user, account, old_properties, new_properties, key, value) do
+    if valid_property_quota?(old_properties, new_properties) do
+      RegisteredNicks.update(account, %{settings: Settings.update(account.settings, %{property: new_properties})})
+      maybe_notify_change(user, "PROPERTY", property_change_label(key, value))
+    else
+      notify(user, "This account has reached its custom PROPERTY quota.")
     end
   end
 
@@ -473,8 +522,8 @@ defmodule ElixIRCd.Services.Nickserv.Set do
       {:ok, account} ->
         {:ok, account}
 
-      {:error, error_reason} ->
-        Logger.error("Error updating settings for #{user.identified_as}: #{inspect(error_reason)}")
+      {:error, _error_reason} ->
+        Logger.error("Error updating registered account settings")
         :error
     end
   end
@@ -536,6 +585,20 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   @spec valid_property_value?(String.t()) :: boolean()
   defp valid_property_value?(value),
     do: String.length(value) in 1..300 and String.valid?(value) and not String.contains?(value, ["\r", "\n", "\x00"])
+
+  @spec valid_property_quota?(map(), map()) :: boolean()
+  defp valid_property_quota?(old_properties, new_properties) do
+    nickserv = Application.fetch_env!(:elixircd, :services)[:nickserv]
+
+    (map_size(new_properties) <= nickserv[:max_properties] and
+       property_bytes(new_properties) <= nickserv[:max_property_bytes]) or
+      new_properties == old_properties
+  end
+
+  @spec property_bytes(map()) :: non_neg_integer()
+  defp property_bytes(properties) do
+    Enum.reduce(properties, 0, fn {key, value}, total -> total + byte_size(key) + byte_size(value) end)
+  end
 
   @spec insufficient_option_parameters(User.t(), String.t(), String.t()) :: :ok
   defp insufficient_option_parameters(user, option, syntax) do

@@ -36,6 +36,22 @@ defmodule ElixIRCd.Commands.WhowasTest do
       end)
     end
 
+    test "can use the RFC 1459 parameterless error sequence explicitly" do
+      original = Application.fetch_env!(:elixircd, :compatibility)
+      on_exit(fn -> Application.put_env(:elixircd, :compatibility, original) end)
+      Application.put_env(:elixircd, :compatibility, Keyword.put(original, :rfc1459_whowas_errors, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        assert :ok = Whowas.handle(user, %Message{command: "WHOWAS", params: []})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 431 #{user.nick} :No nickname given\r\n"},
+          {user.pid, ":irc.test 369 #{user.nick} * :End of WHOWAS list\r\n"}
+        ])
+      end)
+    end
+
     test "handles WHOWAS command with inexistent target nick" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -107,6 +123,20 @@ defmodule ElixIRCd.Commands.WhowasTest do
            ~r/^:irc\.test 312 #{user.nick} #{historical_user1.nick} irc.test :\w+ \w+ \d+ \d+ -- \d+:\d+:\d+ UTC\r\n/},
           {user.pid, ":irc.test 369 #{user.nick} nick :End of WHOWAS list\r\n"}
         ])
+      end)
+    end
+
+    test "matches wildcard nicknames and terminates with the resolved nickname" do
+      Memento.transaction!(fn ->
+        historical_user = insert(:historical_user, nick: "NickTwo")
+        user = insert(:user)
+
+        assert :ok = Whowas.handle(user, %Message{command: "WHOWAS", params: ["*two"]})
+
+        assert_sent_message_contains(user.pid, ~r/ 314 #{user.nick} NickTwo /)
+        assert_sent_message_contains(user.pid, ":irc.test 369 #{user.nick} NickTwo :End of WHOWAS list\r\n")
+        assert_sent_messages_amount(user.pid, 3)
+        assert historical_user.nick == "NickTwo"
       end)
     end
   end

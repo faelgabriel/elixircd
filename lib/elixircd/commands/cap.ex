@@ -20,9 +20,12 @@ defmodule ElixIRCd.Commands.Cap do
   import ElixIRCd.Utils.Protocol, only: [user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Handshake
+  alias ElixIRCd.Server.S2S.Output
+  alias ElixIRCd.Server.S2S.RemoteSASL
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Tables.User
 
@@ -34,6 +37,10 @@ defmodule ElixIRCd.Commands.Cap do
     "account-notify" => %{
       name: "account-notify",
       description: "Notify when users identify or logout"
+    },
+    "draft/account-registration" => %{
+      name: "draft/account-registration",
+      description: "Register a services account directly"
     },
     "away-notify" => %{
       name: "away-notify",
@@ -51,6 +58,34 @@ defmodule ElixIRCd.Commands.Cap do
       name: "chghost",
       description: "Notify when a user's ident or hostname changes"
     },
+    "draft/chathistory" => %{
+      name: "draft/chathistory",
+      description: "Retrieve persistent message history"
+    },
+    "draft/channel-rename" => %{
+      name: "draft/channel-rename",
+      description: "Rename a channel while preserving its state"
+    },
+    "draft/event-playback" => %{
+      name: "draft/event-playback",
+      description: "Include non-message events in history playback"
+    },
+    "draft/message-redaction" => %{
+      name: "draft/message-redaction",
+      description: "Remove authorized messages from persistent history"
+    },
+    "draft/multiline" => %{
+      name: "draft/multiline",
+      description: "Send one logical message as multiple IRC lines"
+    },
+    "draft/metadata-2" => %{
+      name: "draft/metadata-2",
+      description: "Store and synchronize user and channel metadata"
+    },
+    "draft/metadata-3" => %{
+      name: "draft/metadata-3",
+      description: "Compatibility alias for the evolving metadata draft"
+    },
     "echo-message" => %{
       name: "echo-message",
       description: "Echo accepted PRIVMSG, NOTICE, and TAGMSG commands back to the sender"
@@ -59,6 +94,10 @@ defmodule ElixIRCd.Commands.Cap do
       name: "extended-join",
       description: "Extended JOIN messages including account name and real name"
     },
+    "extended-monitor" => %{
+      name: "extended-monitor",
+      description: "Extend supported presence notifications to MONITOR subscribers"
+    },
     "invite-notify" => %{
       name: "invite-notify",
       description: "Notify channel members when users are invited"
@@ -66,6 +105,10 @@ defmodule ElixIRCd.Commands.Cap do
     "multi-prefix" => %{
       name: "multi-prefix",
       description: "Display multiple status prefixes for users in channel responses"
+    },
+    "draft/read-marker" => %{
+      name: "draft/read-marker",
+      description: "Synchronize per-target read positions"
     },
     "sasl" => %{
       name: "sasl",
@@ -185,28 +228,52 @@ defmodule ElixIRCd.Commands.Cap do
 
   @spec handle_cap_end(User.t()) :: :ok
   defp handle_cap_end(user) do
+    abort_sasl_session(user)
     updated_user = Users.update(user, %{cap_negotiating: false})
     Handshake.handle(updated_user)
   end
 
-  @spec get_capabilities_list(User.t()) :: String.t()
-  defp get_capabilities_list(user) do
+  defp abort_sasl_session(user) do
+    with {:ok, session} <- SaslSessions.get(user.pid),
+         %{state: %{remote_sasl: _}} <- session do
+      _ = RemoteSASL.abort(user, session)
+    else
+      _ -> :ok
+    end
+
+    SaslSessions.delete(user.pid)
+    :ok
+  end
+
+  @doc "Returns the space-separated capabilities currently available to a user."
+  @spec get_capabilities_list(User.t(), map() | nil) :: String.t()
+  def get_capabilities_list(user, runtime \\ nil) do
     capabilities_config = Application.fetch_env!(:elixircd, :capabilities)
 
     capabilities =
       for {config_key, name} <- [
             {:account_tag, "account-tag"},
             {:account_notify, "account-notify"},
+            {:account_registration, build_account_registration_capability_value()},
             {:away_notify, "away-notify"},
             {:batch, "batch"},
             {:cap_notify, "cap-notify"},
             {:chghost, "chghost"},
+            {:chathistory, "draft/chathistory"},
+            {:channel_rename, "draft/channel-rename"},
+            {:event_playback, "draft/event-playback"},
             {:echo_message, "echo-message"},
             {:extended_join, "extended-join"},
+            {:extended_monitor, "extended-monitor"},
             {:invite_notify, "invite-notify"},
+            {:message_redaction, "draft/message-redaction"},
+            {:metadata, build_metadata_capability_value("draft/metadata-2")},
+            {:metadata, build_metadata_capability_value("draft/metadata-3")},
             {:labeled_response, "labeled-response"},
             {:multi_prefix, "multi-prefix"},
-            {:sasl, build_sasl_capability_value()},
+            {:multiline, build_multiline_capability_value()},
+            {:read_marker, "draft/read-marker"},
+            {:sasl, build_sasl_capability_value(user, runtime)},
             {:setname, "setname"},
             {:standard_replies, "standard-replies"},
             {:sts, build_sts_capability_value(user)},
@@ -224,6 +291,55 @@ defmodule ElixIRCd.Commands.Cap do
     end)
   end
 
+  @doc "Returns advertised capability names mapped to their complete per-user values."
+  @spec capability_map(User.t(), map() | nil) :: %{String.t() => String.t()}
+  def capability_map(user, runtime \\ nil) do
+    user
+    |> get_capabilities_list(runtime)
+    |> String.split()
+    |> Map.new(fn capability ->
+      name = capability |> String.split("=", parts: 2) |> hd()
+      {name, capability}
+    end)
+  end
+
+  @doc "Returns the SASL mechanisms eligible for one client and current runtime."
+  @spec available_sasl_mechanisms(User.t(), map() | nil) :: [String.t()]
+  def available_sasl_mechanisms(user, runtime \\ nil) do
+    sasl_config = Application.fetch_env!(:elixircd, :sasl)
+    mechanisms = get_enabled_sasl_mechanisms(sasl_config)
+
+    mechanisms =
+      if remote_authority_configured?(user, runtime) do
+        if remote_authority_available?(user, runtime),
+          do: Enum.filter(mechanisms, &(&1 in RemoteSASL.mechanisms())),
+          else: []
+      else
+        mechanisms
+      end
+
+    Enum.filter(mechanisms, &transport_allows_mechanism?(&1, user, sasl_config))
+  end
+
+  @doc "Publishes dynamic CAP changes after native authority reachability changes."
+  @spec notify_dynamic_changes(map(), map()) :: :ok | {:error, term()}
+  def notify_dynamic_changes(old_capability_maps, runtime)
+      when is_map(old_capability_maps) and is_map(runtime) do
+    Output.transaction(
+      fn ->
+        Users.get_all()
+        |> Enum.each(&notify_dynamic_change(&1, old_capability_maps, runtime))
+
+        :ok
+      end,
+      drain_fun: &drain_dynamic_change/1
+    )
+  rescue
+    error -> {:error, {:capability_notification_failed, Exception.message(error)}}
+  catch
+    kind, reason -> {:error, {:capability_notification_failed, {kind, reason}}}
+  end
+
   @spec capability_advertised?(atom(), User.t(), keyword()) :: boolean()
   defp capability_advertised?(:cap_notify, user, config),
     do: user.cap_version >= 302 or capability_enabled?(config, :cap_notify)
@@ -238,12 +354,48 @@ defmodule ElixIRCd.Commands.Cap do
     Keyword.fetch!(config, :batch) and Keyword.fetch!(config, :labeled_response)
   end
 
+  defp capability_enabled?(config, :chathistory) do
+    Keyword.fetch!(config, :chathistory) and Keyword.fetch!(config, :batch) and
+      Keyword.fetch!(config, :message_tags) and Keyword.fetch!(config, :server_time) and
+      Application.fetch_env!(:elixircd, :history)[:enabled]
+  end
+
+  defp capability_enabled?(config, :event_playback),
+    do: Keyword.fetch!(config, :event_playback) and capability_enabled?(config, :chathistory)
+
+  defp capability_enabled?(config, :message_redaction) do
+    Keyword.fetch!(config, :message_redaction) and capability_enabled?(config, :chathistory) and
+      Application.fetch_env!(:elixircd, :redaction)[:enabled] and
+      Application.fetch_env!(:elixircd, :message_ids)[:enabled]
+  end
+
+  defp capability_enabled?(config, :multiline) do
+    Keyword.fetch!(config, :multiline) and Keyword.fetch!(config, :batch) and
+      Keyword.fetch!(config, :message_tags) and Application.fetch_env!(:elixircd, :multiline)[:enabled]
+  end
+
+  defp capability_enabled?(config, :metadata) do
+    Keyword.fetch!(config, :metadata) and Keyword.fetch!(config, :batch) and
+      Application.fetch_env!(:elixircd, :metadata)[:enabled]
+  end
+
+  defp capability_enabled?(config, :read_marker),
+    do: Keyword.fetch!(config, :read_marker) and Application.fetch_env!(:elixircd, :read_markers)[:enabled]
+
+  defp capability_enabled?(config, :account_registration) do
+    Keyword.fetch!(config, :account_registration) and
+      Application.fetch_env!(:elixircd, :account_registration)[:enabled] and
+      Application.fetch_env!(:elixircd, :services)[:nickserv][:enabled]
+  end
+
+  defp capability_enabled?(config, :channel_rename),
+    do: Keyword.fetch!(config, :channel_rename) and Application.fetch_env!(:elixircd, :channel_rename)[:enabled]
+
   defp capability_enabled?(config, key), do: Keyword.fetch!(config, key)
 
-  @spec build_sasl_capability_value() :: String.t() | nil
-  defp build_sasl_capability_value do
-    sasl_config = Application.fetch_env!(:elixircd, :sasl)
-    mechanisms = get_enabled_sasl_mechanisms(sasl_config)
+  @spec build_sasl_capability_value(User.t(), map() | nil) :: String.t() | nil
+  defp build_sasl_capability_value(user, runtime) do
+    mechanisms = available_sasl_mechanisms(user, runtime)
 
     case mechanisms do
       [] -> nil
@@ -251,10 +403,148 @@ defmodule ElixIRCd.Commands.Cap do
     end
   end
 
+  defp remote_authority_configured?(%User{} = user, nil), do: RemoteSASL.configured?(user)
+
+  defp remote_authority_configured?(_user, %{services_authority: authority, sid: sid})
+       when is_binary(authority),
+       do: authority != sid
+
+  defp remote_authority_configured?(_user, _runtime), do: false
+
+  defp remote_authority_available?(%User{} = user, nil), do: RemoteSASL.remote?(user)
+
+  defp remote_authority_available?(_user, %{services_authority: authority, reachable_sids: reachable})
+       when is_binary(authority) and is_struct(reachable, MapSet),
+       do: MapSet.member?(reachable, authority)
+
+  defp remote_authority_available?(_user, _runtime), do: false
+
+  defp transport_allows_mechanism?("PLAIN", user, sasl_config) do
+    not Keyword.get(sasl_config[:plain] || [], :require_tls, false) or secure_transport?(user)
+  end
+
+  defp transport_allows_mechanism?(_mechanism, _user, _sasl_config), do: true
+
+  defp secure_transport?(%User{transport: transport}), do: transport in [:tls, :wss]
+  defp secure_transport?(_user), do: false
+
+  defp notify_dynamic_change(%User{pid: pid} = user, old_capability_maps, runtime) when is_pid(pid) do
+    case Map.fetch(old_capability_maps, pid) do
+      {:ok, old_map} ->
+        new_map = capability_map(user, runtime)
+        changed = changed_capabilities(old_map, new_map)
+        removed = removed_capabilities(old_map, new_map)
+
+        if changed != [] or removed != [] do
+          ResponseContext.flush(user)
+
+          if changed != [] and has_cap_notify?(user) do
+            %Message{command: "CAP", params: [user_reply(user), "NEW"], trailing: Enum.join(changed, " ")}
+            |> Dispatcher.broadcast(:server, user)
+          end
+
+          if removed != [] and has_cap_notify?(user) do
+            %Message{command: "CAP", params: [user_reply(user), "DEL"], trailing: Enum.join(removed, " ")}
+            |> Dispatcher.broadcast(:server, user)
+          end
+
+          capabilities = Enum.reject(user.capabilities, &(&1 in removed))
+          if capabilities != user.capabilities, do: Users.update(user, %{capabilities: capabilities})
+          if "sasl" in removed, do: abort_dynamic_sasl(user)
+        end
+
+        :ok
+
+      :error ->
+        :ok
+    end
+  end
+
+  defp notify_dynamic_change(_user, _old_capability_maps, _runtime), do: :ok
+
+  defp changed_capabilities(old_map, new_map) do
+    new_map
+    |> Enum.filter(fn {name, value} -> name != "sts" and old_map[name] != value end)
+    |> Enum.sort_by(&elem(&1, 0))
+    |> Enum.map(&elem(&1, 1))
+  end
+
+  defp removed_capabilities(old_map, new_map) do
+    old_map
+    |> Map.keys()
+    |> Enum.reject(&(Map.has_key?(new_map, &1) or &1 == "sts"))
+    |> Enum.sort()
+  end
+
+  defp has_cap_notify?(user), do: "cap-notify" in user.capabilities or user.cap_version >= 302
+
+  defp drain_dynamic_change(%{kind: :c2s_message} = intent), do: Dispatcher.drain_intent(intent)
+  defp drain_dynamic_change(%{kind: :s2s_sasl_cancel} = intent), do: Dispatcher.drain_intent(intent)
+  defp drain_dynamic_change(_intent), do: :ok
+
+  defp abort_dynamic_sasl(%User{} = user) do
+    with {:ok, session} <- SaslSessions.get(user.pid),
+         %{state: %{remote_sasl: _}} <- session do
+      %Message{
+        command: :err_saslaborted,
+        params: [user_reply(user)],
+        trailing: "SASL authentication authority is unavailable"
+      }
+      |> Dispatcher.broadcast(:server, user)
+
+      _ = RemoteSASL.cancel_local(user, session)
+      SaslSessions.delete(user.pid)
+    else
+      _ -> :ok
+    end
+  end
+
+  defp build_multiline_capability_value do
+    config = Application.fetch_env!(:elixircd, :multiline)
+    "draft/multiline=max-bytes=#{config[:max_bytes]},max-lines=#{config[:max_lines]}"
+  end
+
+  defp build_metadata_capability_value(name) do
+    config = Application.fetch_env!(:elixircd, :metadata)
+
+    features =
+      [
+        if(config[:before_connect], do: "before-connect"),
+        "max-subs=#{config[:max_subscriptions]}",
+        "max-keys=#{config[:max_keys]}",
+        "max-value-bytes=#{config[:max_value_bytes]}"
+      ]
+      |> Enum.reject(&is_nil/1)
+
+    name <> "=" <> Enum.join(features, ",")
+  end
+
+  defp build_account_registration_capability_value do
+    features =
+      []
+      |> maybe_add_registration_feature(
+        Application.fetch_env!(:elixircd, :account_registration)[:before_connect],
+        "before-connect"
+      )
+      |> maybe_add_registration_feature(
+        Application.fetch_env!(:elixircd, :services)[:nickserv][:email_required],
+        "email-required"
+      )
+
+    case features do
+      [] -> "draft/account-registration"
+      _ -> "draft/account-registration=" <> Enum.join(features, ",")
+    end
+  end
+
+  defp maybe_add_registration_feature(features, true, feature), do: features ++ [feature]
+  defp maybe_add_registration_feature(features, false, _feature), do: features
+
   @spec get_enabled_sasl_mechanisms(keyword()) :: [String.t()]
   defp get_enabled_sasl_mechanisms(sasl_config) do
     []
     |> maybe_add_mechanism(sasl_config[:plain], "PLAIN")
+    |> maybe_add_mechanism(sasl_config[:scram_sha_256], "SCRAM-SHA-256")
     |> maybe_add_mechanism(sasl_config[:ecdsa], "ECDSA-NIST256P-CHALLENGE")
   end
 

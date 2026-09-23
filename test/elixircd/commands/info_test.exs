@@ -33,5 +33,18 @@ defmodule ElixIRCd.Commands.InfoTest do
         assert_sent_messages_amount(user.pid, 24)
       end)
     end
+
+    test "accepts the local server name and rejects remote targets" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Info.handle(user, %Message{command: "INFO", params: ["IRC.TEST"]})
+        assert_sent_messages_amount(user.pid, 24)
+        Agent.update(@agent_name, fn _ -> [] end)
+
+        assert :ok = Info.handle(user, %Message{command: "INFO", params: ["remote.test"]})
+        assert_sent_messages([{user.pid, ":irc.test 402 #{user.nick} remote.test :No such server\r\n"}])
+      end)
+    end
   end
 end

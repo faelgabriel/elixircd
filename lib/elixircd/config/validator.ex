@@ -3,6 +3,7 @@ defmodule ElixIRCd.Config.Validator do
 
   alias ElixIRCd.Config.Schema
   alias ElixIRCd.Config.Types
+  alias ElixIRCd.Server.S2S.Profile
 
   @doc "Returns all structural errors, followed by semantic checks when the structure is sound."
   @spec validate(term()) :: :ok | {:error, [String.t()]}
@@ -122,6 +123,7 @@ defmodule ElixIRCd.Config.Validator do
     listeners = config[:listeners]
     ports = Enum.map(listeners, fn {_kind, opts} -> opts[:port] end)
     prefixes = channel[:channel_prefixes]
+    capabilities = config[:capabilities]
 
     throttle_errors(connection, "elixircd.rate_limiter.connection.throttle") ++
       throttle_errors(message[:throttle], "elixircd.rate_limiter.message.throttle") ++
@@ -150,17 +152,107 @@ defmodule ElixIRCd.Config.Validator do
         "elixircd.cloaking.cloak_on_connect",
         "requires cloaking.enabled"
       ) ++
-      unique_operators(config[:operators]) ++ resource_paths(config)
+      capability_relationships(config, capabilities) ++
+      unique_operators(config[:operators]) ++ resource_paths(config) ++ s2s_relationships(config)
   end
+
+  defp s2s_relationships(config) do
+    case Keyword.get(config, :s2s) do
+      nil ->
+        []
+
+      s2s when is_list(s2s) ->
+        if Keyword.get(s2s, :enabled, false) do
+          case Profile.validate(config) do
+            :ok -> []
+            {:error, errors} -> Enum.map(errors, &"elixircd.s2s: #{inspect(&1)}")
+          end
+        else
+          []
+        end
+
+      _ ->
+        []
+    end
+  end
+
+  defp capability_relationships(config, capabilities) do
+    sasl = config[:sasl]
+    sasl_mechanism? = sasl[:plain][:enabled] or sasl[:scram_sha_256][:enabled] or sasl[:ecdsa][:enabled]
+
+    []
+    |> require_if(capabilities[:labeled_response], capabilities[:batch], "labeled_response", "batch")
+    |> require_if(capabilities[:chathistory], capabilities[:batch], "chathistory", "batch")
+    |> require_if(capabilities[:chathistory], capabilities[:message_tags], "chathistory", "message_tags")
+    |> require_if(capabilities[:chathistory], capabilities[:server_time], "chathistory", "server_time")
+    |> require_if(capabilities[:chathistory], config[:history][:enabled], "chathistory", "history.enabled")
+    |> require_if(capabilities[:event_playback], capabilities[:chathistory], "event_playback", "chathistory")
+    |> require_if(capabilities[:message_redaction], capabilities[:chathistory], "message_redaction", "chathistory")
+    |> require_if(
+      capabilities[:message_redaction],
+      config[:redaction][:enabled],
+      "message_redaction",
+      "redaction.enabled"
+    )
+    |> require_if(
+      capabilities[:message_redaction],
+      config[:message_ids][:enabled],
+      "message_redaction",
+      "message_ids.enabled"
+    )
+    |> require_if(capabilities[:multiline], capabilities[:batch], "multiline", "batch")
+    |> require_if(capabilities[:multiline], capabilities[:message_tags], "multiline", "message_tags")
+    |> require_if(capabilities[:multiline], config[:multiline][:enabled], "multiline", "multiline.enabled")
+    |> require_if(capabilities[:metadata], capabilities[:batch], "metadata", "batch")
+    |> require_if(capabilities[:metadata], config[:metadata][:enabled], "metadata", "metadata.enabled")
+    |> require_if(capabilities[:read_marker], config[:read_markers][:enabled], "read_marker", "read_markers.enabled")
+    |> require_if(
+      capabilities[:account_registration],
+      config[:account_registration][:enabled] and config[:services][:nickserv][:enabled],
+      "account_registration",
+      "account_registration.enabled and services.nickserv.enabled"
+    )
+    |> require_if(
+      capabilities[:channel_rename],
+      config[:channel_rename][:enabled],
+      "channel_rename",
+      "channel_rename.enabled"
+    )
+    |> require_if(capabilities[:sasl], sasl_mechanism?, "sasl", "at least one enabled SASL mechanism")
+    |> Kernel.++(
+      error_unless(
+        config[:history][:max_request_limit] <= config[:history][:max_entries_per_target],
+        "elixircd.history.max_request_limit",
+        "must not exceed max_entries_per_target"
+      )
+    )
+  end
+
+  defp require_if(errors, false, _dependency, _path, _requirement), do: errors
+  defp require_if(errors, true, true, _path, _requirement), do: errors
+
+  defp require_if(errors, true, false, path, requirement),
+    do: errors ++ ["elixircd.capabilities.#{path}: requires #{requirement}"]
 
   @spec resource_paths(keyword()) :: [String.t()]
   defp resource_paths(config) do
-    pairs =
+    listener_pairs =
       Enum.flat_map(config[:listeners], fn
         {:tls, opts} -> [opts[:transport_options]]
         {:https, opts} -> [opts]
         _ -> []
       end)
+
+    s2s_pairs =
+      case Keyword.get(config, :s2s) do
+        s2s when is_list(s2s) ->
+          if Keyword.get(s2s, :enabled, false), do: [Keyword.fetch!(s2s, :listener)], else: []
+
+        _ ->
+          []
+      end
+
+    pairs = listener_pairs ++ s2s_pairs
 
     roles =
       [{config[:cloaking][:cloak_key_file], :cloak}] ++

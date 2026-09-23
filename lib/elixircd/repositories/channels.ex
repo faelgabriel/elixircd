@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.Channels do
   """
 
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Server.S2S.Publication
   alias ElixIRCd.Utils.CaseMapping
 
   @doc """
@@ -13,6 +14,7 @@ defmodule ElixIRCd.Repositories.Channels do
   def create(attrs) do
     Channel.new(attrs)
     |> Memento.Query.write()
+    |> tap(&Publication.channel_changed/1)
   end
 
   @doc """
@@ -39,6 +41,7 @@ defmodule ElixIRCd.Repositories.Channels do
   def update(channel, attrs) do
     Channel.update(channel, attrs)
     |> Memento.Query.write()
+    |> tap(&Publication.channel_changed/1)
   end
 
   @doc """

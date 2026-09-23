@@ -17,6 +17,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
       sync_registered_mode: 1
     ]
 
+  alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.UserChannels
@@ -74,7 +75,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
           account_requires_secure_connection?(account_nick.account_name) and not secure_connection?(user) ->
             notify(user, "This account requires a secure TLS connection for password authentication.")
 
-          Argon2.verify_pass(password, account_nick.password_hash) ->
+          match?({:ok, _}, Password.verify_and_upgrade(account_nick, password)) ->
             regain_nickname(user, registered_nick)
 
           true ->
@@ -90,7 +91,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
   defp regain_nickname(user, registered_nick) do
     case Users.get_by_nick(registered_nick.nickname) do
       {:ok, target_user} ->
-        if user.pid == target_user.pid do
+        if User.same_identity?(user, target_user) do
           notify(user, "You cannot regain your own session.")
           :ok
         else

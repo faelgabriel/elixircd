@@ -109,7 +109,13 @@ defmodule ElixIRCd.Services.Nickserv.Help do
     do: send_set_option_help(user, "EMAILMEMOS", "{ON|OFF|ONLY}", "Controls whether memos are also forwarded by email.")
 
   defp send_help_for_command(user, "SET ENFORCETIME"),
-    do: send_set_option_help(user, "ENFORCETIME", "<seconds>", "Sets the grace period before nickname enforcement.")
+    do:
+      send_set_option_help(
+        user,
+        "ENFORCETIME",
+        "<seconds>",
+        "Sets the normal grace period before nickname enforcement; zero requests immediate enforcement."
+      )
 
   defp send_help_for_command(user, "SET LANGUAGE"),
     do: send_set_option_help(user, "LANGUAGE", "<language>", "Sets the NickServ language preference (en or pt-BR).")
@@ -120,7 +126,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
         user,
         "KILL",
         "{ON|QUICK|IMMED|OFF}",
-        "Selects the action for unauthorized enforced nickname use."
+        "Selects the enforcement action: ON uses ENFORCETIME, QUICK caps it at the network quick interval, IMMED acts immediately, and OFF forces a guest nickname after ENFORCETIME."
       )
 
   defp send_help_for_command(user, "SET PROPERTY"),

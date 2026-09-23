@@ -5,6 +5,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
 
   alias ElixIRCd.Tables.Channel.Topic
   alias ElixIRCd.Tables.RegisteredChannel
+  alias ElixIRCd.Server.S2S.Publication
   alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
 
@@ -15,6 +16,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   def create(params) do
     RegisteredChannel.new(params)
     |> Memento.Query.write()
+    |> tap(fn _record -> Publication.policy_changed() end)
   end
 
   @doc """
@@ -64,6 +66,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   def update(registered_channel, attrs) do
     RegisteredChannel.update(registered_channel, attrs)
     |> Memento.Query.write()
+    |> tap(fn _record -> Publication.policy_changed() end)
   end
 
   @doc """
@@ -85,6 +88,7 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   @spec delete(RegisteredChannel.t()) :: :ok
   def delete(registered_channel) do
     Memento.Query.delete_record(registered_channel)
+    |> tap(fn _result -> Publication.policy_changed() end)
   end
 
   @spec topic_text(Topic.t() | nil) :: String.t() | nil

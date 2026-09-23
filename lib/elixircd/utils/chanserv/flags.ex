@@ -4,6 +4,8 @@ defmodule ElixIRCd.Utils.Chanserv.Flags do
   """
 
   alias ElixIRCd.Tables.RegisteredChannel
+  alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
 
   @founder_flags "VAFST"
   @supported_flags String.graphemes(@founder_flags)
@@ -114,7 +116,24 @@ defmodule ElixIRCd.Utils.Chanserv.Flags do
   """
   @spec founder?(RegisteredChannel.t(), String.t() | nil) :: boolean()
   def founder?(_channel, nil), do: false
-  def founder?(channel, account_name), do: channel.founder == account_name
+
+  def founder?(channel, account_name),
+    do: CaseMapping.normalize(channel.founder) == CaseMapping.normalize(account_name)
+
+  @doc "Returns whether an identified account has an explicit channel access entry."
+  @spec has_access?(RegisteredChannel.t(), String.t() | nil, %{optional(String.t()) => String.t()}) :: boolean()
+  def has_access?(_channel, nil, _access_entries), do: false
+
+  def has_access?(channel, account_name, access_entries) do
+    founder?(channel, account_name) or flags_for_account(channel, account_name, access_entries) != ""
+  end
+
+  @doc "Defines the SECURE policy for ChanServ privilege grants."
+  @spec secure_grant_allowed?(RegisteredChannel.t(), User.t()) :: boolean()
+  def secure_grant_allowed?(%{settings: %{secure: true}}, %User{identified_as: identified_as}),
+    do: is_binary(identified_as)
+
+  def secure_grant_allowed?(_channel, _target_user), do: true
 
   @doc """
   Returns the effective flags for an account on a registered channel.
@@ -126,9 +145,23 @@ defmodule ElixIRCd.Utils.Chanserv.Flags do
     if founder?(channel, account_name) do
       @founder_flags
     else
-      access_entries
-      |> Map.get(account_name, "")
-      |> normalize_flags()
+      find_access_flags(account_name, access_entries)
+    end
+  end
+
+  @spec find_access_flags(String.t(), %{optional(String.t()) => String.t()}) :: String.t()
+  defp find_access_flags(account_name, access_entries) do
+    normalized_account = CaseMapping.normalize(account_name)
+
+    Enum.find_value(access_entries, "", fn {entry_account, flags} ->
+      access_flags_for(normalized_account, entry_account, flags)
+    end)
+  end
+
+  defp access_flags_for(account_name, entry_account, flags) do
+    case CaseMapping.normalize(entry_account) do
+      ^account_name -> normalize_flags(flags)
+      _ -> nil
     end
   end
 

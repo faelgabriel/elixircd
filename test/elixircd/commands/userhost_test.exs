@@ -62,6 +62,17 @@ defmodule ElixIRCd.Commands.UserhostTest do
       end)
     end
 
+    test "omits a matching connection that has not completed registration" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target_user = insert(:user, nick: "pending_nick", registered: false)
+        message = %Message{command: "USERHOST", params: [target_user.nick]}
+
+        assert :ok = Userhost.handle(user, message)
+        assert_sent_messages([{user.pid, ":irc.test 302 #{user.nick} :\r\n"}])
+      end)
+    end
+
     test "handles USERHOST command with multiple valid and invalid nicks" do
       Memento.transaction!(fn ->
         user = insert(:user)

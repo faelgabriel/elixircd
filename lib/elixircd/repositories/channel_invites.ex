@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   """
 
   alias ElixIRCd.Tables.ChannelInvite
+  alias ElixIRCd.Server.S2S.Identity
   alias ElixIRCd.Utils.CaseMapping
 
   @doc """
@@ -13,7 +14,10 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   def create(attrs) do
     delete_by_user_pid_and_channel_name(attrs.user_pid, attrs.channel_name_key)
 
-    ChannelInvite.new(attrs)
+    attrs
+    |> Map.put_new(:invite_id, Identity.nonce())
+    |> Map.put_new(:expires_ms, 0)
+    |> ChannelInvite.new()
     |> Memento.Query.write()
   end
 
@@ -74,4 +78,14 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
       [] -> {:error, :channel_invite_not_found}
     end
   end
+
+  @doc "Returns whether a stored invitation is still usable at the supplied wall-clock time."
+  @spec active?(ChannelInvite.t(), non_neg_integer()) :: boolean()
+  def active?(%ChannelInvite{expires_ms: 0}, _now_ms), do: true
+
+  def active?(%ChannelInvite{expires_ms: expires_ms}, now_ms)
+      when is_integer(expires_ms) and is_integer(now_ms),
+      do: expires_ms > now_ms
+
+  def active?(_invite, _now_ms), do: false
 end
