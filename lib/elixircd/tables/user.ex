@@ -14,6 +14,7 @@ defmodule ElixIRCd.Tables.User do
       :transport,
       :ip_address,
       :port_connected,
+      :client_port,
       :nick_key,
       :nick,
       :hostname,
@@ -50,6 +51,7 @@ defmodule ElixIRCd.Tables.User do
           transport: :tcp | :tls | :ws | :wss,
           ip_address: :inet.ip_address(),
           port_connected: :inet.port_number(),
+          client_port: :inet.port_number() | nil,
           nick_key: String.t() | nil,
           nick: String.t() | nil,
           hostname: String.t() | nil,
@@ -84,6 +86,7 @@ defmodule ElixIRCd.Tables.User do
           optional(:transport) => :tcp | :tls | :ws | :wss,
           optional(:ip_address) => :inet.ip_address(),
           optional(:port_connected) => :inet.port_number(),
+          optional(:client_port) => :inet.port_number() | nil,
           optional(:nick) => String.t() | nil,
           optional(:hostname) => String.t() | nil,
           optional(:cloaked_hostname) => String.t() | nil,
@@ -123,6 +126,7 @@ defmodule ElixIRCd.Tables.User do
       |> Map.put_new(:modes, [])
       |> Map.put_new(:capabilities, [])
       |> Map.put_new(:cap_version, 301)
+      |> Map.put_new(:client_port, nil)
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> handle_nick_key()

@@ -397,6 +397,15 @@ defmodule ElixIRCd.Utils.ProtocolTest do
     end
   end
 
+  describe "match_ascii_glob?/2" do
+    test "folds ASCII without treating RFC 1459 nickname equivalents as equal" do
+      assert Protocol.match_ascii_glob?("Host^Name", "host^*")
+      refute Protocol.match_ascii_glob?("Host^Name", "host~*")
+      refute Protocol.match_ascii_glob?(nil, "*")
+      refute Protocol.match_ascii_glob?("Host^Name", nil)
+    end
+  end
+
   describe "valid_mask_format?/1" do
     test "validates correct masks" do
       # Valid full masks

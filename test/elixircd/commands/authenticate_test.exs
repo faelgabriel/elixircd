@@ -622,7 +622,7 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
       end)
     end
 
-    test "handles PLAIN auth with authzid instead of authcid" do
+    test "rejects PLAIN auth with an empty authcid even when authzid is set" do
       Memento.transaction!(fn ->
         # Create a registered user
         insert(:registered_nick, nickname: "testuser", password: "password123")
@@ -643,10 +643,54 @@ defmodule ElixIRCd.Commands.AuthenticateTest do
         assert :ok = Authenticate.handle(user, message)
 
         assert_sent_messages([
-          {user.pid,
-           ":irc.test 900 #{user.nick} #{user.nick}!~username@hostname testuser :You are now logged in as testuser\r\n"},
-          {user.pid, ":irc.test 903 #{user.nick} :SASL authentication successful\r\n"}
+          {user.pid, ":irc.test 904 * :SASL authentication failed: Invalid credentials format\r\n"}
         ])
+      end)
+    end
+
+    test "rejects an embedded NUL in a PLAIN password even if the stored password contains it" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick, nickname: "testuser", password: "pass\0word")
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+
+        credentials = Base.encode64("\0testuser\0pass\0word")
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [credentials]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 904 * :SASL authentication failed: Invalid credentials format\r\n"}
+        ])
+      end)
+    end
+
+    test "rejects invalid UTF-8 in decoded PLAIN credentials" do
+      Memento.transaction!(fn ->
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+
+        credentials = Base.encode64("\0testuser\0pass" <> <<0xFF>>)
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [credentials]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 904 * :SASL authentication failed: Invalid credentials format\r\n"}
+        ])
+      end)
+    end
+
+    test "rejects a different authorization identity in PLAIN credentials" do
+      Memento.transaction!(fn ->
+        insert(:registered_nick, nickname: "testuser", password: "password123")
+        user = insert(:user, registered: false, capabilities: ["sasl"], cap_negotiating: true)
+        SaslSessions.create(%{user_pid: user.pid, mechanism: "PLAIN", buffer: ""})
+
+        credentials = Base.encode64("otheruser\0testuser\0password123")
+        assert :ok = Authenticate.handle(user, %Message{command: "AUTHENTICATE", params: [credentials]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 904 * :SASL authentication failed: Invalid credentials format\r\n"}
+        ])
+
+        assert Memento.Query.read(ElixIRCd.Tables.User, user.pid).identified_as == nil
       end)
     end
 

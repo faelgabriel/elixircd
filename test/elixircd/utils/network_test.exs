@@ -32,4 +32,25 @@ defmodule ElixIRCd.Utils.NetworkTest do
       assert "::1" = Network.format_ip_address({0, 0, 0, 0, 0, 0, 0, 1})
     end
   end
+
+  describe "ident protocol" do
+    test "uses the remote IRC client port followed by the local IRC server port" do
+      assert Network.format_ident_query(54_321, 6667) == "54321, 6667\r\n"
+    end
+
+    test "accepts a matching, valid USERID response" do
+      assert Network.parse_ident_response("54321, 6667 : USERID : UNIX : alice\r\n", 54_321, 6667) ==
+               {:ok, "alice"}
+    end
+
+    test "rejects a response for another connection or with unsafe identity characters" do
+      assert {:error, _} = Network.parse_ident_response("54322, 6667 : USERID : UNIX : alice\r\n", 54_321, 6667)
+      assert {:error, _} = Network.parse_ident_response("54321, 6667 : USERID : UNIX : alice!evil\r\n", 54_321, 6667)
+
+      assert {:error, _} =
+               Network.parse_ident_response("54321, 6667 : USERID : UNIX : alice\r\nNOTICE x\r\n", 54_321, 6667)
+
+      assert {:error, _} = Network.parse_ident_response("54321, 6667 : USERID : UNIX : longidentity\r\n", 54_321, 6667)
+    end
+  end
 end

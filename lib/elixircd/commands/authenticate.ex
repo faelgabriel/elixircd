@@ -422,9 +422,8 @@ defmodule ElixIRCd.Commands.Authenticate do
   @spec do_process_plain_auth(User.t(), ElixIRCd.Tables.SaslSession.t()) :: :ok
   defp do_process_plain_auth(user, session) do
     case decode_plain_credentials(session.buffer) do
-      {:ok, {authzid, authcid, password}} ->
-        username = if authcid != "", do: authcid, else: authzid
-        authenticate_user(user, username, password)
+      {:ok, {_authzid, authcid, password}} ->
+        authenticate_user(user, authcid, password)
 
       {:error, reason} ->
         Logger.debug("SASL PLAIN decode error from #{user_mask(user)}: #{reason}")
@@ -445,21 +444,26 @@ defmodule ElixIRCd.Commands.Authenticate do
   defp decode_plain_credentials(base64_data) do
     case Base.decode64(base64_data) do
       {:ok, decoded} ->
-        parts = String.split(decoded, "\0", parts: 3)
-
-        case parts do
-          [authzid, authcid, password] when authcid != "" and password != "" ->
-            {:ok, {authzid, authcid, password}}
-
-          [authzid, authcid, password] when authzid != "" and password != "" ->
-            {:ok, {authzid, authcid, password}}
-
-          _ ->
-            {:error, "Invalid PLAIN format"}
-        end
+        decode_plain_fields(decoded)
 
       :error ->
         {:error, "Invalid base64 encoding"}
+    end
+  end
+
+  @spec decode_plain_fields(binary()) :: {:ok, {String.t(), String.t(), String.t()}} | {:error, String.t()}
+  defp decode_plain_fields(decoded) do
+    case :binary.split(decoded, <<0>>, [:global]) do
+      [authzid, authcid, password] when authcid != "" and password != "" ->
+        valid_text? = Enum.all?([authzid, authcid, password], &String.valid?/1)
+
+        authorized? =
+          valid_text? and (authzid == "" or CaseMapping.normalize(authzid) == CaseMapping.normalize(authcid))
+
+        if authorized?, do: {:ok, {authzid, authcid, password}}, else: {:error, "Invalid PLAIN format"}
+
+      _ ->
+        {:error, "Invalid PLAIN format"}
     end
   end
 

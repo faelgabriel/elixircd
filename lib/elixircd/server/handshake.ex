@@ -6,7 +6,7 @@ defmodule ElixIRCd.Server.Handshake do
   require Logger
 
   import ElixIRCd.Utils.Network,
-    only: [format_ip_address: 1, lookup_hostname: 1, query_identd: 2]
+    only: [format_ip_address: 1, lookup_hostname: 1, query_identd: 3]
 
   alias ElixIRCd.Commands.Lusers
   alias ElixIRCd.Commands.Mode
@@ -109,10 +109,11 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec check_ident(User.t()) :: String.t() | nil
   defp check_ident(user) do
-    case Application.fetch_env!(:elixircd, :ident_service)[:enabled] do
-      true -> request_ident(user)
-      _ -> nil
-    end
+    enabled? = Application.fetch_env!(:elixircd, :ident_service)[:enabled]
+
+    if enabled? and user.transport in [:tcp, :tls] and is_integer(user.client_port) and user.webirc_used != true,
+      do: request_ident(user),
+      else: nil
   end
 
   @spec request_ident(user :: User.t()) :: String.t() | nil
@@ -120,7 +121,7 @@ defmodule ElixIRCd.Server.Handshake do
     %Message{command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"}
     |> Dispatcher.broadcast(:server, user)
 
-    query_identd(user.ip_address, user.port_connected)
+    query_identd(user.ip_address, user.client_port, user.port_connected)
     |> case do
       {:ok, user_id} ->
         %Message{command: "NOTICE", params: ["*"], trailing: "*** Got Ident response"}

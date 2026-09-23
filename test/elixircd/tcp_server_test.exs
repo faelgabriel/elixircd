@@ -19,12 +19,13 @@ defmodule ElixIRCd.Server.TcpListenerTest do
   end
 
   test "closes cleanly when the peer disconnects before socket inspection" do
-    expect(Socket, :sockname, fn _socket -> {:error, :einval} end)
+    expect(Socket, :peername, fn _socket -> {:error, :einval} end)
     reject(Connection, :handle_connect, 3)
     assert {:close, %{transport: :tcp}} = TcpListener.handle_connection(tcp_socket(), [])
   end
 
   test "closes cleanly when the peer disconnects before socket options are applied" do
+    expect(Socket, :peername, fn _socket -> {:ok, {{192, 0, 2, 4}, 54_321}} end)
     expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
     expect(Connection, :handle_connect, fn _pid, :tcp, _data -> :ok end)
     expect(Socket, :setopts, fn _socket, _opts -> {:error, :closed} end)
@@ -35,6 +36,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     test "initializes connection with TCP transport" do
       socket = tcp_socket()
 
+      expect(Socket, :peername, fn _socket -> {:ok, {{192, 0, 2, 4}, 54_321}} end)
       expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
 
       expect(Socket, :setopts, fn ^socket, opts ->
@@ -44,7 +46,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
 
       expect(Connection, :handle_connect, fn _pid, transport, data ->
         assert transport == :tcp
-        assert data == %{ip_address: {127, 0, 0, 1}, port_connected: 12_345}
+        assert data == %{ip_address: {192, 0, 2, 4}, port_connected: 12_345, client_port: 54_321}
         :ok
       end)
 
@@ -55,6 +57,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     test "initializes connection with TLS transport" do
       socket = tls_socket()
 
+      expect(Socket, :peername, fn _socket -> {:ok, {{192, 0, 2, 5}, 54_322}} end)
       expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
 
       expect(Socket, :setopts, fn ^socket, opts ->
@@ -64,7 +67,7 @@ defmodule ElixIRCd.Server.TcpListenerTest do
 
       expect(Connection, :handle_connect, fn _pid, transport, data ->
         assert transport == :tls
-        assert data == %{ip_address: {127, 0, 0, 1}, port_connected: 12_345}
+        assert data == %{ip_address: {192, 0, 2, 5}, port_connected: 12_345, client_port: 54_322}
         :ok
       end)
 
@@ -75,11 +78,12 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     test "closes connection when Connection returns :close" do
       socket = tcp_socket()
 
+      expect(Socket, :peername, fn _socket -> {:ok, {{192, 0, 2, 4}, 54_321}} end)
       expect(Socket, :sockname, fn _socket -> {:ok, {{127, 0, 0, 1}, 12_345}} end)
 
       expect(Connection, :handle_connect, fn _pid, transport, data ->
         assert transport == :tcp
-        assert data == %{ip_address: {127, 0, 0, 1}, port_connected: 12_345}
+        assert data == %{ip_address: {192, 0, 2, 4}, port_connected: 12_345, client_port: 54_321}
         :close
       end)
 
@@ -240,6 +244,21 @@ defmodule ElixIRCd.Server.TcpListenerTest do
       {:ok, socket} = :gen_tcp.connect(~c"127.0.0.1", port, [:binary, active: false, packet: :line])
       on_exit(fn -> :gen_tcp.close(socket) end)
       %{socket: socket}
+    end
+
+    test "records the peer IP rather than the listener IP", %{socket: socket} do
+      {:ok, {_server_ip, server_port}} = :inet.peername(socket)
+
+      {:ok, second_socket} =
+        :gen_tcp.connect({127, 0, 0, 1}, server_port, [:binary, active: false, packet: :line, ip: {127, 0, 0, 2}])
+
+      on_exit(fn -> :gen_tcp.close(second_socket) end)
+      {:ok, {_client_ip, client_port}} = :inet.sockname(second_socket)
+      assert :ok = :gen_tcp.send(second_socket, "PING :peer-ip-check\r\n")
+      assert {:ok, ":irc.test PONG irc.test :peer-ip-check\r\n"} = :gen_tcp.recv(second_socket, 0, 1_000)
+
+      users = Memento.transaction!(fn -> Users.get_all() end)
+      assert Enum.any?(users, &(&1.ip_address == {127, 0, 0, 2} and &1.client_port == client_port))
     end
 
     for labeled? <- [false, true] do

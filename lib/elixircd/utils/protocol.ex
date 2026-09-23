@@ -95,6 +95,14 @@ defmodule ElixIRCd.Utils.Protocol do
 
   def match_glob?(_value, _pattern), do: false
 
+  @doc "Matches a glob using ASCII case folding for non-nickname identity fields."
+  @spec match_ascii_glob?(String.t(), String.t()) :: boolean()
+  def match_ascii_glob?(value, pattern) when is_binary(value) and is_binary(pattern) do
+    match_mask(ascii_lower(pattern), ascii_lower(value), nil)
+  end
+
+  def match_ascii_glob?(_value, _pattern), do: false
+
   @doc "Returns whether a mute extban matches a user."
   @spec match_mute_mask?(User.t(), String.t()) :: boolean()
   def match_mute_mask?(user, "$m:" <> mask), do: match_user_mask?(user, mask)

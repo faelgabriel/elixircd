@@ -386,7 +386,6 @@ The IRCv3 specifications add modern capabilities to the server. For more details
 - **Changing User Properties**: Dynamic updating of user properties. ✅
 - **Listing Users**: Enhanced user information in channel queries. ✅
 - **Message IDs**: Unique identifiers for messages. ✅
-- **WebIRC**: Provision of real IP address for users connecting through gateways. ✅
 - **WebSocket Protocol**: Enabling IRC over WebSockets for web clients. ✅
 
 #### Commands
@@ -530,7 +529,7 @@ mix quality
 
 ### Running Tests
 
-To run the only test suite with code coverage, use:
+To run the Elixir test suite with code coverage, use:
 
 ```bash
 mix test --cover

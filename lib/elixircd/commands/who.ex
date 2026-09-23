@@ -12,6 +12,8 @@ defmodule ElixIRCd.Commands.Who do
       channel_name?: 1,
       user_reply: 1,
       normalize_mask: 1,
+      match_user_mask?: 2,
+      match_ascii_glob?: 2,
       irc_operator?: 1,
       irc_operator_visible?: 2,
       display_hostname: 2
@@ -39,13 +41,23 @@ defmodule ElixIRCd.Commands.Who do
   end
 
   @impl true
-  def handle(user, %{command: "WHO", params: []}) do
+  def handle(user, %{command: "WHO", params: params, trailing: trailing}) do
+    parameters = params ++ List.wrap(trailing)
+
+    case parameters do
+      [target | filters] when target != "" -> handle_who_query(user, target, filters)
+      _ -> who_missing_mask(user)
+    end
+  end
+
+  @spec who_missing_mask(User.t()) :: :ok
+  defp who_missing_mask(user) do
     %Message{command: :err_needmoreparams, params: [user_reply(user), "WHO"], trailing: "Not enough parameters"}
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @impl true
-  def handle(user, %{command: "WHO", params: [target | filters]}) do
+  @spec handle_who_query(User.t(), String.t(), [String.t()]) :: :ok
+  defp handle_who_query(user, target, filters) do
     query = parse_query(filters)
 
     case channel_name?(target) do
@@ -99,8 +111,8 @@ defmodule ElixIRCd.Commands.Who do
     user_pids_sharing_channels_keys = get_user_shared_channel_pids(user)
 
     users =
-      normalize_mask(mask)
-      |> Users.get_by_match_mask()
+      Users.get_all()
+      |> Enum.filter(&who_mask_matches?(&1, user, mask))
       |> filter_out_invisible_users_for_mask(user, user_pids_sharing_channels_keys, mask)
       |> maybe_filter_operators(query, user)
 
@@ -110,6 +122,23 @@ defmodule ElixIRCd.Commands.Who do
     else
       process_mask_who(user, users, query)
     end
+  end
+
+  @spec who_mask_matches?(User.t(), User.t(), String.t()) :: boolean()
+  defp who_mask_matches?(%User{registered: false}, _requester, _mask), do: false
+
+  defp who_mask_matches?(target, requester, mask) do
+    match_user_mask?(target, normalize_mask(mask)) or
+      (not String.contains?(mask, ["!", "@"]) and
+         (match_ascii_glob?(target.ident, mask) or
+            match_ascii_glob?(target.realname, mask) or
+            match_ascii_glob?(display_hostname(target, requester), mask) or
+            (visible_ip_search?(target, requester) and match_ascii_glob?(format_ip_address(target.ip_address), mask))))
+  end
+
+  @spec visible_ip_search?(User.t(), User.t()) :: boolean()
+  defp visible_ip_search?(target, requester) do
+    :x not in target.modes or target.pid == requester.pid or irc_operator?(requester)
   end
 
   @spec get_user_shared_channel_pids(User.t()) :: [pid()]

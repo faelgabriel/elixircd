@@ -96,7 +96,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   @doc "Runs compatible table migrations after local table copies are available."
   @spec upgrade_schemas() :: :ok
   def upgrade_schemas do
-    upgrade_user_cap_version()
+    upgrade_user_connection_fields()
     upgrade_monitor_nickname()
     upgrade_sasl_session_schema()
     upgrade_registered_nick_schema()
@@ -115,14 +115,26 @@ defmodule ElixIRCd.Utils.Mnesia do
     end
   end
 
-  defp upgrade_user_cap_version do
+  defp upgrade_user_connection_fields do
     expected = User.__info__().attributes
     attributes = :mnesia.table_info(User, :attributes)
+    additions = [{:client_port, nil}, {:cap_version, 301}]
+    missing = Enum.filter(additions, fn {field, _default} -> field not in attributes end)
+    known_old_attributes = expected -- Enum.map(missing, &elem(&1, 0))
 
-    if attributes == List.delete(expected, :cap_version) do
-      position = Enum.find_index(expected, &(&1 == :cap_version)) + 1
-      transform = fn row -> row |> Tuple.insert_at(position, 301) |> Data.load() |> Data.dump() end
-      {:atomic, :ok} = :mnesia.transform_table(User, transform, expected)
+    cond do
+      attributes == expected ->
+        :ok
+
+      attributes == known_old_attributes ->
+        transform = fn row ->
+          row |> insert_missing_fields(User, attributes, expected, missing) |> Data.load() |> Data.dump()
+        end
+
+        {:atomic, :ok} = :mnesia.transform_table(User, transform, expected)
+
+      true ->
+        raise "User table has unexpected attributes: #{inspect(attributes)}"
     end
 
     :ok
@@ -176,7 +188,9 @@ defmodule ElixIRCd.Utils.Mnesia do
         :ok
 
       attributes == known_old_attributes ->
-        transform_registered_nicks(expected, fn row -> insert_missing_fields(row, attributes, expected, missing) end)
+        transform_registered_nicks(expected, fn row ->
+          insert_missing_fields(row, RegisteredNick, attributes, expected, missing)
+        end)
 
       true ->
         raise "RegisteredNick table has unexpected attributes: #{inspect(attributes)}"
@@ -197,7 +211,7 @@ defmodule ElixIRCd.Utils.Mnesia do
     {:atomic, :ok} = :mnesia.transform_table(RegisteredNick, transform, expected)
   end
 
-  defp insert_missing_fields(row, old_attributes, expected, missing) do
+  defp insert_missing_fields(row, table, old_attributes, expected, missing) do
     old_values =
       row |> Tuple.to_list() |> tl() |> Enum.zip(old_attributes) |> Map.new(fn {value, field} -> {field, value} end)
 
@@ -211,7 +225,7 @@ defmodule ElixIRCd.Utils.Mnesia do
         end
       end)
 
-    List.to_tuple([RegisteredNick | values])
+    List.to_tuple([table | values])
   end
 
   @spec recreate_schema(keyword()) :: :ok

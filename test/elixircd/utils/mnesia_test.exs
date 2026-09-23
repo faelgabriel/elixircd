@@ -158,9 +158,62 @@ defmodule ElixIRCd.Utils.MnesiaTest do
 
       Memento.transaction!(fn ->
         assert Memento.Query.read(User, user.pid).cap_version == 301
+        assert Memento.Query.read(User, user.pid).client_port == 54_321
         assert Memento.Query.all(UserMonitor) |> hd() |> Map.fetch!(:target_nick) == monitor.target_nick_key
         assert Memento.Query.read(SaslSession, session.user_pid).state == nil
       end)
+    end
+
+    test "migrates user rows without a client port" do
+      user = build(:user)
+      recreate_legacy_table(User, :client_port, :set, [:nick_key, :ip_address, :identified_as_key], user)
+
+      assert :ok = Mnesia.upgrade_schemas()
+
+      Memento.transaction!(fn ->
+        migrated = Memento.Query.read(User, user.pid)
+        assert migrated.client_port == nil
+        assert migrated.cap_version == user.cap_version
+      end)
+    end
+
+    test "migrates user rows without both connection and CAP version fields" do
+      user = build(:user)
+
+      recreate_legacy_table(
+        User,
+        [:client_port, :cap_version],
+        :set,
+        [:nick_key, :ip_address, :identified_as_key],
+        user
+      )
+
+      assert :ok = Mnesia.upgrade_schemas()
+
+      Memento.transaction!(fn ->
+        migrated = Memento.Query.read(User, user.pid)
+        assert migrated.client_port == nil
+        assert migrated.cap_version == 301
+      end)
+    end
+
+    test "fails clearly rather than guessing an unknown user schema" do
+      attributes = List.delete(User.__info__().attributes, :realname)
+      assert {:atomic, :ok} = :mnesia.delete_table(User)
+
+      assert {:atomic, :ok} =
+               :mnesia.create_table(User,
+                 attributes: attributes,
+                 ram_copies: [node()],
+                 type: :set,
+                 index: [:nick_key, :ip_address, :identified_as_key]
+               )
+
+      assert :ok = :mnesia.wait_for_tables([User], 5_000)
+
+      assert_raise RuntimeError, ~r/User table has unexpected attributes/, fn ->
+        Mnesia.upgrade_schemas()
+      end
     end
 
     test "fails clearly rather than guessing an unknown registered-nick schema" do
@@ -199,7 +252,7 @@ defmodule ElixIRCd.Utils.MnesiaTest do
 
   defp recreate_legacy_table(table, removed_field, type, indexes, record) do
     current_attributes = table.__info__().attributes
-    legacy_attributes = List.delete(current_attributes, removed_field)
+    legacy_attributes = current_attributes -- List.wrap(removed_field)
 
     values =
       record

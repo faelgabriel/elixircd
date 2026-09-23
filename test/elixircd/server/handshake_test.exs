@@ -40,7 +40,10 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
       Network
-      |> expect(:query_identd, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
+      |> expect(:query_identd, fn _ip, client_port, irc_server_port ->
+        assert {client_port, irc_server_port} == {54_321, 6667}
+        {:ok, "anyuserid"}
+      end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -87,7 +90,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:lookup_hostname, fn _ip -> {:error, "anyerror"} end)
 
       Network
-      |> expect(:query_identd, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
+      |> expect(:query_identd, fn _ip, _client_port, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -175,7 +178,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:lookup_hostname, fn _ip -> {:error, "anyerror"} end)
 
       Network
-      |> expect(:query_identd, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
+      |> expect(:query_identd, fn _ip, _client_port, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -224,7 +227,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
       Network
-      |> expect(:query_identd, fn _ip, _irc_server_port -> {:error, "anyerror"} end)
+      |> expect(:query_identd, fn _ip, _client_port, _irc_server_port -> {:error, "anyerror"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -267,7 +270,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
       Network
-      |> expect(:query_identd, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
+      |> expect(:query_identd, fn _ip, _client_port, _irc_server_port -> {:ok, "anyuserid"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -291,7 +294,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
       Network
-      |> expect(:query_identd, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
+      |> expect(:query_identd, fn _ip, _client_port, _irc_server_port -> {:ok, "anyuserid"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)
@@ -322,7 +325,7 @@ defmodule ElixIRCd.Server.HandshakeTest do
       |> expect(:lookup_hostname, fn _ip -> {:ok, "localhost"} end)
 
       Network
-      |> expect(:query_identd, fn _ip, _irc_server_port -> {:ok, "anyuserid"} end)
+      |> expect(:query_identd, fn _ip, _client_port, _irc_server_port -> {:ok, "anyuserid"} end)
 
       Lusers
       |> expect(:send_lusers, fn _user -> :ok end)

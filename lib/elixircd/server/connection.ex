@@ -34,7 +34,11 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Utils.Monitor
 
   @type transport :: :tcp | :tls | :ws | :wss
-  @type connection_data :: %{ip_address: :inet.ip_address(), port_connected: :inet.port_number()}
+  @type connection_data :: %{
+          required(:ip_address) => :inet.ip_address(),
+          required(:port_connected) => :inet.port_number(),
+          optional(:client_port) => :inet.port_number()
+        }
 
   # IRCv3 message-tags limits; the 512-byte message budget includes CRLF.
   @max_client_tag_data_length 4094

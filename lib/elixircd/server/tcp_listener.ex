@@ -29,8 +29,14 @@ defmodule ElixIRCd.Server.TcpListener do
 
     state = %{transport: transport}
 
-    with {:ok, {remote_ip, port}} <- ThousandIsland.Socket.sockname(socket),
-         :ok <- Connection.handle_connect(pid, transport, %{ip_address: remote_ip, port_connected: port}),
+    with {:ok, {remote_ip, remote_port}} <- ThousandIsland.Socket.peername(socket),
+         {:ok, {_local_ip, port}} <- ThousandIsland.Socket.sockname(socket),
+         :ok <-
+           Connection.handle_connect(pid, transport, %{
+             ip_address: remote_ip,
+             port_connected: port,
+             client_port: remote_port
+           }),
          :ok <- ThousandIsland.Socket.setopts(socket, packet: :line, packet_size: Connection.max_wire_length()) do
       {:continue, state, {:persistent, timeout}}
     else

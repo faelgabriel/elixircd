@@ -49,6 +49,7 @@ defmodule ElixIRCd.Factory do
       transport: Map.get(attrs, :transport, :tcp),
       ip_address: Map.get(attrs, :ip_address, {127, 0, 0, 1}),
       port_connected: Map.get(attrs, :port_connected, 6667),
+      client_port: Map.get(attrs, :client_port, 54_321),
       nick_key: nick_key,
       nick: nick,
       modes: Map.get(attrs, :modes, []),

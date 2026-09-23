@@ -96,6 +96,68 @@ defmodule ElixIRCd.Commands.WhoTest do
       end)
     end
 
+    test "treats a trailing WHO mask as the required parameter" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        target = insert(:user, nick: "target")
+
+        assert :ok = Who.handle(user, %Message{command: "WHO", params: [], trailing: target.nick})
+
+        assert_sent_message_contains(user.pid, ~r/ 352 .* target H :0 realname\r\n/)
+        assert_sent_message_contains(user.pid, ":irc.test 315 #{user.nick} target :End of WHO list\r\n")
+      end)
+    end
+
+    for mask <- ["*usernam", "*UniqueReal*", "127.0.0.1", "*UniqueReal Name"] do
+      test "WHO searches visible identity using trailing mask #{inspect(mask)}" do
+        Memento.transaction!(fn ->
+          user = insert(:user, nick: "viewer", ident: "~viewer")
+          insert(:user, nick: "target", ident: "~myusernam", realname: "My UniqueReal Name")
+          mask = unquote(mask)
+
+          assert :ok = Who.handle(user, %Message{command: "WHO", params: [], trailing: mask})
+
+          assert_sent_message_contains(user.pid, ~r/ 352 .* target H :0 My UniqueReal Name\r\n/)
+          assert_sent_message_contains(user.pid, ":irc.test 315 viewer #{mask} :End of WHO list\r\n")
+        end)
+      end
+    end
+
+    test "WHO mask search does not reveal a cloaked user's host or IP" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "viewer", ip_address: {127, 0, 0, 2})
+        insert(:user, nick: "target", modes: [:x], hostname: "real.example", cloaked_hostname: "cloak.example")
+
+        assert :ok = Who.handle(user, %Message{command: "WHO", params: [], trailing: "127.0.0.1"})
+        assert_sent_messages([{user.pid, ":irc.test 315 viewer 127.0.0.1 :End of WHO list\r\n"}])
+      end)
+    end
+
+    test "WHO mask search does not reveal users still registering" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "viewer")
+        insert(:user, nick: "pending", registered: false)
+
+        assert :ok = Who.handle(user, %Message{command: "WHO", params: ["*"]})
+
+        assert_sent_messages_count_containing(user.pid, ~r/ 352 .* pending /, 0)
+        assert_sent_message_contains(user.pid, ":irc.test 315 viewer * :End of WHO list\r\n")
+      end)
+    end
+
+    test "WHO compares non-nickname identity fields using ASCII case folding" do
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "viewer")
+        insert(:user, nick: "target", hostname: "Host^Name")
+
+        assert :ok = Who.handle(user, %Message{command: "WHO", params: ["host~name"]})
+        assert_sent_messages_count_containing(user.pid, ~r/ 352 .* target /, 0)
+
+        assert :ok = Who.handle(user, %Message{command: "WHO", params: ["host^name"]})
+        assert_sent_messages_count_containing(user.pid, ~r/ 352 .* target /, 1)
+      end)
+    end
+
     test "handles WHO command with inexistent channel" do
       Memento.transaction!(fn ->
         user = insert(:user)

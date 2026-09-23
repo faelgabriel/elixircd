@@ -24,8 +24,8 @@ defmodule ElixIRCd.Commands.List do
   @type filter ::
           {:users_greater, integer()}
           | {:users_less, integer()}
-          | {:created_after, integer()}
-          | {:created_before, integer()}
+          | {:created_older, integer()}
+          | {:created_newer, integer()}
           | {:topic_older, integer()}
           | {:topic_newer, integer()}
           | {:name_match, String.t()}
