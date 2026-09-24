@@ -30,9 +30,13 @@ defmodule ElixIRCd.Repositories.Jobs do
   """
   @spec get_by_status(atom()) :: [Job.t()]
   def get_by_status(status) do
-    Job
-    |> Memento.Query.all()
-    |> Enum.filter(&(&1.status == status))
+    Memento.Query.match(Job, {:_, :_, :_, status, :_, :_, :_, :_, :_, :_, :_, :_})
+  end
+
+  @doc "Get jobs by their module using the existing Mnesia index."
+  @spec get_by_module(module()) :: [Job.t()]
+  def get_by_module(module) do
+    Memento.Query.match(Job, {:_, module, :_, :_, :_, :_, :_, :_, :_, :_, :_, :_})
   end
 
   @doc """
@@ -42,8 +46,7 @@ defmodule ElixIRCd.Repositories.Jobs do
   def get_ready_jobs do
     now = DateTime.utc_now()
 
-    Job
-    |> Memento.Query.all()
+    get_by_status(:queued)
     |> Enum.filter(&ready_for_execution?(&1, now))
     |> Enum.sort_by(&DateTime.to_unix(&1.scheduled_at))
   end
@@ -76,10 +79,8 @@ defmodule ElixIRCd.Repositories.Jobs do
   def cleanup_old_jobs(days_to_keep \\ 7) do
     cutoff_date = DateTime.utc_now() |> DateTime.add(-days_to_keep, :day)
 
-    old_jobs =
-      Job
-      |> Memento.Query.all()
-      |> Enum.filter(&old_completed_job?(&1, cutoff_date))
+    completed_jobs = get_by_status(:done) ++ get_by_status(:failed)
+    old_jobs = Enum.filter(completed_jobs, &old_completed_job?(&1, cutoff_date))
 
     Enum.each(old_jobs, &delete/1)
     length(old_jobs)

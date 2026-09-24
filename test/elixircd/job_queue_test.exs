@@ -406,13 +406,17 @@ defmodule ElixIRCd.JobQueueTest do
 
     @tag :capture_log
     test "combines multiple filters" do
-      JobQueue.enqueue(TestJobModule)
+      matching_job = JobQueue.enqueue(TestJobModule)
       JobQueue.enqueue(TestJobModule)
       JobQueue.enqueue(RegisteredNickExpiration)
 
       filtered_jobs = JobQueue.list_jobs(type: TestJobModule, limit: 1)
       assert length(filtered_jobs) == 1
       assert hd(filtered_jobs).module == TestJobModule
+
+      matching_jobs = JobQueue.list_jobs(status: :queued, type: TestJobModule)
+      assert length(matching_jobs) == 2
+      assert Enum.any?(matching_jobs, &(&1.id == matching_job.id))
     end
 
     @tag :capture_log

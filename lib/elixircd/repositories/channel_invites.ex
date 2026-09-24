@@ -24,7 +24,7 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   def delete_by_channel_name(channel_name) do
     channel_name_key = CaseMapping.normalize(channel_name)
 
-    Memento.Query.select(ChannelInvite, [{:==, :channel_name_key, channel_name_key}])
+    Memento.Query.match(ChannelInvite, {:_, channel_name_key, :_, :_, :_})
     |> Enum.each(&Memento.Query.delete_record/1)
   end
 
@@ -42,10 +42,8 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   @spec delete_by_user_pid_and_channel_name(pid(), String.t()) :: :ok
   def delete_by_user_pid_and_channel_name(user_pid, channel_name) do
     channel_name_key = CaseMapping.normalize(channel_name)
-    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name_key, channel_name_key}]
 
-    ChannelInvite
-    |> Memento.Query.select(conditions)
+    Memento.Query.match(ChannelInvite, {user_pid, channel_name_key, :_, :_, :_})
     |> Enum.each(&Memento.Query.delete_record/1)
   end
 
@@ -54,8 +52,7 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
   """
   @spec get_by_user_pid(pid()) :: [ChannelInvite.t()]
   def get_by_user_pid(user_pid) do
-    ChannelInvite
-    |> Memento.Query.select({:==, :user_pid, user_pid})
+    Memento.Query.match(ChannelInvite, {user_pid, :_, :_, :_, :_})
     |> Enum.sort_by(& &1.created_at, DateTime)
   end
 
@@ -66,11 +63,10 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
           {:ok, ChannelInvite.t()} | {:error, :channel_invite_not_found}
   def get_by_user_pid_and_channel_name(user_pid, channel_name) do
     channel_name_key = CaseMapping.normalize(channel_name)
-    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name_key, channel_name_key}]
 
-    Memento.Query.select(ChannelInvite, conditions, limit: 1)
+    Memento.Query.match(ChannelInvite, {user_pid, channel_name_key, :_, :_, :_})
     |> case do
-      [channel_invite] -> {:ok, channel_invite}
+      [channel_invite | _] -> {:ok, channel_invite}
       [] -> {:error, :channel_invite_not_found}
     end
   end

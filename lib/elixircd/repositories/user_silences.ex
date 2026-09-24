@@ -19,7 +19,7 @@ defmodule ElixIRCd.Repositories.UserSilences do
   """
   @spec get_by_user_pid(pid()) :: [UserSilence.t()]
   def get_by_user_pid(user_pid) do
-    Memento.Query.select(UserSilence, {:==, :user_pid, user_pid})
+    Memento.Query.match(UserSilence, {user_pid, :_, :_})
   end
 
   @doc """
@@ -27,11 +27,9 @@ defmodule ElixIRCd.Repositories.UserSilences do
   """
   @spec get_by_user_pid_and_mask(pid(), String.t()) :: {:ok, UserSilence.t()} | {:error, :user_silence_not_found}
   def get_by_user_pid_and_mask(user_pid, mask) do
-    conditions = [{:==, :user_pid, user_pid}, {:==, :mask, mask}]
-
-    Memento.Query.select(UserSilence, conditions, limit: 1)
+    Memento.Query.match(UserSilence, {user_pid, mask, :_})
     |> case do
-      [silence_entry] -> {:ok, silence_entry}
+      [silence_entry | _] -> {:ok, silence_entry}
       [] -> {:error, :user_silence_not_found}
     end
   end

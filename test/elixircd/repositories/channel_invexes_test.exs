@@ -42,6 +42,24 @@ defmodule ElixIRCd.Repositories.ChannelInvexesTest do
   end
 
   describe "get_by_channel_name_key_and_mask/2" do
+    test "finds equivalent IRC masks while preserving their original spelling" do
+      original = "Nick[!Ident{|}~@Host{|}~"
+      channel = insert(:channel, name: "#room")
+      invex = insert(:channel_invex, channel: channel, mask: original)
+
+      assert invex.mask_key == "nick[!ident{|}~@host{|}~"
+
+      assert {:ok, ^invex} =
+               Memento.transaction!(fn ->
+                 ChannelInvexes.get_by_channel_name_key_and_mask("#room", "nICK{!iDENT{|}~@hOST{|}~")
+               end)
+
+      assert {:error, :channel_invex_not_found} =
+               Memento.transaction!(fn ->
+                 ChannelInvexes.get_by_channel_name_key_and_mask("#other", "nICK{!iDENT{|}~@hOST{|}~")
+               end)
+    end
+
     test "gets a channel invex by the channel name key and mask" do
       channel_invex = insert(:channel_invex)
 

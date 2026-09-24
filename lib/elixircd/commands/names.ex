@@ -185,10 +185,7 @@ defmodule ElixIRCd.Commands.Names do
   defp handle_free_users(user) do
     all_users = Users.get_all()
 
-    channel_users =
-      UserChannels.get_by_channel_names(Channels.get_all() |> Enum.map(& &1.name))
-      |> Enum.map(& &1.user_pid)
-      |> MapSet.new()
+    channel_users = UserChannels.all_user_pids()
 
     free_users =
       all_users

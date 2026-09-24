@@ -4,6 +4,9 @@ defmodule ElixIRCd.Repositories.ReadMarkers do
   alias ElixIRCd.Tables.ReadMarker
   alias Memento.Query.Data
 
+  @owner_key_position Enum.find_index(ReadMarker.__info__().attributes, fn attr -> attr == :owner_key end) + 1
+  @updated_at_position Enum.find_index(ReadMarker.__info__().attributes, fn attr -> attr == :updated_at end) + 1
+
   @doc "Fetches an owner's marker for a normalized target."
   @spec get(String.t(), String.t()) :: {:ok, ReadMarker.t()} | {:error, :read_marker_not_found}
   def get(owner_key, target_key) do
@@ -74,12 +77,21 @@ defmodule ElixIRCd.Repositories.ReadMarkers do
   @doc "Removes abandoned session markers after a restart or missed disconnect."
   @spec prune_abandoned_sessions(DateTime.t(), MapSet.t(String.t())) :: :ok
   def prune_abandoned_sessions(cutoff, active_sessions) do
-    Memento.Query.all(ReadMarker)
-    |> Enum.filter(fn marker ->
-      String.starts_with?(marker.owner_key, "session:") and
-        not MapSet.member?(active_sessions, marker.owner_key) and
-        DateTime.compare(marker.updated_at, cutoff) == :lt
-    end)
+    :mnesia.foldl(
+      fn raw, acc ->
+        owner_key = elem(raw, @owner_key_position)
+
+        if String.starts_with?(owner_key, "session:") and
+             not MapSet.member?(active_sessions, owner_key) and
+             DateTime.compare(elem(raw, @updated_at_position), cutoff) == :lt do
+          [Data.load(raw) | acc]
+        else
+          acc
+        end
+      end,
+      [],
+      ReadMarker
+    )
     |> Enum.each(&Memento.Query.delete_record/1)
 
     :ok

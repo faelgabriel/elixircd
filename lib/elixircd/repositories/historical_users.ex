@@ -23,7 +23,7 @@ defmodule ElixIRCd.Repositories.HistoricalUsers do
   def get_by_nick(nick, nil) do
     nick_key = CaseMapping.normalize(nick)
 
-    Memento.Query.select(HistoricalUser, {:==, :nick_key, nick_key})
+    Memento.Query.match(HistoricalUser, {nick_key, :_, :_, :_, :_, :_})
     |> Enum.sort_by(& &1.created_at, {:desc, DateTime})
   end
 

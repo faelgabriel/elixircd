@@ -1,7 +1,7 @@
 defmodule ElixIRCd.Utils.ProtocolTest do
   @moduledoc false
 
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   import ElixIRCd.Factory
 
@@ -204,6 +204,37 @@ defmodule ElixIRCd.Utils.ProtocolTest do
       # Should NOT match against cloaked hostname (not using it)
       assert false == Protocol.match_user_mask?(user, "nick!~user@elixir-ABC123.example.com")
       assert false == Protocol.match_user_mask?(user, "*!*@elixir-*.example.com")
+    end
+  end
+
+  describe "mask_key/1" do
+    setup do
+      settings = Application.fetch_env!(:elixircd, :settings)
+      on_exit(fn -> Application.put_env(:elixircd, :settings, settings) end)
+      {:ok, settings: settings}
+    end
+
+    test "folds only the nickname with the configured IRC casemapping", %{settings: settings} do
+      for {mapping, expected_nick} <- [
+            {:ascii, "nick{"},
+            {:strict_rfc1459, "nick["},
+            {:rfc1459, "nick["}
+          ] do
+        Application.put_env(:elixircd, :settings, Keyword.put(settings, :case_mapping, mapping))
+
+        assert Protocol.mask_key("Nick{!Id{|}~@Host{|}~") == "#{expected_nick}!id{|}~@host{|}~"
+        refute Protocol.mask_key("Nick{!Id{|}~@Host{|}~") == Protocol.mask_key("Nick{!Id[\\]^@Host[\\]^")
+      end
+    end
+
+    test "normalizes complete and abbreviated hostmasks, preserving extban type", %{settings: settings} do
+      Application.put_env(:elixircd, :settings, Keyword.put(settings, :case_mapping, :rfc1459))
+
+      assert Protocol.mask_key("Nick") == Protocol.mask_key("nICK!*@*")
+      assert Protocol.mask_key("$a:Account{") == "$a:account["
+      assert Protocol.mask_key("$r:RealName") == "$r:realname"
+      assert Protocol.mask_key("$m:Nick!Id@HOST") == "$m:nick!id@host"
+      refute Protocol.mask_key("$m:Nick!Id@HOST") == Protocol.mask_key("Nick!Id@HOST")
     end
   end
 

@@ -50,11 +50,10 @@ defmodule ElixIRCd.Repositories.UserChannels do
           {:ok, UserChannel.t()} | {:error, :user_channel_not_found}
   def get_by_user_pid_and_channel_name(user_pid, channel_name) do
     channel_name_key = CaseMapping.normalize(channel_name)
-    conditions = [{:==, :user_pid, user_pid}, {:==, :channel_name_key, channel_name_key}]
 
-    Memento.Query.select(UserChannel, conditions, limit: 1)
+    Memento.Query.match(UserChannel, {user_pid, channel_name_key, :_, :_})
     |> case do
-      [user_channel] -> {:ok, user_channel}
+      [user_channel | _] -> {:ok, user_channel}
       [] -> {:error, :user_channel_not_found}
     end
   end
@@ -64,7 +63,7 @@ defmodule ElixIRCd.Repositories.UserChannels do
   """
   @spec get_by_user_pid(pid()) :: [UserChannel.t()]
   def get_by_user_pid(user_pid) do
-    Memento.Query.select(UserChannel, {:==, :user_pid, user_pid})
+    Memento.Query.match(UserChannel, {user_pid, :_, :_, :_})
   end
 
   @doc """
@@ -74,11 +73,9 @@ defmodule ElixIRCd.Repositories.UserChannels do
   def get_by_user_pids([]), do: []
 
   def get_by_user_pids(pids) do
-    conditions =
-      Enum.map(pids, fn pid -> {:==, :user_pid, pid} end)
-      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
-
-    Memento.Query.select(UserChannel, conditions)
+    pids
+    |> Enum.uniq()
+    |> Enum.flat_map(&Memento.Query.match(UserChannel, {&1, :_, :_, :_}))
   end
 
   @doc """
@@ -87,7 +84,7 @@ defmodule ElixIRCd.Repositories.UserChannels do
   @spec get_by_channel_name(String.t()) :: [UserChannel.t()]
   def get_by_channel_name(channel_name) do
     channel_name_key = CaseMapping.normalize(channel_name)
-    Memento.Query.select(UserChannel, {:==, :channel_name_key, channel_name_key})
+    Memento.Query.match(UserChannel, {:_, channel_name_key, :_, :_})
   end
 
   @doc """
@@ -97,14 +94,10 @@ defmodule ElixIRCd.Repositories.UserChannels do
   def get_by_channel_names([]), do: []
 
   def get_by_channel_names(channel_names) do
-    conditions =
-      Enum.map(channel_names, fn channel_name ->
-        channel_name_key = CaseMapping.normalize(channel_name)
-        {:==, :channel_name_key, channel_name_key}
-      end)
-      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
-
-    Memento.Query.select(UserChannel, conditions)
+    channel_names
+    |> Enum.map(&CaseMapping.normalize/1)
+    |> Enum.uniq()
+    |> Enum.flat_map(&Memento.Query.match(UserChannel, {:_, &1, :_, :_}))
   end
 
   @doc """
@@ -149,5 +142,11 @@ defmodule ElixIRCd.Repositories.UserChannels do
       user_channel = Data.load(user_channel_record)
       DateTime.compare(user_channel.created_at, since_time) != :lt
     end)
+  end
+
+  @doc "Returns the users present in any channel without loading membership records."
+  @spec all_user_pids() :: MapSet.t(pid())
+  def all_user_pids do
+    :mnesia.foldl(fn record, acc -> MapSet.put(acc, elem(record, 1)) end, MapSet.new(), UserChannel)
   end
 end

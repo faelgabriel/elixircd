@@ -139,30 +139,30 @@ defmodule ElixIRCd.Factory do
   end
 
   def build(:channel_ban, attrs) do
-    %ChannelBan{
+    ChannelBan.new(%{
       channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       mask: Map.get(attrs, :mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
-    }
+    })
   end
 
   def build(:channel_except, attrs) do
-    %ChannelExcept{
+    ChannelExcept.new(%{
       channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       mask: Map.get(attrs, :mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
-    }
+    })
   end
 
   def build(:channel_invex, attrs) do
-    %ChannelInvex{
+    ChannelInvex.new(%{
       channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       mask: Map.get(attrs, :mask, "nick!user@host"),
       setter: Map.get(attrs, :setter, "setter"),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
-    }
+    })
   end
 
   def build(:channel_invite, attrs) do

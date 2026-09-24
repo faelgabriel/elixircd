@@ -302,6 +302,17 @@ defmodule ElixIRCd.Utils.Protocol do
     "#{empty_mask_part_to_wildcard(nick)}!#{empty_mask_part_to_wildcard(user)}@#{empty_mask_part_to_wildcard(host)}"
   end
 
+  @doc "Canonical equality key for a stored IRC list mask, without changing its wire spelling."
+  @spec mask_key(String.t()) :: String.t()
+  def mask_key("$a:" <> account), do: "$a:" <> CaseMapping.normalize(account)
+  def mask_key("$r:" <> realname), do: "$r:" <> CaseMapping.normalize(realname)
+  def mask_key("$m:" <> mask), do: "$m:" <> mask_key(mask)
+
+  def mask_key(mask) do
+    {nick, ident, host} = mask |> normalize_mask() |> parse_mask_parts()
+    "#{CaseMapping.normalize(nick)}!#{ascii_lower(ident)}@#{ascii_lower(host)}"
+  end
+
   @spec empty_mask_part_to_wildcard(String.t()) :: String.t()
   defp empty_mask_part_to_wildcard(""), do: "*"
   defp empty_mask_part_to_wildcard(mask), do: mask

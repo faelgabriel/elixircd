@@ -39,7 +39,14 @@ defmodule ElixIRCd.Commands.Markread do
   defp propagate(user, message) do
     owner = ReadMarkers.owner_key(user)
 
-    Users.get_all()
+    sessions =
+      if user.identified_as_key do
+        Users.get_by_identified_as(user.identified_as)
+      else
+        [user]
+      end
+
+    sessions
     |> Enum.filter(fn candidate ->
       ReadMarkers.owner_key(candidate) == owner and "draft/read-marker" in candidate.capabilities
     end)

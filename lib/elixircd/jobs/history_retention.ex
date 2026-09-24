@@ -29,8 +29,7 @@ defmodule ElixIRCd.Jobs.HistoryRetention do
 
     Memento.transaction!(fn ->
       active_sessions =
-        Users.get_all()
-        |> Enum.filter(&is_nil(&1.identified_as))
+        Users.get_unidentified()
         |> Enum.map(&History.identity_key/1)
         |> Enum.filter(&is_binary/1)
         |> MapSet.new()

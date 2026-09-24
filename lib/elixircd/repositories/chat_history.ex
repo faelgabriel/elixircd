@@ -4,6 +4,8 @@ defmodule ElixIRCd.Repositories.ChatHistory do
   alias ElixIRCd.Tables.ChatHistory
   alias Memento.Query.Data
 
+  @occurred_at_position Enum.find_index(ChatHistory.__info__().attributes, fn attr -> attr == :occurred_at end) + 1
+
   @doc "Creates and persists a history entry."
   @spec create(map()) :: ChatHistory.t()
   def create(attrs), do: attrs |> ChatHistory.new() |> Memento.Query.write()
@@ -22,6 +24,22 @@ defmodule ElixIRCd.Repositories.ChatHistory do
     ChatHistory
     |> Memento.Query.all()
     |> Enum.sort_by(fn entry -> {DateTime.to_unix(entry.occurred_at, :microsecond), entry.msgid} end)
+  end
+
+  @doc "Scans history for entries older than the cutoff, loading only matches as structs."
+  @spec expired(DateTime.t()) :: [ChatHistory.t()]
+  def expired(cutoff) do
+    :mnesia.foldl(
+      fn raw, acc ->
+        if DateTime.compare(elem(raw, @occurred_at_position), cutoff) == :lt do
+          [Data.load(raw) | acc]
+        else
+          acc
+        end
+      end,
+      [],
+      ChatHistory
+    )
   end
 
   @doc "Lists direct history involving one stable identity using Mnesia indices."

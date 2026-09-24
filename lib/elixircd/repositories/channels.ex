@@ -70,11 +70,11 @@ defmodule ElixIRCd.Repositories.Channels do
   def get_by_names([]), do: []
 
   def get_by_names(names) do
-    conditions =
-      Enum.map(names, fn name -> {:==, :name_key, CaseMapping.normalize(name)} end)
-      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
-
-    Memento.Query.select(Channel, conditions)
+    names
+    |> Enum.map(&CaseMapping.normalize/1)
+    |> Enum.uniq()
+    |> Enum.map(&Memento.Query.read(Channel, &1))
+    |> Enum.reject(&is_nil/1)
   end
 
   @doc """

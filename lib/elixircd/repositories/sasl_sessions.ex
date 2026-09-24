@@ -4,6 +4,9 @@ defmodule ElixIRCd.Repositories.SaslSessions do
   """
 
   alias ElixIRCd.Tables.SaslSession
+  alias Memento.Query.Data
+
+  @created_at_position Enum.find_index(SaslSession.__info__().attributes, fn attr -> attr == :created_at end) + 1
 
   @doc """
   Create a new SASL session and write it to the database.
@@ -32,6 +35,22 @@ defmodule ElixIRCd.Repositories.SaslSessions do
   @spec get_all() :: [SaslSession.t()]
   def get_all do
     Memento.Query.all(SaslSession)
+  end
+
+  @doc "Get sessions older than the cutoff without materializing current sessions."
+  @spec get_expired(DateTime.t()) :: [SaslSession.t()]
+  def get_expired(cutoff) do
+    :mnesia.foldl(
+      fn raw, acc ->
+        if DateTime.compare(elem(raw, @created_at_position), cutoff) == :lt do
+          [Data.load(raw) | acc]
+        else
+          acc
+        end
+      end,
+      [],
+      SaslSession
+    )
   end
 
   @doc """

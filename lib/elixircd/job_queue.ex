@@ -137,7 +137,7 @@ defmodule ElixIRCd.JobQueue do
       all_jobs = Jobs.get_all()
       now = DateTime.utc_now()
 
-      stats = get_stats()
+      stats = stats_from_jobs(all_jobs)
 
       overdue_jobs = count_overdue_jobs(all_jobs, now)
       jobs_by_type = group_jobs_by_type(all_jobs)
@@ -167,9 +167,7 @@ defmodule ElixIRCd.JobQueue do
   @spec list_jobs(keyword()) :: [Job.t()]
   def list_jobs(opts \\ []) do
     Memento.transaction!(fn ->
-      Jobs.get_all()
-      |> maybe_filter_by_status(opts[:status])
-      |> maybe_filter_by_type(opts[:type])
+      list_candidates(opts)
       |> maybe_limit(opts[:limit])
     end)
   end
@@ -312,13 +310,26 @@ defmodule ElixIRCd.JobQueue do
     :ok
   end
 
-  @spec maybe_filter_by_status([Job.t()], atom() | nil) :: [Job.t()]
-  defp maybe_filter_by_status(jobs, nil), do: jobs
-  defp maybe_filter_by_status(jobs, status), do: Enum.filter(jobs, &(&1.status == status))
+  @spec list_candidates(keyword()) :: [Job.t()]
+  defp list_candidates(opts) do
+    case {opts[:status], opts[:type]} do
+      {nil, nil} -> Jobs.get_all()
+      {status, nil} -> Jobs.get_by_status(status)
+      {nil, module} -> Jobs.get_by_module(module)
+      {status, module} -> Jobs.get_by_module(module) |> Enum.filter(&(&1.status == status))
+    end
+  end
 
-  @spec maybe_filter_by_type([Job.t()], module() | nil) :: [Job.t()]
-  defp maybe_filter_by_type(jobs, nil), do: jobs
-  defp maybe_filter_by_type(jobs, module), do: Enum.filter(jobs, &(&1.module == module))
+  @spec stats_from_jobs([Job.t()]) :: map()
+  defp stats_from_jobs(jobs) do
+    %{
+      total: length(jobs),
+      queued: count_by_status(jobs, :queued),
+      processing: count_by_status(jobs, :processing),
+      done: count_by_status(jobs, :done),
+      failed: count_by_status(jobs, :failed)
+    }
+  end
 
   @spec maybe_limit([Job.t()], pos_integer() | nil) :: [Job.t()]
   defp maybe_limit(jobs, nil), do: jobs

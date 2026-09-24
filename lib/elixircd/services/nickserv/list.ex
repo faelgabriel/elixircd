@@ -33,7 +33,7 @@ defmodule ElixIRCd.Services.Nickserv.List do
       notify(user, "LIST pattern is too long or contains invalid text.")
     else
       nicks =
-        RegisteredNicks.get_all()
+        candidates(pattern)
         |> Enum.sort_by(&CaseMapping.normalize(&1.nickname))
         |> Enum.reduce_while([], fn registered_nick, matches ->
           collect_match(matches, registered_nick, user, pattern, nickserv[:max_list_results])
@@ -41,6 +41,18 @@ defmodule ElixIRCd.Services.Nickserv.List do
         |> Enum.reverse()
 
       notify_list_result(user, nicks)
+    end
+  end
+
+  @spec candidates(String.t()) :: [RegisteredNick.t()]
+  defp candidates(pattern) do
+    if String.contains?(pattern, ["*", "?"]) do
+      RegisteredNicks.get_all()
+    else
+      case RegisteredNicks.get_by_nickname(pattern) do
+        {:ok, registered_nick} -> [registered_nick]
+        {:error, :registered_nick_not_found} -> []
+      end
     end
   end
 

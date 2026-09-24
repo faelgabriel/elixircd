@@ -42,6 +42,24 @@ defmodule ElixIRCd.Repositories.ChannelExceptsTest do
   end
 
   describe "get_by_channel_name_key_and_mask/2" do
+    test "finds equivalent IRC masks while preserving their original spelling" do
+      original = "Nick[!Ident{|}~@Host{|}~"
+      channel = insert(:channel, name: "#room")
+      except = insert(:channel_except, channel: channel, mask: original)
+
+      assert except.mask_key == "nick[!ident{|}~@host{|}~"
+
+      assert {:ok, ^except} =
+               Memento.transaction!(fn ->
+                 ChannelExcepts.get_by_channel_name_key_and_mask("#room", "nICK{!iDENT{|}~@hOST{|}~")
+               end)
+
+      assert {:error, :channel_except_not_found} =
+               Memento.transaction!(fn ->
+                 ChannelExcepts.get_by_channel_name_key_and_mask("#other", "nICK{!iDENT{|}~@hOST{|}~")
+               end)
+    end
+
     test "gets a channel except by the channel name key and mask" do
       channel_except = insert(:channel_except)
 

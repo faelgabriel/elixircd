@@ -6,11 +6,14 @@ defmodule ElixIRCd.Tables.ChannelExcept do
   Users matching an except mask are allowed to join even if they match a ban.
   """
 
-  @enforce_keys [:channel_name_key, :mask, :setter, :created_at]
+  alias ElixIRCd.Utils.Protocol
+
+  @enforce_keys [:channel_name_key, :mask, :mask_key, :setter, :created_at]
   use Memento.Table,
     attributes: [
       :channel_name_key,
       :mask,
+      :mask_key,
       :setter,
       :created_at
     ],
@@ -20,6 +23,7 @@ defmodule ElixIRCd.Tables.ChannelExcept do
   @type t :: %__MODULE__{
           channel_name_key: String.t(),
           mask: String.t(),
+          mask_key: String.t(),
           setter: String.t(),
           created_at: DateTime.t()
         }
@@ -27,6 +31,7 @@ defmodule ElixIRCd.Tables.ChannelExcept do
   @type t_attrs :: %{
           optional(:channel_name_key) => String.t(),
           optional(:mask) => String.t(),
+          optional(:mask_key) => String.t(),
           optional(:setter) => String.t(),
           optional(:created_at) => DateTime.t()
         }
@@ -38,6 +43,7 @@ defmodule ElixIRCd.Tables.ChannelExcept do
   def new(attrs) do
     new_attrs =
       attrs
+      |> Map.put(:mask_key, Protocol.mask_key(Map.fetch!(attrs, :mask)))
       |> Map.put_new(:created_at, DateTime.utc_now())
 
     struct!(__MODULE__, new_attrs)

@@ -490,8 +490,7 @@ defmodule ElixIRCd.History do
     cutoff = retention_cutoff(now)
 
     transactional(fn ->
-      HistoryRepository.all()
-      |> Enum.filter(&(DateTime.compare(&1.occurred_at, cutoff) == :lt))
+      HistoryRepository.expired(cutoff)
       |> Enum.map(&HistoryRepository.delete/1)
       |> length()
     end)

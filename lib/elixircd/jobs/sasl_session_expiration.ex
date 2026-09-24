@@ -53,12 +53,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
     cutoff_time = DateTime.add(DateTime.utc_now(), -timeout_ms, :millisecond)
 
     Memento.transaction!(fn ->
-      expired_sessions =
-        ElixIRCd.Tables.SaslSession
-        |> Memento.Query.all()
-        |> Enum.filter(fn session ->
-          DateTime.compare(session.created_at, cutoff_time) == :lt
-        end)
+      expired_sessions = SaslSessions.get_expired(cutoff_time)
 
       Enum.each(expired_sessions, &cleanup_expired_session/1)
       length(expired_sessions)

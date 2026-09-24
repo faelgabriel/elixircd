@@ -10,6 +10,10 @@ defmodule ElixIRCd.Repositories.Users do
   alias ElixIRCd.Utils.CaseMapping
   alias Memento.Query.Data
 
+  @match_all List.duplicate(:_, length(User.__info__().attributes)) |> List.to_tuple()
+  @nick_key_position Enum.find_index(User.__info__().attributes, fn attr -> attr == :nick_key end)
+  @account_key_position Enum.find_index(User.__info__().attributes, fn attr -> attr == :identified_as_key end)
+
   @doc """
   Create a new user and write it to the database.
   """
@@ -69,10 +73,10 @@ defmodule ElixIRCd.Repositories.Users do
   def get_by_nick(nick) do
     nick_key = CaseMapping.normalize(nick)
 
-    Memento.Query.select(User, {:==, :nick_key, nick_key}, limit: 1)
+    Memento.Query.match(User, put_elem(@match_all, @nick_key_position, nick_key))
     |> case do
       [] -> {:error, :user_not_found}
-      [user] -> {:ok, user}
+      [user | _] -> {:ok, user}
     end
   end
 
@@ -83,8 +87,13 @@ defmodule ElixIRCd.Repositories.Users do
   def get_by_identified_as(account_name) do
     identified_as_key = CaseMapping.normalize(account_name)
 
-    :mnesia.index_read(User, identified_as_key, :identified_as_key)
-    |> Enum.map(&Data.load/1)
+    Memento.Query.match(User, put_elem(@match_all, @account_key_position, identified_as_key))
+  end
+
+  @doc "Get users without an identified account using the existing account index."
+  @spec get_unidentified() :: [User.t()]
+  def get_unidentified do
+    Memento.Query.match(User, put_elem(@match_all, @account_key_position, nil))
   end
 
   @doc """
@@ -94,11 +103,10 @@ defmodule ElixIRCd.Repositories.Users do
   def get_by_pids([]), do: []
 
   def get_by_pids(pids) do
-    conditions =
-      Enum.map(pids, fn pid -> {:==, :pid, pid} end)
-      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
-
-    Memento.Query.select(User, conditions)
+    pids
+    |> Enum.uniq()
+    |> Enum.map(&Memento.Query.read(User, &1))
+    |> Enum.reject(&is_nil/1)
   end
 
   @doc """
@@ -108,13 +116,10 @@ defmodule ElixIRCd.Repositories.Users do
   def get_by_nicks([]), do: []
 
   def get_by_nicks(nicks) do
-    nick_keys = Enum.map(nicks, &CaseMapping.normalize/1)
-
-    conditions =
-      Enum.map(nick_keys, fn nick_key -> {:==, :nick_key, nick_key} end)
-      |> Enum.reduce(fn condition, acc -> {:or, condition, acc} end)
-
-    Memento.Query.select(User, conditions)
+    nicks
+    |> Enum.map(&CaseMapping.normalize/1)
+    |> Enum.uniq()
+    |> Enum.flat_map(&Memento.Query.match(User, put_elem(@match_all, @nick_key_position, &1)))
   end
 
   @doc """

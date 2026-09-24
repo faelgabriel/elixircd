@@ -42,6 +42,24 @@ defmodule ElixIRCd.Repositories.ChannelBansTest do
   end
 
   describe "get_by_channel_name_key_and_mask/2" do
+    test "finds equivalent IRC masks while preserving their original spelling" do
+      original = "Nick[!Ident{|}~@Host{|}~"
+      channel = insert(:channel, name: "#room")
+      ban = insert(:channel_ban, channel: channel, mask: original)
+
+      assert ban.mask_key == "nick[!ident{|}~@host{|}~"
+
+      assert {:ok, ^ban} =
+               Memento.transaction!(fn ->
+                 ChannelBans.get_by_channel_name_key_and_mask("#room", "nICK{!iDENT{|}~@hOST{|}~")
+               end)
+
+      assert {:error, :channel_ban_not_found} =
+               Memento.transaction!(fn ->
+                 ChannelBans.get_by_channel_name_key_and_mask("#other", "nICK{!iDENT{|}~@hOST{|}~")
+               end)
+    end
+
     test "gets a channel ban by the channel name key and mask" do
       channel_ban = insert(:channel_ban)
 
