@@ -7,6 +7,17 @@ defmodule ElixIRCd.Utils.MessageFilterTest do
 
   alias ElixIRCd.Utils.MessageFilter
 
+  describe "private_ctcp_blocked?/2" do
+    test "blocks private CTCP under +T but allows ACTION and regular messages" do
+      recipient = build(:user, modes: [:T])
+
+      assert MessageFilter.private_ctcp_blocked?(recipient, "\x01VERSION\x01")
+      refute MessageFilter.private_ctcp_blocked?(recipient, "\x01ACTION waves\x01")
+      refute MessageFilter.private_ctcp_blocked?(recipient, "hello")
+      refute MessageFilter.private_ctcp_blocked?(%{recipient | modes: []}, "\x01VERSION\x01")
+    end
+  end
+
   describe "should_silence_message?/2" do
     test "returns true when message matches silence mask exactly" do
       Memento.transaction!(fn ->

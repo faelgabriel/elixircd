@@ -7,7 +7,7 @@ defmodule ElixIRCd.ModeRegistry do
   from client input.
   """
 
-  @user_modes [:B, :g, :H, :i, :o, :r, :R, :s, :w, :x, :Z]
+  @user_modes [:B, :g, :H, :i, :o, :r, :R, :s, :T, :w, :x, :Z]
   @channel_modes [
     :b,
     :C,
@@ -45,7 +45,7 @@ defmodule ElixIRCd.ModeRegistry do
   @channel_characters_by_mode Map.new(@channel_modes, &{&1, Atom.to_string(&1)})
   @membership_characters_by_mode Map.new(@membership_modes, &{&1, Atom.to_string(&1)})
 
-  @type user_mode :: :B | :g | :H | :i | :o | :r | :R | :s | :w | :x | :Z
+  @type user_mode :: :B | :g | :H | :i | :o | :r | :R | :s | :T | :w | :x | :Z
   @type channel_mode ::
           :b
           | :C

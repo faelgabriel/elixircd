@@ -12,6 +12,14 @@ defmodule ElixIRCd.Utils.MessageFilter do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.MessageText
+
+  @doc "Whether the recipient's +T mode blocks a private CTCP, excluding ACTION."
+  @spec private_ctcp_blocked?(User.t(), String.t()) :: boolean()
+  def private_ctcp_blocked?(recipient, message_text) do
+    :T in recipient.modes and MessageText.ctcp_message?(message_text) and
+      not MessageText.ctcp_action?(message_text)
+  end
 
   @doc """
   Check if a message should be silenced for a user.

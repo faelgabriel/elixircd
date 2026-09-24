@@ -111,7 +111,7 @@ defmodule ElixIRCd.Commands.Help do
       "Membership: +o operator and +v voice. MODE <channel> b/e/I lists entries."
     ],
     "USERMODES" => [
-      "+B bot, +g caller-ID, +H hidden operator, +i invisible, +o IRC operator, +r identified, +R registered-only private messages.",
+      "+B bot, +g caller-ID, +H hidden operator, +i invisible, +o IRC operator, +r identified, +R registered-only private messages, +T blocks private CTCP.",
       "+s server notices, +w wallops, +x cloaked hostname, +Z secure transport. Server-managed modes cannot be self-granted."
     ],
     "EXTBANS" => [

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Notice do
       check_channel_mute: 3,
       check_registered_only_speak: 3,
       filter_op_moderated_users: 3,
+      private_ctcp_blocked?: 2,
       should_silence_message?: 2
     ]
 
@@ -120,6 +121,9 @@ defmodule ElixIRCd.Commands.Notice do
   defp handle_user_message(user, receiver_user, target_nick, message_text, message_tags) do
     cond do
       should_silence_message?(receiver_user, user) ->
+        :ok
+
+      private_ctcp_blocked?(receiver_user, message_text) ->
         :ok
 
       :R in receiver_user.modes and :r not in user.modes ->

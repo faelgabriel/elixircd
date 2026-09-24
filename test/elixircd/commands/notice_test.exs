@@ -13,6 +13,33 @@ defmodule ElixIRCd.Commands.NoticeTest do
   alias ElixIRCd.Service
 
   describe "handle/2" do
+    test "user mode +T blocks private CTCP notices but allows ACTION" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        recipient = insert(:user, modes: [:T])
+
+        assert :ok =
+                 Notice.handle(sender, %Message{
+                   command: "NOTICE",
+                   params: [recipient.nick],
+                   trailing: "\x01VERSION\x01"
+                 })
+
+        assert_sent_messages([])
+
+        assert :ok =
+                 Notice.handle(sender, %Message{
+                   command: "NOTICE",
+                   params: [recipient.nick],
+                   trailing: "\x01ACTION waves\x01"
+                 })
+
+        assert_sent_messages([
+          {recipient.pid, ":#{user_mask(sender)} NOTICE #{recipient.nick} :\x01ACTION waves\x01\r\n"}
+        ])
+      end)
+    end
+
     test "handles NOTICE command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)

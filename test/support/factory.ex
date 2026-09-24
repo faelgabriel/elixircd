@@ -170,6 +170,7 @@ defmodule ElixIRCd.Factory do
       user_pid: Map.get(attrs, :user_pid, new_pid()),
       channel_name_key: Map.get(attrs, :channel_name_key, "#channel_#{random_string(5)}"),
       setter: Map.get(attrs, :setter, "setter"),
+      bypass_ban: Map.get(attrs, :bypass_ban, false),
       created_at: Map.get(attrs, :created_at, DateTime.utc_now())
     }
   end

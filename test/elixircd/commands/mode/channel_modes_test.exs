@@ -9,6 +9,8 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
 
   alias ElixIRCd.Commands.Mode.ChannelModes
   alias ElixIRCd.Repositories.ChannelBans
+  alias ElixIRCd.Repositories.ChannelExcepts
+  alias ElixIRCd.Repositories.ChannelInvexes
   alias ElixIRCd.Repositories.UserChannels
 
   describe "display_modes/1" do
@@ -473,6 +475,39 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
   end
 
   describe "apply_mode_changes/3" do
+    for {mode, repository} <- [b: ChannelBans, e: ChannelExcepts, I: ChannelInvexes] do
+      test "deduplicates and removes +#{mode} masks using IRC casemapping while preserving stored spelling" do
+        user = insert(:user)
+        channel = insert(:channel, modes: [])
+        original_mask = "Nick{!*@HOST"
+        equivalent_mask = "nICK[!*@host"
+        mode = unquote(mode)
+        repository = unquote(repository)
+
+        {_channel, added} =
+          Memento.transaction!(fn ->
+            ChannelModes.apply_mode_changes(user, channel, add: {mode, original_mask})
+          end)
+
+        assert added == [add: {mode, original_mask}]
+
+        {_channel, duplicate} =
+          Memento.transaction!(fn ->
+            ChannelModes.apply_mode_changes(user, channel, add: {mode, equivalent_mask})
+          end)
+
+        assert duplicate == []
+
+        {_channel, removed} =
+          Memento.transaction!(fn ->
+            ChannelModes.apply_mode_changes(user, channel, remove: {mode, equivalent_mask})
+          end)
+
+        assert removed == [remove: {mode, original_mask}]
+        assert Memento.transaction!(fn -> repository.get_by_channel_name_key(channel.name_key) end) == []
+      end
+    end
+
     test "ignores an IRC-operator-only mode that a service adds twice" do
       channel = insert(:channel, modes: [:O])
 

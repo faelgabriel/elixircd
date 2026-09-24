@@ -14,6 +14,33 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
+    test "user mode +T blocks private CTCP but allows ACTION" do
+      Memento.transaction!(fn ->
+        sender = insert(:user)
+        recipient = insert(:user, modes: [:T])
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{
+                   command: "PRIVMSG",
+                   params: [recipient.nick],
+                   trailing: "\x01VERSION\x01"
+                 })
+
+        assert_sent_messages([])
+
+        assert :ok =
+                 Privmsg.handle(sender, %Message{
+                   command: "PRIVMSG",
+                   params: [recipient.nick],
+                   trailing: "\x01ACTION waves\x01"
+                 })
+
+        assert_sent_messages([
+          {recipient.pid, ":#{user_mask(sender)} PRIVMSG #{recipient.nick} :\x01ACTION waves\x01\r\n"}
+        ])
+      end)
+    end
+
     test "handles PRIVMSG command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)

@@ -468,6 +468,23 @@ defmodule ElixIRCd.Commands.JoinTest do
       end)
     end
 
+    test "consumes an operator invite when bypassing a ban" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel)
+        insert(:channel_ban, channel: channel, mask: "#{user.nick}!*@*")
+        insert(:channel_invite, channel: channel, user: user, bypass_ban: true)
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+        assert {:ok, _membership} = UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+
+        assert {:error, :channel_invite_not_found} =
+                 ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name)
+
+        assert_sent_message_contains(user.pid, ":#{user_mask(user)} JOIN #{channel.name}\r\n")
+      end)
+    end
+
     test "handles JOIN command with a user banned from the channel" do
       Memento.transaction!(fn ->
         user = insert(:user)

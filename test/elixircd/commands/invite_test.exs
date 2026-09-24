@@ -194,6 +194,36 @@ defmodule ElixIRCd.Commands.InviteTest do
       end)
     end
 
+    test "only an operator invite grants the one-use ban bypass and a later member invite preserves it" do
+      Memento.transaction!(fn ->
+        operator = insert(:user)
+        member = insert(:user)
+        target = insert(:user)
+        channel = insert(:channel)
+        insert(:user_channel, user: operator, channel: channel, modes: [:o])
+        insert(:user_channel, user: member, channel: channel)
+        message = %Message{command: "INVITE", params: [target.nick, channel.name]}
+
+        assert :ok = Invite.handle(member, message)
+
+        assert {:ok, %{bypass_ban: false}} =
+                 ChannelInvites.get_by_user_pid_and_channel_name(target.pid, channel.name)
+
+        assert :ok = Invite.handle(operator, message)
+
+        assert {:ok, %{bypass_ban: true}} =
+                 ChannelInvites.get_by_user_pid_and_channel_name(target.pid, channel.name)
+
+        assert :ok = Invite.handle(member, message)
+
+        assert {:ok, %{bypass_ban: true}} =
+                 ChannelInvites.get_by_user_pid_and_channel_name(target.pid, channel.name)
+
+        assert_sent_message_contains(member.pid, ~r/ 341 /)
+        assert_sent_message_contains(operator.pid, ~r/ 341 /)
+      end)
+    end
+
     test "handles INVITE command with target user already on channel" do
       Memento.transaction!(fn ->
         user = insert(:user)

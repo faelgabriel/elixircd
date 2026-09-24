@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.ChannelBans do
   """
 
   alias ElixIRCd.Tables.ChannelBan
+  alias ElixIRCd.Utils.CaseMapping
 
   @doc """
   Create a new channel ban and write it to the database.
@@ -36,12 +37,13 @@ defmodule ElixIRCd.Repositories.ChannelBans do
   @spec get_by_channel_name_key_and_mask(String.t(), String.t()) ::
           {:ok, ChannelBan.t()} | {:error, :channel_ban_not_found}
   def get_by_channel_name_key_and_mask(channel_name_key, mask) do
-    conditions = [{:==, :channel_name_key, channel_name_key}, {:==, :mask, mask}]
+    mask_key = CaseMapping.normalize(mask)
 
-    Memento.Query.select(ChannelBan, conditions, limit: 1)
+    get_by_channel_name_key(channel_name_key)
+    |> Enum.find(&(CaseMapping.normalize(&1.mask) == mask_key))
     |> case do
-      [channel_ban] -> {:ok, channel_ban}
-      [] -> {:error, :channel_ban_not_found}
+      %ChannelBan{} = channel_ban -> {:ok, channel_ban}
+      nil -> {:error, :channel_ban_not_found}
     end
   end
 end

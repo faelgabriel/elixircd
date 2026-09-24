@@ -267,6 +267,7 @@ These modes apply to users globally, affecting their visibility, privileges, and
 - **+r (Registered)**: The current nickname is registered to the authenticated account, including grouped aliases. ✅
 - **+R (Registered Only)**: Only allows messages from registered users. ✅
 - **+s (Snomask)**: Allows reception of server notices. ✅
+- **+T (No CTCP)**: Blocks private CTCP messages, while allowing CTCP ACTION. ✅
 - **+w (Wallops)**: Enables reception of global announcements or alerts from network operators. ✅
 - **+x (Cloaked Hostname)**: Masks the user's hostname for privacy. ✅
 - **+Z (Secure Connection)**: Indicates the user's connection is encrypted with SSL/TLS. ✅

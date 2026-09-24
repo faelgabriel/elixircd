@@ -492,9 +492,16 @@ defmodule ElixIRCd.Commands.Join do
       ChannelExcepts.get_by_channel_name_key(channel.name_key)
       |> Enum.any?(&match_user_mask?(user, &1.mask))
 
+    has_operator_invite =
+      case ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+        {:ok, invite} -> invite.bypass_ban == true
+        {:error, :channel_invite_not_found} -> false
+      end
+
     cond do
       not is_banned -> :ok
       is_excepted -> :ok
+      has_operator_invite -> :ok
       true -> {:error, :user_banned}
     end
   end

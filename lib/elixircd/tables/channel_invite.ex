@@ -9,6 +9,7 @@ defmodule ElixIRCd.Tables.ChannelInvite do
       :user_pid,
       :channel_name_key,
       :setter,
+      :bypass_ban,
       :created_at
     ],
     index: [:channel_name_key],
@@ -18,6 +19,7 @@ defmodule ElixIRCd.Tables.ChannelInvite do
           user_pid: pid(),
           channel_name_key: String.t(),
           setter: String.t(),
+          bypass_ban: boolean(),
           created_at: DateTime.t()
         }
 
@@ -25,6 +27,7 @@ defmodule ElixIRCd.Tables.ChannelInvite do
           optional(:user_pid) => pid(),
           optional(:channel_name_key) => String.t(),
           optional(:setter) => String.t(),
+          optional(:bypass_ban) => boolean(),
           optional(:created_at) => DateTime.t()
         }
 
@@ -35,6 +38,7 @@ defmodule ElixIRCd.Tables.ChannelInvite do
   def new(attrs) do
     new_attrs =
       attrs
+      |> Map.put_new(:bypass_ban, false)
       |> Map.put_new(:created_at, DateTime.utc_now())
 
     struct!(__MODULE__, new_attrs)

@@ -6,7 +6,7 @@ defmodule ElixIRCd.ModeRegistryTest do
   alias ElixIRCd.ModeRegistry
 
   test "defines the complete mode sets in wire order" do
-    assert ModeRegistry.modes(:user) == [:B, :g, :H, :i, :o, :r, :R, :s, :w, :x, :Z]
+    assert ModeRegistry.modes(:user) == [:B, :g, :H, :i, :o, :r, :R, :s, :T, :w, :x, :Z]
 
     assert ModeRegistry.modes(:channel) == [
              :b,

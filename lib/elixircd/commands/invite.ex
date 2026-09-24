@@ -62,7 +62,7 @@ defmodule ElixIRCd.Commands.Invite do
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
          :ok <- check_user_permission(user_channel, channel),
          :ok <- check_target_user_on_channel(target_user, channel) do
-      add_channel_invite(user, target_user, channel)
+      add_channel_invite(user, target_user, channel, user_channel)
       send_user_invite_success(user, target_user, channel)
     else
       {:error, error} -> send_user_invite_error(error, user, target_nick, channel_name)
@@ -109,9 +109,21 @@ defmodule ElixIRCd.Commands.Invite do
     end
   end
 
-  @spec add_channel_invite(User.t(), User.t(), Channel.t()) :: :ok
-  defp add_channel_invite(user, target_user, channel) do
-    ChannelInvites.create(%{user_pid: target_user.pid, channel_name_key: channel.name_key, setter: user_mask(user)})
+  @spec add_channel_invite(User.t(), User.t(), Channel.t(), UserChannel.t()) :: :ok
+  defp add_channel_invite(user, target_user, channel, user_channel) do
+    existing_bypass? =
+      case ChannelInvites.get_by_user_pid_and_channel_name(target_user.pid, channel.name) do
+        {:ok, invite} -> invite.bypass_ban == true
+        {:error, :channel_invite_not_found} -> false
+      end
+
+    ChannelInvites.create(%{
+      user_pid: target_user.pid,
+      channel_name_key: channel.name_key,
+      setter: user_mask(user),
+      bypass_ban: :o in user_channel.modes or existing_bypass?
+    })
+
     :ok
   end
 

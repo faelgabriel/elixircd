@@ -414,9 +414,9 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
           {[mode_change()], [mode()]}
   defp apply_channel_ban_mode(user, mode_change, channel_name_key, applied_changes, new_modes) do
     updated_mode_change = normalize_mode_change_for_channel_ban(mode_change)
+    {applied?, displayed_mode_change} = channel_ban_mode_applied?(user, updated_mode_change, channel_name_key)
 
-    channel_ban_mode_applied?(user, updated_mode_change, channel_name_key)
-    |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
+    update_mode_changes(applied?, displayed_mode_change, applied_changes, new_modes)
   end
 
   @spec should_ignore_invalid_mode?(ModeRegistry.channel_mode(), mode()) :: boolean()
@@ -560,7 +560,7 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
     end
   end
 
-  @spec channel_ban_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
+  @spec channel_ban_mode_applied?(User.t(), mode_change(), String.t()) :: {boolean(), mode_change()}
   defp channel_ban_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name_key) do
     channel_ban =
       ChannelBans.get_by_channel_name_key_and_mask(channel_name_key, mode_value)
@@ -569,10 +569,11 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         {:error, :channel_ban_not_found} -> nil
       end
 
-    channel_ban_mode_changed?(user, mode_change, channel_ban, channel_name_key)
+    {channel_ban_mode_changed?(user, mode_change, channel_ban, channel_name_key),
+     display_stored_list_mask(mode_change, channel_ban)}
   end
 
-  @spec channel_ban_mode_changed?(User.t(), mode_change(), ChannelBan.t(), String.t()) :: boolean()
+  @spec channel_ban_mode_changed?(User.t(), mode_change(), ChannelBan.t() | nil, String.t()) :: boolean()
   defp channel_ban_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name_key) do
     ChannelBans.create(%{channel_name_key: channel_name_key, mask: mode_value, setter: user_mask(user)})
     true
@@ -590,12 +591,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
           {[mode_change()], [mode()]}
   defp apply_channel_except_mode(user, mode_change, channel_name_key, applied_changes, new_modes) do
     updated_mode_change = normalize_mode_change_for_channel_list(mode_change)
+    {applied?, displayed_mode_change} = channel_except_mode_applied?(user, updated_mode_change, channel_name_key)
 
-    channel_except_mode_applied?(user, updated_mode_change, channel_name_key)
-    |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
+    update_mode_changes(applied?, displayed_mode_change, applied_changes, new_modes)
   end
 
-  @spec channel_except_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
+  @spec channel_except_mode_applied?(User.t(), mode_change(), String.t()) :: {boolean(), mode_change()}
   defp channel_except_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name_key) do
     channel_except =
       ChannelExcepts.get_by_channel_name_key_and_mask(channel_name_key, mode_value)
@@ -604,7 +605,8 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         {:error, :channel_except_not_found} -> nil
       end
 
-    channel_except_mode_changed?(user, mode_change, channel_except, channel_name_key)
+    {channel_except_mode_changed?(user, mode_change, channel_except, channel_name_key),
+     display_stored_list_mask(mode_change, channel_except)}
   end
 
   @spec channel_except_mode_changed?(User.t(), mode_change(), ChannelExcept.t() | nil, String.t()) :: boolean()
@@ -625,12 +627,12 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
           {[mode_change()], [mode()]}
   defp apply_channel_invex_mode(user, mode_change, channel_name_key, applied_changes, new_modes) do
     updated_mode_change = normalize_mode_change_for_channel_list(mode_change)
+    {applied?, displayed_mode_change} = channel_invex_mode_applied?(user, updated_mode_change, channel_name_key)
 
-    channel_invex_mode_applied?(user, updated_mode_change, channel_name_key)
-    |> update_mode_changes(updated_mode_change, applied_changes, new_modes)
+    update_mode_changes(applied?, displayed_mode_change, applied_changes, new_modes)
   end
 
-  @spec channel_invex_mode_applied?(User.t(), mode_change(), String.t()) :: boolean()
+  @spec channel_invex_mode_applied?(User.t(), mode_change(), String.t()) :: {boolean(), mode_change()}
   defp channel_invex_mode_applied?(user, {_action, {_mode_flag, mode_value}} = mode_change, channel_name_key) do
     channel_invex =
       ChannelInvexes.get_by_channel_name_key_and_mask(channel_name_key, mode_value)
@@ -639,8 +641,14 @@ defmodule ElixIRCd.Commands.Mode.ChannelModes do
         {:error, :channel_invex_not_found} -> nil
       end
 
-    channel_invex_mode_changed?(user, mode_change, channel_invex, channel_name_key)
+    {channel_invex_mode_changed?(user, mode_change, channel_invex, channel_name_key),
+     display_stored_list_mask(mode_change, channel_invex)}
   end
+
+  @spec display_stored_list_mask(mode_change(), ChannelBan.t() | ChannelExcept.t() | ChannelInvex.t() | nil) ::
+          mode_change()
+  defp display_stored_list_mask({:remove, {mode, _mask}}, %{mask: stored_mask}), do: {:remove, {mode, stored_mask}}
+  defp display_stored_list_mask(mode_change, _entry), do: mode_change
 
   @spec channel_invex_mode_changed?(User.t(), mode_change(), ChannelInvex.t() | nil, String.t()) :: boolean()
   defp channel_invex_mode_changed?(user, {:add, {_mode_flag, mode_value}}, nil, channel_name_key) do
