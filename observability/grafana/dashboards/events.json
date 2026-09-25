@@ -1,0 +1,352 @@
+{
+  "uid": "elixircd-events",
+  "title": "ElixIRCd | Event logs",
+  "description": "Filter structured JSON events by family and event suffix while keeping aggregate context and unstructured runtime logs. The suffix field accepts a regular expression; .* shows all names.",
+  "tags": [
+    "elixircd",
+    "observability"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 2,
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "event_family",
+        "label": "Event family",
+        "type": "custom",
+        "description": "Select the structured event family; All includes every family.",
+        "query": "audit,authentication,connection,protocol,job,email,account,channel,service,observability",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": false,
+        "hide": 0,
+        "skipUrlSync": false,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [
+          {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          {
+            "selected": false,
+            "text": "audit",
+            "value": "audit"
+          },
+          {
+            "selected": false,
+            "text": "authentication",
+            "value": "authentication"
+          },
+          {
+            "selected": false,
+            "text": "connection",
+            "value": "connection"
+          },
+          {
+            "selected": false,
+            "text": "protocol",
+            "value": "protocol"
+          },
+          {
+            "selected": false,
+            "text": "job",
+            "value": "job"
+          },
+          {
+            "selected": false,
+            "text": "email",
+            "value": "email"
+          },
+          {
+            "selected": false,
+            "text": "account",
+            "value": "account"
+          },
+          {
+            "selected": false,
+            "text": "channel",
+            "value": "channel"
+          },
+          {
+            "selected": false,
+            "text": "service",
+            "value": "service"
+          },
+          {
+            "selected": false,
+            "text": "observability",
+            "value": "observability"
+          }
+        ]
+      },
+      {
+        "name": "event_suffix",
+        "label": "Event suffix regex",
+        "type": "textbox",
+        "description": "Match the part after the family, such as failed|crashed; .* matches every name.",
+        "query": ".*",
+        "current": {
+          "selected": true,
+          "text": ".*",
+          "value": ".*"
+        },
+        "options": [],
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "links": [
+    {
+      "type": "dashboards",
+      "title": "ElixIRCd dashboards",
+      "tags": [
+        "elixircd"
+      ],
+      "asDropdown": true,
+      "includeVars": false,
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Top selected event types",
+      "type": "bargauge",
+      "description": "Structured event names matching the family and suffix filters, counted over the selected time range.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "topk(15, sum by (metadata_event) (count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^(${event_family:raw})[.](${event_suffix:raw})$\" [$__auto])))",
+          "refId": "A",
+          "legendFormat": "{{metadata_event}}",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Selected event severity / interval",
+      "type": "timeseries",
+      "description": "Severity of structured events matching the filters; unstructured logs remain in the panel below.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (severity) (count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^(${event_family:raw})[.](${event_suffix:raw})$\" [$__auto]))",
+          "refId": "A",
+          "legendFormat": "{{severity}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 15,
+      "title": "Selected event types / interval",
+      "type": "timeseries",
+      "description": "Trends by structured event name for the selected family and suffix.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (metadata_event) (count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^(${event_family:raw})[.](${event_suffix:raw})$\" [$__auto]))",
+          "refId": "A",
+          "legendFormat": "{{metadata_event}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 16,
+      "title": "All event families / interval",
+      "type": "timeseries",
+      "description": "Unfiltered context across the main event families. Jobs and email are grouped here; the filters above can isolate either family.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^audit[.].+\" [$__auto]))",
+          "refId": "A",
+          "legendFormat": "Audit"
+        },
+        {
+          "expr": "sum(count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^authentication[.].+\" [$__auto]))",
+          "refId": "B",
+          "legendFormat": "Authentication"
+        },
+        {
+          "expr": "sum(count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^(connection|protocol)[.].+\" [$__auto]))",
+          "refId": "C",
+          "legendFormat": "Connections and protocol"
+        },
+        {
+          "expr": "sum(count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^(job|email)[.].+\" [$__auto]))",
+          "refId": "D",
+          "legendFormat": "Jobs and email"
+        },
+        {
+          "expr": "sum(count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^(account|channel|service)[.].+\" [$__auto]))",
+          "refId": "E",
+          "legendFormat": "Accounts and services"
+        },
+        {
+          "expr": "sum(count_over_time({service=\"elixircd\"} | json | metadata_event=~\"^observability[.].+\" [$__auto]))",
+          "refId": "F",
+          "legendFormat": "Observability"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 17,
+      "title": "Selected event logs",
+      "type": "logs",
+      "description": "Structured log entries matching the family and suffix filters. Expand a line to inspect its JSON fields.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "expr": "{service=\"elixircd\"} | json | metadata_event=~\"^(${event_family:raw})[.](${event_suffix:raw})$\" | line_format \"{{.message}}\"",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 13,
+      "title": "Other runtime logs",
+      "type": "logs",
+      "description": "Logs without a structured event name; these are intentionally independent of the filters above.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "{service=\"elixircd\"} | json | metadata_event!~\".+\" | line_format \"{{.message}}\"",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      }
+    }
+  ]
+}

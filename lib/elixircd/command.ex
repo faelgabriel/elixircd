@@ -77,6 +77,10 @@ defmodule ElixIRCd.Command do
   @spec names() :: [String.t()]
   def names, do: @commands |> Map.keys() |> Enum.sort()
 
+  @doc "Checks whether an IRC command has a handler without building the name list."
+  @spec known?(String.t()) :: boolean()
+  def known?(command), do: Map.has_key?(@commands, command)
+
   @doc """
   Defines the behaviour for handling incoming IRC commands.
   """

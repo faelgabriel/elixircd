@@ -50,9 +50,7 @@ defmodule ElixIRCd.Jobs.RegisteredChannelExpiration do
 
   @spec remove_expired_channel(RegisteredChannel.t()) :: String.t()
   defp remove_expired_channel(registered_channel) do
-    channel_name = registered_channel.name
-    last_used_at = registered_channel.last_used_at || registered_channel.created_at
-    Logger.info("Expiring channel: #{channel_name} (last used: #{last_used_at})")
+    Logger.debug("Expiring channel", event: "channel.registered_expiring")
 
     RegisteredChannels.delete(registered_channel)
     registered_channel.name

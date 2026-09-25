@@ -7,6 +7,7 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.Service
@@ -45,14 +46,25 @@ defmodule ElixIRCd.Server.Dispatcher do
   end
 
   defp broadcast_message(message, context, targets, source_user, any_message_tags?, persist_history?) do
+    observe_authentication_reply(message)
+
     record_history? =
       persist_history? and match?(%User{}, context) and History.enabled?() and History.recordable?(message)
 
     prepared = prepare_message(message, context, any_message_tags? or record_history?)
     prepared = if record_history?, do: maybe_put_history_time(prepared), else: prepared
     if record_history?, do: History.record(prepared, context)
+    if source_user, do: observe_delivery(prepared, length(targets))
     Enum.each(targets, &broadcast_to_target(prepared, &1, source_user))
   end
+
+  defp observe_authentication_reply(%Message{command: :err_saslfail}),
+    do: Observability.defer([:authentication], %{count: 1}, %{method: :sasl, result: :failure})
+
+  defp observe_authentication_reply(%Message{command: :rpl_saslsuccess}),
+    do: Observability.defer([:authentication], %{count: 1}, %{method: :sasl, result: :success})
+
+  defp observe_authentication_reply(_message), do: :ok
 
   @doc "Returns the configured IRC server source name."
   @spec server_prefix() :: String.t()
@@ -135,6 +147,7 @@ defmodule ElixIRCd.Server.Dispatcher do
       prepared = prepare_message(message, sender, any_message_tags? or History.enabled?())
       prepared = maybe_put_history_time(prepared)
       History.record(prepared, sender)
+      observe_delivery(prepared, length(delivery_targets) + if(separate_echo?, do: 1, else: 0))
       send_delivery_messages(prepared, delivery_targets, sender)
 
       if separate_echo?, do: broadcast_to_target(prepared, sender, sender)
@@ -144,6 +157,12 @@ defmodule ElixIRCd.Server.Dispatcher do
 
     :ok
   end
+
+  defp observe_delivery(%Message{command: command}, recipients) when command in ["PRIVMSG", "NOTICE", "TAGMSG"] do
+    Observability.defer([:message], %{count: 1, recipients: recipients}, %{kind: command})
+  end
+
+  defp observe_delivery(_message, _recipients), do: :ok
 
   @doc false
   @spec prepare_multiline_message(Message.t(), User.t()) :: Message.t()

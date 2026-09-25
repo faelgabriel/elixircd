@@ -48,7 +48,7 @@ defmodule ElixIRCd.Jobs.VerificationEmailDeliveryTest do
           assert error_message =~ "Failed to send verification email"
         end)
 
-      assert log_output =~ "Failed to send verification email"
+      assert log_output =~ "Verification email failed"
     end
   end
 end

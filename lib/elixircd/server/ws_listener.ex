@@ -5,8 +5,7 @@ defmodule ElixIRCd.Server.WsListener do
 
   @behaviour WebSock
 
-  require Logger
-
+  alias ElixIRCd.Observability
   alias ElixIRCd.Server.Connection
 
   @type state :: %{
@@ -19,8 +18,6 @@ defmodule ElixIRCd.Server.WsListener do
   @impl WebSock
   def init(%{conn: conn, transport: transport} = state) do
     pid = self()
-
-    Logger.debug("New connection: #{inspect(pid)} (#{inspect(transport)})")
 
     connection_data = %{
       ip_address: conn.remote_ip,
@@ -54,6 +51,8 @@ defmodule ElixIRCd.Server.WsListener do
   @impl WebSock
   def handle_info({:broadcast, message}, %{subprotocol: subprotocol} = state) when is_binary(message) do
     frame = create_outgoing_frame(message, subprotocol)
+    # WebSock writes this frame after the callback returns; record queue volume only.
+    Observability.emit([:transport, :queued], %{bytes: byte_size(message)}, %{transport: state.transport})
     {:push, frame, state}
   end
 

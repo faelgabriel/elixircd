@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Commands.OperWallTest do
+defmodule ElixIRCd.Commands.OperwallTest do
   @moduledoc false
 
   use ElixIRCd.DataCase, async: false

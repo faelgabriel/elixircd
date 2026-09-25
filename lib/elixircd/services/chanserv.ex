@@ -36,6 +36,10 @@ defmodule ElixIRCd.Services.Chanserv do
     "DEVOICE" => Chanserv.Devoice
   }
 
+  @doc "Supported subcommands for bounded operational labels."
+  @spec names() :: [String.t()]
+  def names, do: Map.keys(@service_commands)
+
   @impl true
   def handle(user, [service_command | rest_commands]) do
     normalized_service_command = String.upcase(service_command)

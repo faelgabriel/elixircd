@@ -50,9 +50,7 @@ defmodule ElixIRCd.Jobs.UnverifiedNickExpiration do
 
   @spec remove_expired_nick(RegisteredNick.t()) :: String.t()
   defp remove_expired_nick(registered_nick) do
-    nickname = registered_nick.nickname
-    created_at = registered_nick.created_at
-    Logger.info("Expiring unverified nickname: #{nickname} (registered: #{created_at})")
+    Logger.debug("Expiring unverified nickname", event: "account.unverified_expiring")
 
     RegisteredNicks.delete(registered_nick)
     registered_nick.nickname

@@ -15,6 +15,7 @@ defmodule ElixIRCd.Config.Schema do
   def fields do
     [
       {ElixIRCd.Utils.Mailer, {:variant, :adapter, mailer_variants()}},
+      observability: {:keyword, [enabled: :boolean, port: :port, bind_ip: :ip_tuple]},
       server: {:keyword, [name: :text, hostname: :server_hostname, password: {:nullable, :text}, motd: :motd]},
       settings: {:keyword, [case_mapping: {:enum, [:rfc1459, :strict_rfc1459, :ascii]}, utf8_only: :boolean]},
       compatibility:

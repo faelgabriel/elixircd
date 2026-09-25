@@ -26,6 +26,40 @@ defmodule ElixIRCd.JobQueueTest do
     end
   end
 
+  defmodule CrashingJobModule do
+    @behaviour ElixIRCd.Jobs.JobBehavior
+
+    @impl true
+    def run(_job), do: raise("private job payload")
+  end
+
+  test "a crashing job becomes a bounded failure and the queue continues" do
+    job = JobQueue.enqueue(CrashingJobModule, %{}, max_attempts: 1)
+    test_pid = self()
+    handler = "crashing-job-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:elixircd, :job],
+        fn _event, _measurements, metadata, _config ->
+          send(test_pid, {:job_result, metadata.result})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    log = capture_log(fn -> assert {:noreply, %{}} = JobQueue.handle_info(:poll_jobs, %{}) end)
+    assert_received {:job_result, :crashed}
+    assert log =~ "Job crashed"
+    refute log =~ "private job payload"
+
+    assert {:ok, updated_job} = Memento.transaction!(fn -> Jobs.get_by_id(job.id) end)
+    assert updated_job.status == :failed
+    assert updated_job.last_error == "execution_crashed"
+  end
+
   @spec wait_until((-> boolean()), non_neg_integer()) :: :ok
   defp wait_until(fun, attempts \\ 50) do
     if fun.() do

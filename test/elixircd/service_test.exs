@@ -8,6 +8,7 @@ defmodule ElixIRCd.ServiceTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Service
+  alias ElixIRCd.Services.Chanserv
   alias ElixIRCd.Services.Nickserv
 
   describe "service_implemented?/1" do
@@ -58,6 +59,27 @@ defmodule ElixIRCd.ServiceTest do
       end)
 
       assert :ok = Service.dispatch(user, "nickserv", command_list)
+    end
+
+    test "records a bounded ChanServ command label", %{user: user} do
+      test_pid = self()
+      handler = "chanserv-command-#{System.unique_integer([:positive])}"
+
+      :ok =
+        :telemetry.attach(
+          handler,
+          [:elixircd, :service],
+          fn _event, _measurements, metadata, _config ->
+            send(test_pid, {:service, metadata})
+          end,
+          nil
+        )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+      stub(Chanserv, :handle, fn _user, _command_list -> :ok end)
+
+      assert :ok = Service.dispatch(user, "CHANSERV", ["REGISTER"])
+      assert_received {:service, %{service: "CHANSERV", command: "REGISTER", result: :handled}}
     end
 
     test "raises error when dispatching to non-existent service", %{user: user} do

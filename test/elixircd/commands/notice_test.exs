@@ -861,4 +861,34 @@ defmodule ElixIRCd.Commands.NoticeTest do
       end)
     end
   end
+
+  test "empty NOTICE is silently discarded" do
+    Memento.transaction!(fn ->
+      user = insert(:user)
+      target = insert(:user)
+      assert :ok = Notice.handle(user, %Message{command: "NOTICE", params: [target.nick], trailing: ""})
+      assert_sent_messages([])
+    end)
+  end
+
+  test "NOTICE preserves the +C exemption for channel operators" do
+    Memento.transaction!(fn ->
+      user = insert(:user)
+      target = insert(:user)
+      channel = insert(:channel, modes: [:C])
+      insert(:user_channel, user: user, channel: channel, modes: [:o])
+      insert(:user_channel, user: target, channel: channel)
+
+      assert :ok =
+               Notice.handle(user, %Message{
+                 command: "NOTICE",
+                 params: [channel.name],
+                 trailing: "\x01VERSION\x01"
+               })
+
+      assert_sent_messages([
+        {target.pid, ":#{user_mask(user)} #{"NOTICE"} #{channel.name} :\x01VERSION\x01\r\n"}
+      ])
+    end)
+  end
 end

@@ -8,6 +8,8 @@ defmodule ElixIRCd.Utils.Mailer do
 
   import Bamboo.Email
 
+  alias ElixIRCd.Observability
+
   @doc """
   Sends a verification email for nickname registration.
 
@@ -18,26 +20,47 @@ defmodule ElixIRCd.Utils.Mailer do
   """
   @spec send_verification_email(String.t(), String.t(), String.t()) :: {:ok, Bamboo.Email.t()} | {:error, any()}
   def send_verification_email(to, nickname, verification_code) do
-    new_email()
-    |> to(to)
-    |> from(sender_email())
-    |> subject("#{nickname} IRC Nickname Registration Verification")
-    |> html_body(verification_email_html(nickname, verification_code))
-    |> text_body(verification_email_text(nickname, verification_code))
-    |> deliver_now()
+    started = System.monotonic_time()
+
+    result =
+      new_email()
+      |> to(to)
+      |> from(sender_email())
+      |> subject("#{nickname} IRC Nickname Registration Verification")
+      |> html_body(verification_email_html(nickname, verification_code))
+      |> text_body(verification_email_text(nickname, verification_code))
+      |> deliver_now()
+
+    observe_delivery(:verification, result, started)
+    result
   end
 
   @doc "Sends a stored NickServ memo to the recipient's configured email address."
   @spec send_memo_email(String.t(), String.t(), String.t(), String.t()) ::
           {:ok, Bamboo.Email.t()} | {:error, any()}
   def send_memo_email(to, recipient, sender, body) do
-    new_email()
-    |> to(to)
-    |> from(sender_email())
-    |> subject("IRC memo for #{recipient}")
-    |> html_body(memo_email_html(recipient, sender, body))
-    |> text_body(memo_email_text(recipient, sender, body))
-    |> deliver_now()
+    started = System.monotonic_time()
+
+    result =
+      new_email()
+      |> to(to)
+      |> from(sender_email())
+      |> subject("IRC memo for #{recipient}")
+      |> html_body(memo_email_html(recipient, sender, body))
+      |> text_body(memo_email_text(recipient, sender, body))
+      |> deliver_now()
+
+    observe_delivery(:memo, result, started)
+    result
+  end
+
+  defp observe_delivery(purpose, result, started) do
+    status = if match?({:ok, _}, result), do: :success, else: :failure
+
+    Observability.emit([:email], %{count: 1, duration: System.monotonic_time() - started}, %{
+      purpose: purpose,
+      result: status
+    })
   end
 
   @spec sender_email() :: String.t()

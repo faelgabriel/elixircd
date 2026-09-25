@@ -13,10 +13,10 @@ defmodule ElixIRCd.Commands.Webirc do
   require Logger
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
-  alias ElixIRCd.Utils.Network
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok | {:quit, String.t()}
@@ -263,15 +263,16 @@ defmodule ElixIRCd.Commands.Webirc do
       webirc_used: true
     })
 
-    Logger.info("WEBIRC: Gateway '#{gateway_name}' authenticated for #{original_ip} (#{hostname})")
+    Logger.info("WEBIRC gateway authenticated", event: "authentication.webirc_success")
+    Observability.defer([:authentication], %{count: 1}, %{method: :webirc, result: :success})
 
     :ok
   end
 
   @spec log_failed_attempt(User.t(), String.t()) :: :ok
-  defp log_failed_attempt(user, reason) do
-    gateway_ip = Network.format_ip_address(user.ip_address)
-    Logger.warning("WEBIRC: Failed authentication from #{gateway_ip} - #{reason}")
+  defp log_failed_attempt(_user, _reason) do
+    Logger.warning("WEBIRC gateway rejected", event: "authentication.webirc_failure")
+    Observability.defer([:authentication], %{count: 1}, %{method: :webirc, result: :failure})
     :ok
   end
 

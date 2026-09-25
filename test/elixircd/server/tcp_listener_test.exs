@@ -119,6 +119,29 @@ defmodule ElixIRCd.Server.TcpListenerTest do
     end
   end
 
+  test "failed socket sends do not count bytes as delivered" do
+    test_pid = self()
+    handler = "tcp-send-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:elixircd, :transport, :sent],
+        fn _event, _measurements, _metadata, _config ->
+          send(test_pid, :sent)
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+    stub(Socket, :send, fn _socket, _message -> {:error, :closed} end)
+
+    socket = tcp_socket()
+    state = %{transport: :tcp}
+    assert {:noreply, {^socket, ^state}} = TcpListener.handle_info({:broadcast, "secret"}, {socket, state})
+    refute_received :sent
+  end
+
   describe "handle_info/2" do
     test "handles broadcast messages" do
       socket = tcp_socket()

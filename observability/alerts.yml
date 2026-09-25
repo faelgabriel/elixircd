@@ -1,0 +1,50 @@
+groups:
+  - name: elixircd
+    rules:
+      - alert: ElixIRCdDown
+        expr: up{job="elixircd"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ElixIRCd metrics endpoint is unavailable"
+
+      - alert: ElixIRCdNotReady
+        expr: elixircd_ready == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ElixIRCd is not ready to serve IRC traffic"
+
+      - alert: ElixIRCdTelemetryStale
+        expr: time() - elixircd_sample_timestamp_seconds > 120
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ElixIRCd operational samples are stale"
+
+      - alert: ElixIRCdDataDiskLow
+        expr: elixircd_data_capacity_bytes > 0 and elixircd_data_available_bytes / elixircd_data_capacity_bytes < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Less than 10% space remains on the ElixIRCd data volume"
+
+      - alert: ElixIRCdJobOverdue
+        expr: elixircd_jobs_oldest_queued_age_seconds > 300
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "An ElixIRCd job has been overdue for over five minutes"
+
+      - alert: ElixIRCdJobFailed
+        expr: increase(elixircd_job_total{result="failure"}[15m]) > 0 or increase(elixircd_job_total{result="crashed"}[15m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "An ElixIRCd job failed during the last 15 minutes"

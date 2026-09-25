@@ -1178,4 +1178,25 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
       end)
     end
   end
+
+  test "PRIVMSG preserves the +C exemption for channel operators" do
+    Memento.transaction!(fn ->
+      user = insert(:user)
+      target = insert(:user)
+      channel = insert(:channel, modes: [:C])
+      insert(:user_channel, user: user, channel: channel, modes: [:o])
+      insert(:user_channel, user: target, channel: channel)
+
+      assert :ok =
+               Privmsg.handle(user, %Message{
+                 command: "PRIVMSG",
+                 params: [channel.name],
+                 trailing: "\x01VERSION\x01"
+               })
+
+      assert_sent_messages([
+        {target.pid, ":#{user_mask(user)} #{"PRIVMSG"} #{channel.name} :\x01VERSION\x01\r\n"}
+      ])
+    end)
+  end
 end

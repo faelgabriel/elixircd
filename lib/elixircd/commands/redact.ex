@@ -7,6 +7,7 @@ defmodule ElixIRCd.Commands.Redact do
 
   alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.ChatHistory
   alias ElixIRCd.Repositories.UserChannels
@@ -28,6 +29,7 @@ defmodule ElixIRCd.Commands.Redact do
          true <- redactable_entry?(entry),
          :ok <- authorize(user, entry, target_info),
          _entry <- ChatHistory.redact(entry, DateTime.utc_now()) do
+      Observability.defer([:history], %{count: 1}, %{operation: :redact})
       relay_redaction(user, target_info, msgid, reason)
     else
       {:error, :invalid_target} -> fail(user, "INVALID_TARGET", target, nil, "Invalid redaction target")

@@ -1339,4 +1339,19 @@ defmodule ElixIRCd.Commands.JoinTest do
       end)
     end
   end
+
+  test "a joining away user notifies only eligible observers" do
+    Memento.transaction!(fn ->
+      user = insert(:user, away_message: "Back later")
+      watcher = insert(:user, capabilities: ["away-notify"])
+      legacy = insert(:user)
+      channel = insert(:channel)
+      insert(:user_channel, user: watcher, channel: channel)
+      insert(:user_channel, user: legacy, channel: channel)
+      assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+      assert_sent_messages_count_containing(watcher.pid, ~r/AWAY :Back later/, 1)
+      assert_sent_messages_count_containing(legacy.pid, ~r/AWAY/, 0)
+      assert_sent_messages_count_containing(user.pid, ~r/ 331 /, 0)
+    end)
+  end
 end

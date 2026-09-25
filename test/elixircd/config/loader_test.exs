@@ -130,6 +130,22 @@ defmodule ElixIRCd.Config.LoaderTest do
     assert Enum.all?(new_capabilities, &(upgraded[:capabilities][&1] == false))
   end
 
+  test "observability can be disabled and older configurations retain the enabled default", %{
+    config: config,
+    path: path
+  } do
+    disabled = put_in(config, [:observability, :enabled], false)
+    write_config(path, disabled)
+    assert Loader.read!(path)[:observability][:enabled] == false
+
+    legacy = update_in(config, [:observability], &Keyword.delete(&1, :enabled))
+    write_config(path, legacy)
+    assert Loader.read!(path)[:observability][:enabled] == true
+
+    write_config(path, put_in(config, [:observability, :enabled], :invalid))
+    assert_raise Error, ~r/elixircd.observability.enabled: expected boolean/, fn -> Loader.read!(path) end
+  end
+
   test "rejects malformed legacy roots and SASL sections after safe upgrade", %{config: config, path: path} do
     for invalid <- [
           123,
@@ -165,6 +181,7 @@ defmodule ElixIRCd.Config.LoaderTest do
     for invalid <- [
           put_in(config, [:settings, :case_mapping], :ascii),
           put_in(config, [:server, :hostname], "other.test"),
+          put_in(config, [:observability, :enabled], false),
           Keyword.update!(config, :listeners, &Enum.reverse/1)
         ] do
       write_config(path, invalid)

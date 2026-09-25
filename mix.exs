@@ -66,6 +66,11 @@ defmodule ElixIRCd.MixProject do
       {:memento, "~> 0.6"},
       {:thousand_island, "~> 1.5"},
       {:websock_adapter, "~> 0.6"},
+      {:telemetry, "~> 1.4"},
+      {:telemetry_metrics, "~> 1.1"},
+      {:telemetry_metrics_prometheus_core, "~> 1.2"},
+      {:logger_json, "~> 7.0"},
+      {:jason, "~> 1.4"},
 
       # Email dependencies
       {:bamboo, "~> 2.5"},

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Server.NickEnforcement do
   import ElixIRCd.Utils.Nickserv, only: [belongs_to_account?: 2]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -88,6 +89,7 @@ defmodule ElixIRCd.Server.NickEnforcement do
   @doc "Applies the configured rejection response for a protected nickname."
   @spec reject_nick(User.t(), String.t(), rejection_action()) :: :ok
   def reject_nick(user, input_nick, action) do
+    Observability.defer([:security], %{count: 1}, %{action: :nick_enforcement, result: action})
     send_enforced_nick_error(user, input_nick)
 
     if action == :disconnect do
@@ -286,6 +288,7 @@ defmodule ElixIRCd.Server.NickEnforcement do
 
   @spec force_guest_nick(User.t()) :: :ok
   defp force_guest_nick(user) do
+    Observability.defer([:security], %{count: 1}, %{action: :nick_enforcement, result: :rename})
     NickChange.change(user, available_guest_nick())
     :ok
   end
@@ -350,7 +353,7 @@ defmodule ElixIRCd.Server.NickEnforcement do
 
   @spec transaction((-> result)) :: result when result: var
   defp transaction(operation) do
-    if Memento.Transaction.inside?(), do: operation.(), else: Memento.transaction!(operation)
+    if Memento.Transaction.inside?(), do: operation.(), else: Observability.transaction(operation)
   end
 
   @spec max_delay_seconds() :: pos_integer()

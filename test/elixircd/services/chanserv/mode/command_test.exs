@@ -1,4 +1,4 @@
-defmodule ElixIRCd.Services.Chanserv.ModeCommandsTest do
+defmodule ElixIRCd.Services.Chanserv.Mode.CommandTest do
   @moduledoc false
 
   use ElixIRCd.DataCase, async: false

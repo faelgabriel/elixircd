@@ -15,16 +15,16 @@ defmodule ElixIRCd.Jobs.VerificationEmailDelivery do
   @impl true
   @spec run(Job.t()) :: :ok | {:error, term()}
   def run(%Job{payload: %{"email" => email, "nickname" => nickname, "verification_code" => verification_code}}) do
-    Logger.info("Sending verification email to #{email} for nickname #{nickname}")
+    Logger.info("Sending verification email", event: "email.verification_started")
 
     case send_verification_email(email, nickname, verification_code) do
       {:ok, _email} ->
-        Logger.info("Successfully sent verification email to #{email} for nickname #{nickname}")
+        Logger.info("Verification email sent", event: "email.verification_sent")
         :ok
 
       {:error, reason} ->
         error_message = "Failed to send verification email: #{inspect(reason)}"
-        Logger.error(error_message)
+        Logger.error("Verification email failed", event: "email.verification_failed")
         {:error, error_message}
     end
   end

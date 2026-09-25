@@ -10,7 +10,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   require Logger
 
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, notify_account_change: 2, sync_registered_mode: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
+  alias ElixIRCd.Observability
 
   alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -42,7 +42,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   @spec identify_nickname(User.t(), String.t(), String.t()) :: :ok
   defp identify_nickname(user, nickname, password) do
-    Logger.debug("IDENTIFY attempt for nickname #{nickname} from #{user_mask(user)}")
+    Logger.debug("NickServ IDENTIFY attempt", event: "authentication.attempt")
 
     case RegisteredNicks.get_by_nickname(nickname) do
       {:ok, registered_nick} ->
@@ -103,6 +103,8 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
 
   @spec complete_identification(User.t(), RegisteredNick.t(), RegisteredNick.t()) :: :ok
   defp complete_identification(user, _registered_nick, account_nick) do
+    Observability.defer([:authentication], %{count: 1}, %{method: :nickserv, result: :success})
+
     RegisteredNicks.update(account_nick, %{
       last_seen_at: DateTime.utc_now()
     })
@@ -123,6 +125,7 @@ defmodule ElixIRCd.Services.Nickserv.Identify do
   # One generic message so IDENTIFY cannot enumerate registered accounts.
   @spec handle_failed_identification(User.t()) :: :ok
   defp handle_failed_identification(user) do
+    Observability.defer([:authentication], %{count: 1}, %{method: :nickserv, result: :failure})
     notify(user, "Authentication failed. Invalid nickname or password.")
   end
 end

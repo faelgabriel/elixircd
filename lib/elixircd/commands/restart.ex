@@ -7,9 +7,12 @@ defmodule ElixIRCd.Commands.Restart do
 
   @behaviour ElixIRCd.Command
 
+  require Logger
+
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
@@ -24,8 +27,13 @@ defmodule ElixIRCd.Commands.Restart do
   @impl true
   def handle(user, %{command: "RESTART", trailing: reason}) do
     case irc_operator?(user) do
-      true -> handle_restart(reason)
-      false -> noprivileges_message(user)
+      true ->
+        Observability.defer([:security], %{count: 1}, %{action: :restart, result: :accepted})
+        Logger.warning("server restart requested", event: "audit.restart", actor: user.identified_as || user.nick)
+        handle_restart(reason)
+
+      false ->
+        noprivileges_message(user)
     end
   end
 

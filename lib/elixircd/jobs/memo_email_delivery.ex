@@ -19,7 +19,7 @@ defmodule ElixIRCd.Jobs.MemoEmailDelivery do
           "body" => body
         }
       }) do
-    Logger.info("Sending NickServ memo email to #{email} for #{recipient}")
+    Logger.info("Sending NickServ memo email", event: "email.memo_started")
 
     case send_memo_email(email, recipient, sender, body) do
       {:ok, _email} -> :ok

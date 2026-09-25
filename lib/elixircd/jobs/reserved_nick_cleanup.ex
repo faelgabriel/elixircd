@@ -57,9 +57,7 @@ defmodule ElixIRCd.Jobs.ReservedNickCleanup do
 
   @spec clear_expired_reservation(RegisteredNick.t()) :: String.t()
   defp clear_expired_reservation(registered_nick) do
-    nickname = registered_nick.nickname
-    reserved_until = registered_nick.reserved_until
-    Logger.debug("Clearing expired reservation for nickname: #{nickname} (was reserved until: #{reserved_until})")
+    Logger.debug("Clearing expired nickname reservation", event: "account.reservation_expired")
 
     RegisteredNicks.update(registered_nick, %{reserved_until: nil})
     registered_nick.nickname

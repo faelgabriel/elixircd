@@ -19,6 +19,7 @@
 - [Getting Started](#getting-started)
   - [Demo Server](#demo-server)
   - [Quick Start with Docker](#quick-start-with-docker)
+    - [Observability (Optional)](#observability-optional)
   - [Start from the Source Code](#start-from-the-source-code)
 - [Features](#features)
   - [Commands](#commands)
@@ -175,6 +176,29 @@ You can set the Message of the Day by creating a `motd.txt` file, mounting it in
 #### Full Configuration Example
 
 Check the [default configuration](http://github.com/faelgabriel/elixircd/blob/main/config/elixircd.exs) for a full configuration example.
+
+#### Observability (Optional)
+
+The optional monitoring stack starts ElixIRCd with Prometheus, Grafana, Loki, and Alloy. It uses the same IRC ports as the standalone `docker run` example above, so stop that container before starting the stack. From the repository root, run:
+
+```bash
+docker build -t elixircd:observability .
+export ELIXIRCD_IMAGE=elixircd:observability
+export GRAFANA_ADMIN_PASSWORD='choose-a-long-unique-password'
+docker compose -f observability/compose.yaml up -d
+```
+
+Open <http://127.0.0.1:3000> to view the dashboards. Sign in as `admin` with the password you set above.
+
+Observability is enabled by default and exposes liveness, readiness, and Prometheus metrics on `127.0.0.1:9568` inside the container. Set `observability: [enabled: false, port: 9568, bind_ip: {127, 0, 0, 1}]` in the mounted `config/elixircd.exs` to skip the metrics reporter, periodic sampler, and management HTTP listener. This setting takes effect after a server restart. Normal server logs remain available when it is disabled.
+
+The image and optional Compose stack do not tie Docker container health to the metrics endpoint. The [monitoring stack](observability/README.md) runs Prometheus, Grafana, Loki, and Alloy alongside the IRC server. It includes dashboards, alerts, structured logs, and persistent monitoring data. The monitoring endpoint is bound to the container's private interface when this stack is used; it is never published as a host port.
+
+The screenshot below shows the local Grafana overview during a synthetic multi-client IRC workload. See the [observability dashboard gallery](observability/README.md#dashboard-screenshots) for the detailed views.
+
+![Grafana overview showing server readiness, connection and command rates, memory, and recent logs](observability/screenshots/overview.png)
+
+For configuration, dashboards, logs, alerts, and access details, see the [observability README](observability/README.md).
 
 ### Start from the Source Code
 

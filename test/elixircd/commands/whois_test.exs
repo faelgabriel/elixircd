@@ -493,4 +493,26 @@ defmodule ElixIRCd.Commands.WhoisTest do
       {user.pid, ":irc.test 318 #{user.nick} #{target_nick} :End of /WHOIS list.\r\n"}
     ])
   end
+
+  test "WHOIS resolves a server or local nick target and preserves channel status" do
+    Memento.transaction!(fn ->
+      user = insert(:user)
+      target = insert(:user)
+
+      for {name, modes} <- [{"#oper", [:o, :v]}, {"#voice", [:v]}] do
+        channel = insert(:channel, name: name)
+        insert(:user_channel, user: target, channel: channel, modes: modes)
+      end
+
+      for server <- ["IRC.TEST", target.nick] do
+        assert :ok = Whois.handle(user, %Message{command: "WHOIS", params: [server, target.nick]})
+      end
+
+      assert_sent_messages_count_containing(user.pid, ~r/ 311 /, 2)
+      assert_sent_messages_count_containing(user.pid, ~r/ 319 .*@#oper/, 2)
+      assert_sent_messages_count_containing(user.pid, ~r/ 319 .*\+#voice/, 2)
+      assert :ok = Whois.handle(user, %Message{command: "WHOIS", params: ["missing.server", target.nick]})
+      assert_sent_messages_count_containing(user.pid, ~r/ 402 .*missing.server/, 1)
+    end)
+  end
 end

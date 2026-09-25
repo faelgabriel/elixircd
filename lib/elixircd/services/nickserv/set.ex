@@ -522,8 +522,8 @@ defmodule ElixIRCd.Services.Nickserv.Set do
       {:ok, account} ->
         {:ok, account}
 
-      {:error, error_reason} ->
-        Logger.error("Error updating settings for #{user.identified_as}: #{inspect(error_reason)}")
+      {:error, _error_reason} ->
+        Logger.error("NickServ settings update failed", event: "service.settings_failed")
         :error
     end
   end

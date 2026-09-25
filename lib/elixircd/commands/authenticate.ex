@@ -25,7 +25,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   require Logger
 
   import ElixIRCd.Utils.Nickserv, only: [notify_account_change: 2, sync_registered_mode: 1]
-  import ElixIRCd.Utils.Protocol, only: [user_reply: 1, user_mask: 1, user_mask: 2]
+  import ElixIRCd.Utils.Protocol, only: [user_reply: 1, user_mask: 2]
 
   alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Message
@@ -425,8 +425,8 @@ defmodule ElixIRCd.Commands.Authenticate do
       {:ok, {_authzid, authcid, password}} ->
         authenticate_user(user, authcid, password)
 
-      {:error, reason} ->
-        Logger.debug("SASL PLAIN decode error from #{user_mask(user)}: #{reason}")
+      {:error, _reason} ->
+        Logger.debug("SASL PLAIN decode error", event: "authentication.invalid_format")
 
         %Message{
           command: :err_saslfail,
@@ -469,14 +469,14 @@ defmodule ElixIRCd.Commands.Authenticate do
 
   @spec authenticate_user(User.t(), String.t(), String.t()) :: :ok
   defp authenticate_user(user, username, password) do
-    Logger.debug("SASL authentication attempt for user #{username} from #{user_mask(user)}")
+    Logger.debug("SASL authentication attempt", event: "authentication.attempt")
 
     case RegisteredNicks.get_by_nickname(username) do
       {:ok, registered_nick} ->
         verify_password(user, registered_nick, password)
 
       {:error, :registered_nick_not_found} ->
-        Logger.debug("SASL authentication failed: user #{username} not found")
+        Logger.debug("SASL authentication failed", event: "authentication.failed")
 
         %Message{
           command: :err_saslfail,
@@ -516,13 +516,13 @@ defmodule ElixIRCd.Commands.Authenticate do
     end
   end
 
-  defp complete_password_verification(user, registered_nick, account_nick, password) do
+  defp complete_password_verification(user, _registered_nick, account_nick, password) do
     case Password.verify_and_upgrade(account_nick, password) do
       {:ok, upgraded_account} ->
         complete_sasl_authentication(user, upgraded_account)
 
       :error ->
-        Logger.debug("SASL authentication failed: invalid password for #{registered_nick.nickname}")
+        Logger.debug("SASL authentication failed", event: "authentication.failed")
         send_sasl_failure(user, "SASL authentication failed")
         SaslSessions.delete(user.pid)
     end
@@ -545,7 +545,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   end
 
   defp complete_sasl_authentication(user, registered_nick) do
-    Logger.info("SASL authentication successful for #{registered_nick.nickname} from #{user_mask(user)}")
+    Logger.info("SASL authentication succeeded", event: "authentication.succeeded")
 
     RegisteredNicks.update(registered_nick, %{
       last_seen_at: DateTime.utc_now()
@@ -590,7 +590,7 @@ defmodule ElixIRCd.Commands.Authenticate do
   @spec handle_abort(User.t()) :: :ok
   defp handle_abort(user) do
     if SaslSessions.exists?(user.pid) do
-      Logger.debug("SASL authentication aborted by client #{user_mask(user)}")
+      Logger.debug("SASL authentication aborted", event: "authentication.aborted")
 
       %Message{
         command: :err_saslaborted,

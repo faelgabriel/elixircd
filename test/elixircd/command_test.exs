@@ -361,4 +361,14 @@ defmodule ElixIRCd.CommandTest do
       end
     end
   end
+
+  test "PONG is silent and receives an ACK only when labeled" do
+    Memento.transaction!(fn ->
+      user = insert(:user, capabilities: ["batch", "labeled-response"])
+      assert :ok = Command.dispatch(user, Message.parse!("PONG :token"))
+      assert_sent_messages([])
+      assert :ok = Command.dispatch(user, Message.parse!("@label=pong PONG :token"))
+      assert_sent_messages([{user.pid, "@label=pong :irc.test ACK\r\n"}])
+    end)
+  end
 end

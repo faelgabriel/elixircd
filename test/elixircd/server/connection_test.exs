@@ -524,6 +524,35 @@ defmodule ElixIRCd.Server.ConnectionTest do
   end
 
   describe "handle_disconnect/3" do
+    test "classifies operational close reasons without using the client supplied reason as a metric label" do
+      test_pid = self()
+      handler = "connection-close-#{System.unique_integer([:positive])}"
+
+      :ok =
+        :telemetry.attach(
+          handler,
+          [:elixircd, :connection, :closed],
+          fn _event, _measurements, metadata, _config ->
+            send(test_pid, {:closed, metadata.reason})
+          end,
+          nil
+        )
+
+      on_exit(fn -> :telemetry.detach(handler) end)
+
+      for {wire_reason, metric_reason} <- [
+            {"Connection Timeout", :timeout},
+            {"Connection Error", :transport_error},
+            {"Server Shutdown", :shutdown},
+            {"Excess flood", :rate_limit},
+            {"Connection Closed", :client_closed}
+          ] do
+        user = insert(:user)
+        assert :ok = Connection.handle_disconnect(user.pid, user.transport, wire_reason)
+        assert_received {:closed, ^metric_reason}
+      end
+    end
+
     test "handles disconnect successfully for user not registered" do
       user = insert(:user, registered: false)
 

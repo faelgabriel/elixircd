@@ -15,6 +15,7 @@ defmodule ElixIRCd.Commands.Rehash do
   alias ElixIRCd.Commands.Cap
   alias ElixIRCd.Config.Error
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -69,9 +70,24 @@ defmodule ElixIRCd.Commands.Rehash do
     old_capability_maps = Map.new(Users.get_all(), &{&1.pid, Cap.capability_map(&1)})
 
     case reload_configurations() do
-      :ok -> complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts, old_capability_maps)
-      :error -> configuration_error(user)
-      {:error, error} -> configuration_error(user, error)
+      :ok ->
+        Observability.defer([:config, :reload], %{count: 1}, %{result: :success})
+
+        Logger.info("configuration reloaded",
+          event: "audit.rehash",
+          actor: user.identified_as || user.nick,
+          result: :success
+        )
+
+        complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts, old_capability_maps)
+
+      :error ->
+        Observability.defer([:config, :reload], %{count: 1}, %{result: :failure})
+        configuration_error(user)
+
+      {:error, error} ->
+        Observability.defer([:config, :reload], %{count: 1}, %{result: :failure})
+        configuration_error(user, error)
     end
   end
 
@@ -80,13 +96,13 @@ defmodule ElixIRCd.Commands.Rehash do
     load_configurations()
   rescue
     error in Error ->
-      Logger.error("Failed to reload configuration during REHASH:\n" <> Exception.message(error))
+      Logger.error("Failed to reload configuration during REHASH", event: "audit.rehash", result: :failure)
       {:error, error}
 
     # Configuration evaluation can fail with file, syntax or runtime errors. Keep this boundary around loading, without
     # masking notification failures.
-    error ->
-      Logger.error("Failed to reload configuration during REHASH:\n" <> Exception.format(:error, error, __STACKTRACE__))
+    _error ->
+      Logger.error("Failed to reload configuration during REHASH", event: "audit.rehash", result: :failure)
       :error
   end
 

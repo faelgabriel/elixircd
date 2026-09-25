@@ -3,8 +3,6 @@ defmodule ElixIRCd.Server.Handshake do
   Module for handling IRC server handshake for users.
   """
 
-  require Logger
-
   import ElixIRCd.Utils.Network,
     only: [format_ip_address: 1, lookup_hostname: 1, query_identd: 3]
 
@@ -14,6 +12,7 @@ defmodule ElixIRCd.Server.Handshake do
   alias ElixIRCd.Message
   alias ElixIRCd.Metadata
   alias ElixIRCd.ModeRegistry
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -37,6 +36,8 @@ defmodule ElixIRCd.Server.Handshake do
         handle_handshake(user)
 
       {:error, :bad_password} ->
+        Observability.defer([:handshake], %{count: 1, duration: 0}, %{result: :bad_password, transport: user.transport})
+
         %Message{command: :err_passwdmismatch, params: ["*"], trailing: "Bad Password"}
         |> Dispatcher.broadcast(:server, user)
 
@@ -48,6 +49,7 @@ defmodule ElixIRCd.Server.Handshake do
 
   @spec handle_handshake(User.t()) :: :ok
   defp handle_handshake(user) do
+    started = System.monotonic_time()
     {userid, hostname} = handle_async_data(user)
 
     new_modes = apply_handshake_modes(user.modes)
@@ -70,7 +72,14 @@ defmodule ElixIRCd.Server.Handshake do
     Motd.send_motd(updated_user)
     send_user_modes(updated_user)
     send_connect_snotice(updated_user)
-    Monitor.notify_online(updated_user)
+    result = Monitor.notify_online(updated_user)
+
+    Observability.defer([:handshake], %{count: 1, duration: System.monotonic_time() - started}, %{
+      result: :success,
+      transport: user.transport
+    })
+
+    result
   end
 
   @spec send_connect_snotice(User.t()) :: :ok
@@ -121,15 +130,27 @@ defmodule ElixIRCd.Server.Handshake do
     %Message{command: "NOTICE", params: ["*"], trailing: "*** Checking Ident"}
     |> Dispatcher.broadcast(:server, user)
 
+    started = System.monotonic_time()
+
     query_identd(user.ip_address, user.client_port, user.port_connected)
     |> case do
       {:ok, user_id} ->
+        Observability.emit([:lookup], %{count: 1, duration: System.monotonic_time() - started}, %{
+          kind: :ident,
+          result: :success
+        })
+
         %Message{command: "NOTICE", params: ["*"], trailing: "*** Got Ident response"}
         |> Dispatcher.broadcast(:server, user)
 
         user_id
 
       {:error, _reason} ->
+        Observability.emit([:lookup], %{count: 1, duration: System.monotonic_time() - started}, %{
+          kind: :ident,
+          result: :failure
+        })
+
         %Message{command: "NOTICE", params: ["*"], trailing: "*** No Ident response"}
         |> Dispatcher.broadcast(:server, user)
 
@@ -144,9 +165,14 @@ defmodule ElixIRCd.Server.Handshake do
 
     formatted_ip_address = format_ip_address(user.ip_address)
 
+    started = System.monotonic_time()
+
     case lookup_hostname(user.ip_address) do
       {:ok, hostname} ->
-        Logger.debug("Resolved hostname for #{formatted_ip_address}: #{hostname}")
+        Observability.emit([:lookup], %{count: 1, duration: System.monotonic_time() - started}, %{
+          kind: :dns,
+          result: :success
+        })
 
         %Message{command: "NOTICE", params: ["*"], trailing: "*** Found your hostname"}
         |> Dispatcher.broadcast(:server, user)
@@ -154,7 +180,10 @@ defmodule ElixIRCd.Server.Handshake do
         hostname
 
       _error ->
-        Logger.debug("Could not resolve hostname for #{formatted_ip_address}")
+        Observability.emit([:lookup], %{count: 1, duration: System.monotonic_time() - started}, %{
+          kind: :dns,
+          result: :failure
+        })
 
         %Message{command: "NOTICE", params: ["*"], trailing: "*** Couldn't look up your hostname"}
         |> Dispatcher.broadcast(:server, user)

@@ -12,6 +12,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.History
   alias ElixIRCd.Message
   alias ElixIRCd.Metadata
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.ClientBatches
@@ -40,6 +41,11 @@ defmodule ElixIRCd.Server.Connection do
           optional(:client_port) => :inet.port_number()
         }
 
+  @typep receive_outcome ::
+           {:command, String.t(), integer(), :ok | {:quit, String.t()}}
+           | {:rejected, atom(), :ok}
+           | {:rate_limited, atom(), :ok | {:quit, String.t()}}
+
   # IRCv3 message-tags limits; the 512-byte message budget includes CRLF.
   @max_client_tag_data_length 4094
   @max_message_length 512
@@ -57,14 +63,35 @@ defmodule ElixIRCd.Server.Connection do
   """
   @spec handle_connect(pid :: pid(), transport :: transport(), connection_data :: connection_data()) :: :ok | :close
   def handle_connect(pid, transport, connection_data) do
-    Logger.debug("Connection established: #{inspect(pid)} (#{transport})")
+    connection_id = Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)
+    Logger.metadata(connection_id: connection_id, transport: transport)
+    Logger.debug("connection attempt", event: "connection.attempt")
 
     case RateLimiter.check_connection(connection_data.ip_address) do
-      :ok -> handle_success_connection(pid, transport, connection_data)
-      {:error, :throttled, retry_after_ms} -> handle_throttled_connection(pid, retry_after_ms)
-      {:error, :throttled_exceeded} -> :close
-      {:error, :max_connections_exceeded} -> handle_max_connections_exceeded(pid)
+      :ok ->
+        result = handle_success_connection(pid, transport, connection_data)
+        Process.put({__MODULE__, :connected_at}, System.monotonic_time())
+        Observability.emit([:connection, :accepted], %{count: 1}, %{transport: transport})
+        Logger.debug("connection accepted", event: "connection.accepted")
+        result
+
+      {:error, :throttled, retry_after_ms} ->
+        reject_connection(transport, :throttled)
+        handle_throttled_connection(pid, retry_after_ms)
+
+      {:error, :throttled_exceeded} ->
+        reject_connection(transport, :blocked)
+        :close
+
+      {:error, :max_connections_exceeded} ->
+        reject_connection(transport, :max_connections)
+        handle_max_connections_exceeded(pid)
     end
+  end
+
+  defp reject_connection(transport, reason) do
+    Observability.emit([:connection, :rejected], %{count: 1}, %{transport: transport, reason: reason})
+    Logger.warning("connection rejected", event: "connection.rejected", reason: reason)
   end
 
   @spec handle_max_connections_exceeded(pid :: pid()) :: :close
@@ -101,27 +128,57 @@ defmodule ElixIRCd.Server.Connection do
   """
   @spec handle_receive(pid :: pid(), data :: String.t()) :: :ok | {:quit, String.t()}
   def handle_receive(pid, data) do
-    Logger.debug("<- #{byte_size(data)} bytes")
+    transport = Logger.metadata()[:transport] || :unknown
+    Observability.emit([:transport, :received], %{bytes: byte_size(data)}, %{transport: transport})
 
-    Memento.transaction!(fn ->
-      case Users.get_by_pid(pid) do
-        {:ok, user} -> handle_check_message(user, data)
-        {:error, :user_not_found} -> Logger.debug("User not found on receive message for PID: #{inspect(pid)}")
-      end
-    end)
+    outcome =
+      Observability.transaction(fn ->
+        case Users.get_by_pid(pid) do
+          {:ok, user} -> handle_check_message(user, data)
+          {:error, :user_not_found} -> {:result, :ok}
+        end
+      end)
+
+    case outcome do
+      {:command, command, duration, result} ->
+        Observability.emit([:command, :stop], %{count: 1, duration: duration}, %{
+          command: command,
+          result: if(match?({:quit, _}, result), do: :quit, else: :handled)
+        })
+
+        result
+
+      {:rejected, reason, result} ->
+        Observability.emit([:protocol, :rejected], %{count: 1}, %{reason: reason})
+        result
+
+      {:rate_limited, reason, result} ->
+        Observability.emit([:rate_limit], %{count: 1}, %{scope: :message, reason: reason})
+        result
+
+      {:result, result} ->
+        result
+    end
   end
 
-  @spec handle_check_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
+  @spec handle_check_message(user :: User.t(), data :: String.t()) :: receive_outcome()
   defp handle_check_message(user, data) do
     with :ok <- RateLimiter.check_message(user, data),
          :ok <- validate_input_length(data),
          :ok <- check_utf8_validity(data) do
       handle_valid_message(user, data)
     else
-      {:error, :throttled, retry_after_ms} -> handle_throttled_message(user, data, retry_after_ms)
-      {:error, :throttled_exceeded} -> handle_excess_flood(user)
-      {:error, :invalid_utf8} -> handle_invalid_utf8(user, data)
-      {:error, :input_too_long} -> handle_input_too_long(user)
+      {:error, :throttled, retry_after_ms} ->
+        {:rate_limited, :throttled, handle_throttled_message(user, data, retry_after_ms)}
+
+      {:error, :throttled_exceeded} ->
+        {:rate_limited, :excess_flood, handle_excess_flood(user)}
+
+      {:error, :invalid_utf8} ->
+        {:rejected, :invalid_utf8, handle_invalid_utf8(user, data)}
+
+      {:error, :input_too_long} ->
+        {:rejected, :input_too_long, handle_input_too_long(user)}
     end
   end
 
@@ -138,7 +195,7 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_invalid_utf8(user :: User.t(), data :: String.t()) :: :ok
   defp handle_invalid_utf8(user, data) do
-    Logger.debug("Invalid UTF-8 message from user #{user.nick}: #{inspect(data)}")
+    Logger.debug("invalid UTF-8 input", event: "protocol.invalid_utf8")
 
     description = @invalid_utf8_description
     request = rejected_request(data)
@@ -189,15 +246,19 @@ defmodule ElixIRCd.Server.Connection do
 
   defp discard_invalid_tags(data), do: data
 
-  @spec handle_valid_message(user :: User.t(), data :: String.t()) :: :ok | {:quit, String.t()}
+  @spec handle_valid_message(user :: User.t(), data :: String.t()) :: receive_outcome()
   defp handle_valid_message(user, data) do
     case Message.parse(data) do
       {:ok, message} ->
         updated_user = Users.update(user, %{last_activity: :erlang.system_time(:second)})
-        Command.dispatch(updated_user, message)
+        started = System.monotonic_time()
+        result = Command.dispatch(updated_user, message)
+        command = if Command.known?(message.command), do: message.command, else: "OTHER"
+        {:command, command, System.monotonic_time() - started, result}
 
-      {:error, error} ->
-        Logger.debug("Failed to handle message #{inspect(data)}: #{error}")
+      {:error, _error} ->
+        Logger.debug("invalid IRC line", event: "protocol.parse_error")
+        {:rejected, :parse_error, :ok}
     end
   end
 
@@ -304,7 +365,6 @@ defmodule ElixIRCd.Server.Connection do
   """
   @spec handle_send(pid(), String.t()) :: :ok
   def handle_send(pid, data) do
-    Logger.debug("-> #{inspect(data)}")
     send(pid, {:broadcast, data})
     :ok
   end
@@ -314,20 +374,43 @@ defmodule ElixIRCd.Server.Connection do
   """
   @spec handle_disconnect(pid :: pid(), transport :: transport(), reason :: String.t()) :: :ok
   def handle_disconnect(pid, transport, reason) do
-    Logger.debug("Connection #{inspect(pid)} (#{transport}) terminated: #{inspect(reason)}")
+    close_reason = classify_disconnect(reason)
+    Logger.debug("connection closed", event: "connection.closed", reason: close_reason)
     NickEnforcement.cancel(pid)
 
-    Memento.transaction!(fn ->
-      Users.get_by_pid(pid)
-      |> case do
-        {:ok, user} ->
-          disconnect_user(user, reason)
+    result =
+      Memento.transaction!(fn ->
+        Users.get_by_pid(pid)
+        |> case do
+          {:ok, user} ->
+            disconnect_user(user, reason)
+            :closed
 
-        {:error, :user_not_found} ->
-          :ok
-      end
-    end)
+          {:error, :user_not_found} ->
+            :missing
+        end
+      end)
+
+    if result == :closed do
+      started = Process.get({__MODULE__, :connected_at}) || System.monotonic_time()
+
+      Observability.emit([:connection, :closed], %{count: 1, duration: System.monotonic_time() - started}, %{
+        transport: transport,
+        reason: close_reason
+      })
+
+      Process.delete({__MODULE__, :connected_at})
+    end
+
+    :ok
   end
+
+  defp classify_disconnect("Connection Timeout"), do: :timeout
+  defp classify_disconnect("Connection Error"), do: :transport_error
+  defp classify_disconnect("Server Shutdown"), do: :shutdown
+  defp classify_disconnect("Excess flood"), do: :rate_limit
+  defp classify_disconnect("Connection Closed"), do: :client_closed
+  defp classify_disconnect(_reason), do: :other
 
   defp disconnect_user(user, reason) do
     result = handle_quit(user, reason)

@@ -62,7 +62,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
 
   @spec cleanup_expired_session(ElixIRCd.Tables.SaslSession.t()) :: :ok
   defp cleanup_expired_session(session) do
-    Logger.debug("SASL session timeout for user PID #{inspect(session.user_pid)}")
+    Logger.debug("SASL session timeout", event: "authentication.session_expired")
 
     case Users.get_by_pid(session.user_pid) do
       {:ok, user} ->

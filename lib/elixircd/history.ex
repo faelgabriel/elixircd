@@ -4,6 +4,7 @@ defmodule ElixIRCd.History do
   import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.ChatHistory, as: HistoryRepository
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.UserChannels
@@ -77,6 +78,7 @@ defmodule ElixIRCd.History do
         })
 
         prune_target(target_key, timestamp)
+        Observability.defer([:history], %{count: 1}, %{operation: :write_event})
       end
     end)
 
@@ -110,6 +112,7 @@ defmodule ElixIRCd.History do
         })
 
         prune_target(target.key, occurred_at)
+        Observability.defer([:history], %{count: 1}, %{operation: :write_multiline})
       else
         _ -> :ok
       end
@@ -172,6 +175,7 @@ defmodule ElixIRCd.History do
         })
 
         prune_target(target.key, occurred_at)
+        Observability.defer([:history], %{count: 1}, %{operation: :write_message})
       else
         _ -> :ok
       end
@@ -209,6 +213,7 @@ defmodule ElixIRCd.History do
           ChatHistory.t()
         ]
   def query(target_key, subcommand, first_reference, second_reference, limit, include_events? \\ true) do
+    started = System.monotonic_time()
     cutoff = retention_cutoff(DateTime.utc_now())
 
     entries =
@@ -220,13 +225,20 @@ defmodule ElixIRCd.History do
     second_reference = normalize_reference(entries, second_reference)
     entries = Enum.filter(entries, &(is_nil(&1.redacted_at) and (include_events? or not event?(&1))))
 
-    case subcommand do
-      "LATEST" -> latest(entries, first_reference, limit)
-      "BEFORE" -> entries |> before(first_reference) |> take_last(limit)
-      "AFTER" -> entries |> after_reference(first_reference) |> Enum.take(limit)
-      "BETWEEN" -> between(entries, first_reference, second_reference, limit)
-      "AROUND" -> around(entries, first_reference, limit)
-    end
+    result =
+      case subcommand do
+        "LATEST" -> latest(entries, first_reference, limit)
+        "BEFORE" -> entries |> before(first_reference) |> take_last(limit)
+        "AFTER" -> entries |> after_reference(first_reference) |> Enum.take(limit)
+        "BETWEEN" -> between(entries, first_reference, second_reference, limit)
+        "AROUND" -> around(entries, first_reference, limit)
+      end
+
+    Observability.defer([:history], %{count: 1, duration: System.monotonic_time() - started, rows: length(result)}, %{
+      operation: :query
+    })
+
+    result
   end
 
   @doc "Lists the latest visible activity per history target inside an exclusive time window."
@@ -489,11 +501,15 @@ defmodule ElixIRCd.History do
   def prune_expired(now \\ DateTime.utc_now()) do
     cutoff = retention_cutoff(now)
 
-    transactional(fn ->
-      HistoryRepository.expired(cutoff)
-      |> Enum.map(&HistoryRepository.delete/1)
-      |> length()
-    end)
+    count =
+      transactional(fn ->
+        HistoryRepository.expired(cutoff)
+        |> Enum.map(&HistoryRepository.delete/1)
+        |> length()
+      end)
+
+    Observability.defer([:history], %{count: 1, rows: count}, %{operation: :prune})
+    count
   end
 
   defp take_last(entries, limit), do: Enum.take(entries, -limit)

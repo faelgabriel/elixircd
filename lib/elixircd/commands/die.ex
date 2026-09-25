@@ -7,9 +7,12 @@ defmodule ElixIRCd.Commands.Die do
 
   @behaviour ElixIRCd.Command
 
+  require Logger
+
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, irc_operator?: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.User
@@ -24,8 +27,13 @@ defmodule ElixIRCd.Commands.Die do
   @impl true
   def handle(user, %{command: "DIE", trailing: reason}) do
     case irc_operator?(user) do
-      true -> handle_die(reason)
-      false -> noprivileges_message(user)
+      true ->
+        Observability.defer([:security], %{count: 1}, %{action: :die, result: :accepted})
+        Logger.warning("server shutdown requested", event: "audit.die", actor: user.identified_as || user.nick)
+        handle_die(reason)
+
+      false ->
+        noprivileges_message(user)
     end
   end
 

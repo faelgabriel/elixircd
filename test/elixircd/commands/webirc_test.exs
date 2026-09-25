@@ -163,7 +163,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 10.0.0.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
 
     test "rejects WEBIRC with invalid password" do
@@ -181,7 +181,9 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.100 - invalid password"
+      assert log =~ "WEBIRC gateway rejected"
+      refute log =~ "192.168.1.100"
+      refute log =~ "invalid password"
     end
   end
 
@@ -221,7 +223,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 127.0.0.1 - invalid IP format"
+      assert log =~ "WEBIRC gateway rejected"
     end
 
     test "rejects IPv6 when not allowed" do
@@ -252,7 +254,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 127.0.0.1 - IPv6 not allowed"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -430,7 +432,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.2.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -542,7 +544,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 127.0.0.1 - invalid hostname"
+      assert log =~ "WEBIRC gateway rejected"
     end
 
     test "rejects whitespace-only hostname" do
@@ -560,7 +562,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 127.0.0.1 - invalid hostname"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -625,7 +627,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 127.0.0.1 - invalid hostname"
+      assert log =~ "WEBIRC gateway rejected"
     end
 
     @tag :capture_log
@@ -766,7 +768,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 2001:DC8::1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -806,7 +808,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
 
     test "rejects WEBIRC when gateway IP list contains malformed IP" do
@@ -824,7 +826,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -867,7 +869,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.50 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
 
     test "rejects WEBIRC when CIDR is missing prefix length" do
@@ -885,7 +887,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 10.0.0.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -965,7 +967,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -1009,7 +1011,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 2001:DB8::1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -1054,7 +1056,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -1100,7 +1102,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -1143,7 +1145,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 127.0.0.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -1188,7 +1190,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 
@@ -1231,7 +1233,7 @@ defmodule ElixIRCd.Commands.WebircTest do
           end)
         end)
 
-      assert log =~ "WEBIRC: Failed authentication from 192.168.1.1 - unauthorized gateway"
+      assert log =~ "WEBIRC gateway rejected"
     end
   end
 end

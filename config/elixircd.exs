@@ -1,6 +1,8 @@
 import Config
 
 config :elixircd,
+  # Observability Configuration
+  observability: [enabled: true, port: 9568, bind_ip: {127, 0, 0, 1}],
   # Server Configuration
   server: [
     # Name of the IRC network

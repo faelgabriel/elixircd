@@ -66,9 +66,7 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
 
   @spec remove_expired_nick(RegisteredNick.t()) :: String.t()
   defp remove_expired_nick(registered_nick) do
-    nickname = registered_nick.nickname
-    last_seen_at = registered_nick.last_seen_at || registered_nick.created_at
-    Logger.info("Expiring nickname: #{nickname} (last seen: #{last_seen_at})")
+    Logger.debug("Expiring nickname", event: "account.nickname_expiring")
 
     if !grouped?(registered_nick) do
       logout_account_users(registered_nick.account_name)

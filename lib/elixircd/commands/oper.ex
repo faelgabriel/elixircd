@@ -7,7 +7,10 @@ defmodule ElixIRCd.Commands.Oper do
 
   @behaviour ElixIRCd.Command
 
+  require Logger
+
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Snotice
@@ -29,6 +32,8 @@ defmodule ElixIRCd.Commands.Oper do
   @impl true
   def handle(user, %{command: "OPER", params: [username, password | _rest]}) do
     if valid_irc_operator_credential?(username, password) do
+      Observability.defer([:security], %{count: 1}, %{action: :oper, result: :success})
+      Logger.info("operator authenticated", event: "audit.oper", actor: username, result: :success)
       updated_user = Users.update(user, %{modes: Enum.uniq([:o | user.modes])})
 
       %Message{command: :rpl_youreoper, params: [updated_user.nick], trailing: "You are now an IRC operator"}
@@ -39,6 +44,9 @@ defmodule ElixIRCd.Commands.Oper do
 
       send_oper_success_snotice(updated_user, username)
     else
+      Observability.defer([:security], %{count: 1}, %{action: :oper, result: :failure})
+      Logger.warning("operator authentication failed", event: "audit.oper", result: :failure)
+
       %Message{command: :err_passwdmismatch, params: [user.nick], trailing: "Password incorrect"}
       |> Dispatcher.broadcast(:server, user)
 

@@ -19,11 +19,20 @@ defmodule ElixIRCd.Commands.RehashTest do
 
   describe "handle/2" do
     test "accepts the local hostname case-insensitively" do
+      previous_level = Logger.level()
+      Logger.configure(level: :info)
+      on_exit(fn -> Logger.configure(level: previous_level) end)
+
       Memento.transaction!(fn ->
-        user = insert(:user, modes: [:o])
+        user = insert(:user, modes: [:o], identified_as: "audit_account")
         expect(System, :load_configurations, fn -> :ok end)
 
-        assert :ok = Rehash.handle(user, %Message{command: "REHASH", params: ["IRC.TEST"]})
+        log =
+          capture_log([level: :info], fn ->
+            assert :ok = Rehash.handle(user, %Message{command: "REHASH", params: ["IRC.TEST"]})
+          end)
+
+        assert log =~ "actor=audit_account"
         assert_sent_message_contains(user.pid, ~r/ 382 /)
         assert_sent_message_contains(user.pid, ~r/Rehashing completed/)
       end)
@@ -119,11 +128,9 @@ defmodule ElixIRCd.Commands.RehashTest do
 
           log = capture_log(fn -> assert :ok = ElixIRCd.Command.dispatch(oper, request) end)
           assert log =~ "[error]"
-          assert log =~ "Failed to reload configuration during REHASH:"
-          assert log =~ "** (#{inspect(unquote(error))})"
-          assert log =~ Exception.message(exception)
-          assert log =~ "rehash_test.exs:"
-          assert log =~ ~r/lib\/elixircd\/commands\/rehash\.ex:\d+/
+          assert log =~ "Failed to reload configuration during REHASH"
+          refute log =~ Exception.message(exception)
+          refute log =~ "rehash_test.exs:"
           assert Application.get_all_env(:elixircd) == previous_env
           assert Application.get_env(:elixircd, :capabilities) == original
           assert {:ok, ^oper} = Users.get_by_pid(oper.pid)

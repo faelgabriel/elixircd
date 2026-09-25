@@ -434,4 +434,19 @@ defmodule ElixIRCd.Commands.NickTest do
       end
     end)
   end
+
+  test "case-only NICK changes preserve identity and do not announce a disconnect" do
+    Memento.transaction!(fn ->
+      user = insert(:user, nick: "alice")
+      watcher = insert(:user)
+      insert(:user_monitor, user: watcher, target_nick: "alice")
+      assert :ok = Nick.handle(user, %Message{command: "NICK", params: ["Alice"]})
+      assert_sent_messages([{user.pid, ":#{user_mask(user)} NICK Alice\r\n"}])
+      {:ok, updated} = Users.get_by_pid(user.pid)
+      assert updated.nick == "Alice"
+      assert updated.nick_key == "alice"
+      assert :ok = Nick.handle(updated, %Message{command: "NICK", params: ["Alice"]})
+      assert_sent_messages([])
+    end)
+  end
 end

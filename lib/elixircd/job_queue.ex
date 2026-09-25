@@ -8,11 +8,22 @@ defmodule ElixIRCd.JobQueue do
   require Logger
 
   alias ElixIRCd.Jobs.JobBehavior
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Jobs
   alias ElixIRCd.Tables.Job
 
   @poll_interval 5_000
   @concurrent_jobs 1
+  @metric_job_types [
+    ElixIRCd.Jobs.VerificationEmailDelivery,
+    ElixIRCd.Jobs.MemoEmailDelivery,
+    ElixIRCd.Jobs.SaslSessionExpiration,
+    ElixIRCd.Jobs.RegisteredNickExpiration,
+    ElixIRCd.Jobs.UnverifiedNickExpiration,
+    ElixIRCd.Jobs.RegisteredChannelExpiration,
+    ElixIRCd.Jobs.ReservedNickCleanup,
+    ElixIRCd.Jobs.HistoryRetention
+  ]
 
   @doc """
   Starts the JobQueue GenServer.
@@ -50,7 +61,10 @@ defmodule ElixIRCd.JobQueue do
         Jobs.create(job_params)
       end)
 
-    Logger.info("Job enqueued: #{inspect(job.module)} (id: #{job.id})")
+    metadata = job_log_metadata("job.enqueued", job)
+    Logger.info("Job enqueued: #{inspect(job.module)} (id: #{job.id})", metadata)
+
+    Observability.defer([:job], %{count: 1, duration: 0}, %{type: metric_job_type(job.module), result: :enqueued})
     job
   end
 
@@ -89,10 +103,18 @@ defmodule ElixIRCd.JobQueue do
   defp cancel_job_if_possible(job, job_id) do
     if job.status in [:queued, :processing] do
       Jobs.update(job, %{status: :failed, last_error: "Cancelled by admin"})
-      Logger.info("Job cancelled: #{inspect(job.module)} (id: #{job_id})")
+
+      metadata = job_log_metadata("job.cancelled", job)
+      Logger.info("Job cancelled: #{inspect(job.module)} (id: #{job_id})", metadata)
+
       :ok
     else
-      Logger.warning("Cannot cancel job in status #{job.status}: #{inspect(job.module)} (id: #{job_id})")
+      Logger.warning("Cannot cancel job in status #{job.status}: #{inspect(job.module)} (id: #{job_id})",
+        event: "job.cancel_rejected",
+        job_type: metric_job_type(job.module),
+        job_id: job_id
+      )
+
       {:error, :job_not_cancellable}
     end
   end
@@ -120,10 +142,17 @@ defmodule ElixIRCd.JobQueue do
         last_error: nil
       })
 
-      Logger.info("Job retry scheduled: #{inspect(job.module)} (id: #{job_id})")
+      metadata = job_log_metadata("job.retry_requested", job)
+      Logger.info("Job retry scheduled: #{inspect(job.module)} (id: #{job_id})", metadata)
+
       :ok
     else
-      Logger.warning("Cannot retry job in status #{job.status}: #{inspect(job.module)} (id: #{job_id})")
+      Logger.warning("Cannot retry job in status #{job.status}: #{inspect(job.module)} (id: #{job_id})",
+        event: "job.retry_rejected",
+        job_type: metric_job_type(job.module),
+        job_id: job_id
+      )
+
       {:error, :job_not_retryable}
     end
   end
@@ -212,7 +241,9 @@ defmodule ElixIRCd.JobQueue do
 
   @spec process_ready_jobs() :: :ok
   defp process_ready_jobs do
+    started = System.monotonic_time()
     ready_jobs = Memento.transaction!(fn -> Jobs.get_ready_jobs() end)
+    Observability.emit([:job, :poll], %{duration: System.monotonic_time() - started, ready: length(ready_jobs)})
 
     ready_jobs
     |> Enum.take(@concurrent_jobs)
@@ -223,9 +254,13 @@ defmodule ElixIRCd.JobQueue do
 
   @spec execute_job_process(Job.t()) :: :ok
   defp execute_job_process(job) do
+    started = System.monotonic_time()
     current_attempt = job.current_attempt + 1
     max_attempts = job.max_attempts
-    Logger.info("Executing job: #{inspect(job.module)} (id: #{job.id}, attempt: #{current_attempt}/#{max_attempts})")
+
+    metadata = job_log_metadata("job.started", job)
+    message = "Executing job: #{inspect(job.module)} (id: #{job.id}, attempt: #{current_attempt}/#{max_attempts})"
+    Logger.info(message, metadata)
 
     updated_job =
       Memento.transaction!(fn ->
@@ -235,7 +270,21 @@ defmodule ElixIRCd.JobQueue do
         })
       end)
 
-    result = updated_job.module.run(updated_job)
+    {result, outcome} =
+      try do
+        result = updated_job.module.run(updated_job)
+        {result, if(result == :ok, do: :success, else: :failure)}
+      rescue
+        error ->
+          Logger.error("Job crashed",
+            event: "job.crashed",
+            job_type: metric_job_type(job.module),
+            job_id: job.id,
+            error_type: error.__struct__
+          )
+
+          {{:error, "execution_crashed"}, :crashed}
+      end
 
     Memento.transaction!(fn ->
       case result do
@@ -243,6 +292,11 @@ defmodule ElixIRCd.JobQueue do
         {:error, reason} -> handle_job_failure(updated_job, reason)
       end
     end)
+
+    Observability.emit([:job], %{count: 1, duration: System.monotonic_time() - started}, %{
+      type: metric_job_type(job.module),
+      result: outcome
+    })
 
     :ok
   end
@@ -255,7 +309,9 @@ defmodule ElixIRCd.JobQueue do
 
   @spec handle_job_success(Job.t()) :: :ok
   defp handle_job_success(job) do
-    Logger.info("Job completed successfully: #{job.id}")
+    metadata = job_log_metadata("job.completed", job)
+    Logger.info("Job completed successfully: #{job.id}", metadata)
+
     Jobs.update(job, %{status: :done, last_error: nil})
 
     if job.repeat_interval_ms do
@@ -267,7 +323,7 @@ defmodule ElixIRCd.JobQueue do
 
   @spec handle_job_failure(Job.t(), String.t()) :: :ok
   defp handle_job_failure(job, error_message) do
-    Logger.error("Job failed: #{job.id} - #{error_message}")
+    Logger.error("Job failed", event: "job.failed", job_type: metric_job_type(job.module), job_id: job.id)
 
     if job.current_attempt >= job.max_attempts do
       Jobs.update(job, %{
@@ -275,7 +331,11 @@ defmodule ElixIRCd.JobQueue do
         last_error: error_message
       })
 
-      Logger.error("Job permanently failed after #{job.max_attempts} attempts: #{job.id}")
+      Logger.error("Job permanently failed after #{job.max_attempts} attempts: #{job.id}",
+        event: "job.permanently_failed",
+        job_type: metric_job_type(job.module),
+        job_id: job.id
+      )
     else
       retry_at = DateTime.add(DateTime.utc_now(), job.retry_delay_ms, :millisecond)
 
@@ -285,7 +345,8 @@ defmodule ElixIRCd.JobQueue do
         last_error: error_message
       })
 
-      Logger.info("Job will be retried at #{retry_at}: #{job.id}")
+      metadata = job_log_metadata("job.retry_scheduled", job)
+      Logger.info("Job will be retried at #{retry_at}: #{job.id}", metadata)
     end
 
     :ok
@@ -304,8 +365,10 @@ defmodule ElixIRCd.JobQueue do
       repeat_interval_ms: job.repeat_interval_ms
     }
 
-    Jobs.create(new_job_params)
-    Logger.info("Recurring job scheduled for #{next_run_at}: #{inspect(job.module)}")
+    new_job = Jobs.create(new_job_params)
+
+    metadata = job_log_metadata("job.recurring_scheduled", new_job)
+    Logger.info("Recurring job scheduled for #{next_run_at}: #{inspect(job.module)}", metadata)
 
     :ok
   end
@@ -359,13 +422,25 @@ defmodule ElixIRCd.JobQueue do
     end)
   end
 
+  defp metric_job_type(module) when module in @metric_job_types, do: module
+  defp metric_job_type(_module), do: :other
+
+  @spec job_log_metadata(String.t(), Job.t()) :: keyword()
+  defp job_log_metadata(event, job) do
+    [event: event, job_type: metric_job_type(job.module), job_id: job.id]
+  end
+
   @spec recover_stuck_jobs() :: :ok
   defp recover_stuck_jobs do
     Memento.transaction!(fn ->
       stuck_jobs = Jobs.get_by_status(:processing)
 
       Enum.each(stuck_jobs, fn job ->
-        Logger.warning("Recovering stuck job from previous crash: #{inspect(job.module)} (id: #{job.id})")
+        Logger.warning("Recovering stuck job from previous crash: #{inspect(job.module)} (id: #{job.id})",
+          event: "job.recovered",
+          job_type: metric_job_type(job.module),
+          job_id: job.id
+        )
 
         Jobs.update(job, %{
           status: :queued,
@@ -374,7 +449,7 @@ defmodule ElixIRCd.JobQueue do
       end)
 
       if stuck_jobs != [] do
-        Logger.info("Recovered #{length(stuck_jobs)} stuck jobs")
+        Logger.info("Recovered #{length(stuck_jobs)} stuck jobs", event: "job.recovery_summary")
       end
     end)
 

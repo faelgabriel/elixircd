@@ -3,6 +3,7 @@ defmodule ElixIRCd.Service do
   Module for handling incoming service commands.
   """
 
+  alias ElixIRCd.Observability
   alias ElixIRCd.Services
   alias ElixIRCd.Tables.User
 
@@ -40,7 +41,17 @@ defmodule ElixIRCd.Service do
   def dispatch(user, target_service, command_list) do
     normalized_target_service = String.upcase(target_service)
     service_module = Map.fetch!(@services, normalized_target_service)
-    service_module.handle(user, command_list)
+    command = command_list |> List.first() |> to_string() |> String.upcase()
+    bounded_command = if command in service_module.names(), do: command, else: "OTHER"
+    result = service_module.handle(user, command_list)
+
+    Observability.defer([:service], %{count: 1}, %{
+      service: normalized_target_service,
+      command: bounded_command,
+      result: :handled
+    })
+
+    result
   end
 
   @doc "Returns the canonical IRC mask for a network service."

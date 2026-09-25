@@ -875,4 +875,18 @@ defmodule ElixIRCd.Commands.ModeTest do
       end)
     end
   end
+
+  test "querying a channel with no modes returns a structured empty mode list" do
+    Memento.transaction!(fn ->
+      user = insert(:user)
+      channel = insert(:channel, modes: [])
+      insert(:user_channel, user: user, channel: channel)
+      assert :ok = Mode.handle(user, %Message{command: "MODE", params: [channel.name]})
+
+      assert_sent_messages([
+        {user.pid, ":irc.test 324 #{user.nick} #{channel.name} +\r\n"},
+        {user.pid, ":irc.test 329 #{user.nick} #{channel.name} #{DateTime.to_unix(channel.created_at)}\r\n"}
+      ])
+    end)
+  end
 end

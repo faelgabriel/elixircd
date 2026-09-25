@@ -5,8 +5,7 @@ defmodule ElixIRCd.Server.TcpListener do
 
   use ThousandIsland.Handler
 
-  require Logger
-
+  alias ElixIRCd.Observability
   alias ElixIRCd.Server.Connection
 
   @type state :: %{
@@ -24,8 +23,6 @@ defmodule ElixIRCd.Server.TcpListener do
         %{transport_module: ThousandIsland.Transports.TCP} -> :tcp
         %{transport_module: ThousandIsland.Transports.SSL} -> :tls
       end
-
-    Logger.debug("New connection: #{inspect(pid)} (#{transport})")
 
     state = %{transport: transport}
 
@@ -62,7 +59,11 @@ defmodule ElixIRCd.Server.TcpListener do
 
   @impl GenServer
   def handle_info({:broadcast, message}, {socket, state}) when is_binary(message) do
-    ThousandIsland.Socket.send(socket, message)
+    case ThousandIsland.Socket.send(socket, message) do
+      :ok -> Observability.emit([:transport, :sent], %{bytes: byte_size(message)}, %{transport: state.transport})
+      {:error, _reason} -> :ok
+    end
+
     {:noreply, {socket, state}}
   end
 
