@@ -8,6 +8,8 @@ defmodule ElixIRCd.Commands.OperTest do
 
   alias ElixIRCd.Commands.Oper
   alias ElixIRCd.Message
+  alias ElixIRCd.Operators
+  alias ElixIRCd.Repositories.Users
 
   describe "handle/2" do
     test "handles OPER command with user not registered" do
@@ -56,12 +58,60 @@ defmodule ElixIRCd.Commands.OperTest do
 
         message = %Message{command: "OPER", params: ["admin", "admin"]}
         assert :ok = Oper.handle(user, message)
+        assert {:ok, active} = Users.get_by_pid(user.pid)
+        assert active.oper_source == :config
+        assert active.oper_name == "admin"
 
         assert_sent_messages([
           {user.pid, ":irc.test 381 #{user.nick} :You are now an IRC operator\r\n"},
           {user.pid, ":irc.test MODE #{user.nick} +o\r\n"}
         ])
       end)
+    end
+
+    test "records the database credential used by OPER" do
+      hash = Argon2.hash_pwd_salt("a-long-password")
+      assert :ok = Operators.Management.add("managed", hash)
+      user = insert(:user)
+
+      assert :ok =
+               Memento.transaction!(fn ->
+                 Oper.handle(user, %Message{command: "OPER", params: ["managed", "a-long-password"]})
+               end)
+
+      assert {:ok, active} = Memento.transaction!(fn -> Users.get_by_pid(user.pid) end)
+      assert active.oper_source == :database
+      assert active.oper_name == "managed"
+      assert :o in active.modes
+      assert_sent_message_contains(user.pid, ~r/You are now an IRC operator/)
+      assert_sent_message_contains(user.pid, ~r/MODE .* \+o/)
+    end
+
+    test "uses the locked user state and ignores a user already removed from Mnesia" do
+      original = Application.fetch_env!(:elixircd, :operators)
+      Application.put_env(:elixircd, :operators, [{"admin", Argon2.hash_pwd_salt("a-long-password")}])
+      on_exit(fn -> Application.put_env(:elixircd, :operators, original) end)
+
+      user = insert(:user, modes: [:i])
+      Memento.transaction!(fn -> Users.update(user, %{modes: [:i, :w]}) end)
+
+      assert :ok =
+               Memento.transaction!(fn ->
+                 Oper.handle(user, %Message{command: "OPER", params: ["admin", "a-long-password"]})
+               end)
+
+      assert {:ok, active} = Memento.transaction!(fn -> Users.get_by_pid(user.pid) end)
+      assert Enum.sort(active.modes) == [:i, :o, :w]
+
+      removed = insert(:user)
+      Memento.transaction!(fn -> Users.delete(removed) end)
+
+      assert :ok =
+               Memento.transaction!(fn ->
+                 Oper.handle(removed, %Message{command: "OPER", params: ["admin", "a-long-password"]})
+               end)
+
+      assert {:error, :user_not_found} = Memento.transaction!(fn -> Users.get_by_pid(removed.pid) end)
     end
 
     test "handles OPER command with invalid credentials" do

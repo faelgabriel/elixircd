@@ -8,6 +8,10 @@ defmodule ElixIRCd.Commands.RenameTest do
   alias ElixIRCd.Command
   alias ElixIRCd.History
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.ChannelBans
+  alias ElixIRCd.Repositories.ChannelExcepts
+  alias ElixIRCd.Repositories.ChannelInvexes
+  alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.ChatHistory
   alias ElixIRCd.Repositories.Metadata
@@ -167,6 +171,30 @@ defmodule ElixIRCd.Commands.RenameTest do
       assert {:ok, marker} = ReadMarkers.get("account:operator", "#new")
       assert marker.target == "#new"
       assert marker.timestamp == timestamp
+    end)
+  end
+
+  test "moves channel bans, exceptions and invites with their channel" do
+    Memento.transaction!(fn ->
+      channel = insert(:channel, name: "#old")
+      operator = insert(:user, nick: "Operator", capabilities: ["draft/channel-rename"])
+      invitee = insert(:user)
+      insert(:user_channel, user: operator, channel: channel, modes: [:o])
+      insert(:channel_ban, channel: channel)
+      insert(:channel_except, channel: channel)
+      insert(:channel_invex, channel: channel)
+      insert(:channel_invite, channel: channel, user: invitee)
+
+      assert :ok = Command.dispatch(operator, %Message{command: "RENAME", params: ["#old", "#new"]})
+
+      for repository <- [ChannelBans, ChannelExcepts, ChannelInvexes, ChannelInvites] do
+        assert repository.get_by_channel_name_key("#old") == []
+        assert [record] = repository.get_by_channel_name_key("#new")
+        assert record.channel_name_key == "#new"
+      end
+
+      assert [invite] = ChannelInvites.get_by_channel_name_key("#new")
+      assert invite.user_pid == invitee.pid
     end)
   end
 

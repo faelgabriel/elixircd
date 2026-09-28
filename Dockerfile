@@ -21,6 +21,8 @@ RUN mix local.hex --force && \
     mix deps.compile
 
 COPY lib lib/
+COPY bin bin/
+COPY rel rel/
 
 ARG APP_VERSION
 ENV APP_VERSION=${APP_VERSION}
@@ -31,9 +33,7 @@ RUN mix compile --warnings-as-errors && \
 # Run release
 FROM ${RUNTIME_IMAGE} AS runtime
 
-ENV LANG=C.UTF-8 \
-    RELEASE_DISTRIBUTION=name \
-    RELEASE_NODE=elixircd@127.0.0.1
+ENV LANG=C.UTF-8
 
 RUN apk upgrade --no-cache && \
     apk add --no-cache ca-certificates libstdc++ ncurses-libs libcrypto3 libssl3 lksctp-tools

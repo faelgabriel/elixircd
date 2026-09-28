@@ -23,9 +23,17 @@ defmodule ElixIRCd.ObservabilityTest do
     end)
 
     Application.put_env(:elixircd, :observability, Keyword.put(original_config, :enabled, false))
-    stub(Loader, :load!, fn "config/elixircd.exs", :boot -> :ok end)
-    stub(Mnesia, :setup_mnesia, fn -> :ok end)
     test_pid = self()
+
+    stub(Mnesia, :setup_mnesia, fn ->
+      send(test_pid, :database_initialized)
+      :ok
+    end)
+
+    stub(Loader, :load!, fn "config/elixircd.exs", :boot ->
+      assert_received :database_initialized
+      :ok
+    end)
 
     expect(Supervisor, :start_link, fn children, opts ->
       assert children == [

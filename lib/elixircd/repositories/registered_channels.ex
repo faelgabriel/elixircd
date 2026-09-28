@@ -66,6 +66,13 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
     |> Memento.Query.write()
   end
 
+  @doc "Replaces a registered channel, including when its name key changes."
+  @spec replace(RegisteredChannel.t(), RegisteredChannel.t()) :: RegisteredChannel.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc """
   Update a registered channel topic and its persistent topic snapshot.
 

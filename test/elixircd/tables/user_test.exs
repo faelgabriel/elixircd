@@ -134,5 +134,26 @@ defmodule ElixIRCd.Tables.UserTest do
       assert updated_user.registered_at == utc_now
       assert updated_user.created_at == user.created_at
     end
+
+    test "keeps operator provenance for unrelated changes and clears it when +o is removed" do
+      user =
+        User.new(%{
+          pid: self(),
+          transport: :tcp,
+          ip_address: {127, 0, 0, 1},
+          port_connected: 6667,
+          modes: [:o],
+          oper_source: :database,
+          oper_name: "admin"
+        })
+
+      updated = User.update(user, %{modes: [:o, :i]})
+      assert updated.oper_source == :database
+      assert updated.oper_name == "admin"
+
+      deopered = User.update(updated, %{modes: [:i]})
+      assert deopered.oper_source == nil
+      assert deopered.oper_name == nil
+    end
   end
 end

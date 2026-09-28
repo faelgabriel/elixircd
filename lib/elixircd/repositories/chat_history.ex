@@ -10,6 +10,13 @@ defmodule ElixIRCd.Repositories.ChatHistory do
   @spec create(map()) :: ChatHistory.t()
   def create(attrs), do: attrs |> ChatHistory.new() |> Memento.Query.write()
 
+  @doc "Replaces a history entry, including when its target key changes."
+  @spec replace(ChatHistory.t(), ChatHistory.t()) :: ChatHistory.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc "Lists a target's history in chronological order."
   @spec for_target(String.t()) :: [ChatHistory.t()]
   def for_target(target_key) do

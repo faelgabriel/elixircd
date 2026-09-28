@@ -39,6 +39,8 @@ defmodule ElixIRCd.Tables.User do
       :webirc_ip,
       :webirc_secure,
       :webirc_used,
+      :oper_source,
+      :oper_name,
       :last_activity,
       :registered_at,
       :created_at
@@ -76,6 +78,8 @@ defmodule ElixIRCd.Tables.User do
           webirc_ip: String.t() | nil,
           webirc_secure: boolean() | nil,
           webirc_used: boolean() | nil,
+          oper_source: :config | :database | nil,
+          oper_name: String.t() | nil,
           last_activity: integer(),
           registered_at: DateTime.t() | nil,
           created_at: DateTime.t()
@@ -110,6 +114,8 @@ defmodule ElixIRCd.Tables.User do
           optional(:webirc_ip) => String.t() | nil,
           optional(:webirc_secure) => boolean() | nil,
           optional(:webirc_used) => boolean() | nil,
+          optional(:oper_source) => :config | :database | nil,
+          optional(:oper_name) => String.t() | nil,
           optional(:last_activity) => integer(),
           optional(:registered_at) => DateTime.t() | nil,
           optional(:created_at) => DateTime.t()
@@ -127,6 +133,8 @@ defmodule ElixIRCd.Tables.User do
       |> Map.put_new(:capabilities, [])
       |> Map.put_new(:cap_version, 301)
       |> Map.put_new(:client_port, nil)
+      |> Map.put_new(:oper_source, nil)
+      |> Map.put_new(:oper_name, nil)
       |> Map.put_new(:last_activity, :erlang.system_time(:second))
       |> Map.put_new(:created_at, DateTime.utc_now())
       |> handle_nick_key()
@@ -143,12 +151,24 @@ defmodule ElixIRCd.Tables.User do
   def update(user, attrs) do
     new_attrs =
       attrs
+      |> clear_operator_provenance_on_deoper(user)
       |> handle_nick_key()
       |> handle_identified_as_key()
       |> maybe_generate_cloaked_hostname()
 
     struct!(user, new_attrs)
   end
+
+  @spec clear_operator_provenance_on_deoper(t_attrs(), t()) :: t_attrs()
+  defp clear_operator_provenance_on_deoper(%{modes: new_modes} = attrs, %{modes: current_modes}) do
+    if :o in current_modes and :o not in new_modes do
+      Map.merge(attrs, %{oper_source: nil, oper_name: nil})
+    else
+      attrs
+    end
+  end
+
+  defp clear_operator_provenance_on_deoper(attrs, _user), do: attrs
 
   @spec handle_nick_key(t_attrs()) :: t_attrs()
   defp handle_nick_key(%{nick: nick} = attrs) do

@@ -16,6 +16,13 @@ defmodule ElixIRCd.Repositories.RegisteredChannelAccesses do
     |> Memento.Query.write()
   end
 
+  @doc "Replaces an access entry, including when its channel key changes."
+  @spec replace(RegisteredChannelAccess.t(), RegisteredChannelAccess.t()) :: RegisteredChannelAccess.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc """
   Lists all access entries for a channel.
   """

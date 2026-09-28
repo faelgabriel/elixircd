@@ -13,13 +13,15 @@ defmodule ElixIRCd do
   alias ElixIRCd.Config.Loader
   alias ElixIRCd.Observability
 
+  @config_path "config/elixircd.exs"
+
   @impl true
   def start(_type, _args) do
     Logger.info("ElixIRCd version #{Application.spec(:elixircd, :vsn)}")
     Logger.info("Powered by Elixir #{System.version()} (Erlang/OTP #{:erlang.system_info(:otp_release)})")
 
-    init_config()
     init_database()
+    init_config()
 
     :persistent_term.put(:app_start_time, DateTime.utc_now())
 
@@ -45,7 +47,7 @@ defmodule ElixIRCd do
   @spec init_config :: :ok
   defp init_config do
     logger_with_time(:info, "loading configurations", fn ->
-      Loader.load!("config/elixircd.exs", :boot)
+      Loader.load!(@config_path, :boot)
     end)
   end
 

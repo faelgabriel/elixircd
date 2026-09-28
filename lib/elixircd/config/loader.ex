@@ -4,6 +4,7 @@ defmodule ElixIRCd.Config.Loader do
   alias ElixIRCd.Config.Error
   alias ElixIRCd.Config.Resources
   alias ElixIRCd.Config.Validator
+  alias ElixIRCd.Operators
   alias ElixIRCd.Utils.HostnameCloaking
 
   @doc "Reads and validates a complete file without changing files or application state."
@@ -99,25 +100,24 @@ defmodule ElixIRCd.Config.Loader do
   @doc "Validates and prepares all resources before applying configuration, without merging old values."
   @spec load!(String.t(), :boot | :reload) :: :ok
   def load!(path, mode) when mode in [:boot, :reload] do
-    :global.trans(
-      {__MODULE__, self()},
-      fn ->
-        config = read!(path)
-        validate_reload!(config, path, mode)
-        prepared = Resources.prepare!(config)
-        Resources.write!(prepared.files)
-        if mode == :reload, do: :ssl.clear_pem_cache()
+    Operators.Registry.synchronized(fn ->
+      config = read!(path)
+      validate_reload!(config, path, mode)
+      Operators.Registry.validate_config!(config, path)
+      old_operators = Application.get_env(:elixircd, :operators, [])
+      prepared = Resources.prepare!(config)
+      Resources.write!(prepared.files)
+      if mode == :reload, do: :ssl.clear_pem_cache()
 
-        for {key, _value} <- Application.get_all_env(:elixircd),
-            not Keyword.has_key?(config, key),
-            do: Application.delete_env(:elixircd, key)
+      for {key, _value} <- Application.get_all_env(:elixircd),
+          not Keyword.has_key?(config, key),
+          do: Application.delete_env(:elixircd, key)
 
-        Application.put_all_env(elixircd: config)
-        :persistent_term.put(HostnameCloaking, prepared.cloak_key)
-        :ok
-      end,
-      [node()]
-    )
+      Application.put_all_env(elixircd: config)
+      :persistent_term.put(HostnameCloaking, prepared.cloak_key)
+      if mode == :reload, do: Operators.Sessions.revoke_changed_config(old_operators, config[:operators])
+      :ok
+    end)
   end
 
   @spec read_file!(String.t()) :: keyword()
@@ -153,12 +153,15 @@ defmodule ElixIRCd.Config.Loader do
 
   defp validate_reload!(config, path, :reload) do
     errors =
-      Enum.flat_map([[:listeners], [:settings, :case_mapping], [:server, :hostname], [:observability]], fn keys ->
-        [section | rest] = keys
-        old = Enum.reduce(rest, Application.get_env(:elixircd, section), fn key, value -> value[key] end)
-        new = Enum.reduce(keys, config, fn key, value -> value[key] end)
-        if old == new, do: [], else: ["#{Enum.join(keys, ".")}: change requires server restart"]
-      end)
+      Enum.flat_map(
+        [[:listeners], [:settings, :case_mapping], [:server, :hostname], [:observability]],
+        fn keys ->
+          [section | rest] = keys
+          old = Enum.reduce(rest, Application.get_env(:elixircd, section), fn key, value -> value[key] end)
+          new = Enum.reduce(keys, config, fn key, value -> value[key] end)
+          if old == new, do: [], else: ["#{Enum.join(keys, ".")}: change requires server restart"]
+        end
+      )
 
     if errors != [], do: raise(Error, path: path, errors: errors)
     :ok

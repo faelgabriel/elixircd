@@ -54,6 +54,10 @@ defmodule ElixIRCd.Repositories.Users do
     Memento.Query.all(User)
   end
 
+  @doc "Reads and write locks a user by pid inside the caller transaction."
+  @spec lock_by_pid(pid()) :: User.t() | nil
+  def lock_by_pid(pid), do: Memento.Query.read(User, pid, lock: :write)
+
   @doc """
   Get a user by the pid.
   """

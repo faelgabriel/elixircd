@@ -21,6 +21,7 @@
   - [Quick Start with Docker](#quick-start-with-docker)
     - [Observability (Optional)](#observability-optional)
   - [Start from the Source Code](#start-from-the-source-code)
+  - [Operators](#operators)
 - [Features](#features)
   - [Commands](#commands)
   - [Modes](#modes)
@@ -50,20 +51,22 @@ To quickly start the ElixIRCd server using [Docker](https://docs.docker.com/get-
 On Linux (including WSL with a Linux data directory), run `sudo chown 65534:65534 ./data` so the container's `nobody` user can write to the data directory.
 
 ```bash
-docker run \
+docker run --name elixircd \
   -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
   -v ./data:/app/data \
   faelgabriel/elixircd
 ```
 
-#### Remote Commands
+#### CLI
+
+Use `bin/elixircd` for server control and ElixIRCd management commands. Run `elixircd help` to see the management commands:
 
 ```bash
-# Connects to the running system via a remote shell
-docker exec -it <container_name> ./bin/elixircd remote
+# Connect to the running system with a remote IEx shell
+docker exec -it <container_name> /app/bin/elixircd remote
 
-# Gracefully stops the running system via a remote command
-docker exec -it <container_name> ./bin/elixircd stop
+# Gracefully stop the running system
+docker exec <container_name> /app/bin/elixircd stop
 ```
 
 #### Configuration
@@ -80,7 +83,7 @@ You can configure ElixIRCd by creating a `elixircd.exs` file and mounting it int
 2. Start the ElixIRCd server with your configuration file by mounting it into the Docker container:
 
    ```bash
-   docker run \
+   docker run -d --name elixircd \
      -p 6667:6667 -p 6697:6697 -p 8080:8080 -p 8443:8443 \
      -v ./data:/app/data \
      -v ./elixircd.exs:/app/config/elixircd.exs \
@@ -217,6 +220,48 @@ To build your own ElixIRCd release from the source code and run the server, foll
    ```bash
    _build/prod/rel/elixircd/bin/elixircd start
    ```
+
+### Operators
+
+ElixIRCd accepts IRC operators from two sources: entries in `config/elixircd.exs` and records in its Mnesia database.
+Operator names must be unique across both sources. After connecting to the server over TLS, authenticate in your IRC
+client with `/OPER <name> <password>`.
+
+The release includes `bin/elixircd`. Run `elixircd oper help` for operator commands or
+`elixircd oper help add` for one command.
+
+**Database operators.** Set `operators: []` in the configuration, then add an operator while the server is running:
+
+```bash
+docker exec -it elixircd /app/bin/elixircd oper add testuser
+```
+
+The CLI prompts twice for a hidden password, stores its Argon2id hash in Mnesia, and never accepts a password argument.
+Use the same CLI for subsequent changes:
+
+```bash
+docker exec elixircd /app/bin/elixircd oper list
+docker exec -it elixircd /app/bin/elixircd oper passwd testuser
+docker exec elixircd /app/bin/elixircd oper disable testuser
+docker exec elixircd /app/bin/elixircd oper enable testuser
+docker exec elixircd /app/bin/elixircd oper remove testuser
+```
+
+Changes take effect immediately. Changing a password, disabling an operator, or removing one revokes active operator
+privileges. The database is stored under `/app/data`, so keep that volume when replacing the container.
+
+**Configuration file operators.** Generate a hash without starting a server:
+
+```bash
+docker run --rm -it --entrypoint /app/bin/elixircd faelgabriel/elixircd oper hash
+```
+
+Add a `{name, hash}` tuple to `operators` in `config/elixircd.exs`, then run `REHASH` or restart the server. File operators
+are read-only in the CLI; edit the configuration file to change or remove them. REHASH rejects a file operator name
+already present in the database.
+
+For a release built from source, run `_build/prod/rel/elixircd/bin/elixircd oper ...` on the same host as the running
+server. The CLI uses the release's default local node name automatically.
 
 ## Features
 

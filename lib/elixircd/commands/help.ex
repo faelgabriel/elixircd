@@ -52,7 +52,7 @@ defmodule ElixIRCd.Commands.Help do
     "NAMES" => {"NAMES [channel[,channel...]]", "Lists visible channel members and negotiated membership prefixes."},
     "NICK" => {"NICK <nickname>", "Sets or changes a nickname, subject to reservation and +N channel policy."},
     "NOTICE" => {"NOTICE <target>[,<target>...] :<text>", "Sends a non-error-generating notice to users or channels."},
-    "OPER" => {"OPER <name> <password>", "Authenticates an IRC operator using the configured Argon2 credential."},
+    "OPER" => {"OPER <name> <password>", "Authenticates an IRC operator using a stored Argon2 credential."},
     "OPERWALL" => {"OPERWALL :<message>", "Sends an operator wall message."},
     "PART" => {"PART <channel>[,<channel>...] [:reason]", "Leaves one or more channels."},
     "PASS" => {"PASS <password>", "Supplies the optional server password before registration."},

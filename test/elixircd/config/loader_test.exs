@@ -5,6 +5,8 @@ defmodule ElixIRCd.Config.LoaderTest do
   alias ElixIRCd.Config.Error
   alias ElixIRCd.Config.Loader
   alias ElixIRCd.Config.Resources
+  alias ElixIRCd.Operators
+  alias ElixIRCd.Tables.Operator
   alias ElixIRCd.Tables.RegisteredChannel.Settings
   alias ElixIRCd.Utils.Certificate
   alias ElixIRCd.Utils.HostnameCloaking
@@ -56,6 +58,21 @@ defmodule ElixIRCd.Config.LoaderTest do
     assert Application.get_all_env(:elixircd) == before
     assert :persistent_term.get(HostnameCloaking) == key
     refute File.exists?(Path.join(dir, "cloak.key"))
+  end
+
+  test "boot and reload reject a file operator whose name is already managed in Mnesia", %{config: config, path: path} do
+    name = "shared_#{System.unique_integer([:positive])}"
+    hash = Argon2.hash_pwd_salt("a-long-password")
+    assert :ok = Operators.Management.add(name, hash)
+    on_exit(fn -> Memento.transaction!(fn -> Memento.Query.delete(Operator, name) end) end)
+
+    write_config(path, Keyword.put(config, :operators, [{name, hash}]))
+    before = Application.get_all_env(:elixircd)
+
+    for mode <- [:boot, :reload] do
+      assert_raise Error, ~r/also stored in database/, fn -> Loader.load!(path, mode) end
+      assert Application.get_all_env(:elixircd) == before
+    end
   end
 
   test "load rejects unknown and missing schema fields before preparing resources", %{

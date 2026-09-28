@@ -6,6 +6,7 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Commands.Mode.UserModes
+  alias ElixIRCd.Repositories.Users
 
   describe "display_modes/2" do
     test "handles empty modes" do
@@ -319,6 +320,25 @@ defmodule ElixIRCd.Commands.Mode.UserModesTest do
       assert :o not in updated_user.modes
       assert applied_modes == [{:remove, :o}, {:remove, :H}, {:remove, :s}]
       assert unauthorized_modes == []
+    end
+
+    test "retains operator provenance for other mode changes and clears it on -o" do
+      user = insert(:user, modes: [:o])
+      user = Memento.transaction!(fn -> Users.update(user, %{oper_source: :database, oper_name: "admin"}) end)
+
+      {updated, _, _} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(user, [{:add, :i}]) end)
+
+      assert updated.oper_source == :database
+      assert updated.oper_name == "admin"
+
+      {deopered, applied_modes, _} =
+        Memento.transaction!(fn -> UserModes.apply_mode_changes(updated, [{:remove, :o}]) end)
+
+      assert applied_modes == [{:remove, :o}]
+      assert deopered.modes == [:i]
+      assert deopered.oper_source == nil
+      assert deopered.oper_name == nil
     end
 
     test "handles adding mode that user already has" do

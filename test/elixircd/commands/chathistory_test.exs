@@ -22,8 +22,10 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
       channel = insert(:channel, name: "#history")
       insert(:user_channel, user: user, channel: channel)
 
-      first = history_message("Alice", "#history", "first", "msg-1", ~U[2026-09-19 12:00:00.000Z])
-      second = history_message("Alice", "#history", "second", "msg-2", ~U[2026-09-19 12:00:01.000Z])
+      first_at = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.add(-2, :second)
+      second_at = DateTime.add(first_at, 1, :second)
+      first = history_message("Alice", "#history", "first", "msg-1", first_at)
+      second = history_message("Alice", "#history", "second", "msg-2", second_at)
       assert :ok = History.record(first, user)
       assert :ok = History.record(second, user)
 
@@ -33,9 +35,9 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
       assert_sent_messages([
         {user.pid, ~r/^(?:@time=\S+ )?:irc\.test BATCH \+(\S+) chathistory #history\r\n$/},
         {user.pid,
-         ~r/^@batch=\S+;msgid=msg-1;time=2026-09-19T12:00:00\.000Z :Alice!ident@host PRIVMSG #history :first\r\n$/},
+         ~r/^@batch=\S+;msgid=msg-1;time=#{Regex.escape(DateTime.to_iso8601(first_at))} :Alice!ident@host PRIVMSG #history :first\r\n$/},
         {user.pid,
-         ~r/^@batch=\S+;msgid=msg-2;time=2026-09-19T12:00:01\.000Z :Alice!ident@host PRIVMSG #history :second\r\n$/},
+         ~r/^@batch=\S+;msgid=msg-2;time=#{Regex.escape(DateTime.to_iso8601(second_at))} :Alice!ident@host PRIVMSG #history :second\r\n$/},
         {user.pid, ~r/^(?:@time=\S+ )?:irc\.test BATCH -\S+\r\n$/}
       ])
     end)
@@ -53,7 +55,7 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
       channel = insert(:channel, name: "#history")
 
       event = %{
-        history_message("Alice", "#history", "topic", "topic-1", ~U[2026-09-19 12:00:00.000Z])
+        history_message("Alice", "#history", "topic", "topic-1", DateTime.utc_now())
         | command: "TOPIC"
       }
 
@@ -77,6 +79,7 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
   test "supports exclusive msgid bounds and reverse BETWEEN limits" do
     Memento.transaction!(fn ->
       user = insert(:user, nick: "Alice", identified_as: "Alice")
+      base = DateTime.utc_now() |> DateTime.add(-10, :second)
 
       for index <- 1..5 do
         message =
@@ -85,7 +88,7 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
             "Alice",
             "#{index}",
             "msg-#{index}",
-            DateTime.add(~U[2026-09-19 12:00:00Z], index, :second)
+            DateTime.add(base, index, :second)
           )
 
         History.record(message, user)
@@ -187,16 +190,25 @@ defmodule ElixIRCd.Commands.ChathistoryTest do
 
       channel = insert(:channel, name: "#history")
       insert(:user_channel, user: user, channel: channel)
-      History.record(history_message("Alice", "#history", "first", "one", ~U[2026-09-19 12:00:00Z]), user)
-      History.record(history_message("Alice", "#history", "second", "two", ~U[2026-09-19 12:00:01Z]), user)
+      first_at = DateTime.utc_now() |> DateTime.truncate(:second) |> DateTime.add(-2, :second)
+      second_at = DateTime.add(first_at, 1, :second)
+      History.record(history_message("Alice", "#history", "first", "one", first_at), user)
+      History.record(history_message("Alice", "#history", "second", "two", second_at), user)
 
       assert :ok =
                Command.dispatch(user, %Message{
                  command: "CHATHISTORY",
-                 params: ["TARGETS", "timestamp=2026-09-19T11:00:00Z", "timestamp=2026-09-19T13:00:00Z", "999"]
+                 params: [
+                   "TARGETS",
+                   "timestamp=#{DateTime.to_iso8601(DateTime.add(first_at, -1, :hour))}",
+                   "timestamp=#{DateTime.to_iso8601(DateTime.add(second_at, 1, :hour))}",
+                   "999"
+                 ]
                })
 
-      assert_sent_message_contains(user.pid, ~r/ CHATHISTORY TARGETS #history 2026-09-19T12:00:01(?:\.000)?Z/)
+      second_timestamp = second_at |> DateTime.to_iso8601() |> String.trim_trailing("Z") |> Regex.escape()
+      assert_sent_message_contains(user.pid, ~r/ CHATHISTORY TARGETS #history #{second_timestamp}(?:\.000)?Z/)
+
       Agent.update(@agent_name, fn _ -> [] end)
 
       assert :ok =

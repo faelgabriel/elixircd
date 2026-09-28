@@ -25,6 +25,13 @@ defmodule ElixIRCd.Repositories.ChannelExcepts do
     Memento.Query.delete_record(channel_except)
   end
 
+  @doc "Replaces a ban exception, including when its channel key changes."
+  @spec replace(ChannelExcept.t(), ChannelExcept.t()) :: ChannelExcept.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc """
   Get all channel excepts by the channel name.
   """

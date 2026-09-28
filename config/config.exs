@@ -11,6 +11,7 @@ config :logger, :default_formatter,
     :service,
     :action,
     :actor,
+    :target,
     :job_type,
     :job_id,
     :error_type

@@ -11,6 +11,7 @@ defmodule ElixIRCd.Commands.Oper do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Observability
+  alias ElixIRCd.Operators
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.Snotice
@@ -31,26 +32,44 @@ defmodule ElixIRCd.Commands.Oper do
 
   @impl true
   def handle(user, %{command: "OPER", params: [username, password | _rest]}) do
-    if valid_irc_operator_credential?(username, password) do
-      Observability.defer([:security], %{count: 1}, %{action: :oper, result: :success})
-      Logger.info("operator authenticated", event: "audit.oper", actor: username, result: :success)
-      updated_user = Users.update(user, %{modes: Enum.uniq([:o | user.modes])})
+    # REHASH and operator changes read the User table to revoke sessions; this write lock
+    # keeps authentication ordered with revocation until the command transaction commits.
+    case Users.lock_by_pid(user.pid) do
+      nil -> :ok
+      current_user -> authenticate(current_user, username, password)
+    end
+  end
 
-      %Message{command: :rpl_youreoper, params: [updated_user.nick], trailing: "You are now an IRC operator"}
-      |> Dispatcher.broadcast(:server, updated_user)
+  @spec authenticate(User.t(), String.t(), String.t()) :: :ok
+  defp authenticate(user, username, password) do
+    case Operators.Authentication.authenticate(username, password) do
+      {:ok, credential} ->
+        Observability.defer([:security], %{count: 1}, %{action: :oper, result: :success})
+        Logger.info("operator authenticated", event: "audit.oper", actor: username, result: :success)
 
-      %Message{command: "MODE", params: [updated_user.nick, "+o"]}
-      |> Dispatcher.broadcast(:server, updated_user)
+        updated_user =
+          Users.update(user, %{
+            modes: Enum.uniq([:o | user.modes]),
+            oper_source: credential.source,
+            oper_name: credential.name
+          })
 
-      send_oper_success_snotice(updated_user, username)
-    else
-      Observability.defer([:security], %{count: 1}, %{action: :oper, result: :failure})
-      Logger.warning("operator authentication failed", event: "audit.oper", result: :failure)
+        %Message{command: :rpl_youreoper, params: [updated_user.nick], trailing: "You are now an IRC operator"}
+        |> Dispatcher.broadcast(:server, updated_user)
 
-      %Message{command: :err_passwdmismatch, params: [user.nick], trailing: "Password incorrect"}
-      |> Dispatcher.broadcast(:server, user)
+        %Message{command: "MODE", params: [updated_user.nick, "+o"]}
+        |> Dispatcher.broadcast(:server, updated_user)
 
-      send_oper_failure_snotice(user, username)
+        send_oper_success_snotice(updated_user, username)
+
+      :error ->
+        Observability.defer([:security], %{count: 1}, %{action: :oper, result: :failure})
+        Logger.warning("operator authentication failed", event: "audit.oper", result: :failure)
+
+        %Message{command: :err_passwdmismatch, params: [user.nick], trailing: "Password incorrect"}
+        |> Dispatcher.broadcast(:server, user)
+
+        send_oper_failure_snotice(user, username)
     end
   end
 
@@ -64,13 +83,5 @@ defmodule ElixIRCd.Commands.Oper do
   defp send_oper_failure_snotice(user, username) do
     user_info = Snotice.format_user_info(user)
     Snotice.broadcast(:oper, "Failed OPER attempt by #{user_info} (username: #{username})")
-  end
-
-  @spec valid_irc_operator_credential?(String.t(), String.t()) :: boolean()
-  defp valid_irc_operator_credential?(username, password) do
-    Application.fetch_env!(:elixircd, :operators)
-    |> Enum.any?(fn {oper_username, oper_password} ->
-      oper_username == username and Argon2.verify_pass(password, oper_password)
-    end)
   end
 end

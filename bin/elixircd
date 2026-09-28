@@ -1,0 +1,37 @@
+#!/bin/sh
+set -eu
+
+release_dir=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+release_command="$release_dir/bin/elixircd.release"
+cli_expression='ElixIRCd.CLI.main(System.argv())'
+RELEASE_PROG=${RELEASE_PROG:-elixircd}
+export RELEASE_PROG
+cd "$release_dir"
+
+case "${1:-}" in
+  start|start_iex|daemon|daemon_iex|eval|rpc|remote|restart|stop|pid|version)
+    exec "$release_command" "$@"
+    ;;
+esac
+
+# Passwords are read by the Elixir CLI through stdin. Disable terminal echo for
+# the whole prompt and restore it even when the command exits with an error.
+password_prompt=false
+case "${1:-}:${2:-}:$#" in
+  oper:add:3|oper:passwd:3|oper:hash:2)
+    password_prompt=true
+    ;;
+esac
+
+if [ "$password_prompt" = true ]; then
+  if [ ! -t 0 ]; then
+    echo 'A terminal is required to enter an operator password' >&2
+    exit 1
+  fi
+  terminal_settings=$(stty -g < /dev/tty)
+  trap 'stty "$terminal_settings" < /dev/tty' 0
+  stty -echo < /dev/tty
+  "$release_command" eval "$cli_expression" "$@"
+else
+  exec "$release_command" eval "$cli_expression" "$@"
+fi

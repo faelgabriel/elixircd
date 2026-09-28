@@ -19,6 +19,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.MetadataSubscription
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.NickAccess
+  alias ElixIRCd.Tables.Operator
   alias ElixIRCd.Tables.ReadMarker
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredChannelAccess
@@ -54,6 +55,7 @@ defmodule ElixIRCd.Utils.Mnesia do
     Memo,
     Metadata,
     NickAccess,
+    Operator,
     ReadMarker,
     RegisteredChannel,
     RegisteredChannelAccess,

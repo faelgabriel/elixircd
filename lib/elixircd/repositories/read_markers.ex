@@ -16,6 +16,20 @@ defmodule ElixIRCd.Repositories.ReadMarkers do
     end
   end
 
+  @doc "Lists markers for a normalized target key."
+  @spec get_by_target_key(String.t()) :: [ReadMarker.t()]
+  def get_by_target_key(target_key) do
+    :mnesia.index_read(ReadMarker, target_key, :target_key)
+    |> Enum.map(&Data.load/1)
+  end
+
+  @doc "Replaces a marker, including when its target key changes."
+  @spec replace(ReadMarker.t(), ReadMarker.t()) :: ReadMarker.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc "Stores an owner's marker for a target."
   @spec put(String.t(), String.t(), String.t(), DateTime.t()) :: ReadMarker.t()
   def put(owner_key, target_key, target, timestamp) do

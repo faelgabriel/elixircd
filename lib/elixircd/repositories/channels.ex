@@ -41,6 +41,13 @@ defmodule ElixIRCd.Repositories.Channels do
     |> Memento.Query.write()
   end
 
+  @doc "Replaces a channel, including when its normalized name key changes."
+  @spec replace(Channel.t(), Channel.t()) :: Channel.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc """
   Get all channels.
   """

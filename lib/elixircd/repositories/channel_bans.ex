@@ -23,6 +23,13 @@ defmodule ElixIRCd.Repositories.ChannelBans do
     Memento.Query.delete_record(channel_ban)
   end
 
+  @doc "Replaces a ban record, including when its channel key changes."
+  @spec replace(ChannelBan.t(), ChannelBan.t()) :: ChannelBan.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc """
   Get all channel bans by the channel name.
   """

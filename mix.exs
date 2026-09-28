@@ -111,6 +111,10 @@ defmodule ElixIRCd.MixProject do
     destination_path = Path.join([release.path, "config", "elixircd.exs"])
     File.mkdir_p!(Path.dirname(destination_path))
     File.copy!(source_path, destination_path)
+    release_command = Path.join([release.path, "bin", "elixircd"])
+    File.rename!(release_command, Path.join([release.path, "bin", "elixircd.release"]))
+    File.copy!(Path.join([__DIR__, "bin", "elixircd"]), release_command)
+    File.chmod!(release_command, 0o755)
     release
   end
 end

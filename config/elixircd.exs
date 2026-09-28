@@ -68,7 +68,10 @@ config :elixircd,
       # Override the global throttle message rate limits for specific commands
       # Each command entry must contain every throttle field (no partial overrides).
       # Example: %{"JOIN" => [refill_rate: 0.5, capacity: 20, cost: 5, window_ms: 60_000, disconnect_threshold: 5]}
-      command_throttle: %{},
+      command_throttle: %{
+        # Keep expensive Argon2 OPER attempts below the general message rate.
+        "OPER" => [refill_rate: 0.1, capacity: 3, cost: 1, window_ms: 60_000, disconnect_threshold: 5]
+      },
       # Exceptions for any message rate limiting
       exceptions: [
         # Identified nicknames
@@ -491,6 +494,8 @@ config :elixircd,
     email: "admin@example.com"
   ],
   # IRC Operators Credentials
+  # Operators can also be added to and read from the database with bin/elixircd oper.
+  # Names must be unique across this file and the database.
   operators: [
     # Define IRC operators with nickname and Argon2id hashed password
     # Example operator with nick "admin" and hashed "admin" password:

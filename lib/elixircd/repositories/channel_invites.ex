@@ -5,6 +5,7 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
 
   alias ElixIRCd.Tables.ChannelInvite
   alias ElixIRCd.Utils.CaseMapping
+  alias Memento.Query.Data
 
   @doc """
   Create a new channel invite and write it to the database.
@@ -15,6 +16,20 @@ defmodule ElixIRCd.Repositories.ChannelInvites do
 
     ChannelInvite.new(attrs)
     |> Memento.Query.write()
+  end
+
+  @doc "Replaces an invite record, including when its channel key changes."
+  @spec replace(ChannelInvite.t(), ChannelInvite.t()) :: ChannelInvite.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
+  @doc "Gets all invites for a normalized channel key."
+  @spec get_by_channel_name_key(String.t()) :: [ChannelInvite.t()]
+  def get_by_channel_name_key(channel_name_key) do
+    :mnesia.index_read(ChannelInvite, channel_name_key, :channel_name_key)
+    |> Enum.map(&Data.load/1)
   end
 
   @doc """

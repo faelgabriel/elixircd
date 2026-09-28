@@ -25,6 +25,13 @@ defmodule ElixIRCd.Repositories.ChannelInvexes do
     Memento.Query.delete_record(channel_invex)
   end
 
+  @doc "Replaces an invite exception, including when its channel key changes."
+  @spec replace(ChannelInvex.t(), ChannelInvex.t()) :: ChannelInvex.t()
+  def replace(old, new) do
+    Memento.Query.delete_record(old)
+    Memento.Query.write(new)
+  end
+
   @doc """
   Get all channel invexes by the channel name.
   """
