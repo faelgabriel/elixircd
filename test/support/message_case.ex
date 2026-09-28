@@ -15,6 +15,8 @@ defmodule ElixIRCd.MessageCase do
     quote do
       import ElixIRCd.MessageCase
 
+      alias ElixIRCd.Observability, as: MessageCaseObservability
+
       @agent_name Module.concat(__MODULE__, "MessageCase")
 
       setup context do
@@ -58,6 +60,41 @@ defmodule ElixIRCd.MessageCase do
       @spec assert_sent_messages_count_containing(pid(), String.t() | Regex.t(), integer()) :: :ok
       defp assert_sent_messages_count_containing(target, pattern, expected_count) do
         Assertions.assert_sent_messages_count_containing(@agent_name, target, pattern, expected_count)
+      end
+
+      # Asserts against the messages delivered after the observed transaction commits.
+      @spec assert_sent_messages_after_commit([tuple()], opts :: [validate_order?: boolean()]) :: :ok
+      defp assert_sent_messages_after_commit(expected_messages, opts \\ []) do
+        MessageCaseObservability.defer_effect(fn -> assert_sent_messages(expected_messages, opts) end)
+      end
+
+      @spec assert_sent_messages_amount_after_commit(pid(), integer()) :: :ok
+      defp assert_sent_messages_amount_after_commit(target, amount) do
+        MessageCaseObservability.defer_effect(fn -> assert_sent_messages_amount(target, amount) end)
+      end
+
+      @spec assert_sent_message_contains_after_commit(pid(), String.t() | Regex.t()) :: :ok
+      defp assert_sent_message_contains_after_commit(target, pattern) do
+        MessageCaseObservability.defer_effect(fn -> assert_sent_message_contains(target, pattern) end)
+      end
+
+      @spec assert_sent_messages_count_containing_after_commit(pid(), String.t() | Regex.t(), integer()) :: :ok
+      defp assert_sent_messages_count_containing_after_commit(target, pattern, expected_count) do
+        MessageCaseObservability.defer_effect(fn ->
+          assert_sent_messages_count_containing(target, pattern, expected_count)
+        end)
+      end
+
+      @spec assert_disconnect_after_commit(atom(), String.t()) :: :ok
+      defp assert_disconnect_after_commit(tag, reason_fragment) do
+        MessageCaseObservability.defer_effect(fn ->
+          receive do
+            {^tag, {:disconnect, reason}} ->
+              assert String.contains?(reason, reason_fragment)
+          after
+            150 -> flunk("No disconnect message was sent to the target user")
+          end
+        end)
       end
     end
   end

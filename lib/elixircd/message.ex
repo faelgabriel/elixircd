@@ -344,7 +344,13 @@ defmodule ElixIRCd.Message do
        ) do
     base = if is_nil(prefix), do: [command | params], else: [":" <> prefix, command | params]
     trailing = if truncate?, do: relay_trailing(command, base, trailing), else: trailing
-    {:ok, prepend_tags(tags, unparse_message(base, trailing)) <> "\r\n"}
+    line = prepend_tags(tags, unparse_message(base, trailing))
+
+    if :binary.match(line, ["\r", "\n", <<0>>]) == :nomatch do
+      {:ok, line <> "\r\n"}
+    else
+      {:error, "Invalid IRC message format on unparsing line: contains CR, LF or NUL"}
+    end
   end
 
   @spec trim_partial_utf8(binary()) :: binary()

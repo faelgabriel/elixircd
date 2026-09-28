@@ -150,6 +150,28 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert :ok = Connection.handle_receive(user.pid, "COMMAND test")
     end
 
+    test "rejects a WebSocket frame containing a second IRC line" do
+      sender = insert(:user, nick: "Alice", transport: :ws)
+      recipient = insert(:user, nick: "Bob")
+      input = "PRIVMSG Bob :hello\r\n:irc.test NOTICE Bob :forged"
+
+      assert :ok = Connection.handle_receive(sender.pid, input)
+      assert_sent_messages_amount(recipient.pid, 0)
+      assert_sent_messages_amount(sender.pid, 0)
+    end
+
+    test "rejects a bare CR in a TCP line and NUL in either transport" do
+      sender = insert(:user, nick: "Alice", transport: :tcp)
+      recipient = insert(:user, nick: "Bob")
+
+      for input <- ["PRIVMSG Bob :hello\r:irc.test NOTICE Bob :forged\n", "PRIVMSG Bob :hello" <> <<0>> <> "world\r\n"] do
+        assert :ok = Connection.handle_receive(sender.pid, input)
+      end
+
+      assert_sent_messages_amount(recipient.pid, 0)
+      assert_sent_messages_amount(sender.pid, 0)
+    end
+
     test "handles empty packets", %{user: user} do
       Command
       |> reject(:dispatch, 2)
@@ -220,6 +242,18 @@ defmodule ElixIRCd.Server.ConnectionTest do
       assert :ok = Connection.handle_receive(user.pid, "@label=slow PRIVMSG #test :spam")
       assert_sent_message_contains(user.pid, ~r/^@label=slow :irc.test NOTICE .* :Please slow down\./)
       assert_sent_messages_amount(user.pid, 1)
+    end
+
+    test "throttled WebSocket input with an embedded line cannot inject a response label" do
+      user = insert(:user, transport: :ws, capabilities: ["batch", "labeled-response"])
+      recipient = insert(:user, nick: "Bob")
+      expect(RateLimiter, :check_message, fn _, _ -> {:error, :throttled, 2000} end)
+      reject(Command, :dispatch, 2)
+
+      assert :ok = Connection.handle_receive(user.pid, "@label=bad\r\nX PRIVMSG Bob :spam")
+      assert_sent_message_contains(user.pid, ~r/^:irc.test NOTICE .* :Please slow down\./)
+      assert_sent_messages_amount(user.pid, 1)
+      assert_sent_messages_amount(recipient.pid, 0)
     end
 
     test "throttled SETNAME returns the extension failure independently of negotiated capabilities" do

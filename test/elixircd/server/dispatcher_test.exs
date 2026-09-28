@@ -7,10 +7,52 @@ defmodule ElixIRCd.Server.DispatcherTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.ResponseContext
   alias ElixIRCd.StandardReply
+
+  test "publishes messages and disconnects only after commit, in original order" do
+    recipient = insert(:user, pid: self())
+    wire = ":irc.test NOTICE #{recipient.nick} :committed\r\n"
+
+    assert :ok =
+             Observability.transaction(fn ->
+               Dispatcher.broadcast(
+                 %Message{command: "NOTICE", params: [recipient.nick], trailing: "committed"},
+                 :server,
+                 recipient
+               )
+
+               Dispatcher.disconnect(recipient, "done")
+               refute_received {:broadcast, ^wire}
+               refute_received {:disconnect, "done"}
+               :ok
+             end)
+
+    assert {:messages, [{:broadcast, ^wire}, {:disconnect, "done"} | _]} = Process.info(self(), :messages)
+  end
+
+  test "discards queued messages and disconnects when a transaction aborts" do
+    recipient = insert(:user, pid: self())
+
+    assert_raise Memento.TransactionAborted, fn ->
+      Observability.transaction(fn ->
+        Dispatcher.broadcast(
+          %Message{command: "NOTICE", params: [recipient.nick], trailing: "rolled back"},
+          :server,
+          recipient
+        )
+
+        Dispatcher.disconnect(recipient, "rolled back")
+        Memento.Transaction.abort(:rollback)
+      end)
+    end
+
+    refute_received {:broadcast, _}
+    refute_received {:disconnect, _}
+  end
 
   describe "broadcast/3 with context" do
     setup do

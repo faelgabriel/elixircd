@@ -165,6 +165,7 @@ defmodule ElixIRCd.Server.Connection do
   defp handle_check_message(user, data) do
     with :ok <- RateLimiter.check_message(user, data),
          :ok <- validate_input_length(data),
+         :ok <- validate_input_framing(user.transport, data),
          :ok <- check_utf8_validity(data) do
       handle_valid_message(user, data)
     else
@@ -179,7 +180,26 @@ defmodule ElixIRCd.Server.Connection do
 
       {:error, :input_too_long} ->
         {:rejected, :input_too_long, handle_input_too_long(user)}
+
+      {:error, :invalid_line} ->
+        {:rejected, :invalid_line, :ok}
     end
+  end
+
+  @spec validate_input_framing(transport(), binary()) :: :ok | {:error, :invalid_line}
+  defp validate_input_framing(transport, data) when transport in [:tcp, :tls] do
+    line =
+      cond do
+        String.ends_with?(data, "\r\n") -> binary_part(data, 0, byte_size(data) - 2)
+        String.ends_with?(data, "\n") -> binary_part(data, 0, byte_size(data) - 1)
+        true -> data
+      end
+
+    if :binary.match(line, ["\r", "\n", <<0>>]) == :nomatch, do: :ok, else: {:error, :invalid_line}
+  end
+
+  defp validate_input_framing(transport, data) when transport in [:ws, :wss] do
+    if :binary.match(data, ["\r", "\n", <<0>>]) == :nomatch, do: :ok, else: {:error, :invalid_line}
   end
 
   @spec check_utf8_validity(data :: String.t()) :: :ok | {:error, :invalid_utf8}
@@ -198,7 +218,7 @@ defmodule ElixIRCd.Server.Connection do
     Logger.debug("invalid UTF-8 input", event: "protocol.invalid_utf8")
 
     description = @invalid_utf8_description
-    request = rejected_request(data)
+    request = rejected_request(user.transport, data)
 
     ResponseContext.with_command(user, request, fn ->
       reply = %StandardReply{type: :fail, command: request.command, code: "INVALID_UTF8", description: description}
@@ -207,9 +227,10 @@ defmodule ElixIRCd.Server.Connection do
   end
 
   # Parse only to recover correlation metadata; invalid input is never dispatched.
-  @spec rejected_request(binary()) :: Message.t()
-  defp rejected_request(data) do
+  @spec rejected_request(transport(), binary()) :: Message.t()
+  defp rejected_request(transport, data) do
     with :ok <- validate_input_length(data),
+         :ok <- validate_input_framing(transport, data),
          {:ok, message} <- Message.parse(discard_invalid_tags(data)) do
       tags = Map.filter(message.tags, fn {_key, value} -> is_binary(value) and String.valid?(value) end)
 
@@ -314,7 +335,7 @@ defmodule ElixIRCd.Server.Connection do
 
   @spec handle_throttled_message(User.t(), binary(), non_neg_integer()) :: :ok
   defp handle_throttled_message(user, data, retry_after_ms) do
-    request = rejected_request(data)
+    request = rejected_request(user.transport, data)
 
     description =
       "Please slow down. You are sending messages too fast. Try again in #{div(retry_after_ms, 1000)} seconds."
@@ -379,7 +400,7 @@ defmodule ElixIRCd.Server.Connection do
     NickEnforcement.cancel(pid)
 
     result =
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         Users.get_by_pid(pid)
         |> case do
           {:ok, user} ->

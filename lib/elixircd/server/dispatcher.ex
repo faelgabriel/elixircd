@@ -109,7 +109,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   @spec disconnect(User.t(), String.t()) :: :ok
   def disconnect(%User{pid: pid} = user, reason) do
     ResponseContext.flush(user)
-    send(pid, {:disconnect, reason})
+    Observability.defer_effect(fn -> send(pid, {:disconnect, reason}) end)
     :ok
   end
 
@@ -251,9 +251,8 @@ defmodule ElixIRCd.Server.Dispatcher do
 
   @spec send_message(Message.t(), pid()) :: :ok
   defp send_message(message, pid) do
-    message
-    |> Message.unparse!()
-    |> then(&Connection.handle_send(pid, &1))
+    wire = Message.unparse!(message)
+    Observability.defer_effect(fn -> Connection.handle_send(pid, wire) end)
   end
 
   @spec add_context(Message.t(), context()) :: Message.t()

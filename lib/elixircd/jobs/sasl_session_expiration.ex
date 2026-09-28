@@ -13,6 +13,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
 
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
@@ -52,7 +53,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpiration do
     timeout_ms = Keyword.fetch!(sasl_config, :session_timeout_ms)
     cutoff_time = DateTime.add(DateTime.utc_now(), -timeout_ms, :millisecond)
 
-    Memento.transaction!(fn ->
+    Observability.transaction(fn ->
       expired_sessions = SaslSessions.get_expired(cutoff_time)
 
       Enum.each(expired_sessions, &cleanup_expired_session/1)

@@ -8,6 +8,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpirationTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.Jobs.SaslSessionExpiration
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.SaslSessions
   alias ElixIRCd.Tables.Job
 
@@ -29,7 +30,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpirationTest do
 
   describe "schedule/0" do
     test "schedules the job with correct parameters" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         job = SaslSessionExpiration.schedule()
 
         assert job.module == SaslSessionExpiration
@@ -43,7 +44,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpirationTest do
 
   describe "run/1" do
     test "cleans up expired SASL sessions" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         user = insert(:user, registered: false)
 
         # Create an expired session (created 2 minutes ago)
@@ -75,14 +76,14 @@ defmodule ElixIRCd.Jobs.SaslSessionExpirationTest do
         assert {:error, :sasl_session_not_found} = SaslSessions.get(user.pid)
 
         # Verify the user received an error message
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":irc.test 906 #{user.nick} :SASL authentication timeout\r\n"}
         ])
       end)
     end
 
     test "does not clean up recent SASL sessions" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         user = insert(:user, registered: false)
 
         # Create a recent session
@@ -112,12 +113,12 @@ defmodule ElixIRCd.Jobs.SaslSessionExpirationTest do
         assert {:ok, _session} = SaslSessions.get(user.pid)
 
         # Verify no messages were sent
-        assert_sent_messages([])
+        assert_sent_messages_amount_after_commit(user.pid, 0)
       end)
     end
 
     test "handles session cleanup when user no longer exists" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         # Create a session with a non-existent user PID
         fake_pid = spawn(fn -> :ok end)
         Process.exit(fake_pid, :kill)
@@ -155,7 +156,7 @@ defmodule ElixIRCd.Jobs.SaslSessionExpirationTest do
     end
 
     test "returns :ok when no sessions exist" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         job = %Job{
           id: "test-job",
           module: SaslSessionExpiration,

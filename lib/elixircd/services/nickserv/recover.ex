@@ -19,6 +19,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
   alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -93,7 +94,7 @@ defmodule ElixIRCd.Services.Nickserv.Recover do
           notify(user, "You cannot recover your own session.")
         else
           ghost_message = "Killed (#{user.nick} (RECOVER command used))"
-          send(target_user.pid, {:disconnect, ghost_message})
+          Dispatcher.disconnect(target_user, ghost_message)
 
           reserve_nickname(registered_nick, reservation_duration)
 

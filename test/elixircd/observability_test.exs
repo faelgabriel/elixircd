@@ -123,15 +123,90 @@ defmodule ElixIRCd.ObservabilityTest do
     refute_received :aborted_effect
   end
 
-  test "external effects execute immediately outside a transaction and reject raw transactions" do
+  test "nested observed transactions leave effects for the outer commit" do
+    assert :ok =
+             Observability.transaction(fn ->
+               Observability.transaction(fn ->
+                 Observability.defer_effect(fn -> send(self(), :nested_effect) end)
+               end)
+
+               refute_received :nested_effect
+               :ok
+             end)
+
+    assert_received :nested_effect
+
+    assert_raise ArgumentError, ~r/observed outer transaction/, fn ->
+      Memento.transaction!(fn -> Observability.transaction(fn -> :ok end) end)
+    end
+  end
+
+  test "a post-commit effect can start another observed transaction" do
+    Observability.transaction(fn ->
+      Observability.defer_effect(fn ->
+        Observability.transaction(fn ->
+          Observability.defer_effect(fn -> send(self(), :later_effect) end)
+        end)
+      end)
+    end)
+
+    assert_received :later_effect
+  end
+
+  test "a post-commit effect emits telemetry outside the completed transaction" do
+    test_pid = self()
+    handler = "observability-effect-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:elixircd, :security],
+        fn _event, _measurements, metadata, _config -> send(test_pid, {:effect_event, metadata}) end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    Observability.transaction(fn ->
+      Observability.defer_effect(fn -> Observability.defer([:security], %{count: 1}, %{source: :effect}) end)
+    end)
+
+    assert_received {:effect_event, %{source: :effect}}
+  end
+
+  test "a telemetry handler cannot replace effects awaiting delivery after commit" do
+    test_pid = self()
+    handler = "observability-nested-handler-#{System.unique_integer([:positive])}"
+    nested_key = {__MODULE__, :nested_handler}
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:elixircd, :database, :transaction],
+        fn _event, _measurements, metadata, _config ->
+          if self() == test_pid and metadata.result == :success and Process.get(nested_key) != true do
+            Process.put(nested_key, true)
+            Observability.transaction(fn -> :ok end)
+          end
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    Observability.transaction(fn ->
+      Observability.defer_effect(fn -> send(self(), :outer_effect) end)
+    end)
+
+    assert_received :outer_effect
+  end
+
+  test "external effects execute immediately without an observed transaction" do
     assert :ok = Observability.defer_effect(fn -> send(self(), :immediate_effect) end)
     assert_received :immediate_effect
 
-    assert_raise ArgumentError, ~r/Observability.transaction/, fn ->
-      Memento.transaction!(fn -> Observability.defer_effect(fn -> send(self(), :invalid_effect) end) end)
-    end
-
-    refute_received :invalid_effect
+    Memento.transaction!(fn -> Observability.defer_effect(fn -> send(self(), :raw_transaction_effect) end) end)
+    assert_received :raw_transaction_effect
   end
 
   test "a failing post-commit effect does not report a database rollback" do

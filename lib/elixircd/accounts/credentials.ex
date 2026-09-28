@@ -106,8 +106,9 @@ defmodule ElixIRCd.Accounts.Credentials do
     :ok
   end
 
+  @spec revoke_sessions(String.t()) :: :ok
   defp revoke_sessions(account_name) do
-    Memento.transaction!(fn ->
+    Observability.transaction(fn ->
       account_name
       |> Users.get_by_identified_as()
       |> Enum.each(&Logout.logout_user/1)

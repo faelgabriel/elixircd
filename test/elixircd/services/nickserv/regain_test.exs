@@ -8,6 +8,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
   alias ElixIRCd.Commands.Nick
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
@@ -17,12 +18,12 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
   describe "handle/2" do
     test "handles REGAIN command with insufficient parameters" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         user = insert(:user)
 
         assert :ok = Regain.handle(user, ["REGAIN"])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02REGAIN\x02.\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02REGAIN <nickname> <password>\x02\r\n"}
         ])
@@ -30,13 +31,13 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     end
 
     test "handles REGAIN command for non-registered nickname" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         user = insert(:user)
         non_registered_nick = "non_registered_nick"
 
         assert :ok = Regain.handle(user, ["REGAIN", non_registered_nick])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{non_registered_nick}\x02 is not registered.\r\n"}
         ])
@@ -44,13 +45,13 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     end
 
     test "handles REGAIN command for registered nick without providing password" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         registered_nick = insert(:registered_nick)
         user = insert(:user)
 
         assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02REGAIN\x02.\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02REGAIN <nickname> <password>\x02\r\n"}
         ])
@@ -58,7 +59,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     end
 
     test "handles REGAIN command for registered nick with incorrect password" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         password = "correct_password"
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
@@ -66,7 +67,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
         assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname, "wrong_password"])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Invalid password for \x02#{registered_nick.nickname}\x02.\r\n"}
         ])
@@ -74,7 +75,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     end
 
     test "requires a secure connection for a SECURE account" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         registered_nick =
           insert(:registered_nick,
             password: "correct_password",
@@ -84,12 +85,12 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         user = insert(:user, transport: :tcp)
 
         assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname, "correct_password"])
-        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection/)
+        assert_sent_message_contains_after_commit(user.pid, ~r/requires a secure TLS connection/)
       end)
     end
 
     test "handles REGAIN command for registered nick with correct password when nick is not in use" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         password = "correct_password"
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
@@ -101,7 +102,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.nick == registered_nick.nickname
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK #{registered_nick.nickname}\r\n"},
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :You have regained the nickname \x02#{registered_nick.nickname}\x02.\r\n"}
@@ -110,7 +111,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     end
 
     test "handles REGAIN command when canonical account cannot be resolved" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         insert(:registered_nick,
           nickname: "AliasNick",
           account_name: "MissingAccount",
@@ -121,14 +122,14 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
         assert :ok = Regain.handle(user, ["REGAIN", "AliasNick", "correct_password"])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02AliasNick\x02 is not registered.\r\n"}
         ])
       end)
     end
 
     test "handles REGAIN command when user is already identified as the registered nick" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         registered_nick = insert(:registered_nick)
         user = insert(:user, identified_as: registered_nick.nickname)
         old_nick = user.nick
@@ -138,7 +139,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.nick == registered_nick.nickname
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK #{registered_nick.nickname}\r\n"},
           {user.pid, ":irc.test MODE #{updated_user.nick} +r\r\n"},
           {user.pid,
@@ -148,7 +149,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     end
 
     test "handles REGAIN command when user is identified to the grouped nick account" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
         _grouped_nick = insert(:registered_nick, nickname: "AliasNick", account_name: primary_nick.nickname)
         user = insert(:user, identified_as: primary_nick.nickname)
@@ -159,7 +160,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.nick == "AliasNick"
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK AliasNick\r\n"},
           {user.pid, ":irc.test MODE #{updated_user.nick} +r\r\n"},
           {user.pid,
@@ -169,7 +170,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     end
 
     test "handles REGAIN command for trying to regain your own session" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         password = "correct_password"
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
@@ -177,14 +178,14 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
 
         assert :ok = Regain.handle(user, ["REGAIN", registered_nick.nickname, password])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :You cannot regain your own session.\r\n"}
         ])
       end)
     end
 
     test "handles REGAIN command for registered nick with correct password when nick is in use" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         password = "correct_password"
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
@@ -207,7 +208,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         reservation_duration =
           Application.get_env(:elixircd, :services)[:nickserv][:regain_reservation_duration] || 60
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{registered_nick.nickname}\x02 has been regained and reserved for you for \x02#{reservation_duration} seconds\x02.\r\n"},
           {user.pid,
@@ -215,12 +216,15 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         ])
 
         expected_message = "Killed (#{old_nick} (REGAIN command used))"
-        assert_received {:regain_test, {:disconnect, ^expected_message}}
+
+        Observability.defer_effect(fn ->
+          assert_received {:regain_test, {:disconnect, ^expected_message}}
+        end)
       end)
     end
 
     test "handles REGAIN command when user is in a channel with other users" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         password = "correct_password"
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
@@ -238,7 +242,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         {:ok, updated_user} = Users.get_by_pid(user.pid)
         assert updated_user.nick == registered_nick.nickname
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK #{registered_nick.nickname}\r\n"},
           {another_user.pid, ":#{old_nick}!#{user.ident}@#{user.hostname} NICK #{registered_nick.nickname}\r\n"},
           {user.pid,
@@ -257,7 +261,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
           {:disconnect, _reason} ->
             send(parent, :disconnect_started)
 
-            Memento.transaction!(fn ->
+            Observability.transaction(fn ->
               {:ok, user} = Users.get_by_pid(self())
               Users.delete(user)
             end)
@@ -267,7 +271,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
       end)
 
     {owner, outsider} =
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         insert(:registered_nick, nickname: "ReservedOwner", password: "password")
         insert(:user, pid: holder, nick: "ReservedOwner")
         {insert(:user, nick: "OwnerSession"), insert(:user, nick: "Contender")}
@@ -277,7 +281,7 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
       Task.async(fn ->
         Mimic.allow(Connection, parent, self())
 
-        Memento.transaction!(fn ->
+        Observability.transaction(fn ->
           Regain.handle(owner, ["REGAIN", "ReservedOwner", "password"])
           send(parent, {:reservation_staged, self()})
 
@@ -289,15 +293,15 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
         end)
       end)
 
-    assert_receive :disconnect_started, 5000
     assert_receive {:reservation_staged, regainer_pid}, 5000
+    refute_receive :disconnect_started, 50
 
     contender =
       Task.async(fn ->
         Mimic.allow(Connection, parent, self())
         send(parent, :contender_started)
 
-        Memento.transaction!(fn ->
+        Observability.transaction(fn ->
           Nick.handle(outsider, %Message{command: "NICK", params: ["ReservedOwner"]})
         end)
       end)
@@ -305,15 +309,16 @@ defmodule ElixIRCd.Services.Nickserv.RegainTest do
     assert_receive :contender_started, 5000
     send(regainer_pid, :commit)
     Task.await(regainer)
+    assert_receive :disconnect_started, 5000
     Task.await(contender)
     assert_receive :holder_released, 5000
 
-    Memento.transaction!(fn ->
+    Observability.transaction(fn ->
       {:ok, attempted} = Users.get_by_pid(outsider.pid)
       assert attempted.nick == "Contender"
       {:ok, reserved} = RegisteredNicks.get_by_nickname("ReservedOwner")
       assert DateTime.compare(reserved.reserved_until, DateTime.utc_now()) == :gt
-      assert_sent_messages_count_containing(outsider.pid, ~r/ 433 .* ReservedOwner /, 1)
+      assert_sent_messages_count_containing_after_commit(outsider.pid, ~r/ 433 .* ReservedOwner /, 1)
 
       Identify.handle(owner, ["IDENTIFY", "ReservedOwner", "password"])
       {:ok, owner} = Users.get_by_pid(owner.pid)

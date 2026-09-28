@@ -171,6 +171,14 @@ defmodule ElixIRCd.MessageTest do
   end
 
   describe "unparse/1" do
+    test "refuses raw IRC delimiters in outgoing fields" do
+      for trailing <- ["hello\r:fake.server NOTICE bob :forged", "hello\nforged", "hello" <> <<0>>] do
+        message = %Message{command: "PRIVMSG", params: ["bob"], trailing: trailing}
+        assert {:error, reason} = Message.unparse(message)
+        assert reason =~ "CR, LF or NUL"
+      end
+    end
+
     for command <- ["PRIVMSG", "NOTICE"] do
       test "bounds relayed #{command} to 512 bytes while preserving tags and UTF-8" do
         message = %Message{

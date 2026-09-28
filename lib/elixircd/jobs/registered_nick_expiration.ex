@@ -12,6 +12,7 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
     only: [cleanup_channel_registrations: 1, get_account_nick: 1, grouped?: 1, logout_account_users: 1]
 
   alias ElixIRCd.JobQueue
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Memos
   alias ElixIRCd.Repositories.NickAccesses
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -45,7 +46,7 @@ defmodule ElixIRCd.Jobs.RegisteredNickExpiration do
 
   @spec expire_old_nicknames() :: integer()
   defp expire_old_nicknames do
-    Memento.transaction!(fn ->
+    Observability.transaction(fn ->
       RegisteredNicks.get_all()
       |> Enum.filter(&check_nick_expiration/1)
       |> Enum.flat_map(&collect_nicks_to_expire/1)

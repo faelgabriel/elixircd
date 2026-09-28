@@ -101,7 +101,7 @@ defmodule ElixIRCd.Services.Nickserv.Regain do
           # Write-lock the registration before triggering the asynchronous disconnect.
           # NICK checks this same record in its transaction, so it cannot observe a free, unreserved nick.
           reserve_nickname(registered_nick)
-          send(target_user.pid, {:disconnect, ghost_message})
+          Dispatcher.disconnect(target_user, ghost_message)
 
           notify(user, [
             "Nick \x02#{registered_nick.nickname}\x02 has been regained and reserved for you for " <>

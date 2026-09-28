@@ -7,18 +7,19 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
   import ElixIRCd.Factory
 
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Ghost
   alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
     test "handles GHOST command with insufficient parameters" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         user = insert(:user)
 
         assert :ok = Ghost.handle(user, ["GHOST"])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02GHOST\x02.\r\n"},
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :Syntax: \x02GHOST <nick> [password]\x02\r\n"}
         ])
@@ -26,13 +27,13 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end
 
     test "handles GHOST command for nick that is not online" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         user = insert(:user)
         non_existing_nick = "non_existing_nick"
 
         assert :ok = Ghost.handle(user, ["GHOST", non_existing_nick])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{non_existing_nick}\x02 is not online.\r\n"}
         ])
@@ -40,25 +41,25 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end
 
     test "handles GHOST command for trying to ghost yourself" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         user = insert(:user)
 
         assert :ok = Ghost.handle(user, ["GHOST", user.nick])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid, ":NickServ!service@irc.test NOTICE #{user.nick} :You cannot ghost yourself.\r\n"}
         ])
       end)
     end
 
     test "handles GHOST command for a nick that is not registered" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         target_user = insert(:user)
         user = insert(:user)
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{target_user.nick}\x02 is not registered.\r\n"}
         ])
@@ -66,14 +67,14 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end
 
     test "handles GHOST command for registered nick without providing password" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         registered_nick = insert(:registered_nick)
         target_user = insert(:user, nick: registered_nick.nickname)
         user = insert(:user)
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :You need to provide a password to ghost \x02#{target_user.nick}\x02.\r\n"},
           {user.pid,
@@ -83,7 +84,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end
 
     test "handles GHOST command for registered nick with incorrect password" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         password = "correct_password"
         password_hash = Argon2.hash_pwd_salt(password)
         registered_nick = insert(:registered_nick, password_hash: password_hash)
@@ -92,7 +93,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick, "wrong_password"])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Invalid password for \x02#{target_user.nick}\x02.\r\n"}
         ])
@@ -102,7 +103,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end
 
     test "requires a secure connection for a SECURE account" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         registered_nick =
           insert(:registered_nick,
             password: "correct_password",
@@ -113,12 +114,16 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
         user = insert(:user, transport: :tcp)
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick, "correct_password"])
-        assert_sent_message_contains(user.pid, ~r/requires a secure TLS connection for password authentication/)
+
+        assert_sent_message_contains_after_commit(
+          user.pid,
+          ~r/requires a secure TLS connection for password authentication/
+        )
       end)
     end
 
     test "handles GHOST command for registered nick with correct password" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         target_pid = spawn_test_process()
 
         password = "correct_password"
@@ -129,17 +134,17 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick, password])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
         ])
 
-        assert_disconnect_process_message_sent()
+        assert_disconnect_after_commit(:ghost_test, "Killed")
       end)
     end
 
     test "handles GHOST command when canonical account cannot be resolved" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         target_user = insert(:user, nick: "AliasNick")
 
         insert(:registered_nick,
@@ -152,7 +157,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick, "correct_password"])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :Nick \x02#{target_user.nick}\x02 is not registered.\r\n"}
         ])
@@ -160,7 +165,7 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
     end
 
     test "handles GHOST command when user is already identified as the registered nick" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         target_pid = spawn_test_process()
 
         registered_nick = insert(:registered_nick)
@@ -169,17 +174,17 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
         ])
 
-        assert_disconnect_process_message_sent()
+        assert_disconnect_after_commit(:ghost_test, "Killed")
       end)
     end
 
     test "handles GHOST command when user is identified to the grouped nick account" do
-      Memento.transaction!(fn ->
+      Observability.transaction(fn ->
         target_pid = spawn_test_process()
 
         primary_nick = insert(:registered_nick, nickname: "PrimaryNick")
@@ -189,12 +194,12 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
 
         assert :ok = Ghost.handle(user, ["GHOST", target_user.nick])
 
-        assert_sent_messages([
+        assert_sent_messages_after_commit([
           {user.pid,
            ":NickServ!service@irc.test NOTICE #{user.nick} :User \x02#{target_user.nick}\x02 has been disconnected.\r\n"}
         ])
 
-        assert_disconnect_process_message_sent()
+        assert_disconnect_after_commit(:ghost_test, "Killed")
       end)
     end
   end
@@ -208,15 +213,5 @@ defmodule ElixIRCd.Services.Nickserv.GhostTest do
         message -> send(parent, {:ghost_test, message})
       end
     end)
-  end
-
-  @spec assert_disconnect_process_message_sent :: :ok
-  defp assert_disconnect_process_message_sent do
-    receive do
-      {:ghost_test, {:disconnect, message}} ->
-        assert message =~ "Killed"
-    after
-      150 -> flunk("No disconnect message was sent to the target user")
-    end
   end
 end

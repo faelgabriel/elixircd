@@ -9,7 +9,7 @@ defmodule ElixIRCd.Observability do
   @deferred_key {__MODULE__, :deferred}
   @effects_key {__MODULE__, :effects}
 
-  @doc "Runs an external effect only after the enclosing observed transaction commits."
+  @doc "Queues an external effect until the observed transaction commits, or runs it immediately outside one."
   @spec defer_effect((-> term())) :: :ok
   def defer_effect(fun) when is_function(fun, 0) do
     case Process.get(@effects_key) do
@@ -17,11 +17,7 @@ defmodule ElixIRCd.Observability do
         Process.put(@effects_key, [fun | effects])
 
       nil ->
-        if Memento.Transaction.inside?() do
-          raise ArgumentError, "external effects require Observability.transaction/1"
-        else
-          fun.()
-        end
+        fun.()
     end
 
     :ok
@@ -47,22 +43,31 @@ defmodule ElixIRCd.Observability do
   @doc "Runs a transaction, discarding prior attempts' events on retries or aborts."
   @spec transaction((-> result)) :: result when result: var
   def transaction(fun) do
+    if Memento.Transaction.inside?() do
+      case Process.get(@effects_key) do
+        effects when is_list(effects) -> fun.()
+        nil -> raise ArgumentError, "nested observed transactions require an observed outer transaction"
+      end
+    else
+      run_outer_transaction(fun)
+    end
+  end
+
+  @spec run_outer_transaction((-> result)) :: result when result: var
+  defp run_outer_transaction(fun) do
     started = System.monotonic_time()
 
     try do
       result = run_transaction(fun, started)
+      events = @deferred_key |> Process.get([]) |> Enum.reverse()
+      effects = @effects_key |> Process.get([]) |> Enum.reverse()
+      Process.delete(@deferred_key)
+      Process.delete(@effects_key)
 
       emit([:database, :transaction], %{count: 1, duration: System.monotonic_time() - started}, %{result: :success})
 
-      @deferred_key
-      |> Process.get([])
-      |> Enum.reverse()
-      |> Enum.each(fn {name, measurements, metadata} -> emit(name, measurements, metadata) end)
-
-      @effects_key
-      |> Process.get([])
-      |> Enum.reverse()
-      |> Enum.each(& &1.())
+      Enum.each(events, fn {name, measurements, metadata} -> emit(name, measurements, metadata) end)
+      Enum.each(effects, & &1.())
 
       result
     after
@@ -71,6 +76,7 @@ defmodule ElixIRCd.Observability do
     end
   end
 
+  @spec run_transaction((-> result), integer()) :: result when result: var
   defp run_transaction(fun, started) do
     Memento.transaction!(fn ->
       Process.put(@deferred_key, [])

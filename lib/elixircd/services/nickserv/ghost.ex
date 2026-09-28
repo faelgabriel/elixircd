@@ -19,6 +19,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
   alias ElixIRCd.Accounts.Password
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
+  alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.User
 
@@ -101,7 +102,7 @@ defmodule ElixIRCd.Services.Nickserv.Ghost do
   @spec perform_disconnect(User.t(), User.t()) :: :ok
   defp perform_disconnect(user, target_user) do
     ghost_message = "Killed (#{user.nick} (GHOST command used))"
-    send(target_user.pid, {:disconnect, ghost_message})
+    Dispatcher.disconnect(target_user, ghost_message)
     notify(user, "User \x02#{target_user.nick}\x02 has been disconnected.")
   end
 end
