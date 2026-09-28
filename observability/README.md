@@ -13,17 +13,17 @@ export GRAFANA_ADMIN_PASSWORD='choose-a-long-unique-password'
 docker compose -f observability/compose.yaml up -d
 ```
 
-Open <http://127.0.0.1:3000> and sign in as `admin` with the password above. The `ElixIRCd` folder contains nine English dashboards: Overview, Connections & transport, IRC activity & services, Security & authentication, Runtime, Storage & database, Jobs, Email, and Event logs. The dashboard navigation menu preserves the selected time range. Prometheus scrapes the private `elixircd:9568/metrics` address. Loki receives JSON container logs via Alloy. `docker compose -f observability/compose.yaml ps` shows container state; `docker compose -f observability/compose.yaml logs elixircd alloy` helps diagnose startup.
+Open <http://127.0.0.1:3000> and sign in as `admin` with the password above. The `ElixIRCd` folder contains ten English dashboards: Overview, Connections & transport, IRC activity & services, Security & authentication, Runtime, Storage & database, Jobs, Email, Event logs, and Monitoring & alerts. The dashboard navigation menu preserves the selected time range. Prometheus scrapes the private `elixircd:9568/metrics` address and the internal health metrics of Loki, Alloy, and Grafana. Loki receives JSON container logs via Alloy. `docker compose -f observability/compose.yaml ps` shows container state; `docker compose -f observability/compose.yaml logs elixircd alloy` helps diagnose startup.
 
 The Event logs dashboard has an **Event family** dropdown and an **Event suffix regex** input. Use the default `.*` suffix to see all names in a family, or enter `failed|crashed` to narrow the selected family. The top event types, severity trend, per-type trend, and selected log stream follow these filters; the family trend and "Other runtime logs" remain unfiltered for context. Families use the stable prefix of `metadata.event`: `audit.*`, `authentication.*`, `connection.*`/`protocol.*`, `job.*`/`email.*`, `account.*`/`channel.*`/`service.*`, and `observability.*`. Click a log line for its JSON fields, including bounded `job_type`, `result`, and `connection_id` when available. For ad hoc investigation, use Grafana Explore with the Loki query `{service="elixircd"} | json`; for example, append `| metadata_event=~"^job[.].+"` to select job events. Job lifecycle logs include enqueue, start, completion, retry, failure, cancellation, and recovery. Event names are parsed at query time rather than indexed as Loki labels.
 
 ## Dashboard screenshots
 
-These captures come from the local Docker stack during synthetic IRC traffic with multiple clients over TCP, TLS, WebSocket, and secure WebSocket, plus local email jobs sent through the test adapter. They show measured traffic, storage activity, jobs, audit events, and controlled rejects; they are examples rather than production measurements. Dashboard log panels display the message text, while the structured JSON fields remain available in each log entry's details. Live values and panels with no matching events will vary.
+These captures come from local synthetic QA runs, not production. The Overview, Activity, and Storage examples use a busy 2026-09-24 interval with IRC commands, messages, services, history, and database activity; the other captures use separate QA intervals. Dashboard log panels show message text, with structured JSON fields available in each entry's details. Live values and panels with no matching events will vary.
 
 ### Overview
 
-Health, traffic, memory, and recent logs in one view.
+Health, active alerts, traffic, memory, and recent logs in one view.
 
 ![Overview dashboard with health cards, traffic charts, memory, and recent logs](screenshots/overview.png)
 
@@ -35,9 +35,11 @@ Connection acceptance and rejection, disconnects, handshakes, and transport-spec
 
 ### IRC activity and services
 
-Command rates and latency, message delivery, and NickServ/ChanServ calls.
+Command rates and latency, a complete command/outcome table since restart, message delivery, and NickServ/ChanServ calls.
 
 ![IRC activity dashboard with command, message, recipient, and service charts](screenshots/activity.png)
+
+![Complete command counts by outcome since restart](screenshots/activity-breakdown.png)
 
 ### Security and authentication
 
@@ -53,9 +55,11 @@ Metrics availability, IRC readiness, sample freshness, and BEAM resource trends.
 
 ### Storage and database
 
-Data volume capacity and usage, Mnesia table sizes, and transaction throughput and latency.
+Data volume capacity and usage, largest and complete Mnesia table views, and transaction throughput and latency.
 
 ![Storage dashboard with data volume and Mnesia charts](screenshots/storage.png)
+
+![Complete Mnesia table row counts](screenshots/storage-breakdown.png)
 
 ### Jobs
 
@@ -77,6 +81,12 @@ Event type counts and severity over time, with filters for structured event fami
 
 ![Related email job lifecycle entries in the Email dashboard](screenshots/job-log-lines.png)
 
+### Monitoring and alerts
+
+Prometheus rule state, scrape target health, Loki log intake, and selected Grafana and Loki API errors. The dashboard displays alerts but does not send notifications.
+
+![Monitoring and alerts dashboard with five healthy scrape targets and log intake](screenshots/monitoring.png)
+
 This Compose file owns the usual IRC ports (6667, 6697, 8080, 8443) and Grafana's loopback port 3000. Adjust host port mappings if occupied. Add your IRC configuration or TLS certificates by mounting them into `/app/config/elixircd.exs` and `/app/data/cert` as described in the root README. Preserve the `elixircd-data` volume. A fresh volume starts with a fresh Mnesia schema; existing deployments must use their own compatible data volume and backup before changing versions.
 
 ## Endpoints and data
@@ -93,8 +103,8 @@ Production logs use JSON. Normal connection logs use a random, per-connection ID
 
 ## Retention, access, and alerts
 
-Prometheus retains metrics for 15 days. Loki retains logs for 7 days. Docker rotates the IRC server's container log at five 10 MB files. Named volumes persist on `docker compose down`; `docker compose down -v` deletes monitoring and IRC data. Back up the volumes if the history matters. The stack does not configure an Alertmanager notification destination: alert rules show in Prometheus/Grafana, and you can add a receiver for paging. Included alerts cover down/unready, stale samples, low disk space, old queued jobs, and failed jobs.
+Prometheus retains metrics for 15 days. Loki retains logs for 7 days. Docker rotates the IRC server's container log at five 10 MB files. Named volumes persist on `docker compose down`; `docker compose down -v` deletes monitoring and IRC data. Back up the volumes if the history matters. The stack does not configure an Alertmanager notification destination: alert rules show in Prometheus/Grafana, and you can add a receiver for paging. Included alerts cover down/unready, stale samples, low disk space, old queued jobs, failed jobs, and monitoring component outages. Prometheus cannot evaluate rules while it is down, so monitor its availability separately if paging is required.
 
-Grafana is bound to the host loopback and requires `GRAFANA_ADMIN_PASSWORD`. For remote access, put an authenticated HTTPS reverse proxy in front of it or use a private tunnel. The Alloy container mounts the Docker socket read-only to discover the ElixIRCd container, but Docker socket access is privileged even with a read-only mount. Run this stack only on a host you trust or replace Docker discovery with another log collector. Prometheus and Loki are internal to the Compose network and have no host ports.
+Grafana is bound to the host loopback and requires `GRAFANA_ADMIN_PASSWORD`. For remote access, put an authenticated HTTPS reverse proxy in front of it or use a private tunnel. The Alloy container mounts the Docker socket read-only to discover the ElixIRCd container, but Docker socket access is privileged even with a read-only mount. Run this stack only on a host you trust or replace Docker discovery with another log collector. Prometheus, Loki, and Alloy's metrics endpoint are internal to the Compose network and have no host ports.
 
 To inspect metrics without the full stack, run the image with a private Docker network and scrape port 9568 from another container on that network. The production image exposes the same endpoints when observability is enabled. Neither the image nor this Compose example ties Docker container health to the optional management HTTP endpoint; the Runtime dashboard and Prometheus alerts report metrics availability and IRC readiness separately.

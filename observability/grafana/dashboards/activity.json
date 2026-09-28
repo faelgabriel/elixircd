@@ -199,7 +199,7 @@
         {
           "expr": "sum by (service, command, result) (rate(elixircd_service_total[$__rate_interval]))",
           "refId": "A",
-          "legendFormat": "{{service}} · {{command}} · {{result}}"
+          "legendFormat": "{{service}} \u00b7 {{command}} \u00b7 {{result}}"
         }
       ],
       "fieldConfig": {
@@ -333,6 +333,39 @@
         "wrapLogMessage": true,
         "enableLogDetails": true,
         "sortOrder": "Descending"
+      }
+    },
+    {
+      "id": 20,
+      "title": "All commands since restart",
+      "type": "table",
+      "description": "Complete command and outcome counts since the last ElixIRCd restart, including commands outside the top ten.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 42,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "expr": "sum by (command, result) (elixircd_command_total)",
+          "refId": "A",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "Value",
+            "desc": true
+          }
+        ]
       }
     }
   ]

@@ -221,9 +221,9 @@
     },
     {
       "id": 4,
-      "title": "Data volume available",
+      "title": "Active alerts",
       "type": "stat",
-      "description": "Free capacity on the server data volume.",
+      "description": "Prometheus alert rules currently firing.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -236,13 +236,26 @@
       },
       "targets": [
         {
-          "expr": "elixircd_data_available_bytes",
+          "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes"
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
         },
         "overrides": []
       },

@@ -48,3 +48,13 @@ groups:
           severity: warning
         annotations:
           summary: "An ElixIRCd job failed during the last 15 minutes"
+
+  - name: monitoring
+    rules:
+      - alert: MonitoringComponentDown
+        expr: up{job=~"prometheus|loki|alloy|grafana"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Monitoring component {{ $labels.job }} is unavailable"

@@ -197,9 +197,9 @@ Observability is enabled by default and exposes liveness, readiness, and Prometh
 
 The image and optional Compose stack do not tie Docker container health to the metrics endpoint. The [monitoring stack](observability/README.md) runs Prometheus, Grafana, Loki, and Alloy alongside the IRC server. It includes dashboards, alerts, structured logs, and persistent monitoring data. The monitoring endpoint is bound to the container's private interface when this stack is used; it is never published as a host port.
 
-The screenshot below shows the local Grafana overview during a synthetic multi-client IRC workload. See the [observability dashboard gallery](observability/README.md#dashboard-screenshots) for the detailed views.
+The screenshot below shows the local Grafana overview with active alerts and synthetic IRC traffic. See the [observability dashboard gallery](observability/README.md#dashboard-screenshots) for the detailed views.
 
-![Grafana overview showing server readiness, connection and command rates, memory, and recent logs](observability/screenshots/overview.png)
+![Grafana overview showing server readiness, active alerts, connection and command rates, memory, and recent logs](observability/screenshots/overview.png)
 
 For configuration, dashboards, logs, alerts, and access details, see the [observability README](observability/README.md).
 
