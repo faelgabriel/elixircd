@@ -82,7 +82,7 @@ defmodule ElixIRCd.Commands.Metadata do
       {:error, :invalid_target} -> target_error(user, target, :invalid_target)
       {:error, :no_permission} -> fail(user, "KEY_NO_PERMISSION", [target, key], "Permission denied")
       {:error, :invalid_key} -> fail(user, "KEY_INVALID", key, "Invalid metadata key")
-      {:error, :invalid_value} -> fail(user, "VALUE_INVALID", [], "Invalid metadata value")
+      {:error, :invalid_value} -> invalid_value_error(user, key)
       {:error, :limit_reached} -> fail(user, "LIMIT_REACHED", target, "Metadata limit reached")
       {:error, :not_set} -> fail(user, "KEY_NOT_SET", [target, key], "Metadata key is not set")
     end
@@ -272,6 +272,14 @@ defmodule ElixIRCd.Commands.Metadata do
     do: fail(user, "KEY_NO_PERMISSION", [target, "*"], "Permission denied")
 
   defp target_error(user, target, _reason), do: fail(user, "INVALID_TARGET", target, "Invalid metadata target")
+
+  defp invalid_value_error(user, key) do
+    if "draft/metadata-2" in user.capabilities do
+      fail(user, "VALUE_INVALID", [], "Invalid metadata value")
+    else
+      fail(user, "INVALID_VALUE", key, "Invalid metadata value")
+    end
+  end
 
   defp fail(user, code, context, description) do
     %StandardReply{

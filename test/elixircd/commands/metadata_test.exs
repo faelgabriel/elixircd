@@ -137,7 +137,7 @@ defmodule ElixIRCd.Commands.MetadataTest do
       Agent.update(@agent_name, fn _ -> [] end)
 
       assert :ok = dispatch(user, ["*", "SET", "bad-value"], "line\nbreak")
-      assert_sent_message_contains(user.pid, ~r/ FAIL METADATA VALUE_INVALID :Invalid metadata value/)
+      assert_sent_message_contains(user.pid, ~r/ FAIL METADATA INVALID_VALUE bad-value :Invalid metadata value/)
       Agent.update(@agent_name, fn _ -> [] end)
 
       assert :ok = dispatch(user, ["*", "SET", "one"], "1")
@@ -205,6 +205,19 @@ defmodule ElixIRCd.Commands.MetadataTest do
       assert_sent_message_contains(user.pid, ~r/ FAIL METADATA INVALID_PARAMS \*/)
 
       assert other.nick == "Bob"
+    end)
+  end
+
+  test "reports invalid values with the negotiated metadata version's reply code" do
+    Memento.transaction!(fn ->
+      current = insert(:user, nick: "Current", capabilities: ["batch", "draft/metadata-2"])
+      draft = insert(:user, nick: "Draft", capabilities: ["batch", "draft/metadata-3"])
+
+      assert :ok = dispatch(current, ["*", "SET", "display-name"], "line\nbreak")
+      assert_sent_message_contains(current.pid, ~r/ FAIL METADATA VALUE_INVALID :Invalid metadata value/)
+
+      assert :ok = dispatch(draft, ["*", "SET", "display-name"], "line\nbreak")
+      assert_sent_message_contains(draft.pid, ~r/ FAIL METADATA INVALID_VALUE display-name :Invalid metadata value/)
     end)
   end
 
