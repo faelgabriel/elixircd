@@ -417,8 +417,8 @@ config :elixircd,
     chanserv: [
       # Enable/Disable ChanServ service
       enabled: true,
-      # Minimum password length for channel registration
-      min_password_length: 8,
+      # A named successor may claim ownership after this many days without founder activity.
+      successor_claim_after_days: 30,
       # Maximum number of channels a single user (NickServ account) can register
       max_registered_channels_per_user: 10,
       # List of channel names or patterns that cannot be registered

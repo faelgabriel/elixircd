@@ -35,6 +35,33 @@ defmodule ElixIRCd.Utils.Mailer do
     result
   end
 
+  @doc "Sends a one-time NickServ password reset code."
+  @spec send_password_reset_email(String.t(), String.t(), String.t()) :: {:ok, Bamboo.Email.t()} | {:error, any()}
+  def send_password_reset_email(to, account_name, code) do
+    started = System.monotonic_time()
+    command = "/msg NickServ RESETPASS CONFIRM #{account_name} #{code} <new-password>"
+
+    result =
+      new_email()
+      |> to(to)
+      |> from(sender_email())
+      |> subject("IRC account password reset")
+      |> html_body(
+        "<p>A password reset was requested for #{escape_html(account_name)}.</p>" <>
+          "<p>Connect securely to IRC and use this command within 30 minutes:</p><pre>#{escape_html(command)}</pre>" <>
+          "<p>If you did not request this, ignore this email.</p>"
+      )
+      |> text_body(
+        "A password reset was requested for #{account_name}.\n" <>
+          "Connect securely to IRC and use this command within 30 minutes:\n#{command}\n" <>
+          "If you did not request this, ignore this email.\n"
+      )
+      |> deliver_now()
+
+    observe_delivery(:password_reset, result, started)
+    result
+  end
+
   @doc "Sends a stored NickServ memo to the recipient's configured email address."
   @spec send_memo_email(String.t(), String.t(), String.t(), String.t()) ::
           {:ok, Bamboo.Email.t()} | {:error, any()}

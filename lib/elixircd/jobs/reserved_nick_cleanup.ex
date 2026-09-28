@@ -10,6 +10,7 @@ defmodule ElixIRCd.Jobs.ReservedNickCleanup do
   require Logger
 
   alias ElixIRCd.JobQueue
+  alias ElixIRCd.Repositories.PasswordResets
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Tables.Job
   alias ElixIRCd.Tables.RegisteredNick
@@ -35,6 +36,7 @@ defmodule ElixIRCd.Jobs.ReservedNickCleanup do
   def run(_job) do
     Logger.debug("Starting cleanup of expired nickname reservations")
     cleaned_count = cleanup_expired_reservations()
+    Memento.transaction!(fn -> PasswordResets.delete_expired(DateTime.utc_now()) end)
 
     if cleaned_count > 0 do
       Logger.info("Reserved nickname cleanup completed. #{cleaned_count} reservations were expired.")

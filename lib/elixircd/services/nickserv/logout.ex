@@ -32,8 +32,9 @@ defmodule ElixIRCd.Services.Nickserv.Logout do
     ])
   end
 
+  @doc "Revokes a logged-in session after an account credential change."
   @spec logout_user(User.t()) :: :ok
-  defp logout_user(user) do
+  def logout_user(user) do
     identified_nickname = user.identified_as
     new_modes = List.delete(user.modes, :r)
 

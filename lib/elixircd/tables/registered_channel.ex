@@ -7,7 +7,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
   alias ElixIRCd.Tables.RegisteredChannel.Settings
   alias ElixIRCd.Utils.CaseMapping
 
-  @enforce_keys [:name_key, :name, :founder, :password_hash, :registered_by, :created_at]
+  @enforce_keys [:name_key, :name, :founder, :registered_by, :created_at]
 
   use Memento.Table,
     attributes: [
@@ -29,7 +29,7 @@ defmodule ElixIRCd.Tables.RegisteredChannel do
           name_key: String.t(),
           name: String.t(),
           founder: String.t(),
-          password_hash: String.t(),
+          password_hash: String.t() | nil,
           registered_by: String.t(),
           settings: Settings.t(),
           topic: Channel.Topic.t() | nil,

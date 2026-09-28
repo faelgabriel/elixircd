@@ -11,11 +11,70 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Services.Nickserv.Set
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
+    test "SET PASSWORD validates length, syntax, and account existence" do
+      account = insert(:registered_nick, nickname: "Owner", password: "old-password")
+      user = insert(:user, identified_as: account.account_name, transport: :tls)
+      missing = insert(:user, identified_as: "Missing", transport: :tls)
+
+      assert :ok = ElixIRCd.Observability.transaction(fn -> Set.handle(user, ["SET", "PASSWORD"]) end)
+      assert_sent_message_contains(user.pid, ~r/SET PASSWORD <current-password>/)
+
+      assert :ok =
+               ElixIRCd.Observability.transaction(fn -> Set.handle(user, ["SET", "PASSWORD", "old-password", "x"]) end)
+
+      assert_sent_message_contains(user.pid, ~r/new password is too short/)
+
+      assert :ok =
+               ElixIRCd.Observability.transaction(fn ->
+                 Set.handle(missing, ["SET", "PASSWORD", "old-password", "new-password"])
+               end)
+
+      assert_sent_message_contains(missing.pid, ~r/password could not be changed/)
+    end
+
+    test "SET PASSWORD requires TLS, verifies the current password, and rotates grouped credentials and sessions" do
+      account = insert(:registered_nick, nickname: "Owner", password: "old-password")
+      insert(:registered_nick, nickname: "Alias", account_name: account.account_name)
+      user = insert(:user, nick: "Owner", identified_as: account.account_name, transport: :tls, modes: [:r])
+      other = insert(:user, nick: "Alias", identified_as: account.account_name, transport: :tls, modes: [:r])
+
+      assert :ok =
+               ElixIRCd.Observability.transaction(fn ->
+                 Set.handle(%{user | transport: :tcp}, ["SET", "PASSWORD", "old-password", "new-password"])
+               end)
+
+      assert_sent_message_contains(user.pid, ~r/secure TLS connection/)
+
+      assert :ok =
+               ElixIRCd.Observability.transaction(fn ->
+                 Set.handle(user, ["SET", "PASSWORD", "wrong-password", "new-password"])
+               end)
+
+      assert_sent_message_contains(user.pid, ~r/current password is incorrect/)
+
+      assert :ok =
+               ElixIRCd.Observability.transaction(fn ->
+                 Set.handle(user, ["SET", "PASSWORD", "old-password", "new-password"])
+               end)
+
+      Memento.transaction!(fn ->
+        {:ok, updated} = RegisteredNicks.get_by_nickname("Owner")
+        {:ok, alias_nick} = RegisteredNicks.get_by_nickname("Alias")
+        assert Argon2.verify_pass("new-password", updated.password_hash)
+        refute Argon2.verify_pass("old-password", updated.password_hash)
+        assert alias_nick.password_hash == updated.password_hash
+        assert alias_nick.scram_sha_256 == updated.scram_sha_256
+        assert {:ok, %{identified_as: nil}} = Users.get_by_pid(user.pid)
+        assert {:ok, %{identified_as: nil}} = Users.get_by_pid(other.pid)
+      end)
+    end
+
     test "handles SET command with insufficient parameters" do
       Memento.transaction!(fn ->
         user = insert(:user)
@@ -24,7 +83,7 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
 
         assert_sent_message_contains(user.pid, ~r/Insufficient parameters for.*SET/)
         assert_sent_message_contains(user.pid, ~r/NickServ.*NOTICE.*HIDEMAIL.*/)
-        assert_sent_messages_amount(user.pid, 25)
+        assert_sent_messages_amount(user.pid, 26)
       end)
     end
 
@@ -53,7 +112,7 @@ defmodule ElixIRCd.Services.Nickserv.SetTest do
 
         assert_sent_message_contains(user.pid, ~r/Unknown SET option:.*#{invalid_subcommand}/)
         assert_sent_message_contains(user.pid, ~r/NickServ.*NOTICE.*HIDEMAIL.*/)
-        assert_sent_messages_amount(user.pid, 24)
+        assert_sent_messages_amount(user.pid, 25)
       end)
     end
 

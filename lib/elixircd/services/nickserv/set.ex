@@ -14,6 +14,7 @@ defmodule ElixIRCd.Services.Nickserv.Set do
   import ElixIRCd.Utils.Nickserv, only: [notify: 2, pending_email_active?: 1]
   import ElixIRCd.Utils.Validation, only: [validate_email: 1]
 
+  alias ElixIRCd.Accounts.Credentials
   alias ElixIRCd.JobQueue
   alias ElixIRCd.Jobs.VerificationEmailDelivery
   alias ElixIRCd.Repositories.RegisteredNicks
@@ -61,6 +62,7 @@ defmodule ElixIRCd.Services.Nickserv.Set do
 
   @spec dispatch_setting(User.t(), String.t(), [String.t()]) :: :ok
   defp dispatch_setting(user, "EMAIL", params), do: handle_email(user, params)
+  defp dispatch_setting(user, "PASSWORD", params), do: handle_password(user, params)
 
   defp dispatch_setting(user, "EMAILMEMOS", params),
     do: handle_enum(user, "EMAILMEMOS", :email_memos, [:on, :off, :only], params)
@@ -81,6 +83,22 @@ defmodule ElixIRCd.Services.Nickserv.Set do
       nil -> unknown_subcommand_message(user, option)
     end
   end
+
+  defp handle_password(user, [old_password, new_password]) do
+    if user.transport in [:tls, :wss] do
+      case Credentials.change(user.identified_as, old_password, new_password) do
+        :ok -> notify(user, "Your password has been changed. Identify again with the new password.")
+        {:error, :short_password} -> notify(user, "The new password is too short.")
+        {:error, :invalid_password} -> notify(user, "The current password is incorrect.")
+        _ -> notify(user, "The password could not be changed. Please try again.")
+      end
+    else
+      notify(user, "A secure TLS connection is required to change a password.")
+    end
+  end
+
+  defp handle_password(user, _params),
+    do: notify(user, "Syntax: \x02SET PASSWORD <current-password> <new-password>\x02")
 
   @spec handle_hidemail(User.t(), [String.t()]) :: :ok
   defp handle_hidemail(user, [value | _rest_params]) do
@@ -632,6 +650,7 @@ defmodule ElixIRCd.Services.Nickserv.Set do
     options =
       [
         {"EMAIL", "Change your account email address"},
+        {"PASSWORD", "Change your account password"},
         {"EMAILMEMOS", "Control email delivery for memos"},
         {"ENFORCE", "Enforce ownership of your registered nickname"},
         {"ENFORCETIME", "Set the enforcement grace period"},

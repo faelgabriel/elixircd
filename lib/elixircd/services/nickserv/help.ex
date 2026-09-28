@@ -37,6 +37,17 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp send_help_for_command(user, "LIST"), do: send_list_help(user)
   defp send_help_for_command(user, "MEMO"), do: send_memo_help(user)
   defp send_help_for_command(user, "SET"), do: send_set_help(user)
+  defp send_help_for_command(user, "RESETPASS"), do: send_resetpass_help(user)
+
+  defp send_help_for_command(user, "SET PASSWORD"),
+    do:
+      send_set_option_help(
+        user,
+        "PASSWORD",
+        "<current-password> <new-password>",
+        "Changes your account password and revokes current sessions. TLS is required."
+      )
+
   defp send_help_for_command(user, "SET HIDEMAIL"), do: send_set_hidemail_help(user)
 
   defp send_help_for_command(user, "SET HIDESTATUS"),
@@ -479,7 +490,8 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "   identity on the network and prevents others from using it.",
       "",
       "Q: I forgot my password. What can I do?",
-      "A: You need to contact a network administrator to reset it.",
+      "A: Use /msg NickServ RESETPASS <nickname> if your account",
+      "   has a verified email address.",
       "",
       "Q: My nickname has expired. Can I get it back?",
       "A: If your nickname has expired due to inactivity, you can",
@@ -547,6 +559,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "\x02LIST\x02         - List registered nicknames",
       "\x02MEMO\x02         - Send and manage account memos",
       "\x02SET\x02          - Set nickname options and information",
+      "\x02RESETPASS\x02    - Recover a password by verified email",
       "\x02ACCESS\x02       - Manage your access list",
       "\x02ALIST\x02        - List accounts you are recognized for",
       "\x02STATUS\x02       - Check authentication status of nicknames",
@@ -569,6 +582,17 @@ defmodule ElixIRCd.Services.Nickserv.Help do
   defp pluralize_days(1), do: "day"
   defp pluralize_days(_), do: "days"
 
+  @spec send_resetpass_help(User.t()) :: :ok
+  defp send_resetpass_help(user) do
+    notify(user, [
+      "Help for \x02RESETPASS\x02:",
+      "Sends a single-use reset code to a verified account email address.",
+      "The code expires after 30 minutes. Use a secure TLS connection to confirm it.",
+      "Syntax: \x02RESETPASS <nickname>\x02",
+      "Syntax: \x02RESETPASS CONFIRM <nickname> <code> <new-password>\x02"
+    ])
+  end
+
   @spec send_set_help(User.t()) :: :ok
   defp send_set_help(user) do
     notify(user, [
@@ -579,6 +603,7 @@ defmodule ElixIRCd.Services.Nickserv.Help do
       "registered nickname. The available options are:",
       "",
       "\x02EMAIL\x02        - Change or remove your account email",
+      "\x02PASSWORD\x02     - Change your account password",
       "\x02EMAILMEMOS\x02   - Control memo email delivery",
       "\x02ENFORCE\x02      - Enforce ownership of your nickname",
       "\x02ENFORCETIME\x02  - Set nickname enforcement grace time",

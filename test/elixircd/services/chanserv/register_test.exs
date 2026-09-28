@@ -19,7 +19,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         assert_sent_messages([
           {user.pid,
            ":ChanServ!service@irc.test NOTICE #{user.nick} :Insufficient parameters for \x02REGISTER\x02.\r\n"},
-          {user.pid, ~r/ChanServ.*NOTICE.*Syntax: \x02REGISTER <channel> <password>\x02.*/}
+          {user.pid, ~r/ChanServ.*NOTICE.*Syntax: \x02REGISTER <channel>\x02.*/}
         ])
       end)
     end
@@ -30,7 +30,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         insert(:registered_channel, name: channel_name)
         user = insert(:user, identified_as: "founder")
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid,
@@ -44,7 +44,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         channel_name = "#testchannel"
         user = insert(:user, identified_as: nil)
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid,
@@ -58,7 +58,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         invalid_channel = "testchannel"
         user = insert(:user, identified_as: "founder")
 
-        assert :ok = Register.handle(user, ["REGISTER", invalid_channel, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", invalid_channel])
 
         assert_sent_messages([
           {user.pid,
@@ -67,18 +67,16 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
       end)
     end
 
-    test "handles REGISTER command with password that is too short" do
+    test "rejects obsolete channel password arguments" do
       Memento.transaction!(fn ->
-        min_password_length = 8
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
-        short_password = String.duplicate("a", min_password_length - 1)
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, short_password])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name, "obsolete-password"])
 
         assert_sent_messages([
-          {user.pid,
-           ":ChanServ!service@irc.test NOTICE #{user.nick} :Password is too short. Please use at least #{min_password_length} characters.\r\n"}
+          {user.pid, ~r/Insufficient parameters for/},
+          {user.pid, ~r/Syntax: .*REGISTER <channel>/}
         ])
       end)
     end
@@ -88,7 +86,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         channel_name = "#services"
         user = insert(:user, identified_as: "founder")
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid, ~r/ChanServ.*NOTICE.*cannot be registered due to network policy/}
@@ -106,7 +104,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         channel = insert(:channel, name: channel_name)
         insert(:user_channel, user: user, channel: channel, modes: [:o])
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid, ~r/ChanServ.*NOTICE.*cannot be registered due to network policy/}
@@ -127,7 +125,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
           insert(:registered_channel, name: "#channel#{i}", founder: user.identified_as)
         end
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid, ~r/ChanServ.*NOTICE.*reached the maximum number of registered channels/}
@@ -143,7 +141,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         channel = insert(:channel, name: channel_name)
         insert(:user_channel, user: user, channel: channel, modes: [])
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid,
@@ -158,7 +156,6 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
       Memento.transaction!(fn ->
         channel_name = "#testchannel"
         user = insert(:user, identified_as: "founder")
-        password = "password123"
         topic_text = "Test channel topic"
         topic_setter = "someone"
 
@@ -167,12 +164,11 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
 
         insert(:user_channel, user: user, channel: channel, modes: [:o])
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, password])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid, ~r/ChanServ.*NOTICE.*has been registered under your account/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Password accepted/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Remember your password/}
+          {user.pid, ~r/ChanServ.*NOTICE.*Identify to your NickServ account/}
         ])
 
         assert {:ok, registered_channel} = RegisteredChannels.get_by_name(channel_name)
@@ -182,7 +178,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
         assert registered_channel.topic.text == topic_text
         assert registered_channel.topic.setter == topic_setter
         assert registered_channel.settings.persistent_topic == topic_text
-        assert Argon2.verify_pass(password, registered_channel.password_hash)
+        assert registered_channel.password_hash == nil
       end)
     end
 
@@ -190,9 +186,8 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
       Memento.transaction!(fn ->
         channel_name = "#nonexistentchannel"
         user = insert(:user, identified_as: "founder")
-        password = "password123"
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, password])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid,
@@ -207,24 +202,22 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
       Memento.transaction!(fn ->
         channel_name = "#channelnotopic"
         user = insert(:user, identified_as: "founder")
-        password = "password123"
 
         channel = insert(:channel, name: channel_name, topic: nil)
         insert(:user_channel, user: user, channel: channel, modes: [:o])
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, password])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid, ~r/ChanServ.*NOTICE.*has been registered under your account/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Password accepted/},
-          {user.pid, ~r/ChanServ.*NOTICE.*Remember your password/}
+          {user.pid, ~r/ChanServ.*NOTICE.*Identify to your NickServ account/}
         ])
 
         assert {:ok, registered_channel} = RegisteredChannels.get_by_name(channel_name)
         assert registered_channel.name == channel_name
         assert registered_channel.founder == user.identified_as
         assert registered_channel.topic == nil
-        assert Argon2.verify_pass(password, registered_channel.password_hash)
+        assert registered_channel.password_hash == nil
       end)
     end
 
@@ -235,7 +228,7 @@ defmodule ElixIRCd.Services.Chanserv.RegisterTest do
 
         insert(:channel, name: channel_name)
 
-        assert :ok = Register.handle(user, ["REGISTER", channel_name, "password123"])
+        assert :ok = Register.handle(user, ["REGISTER", channel_name])
 
         assert_sent_messages([
           {user.pid,

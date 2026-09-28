@@ -7,6 +7,25 @@ defmodule ElixIRCd.Observability do
 
   @reporter :elixircd_prometheus
   @deferred_key {__MODULE__, :deferred}
+  @effects_key {__MODULE__, :effects}
+
+  @doc "Runs an external effect only after the enclosing observed transaction commits."
+  @spec defer_effect((-> term())) :: :ok
+  def defer_effect(fun) when is_function(fun, 0) do
+    case Process.get(@effects_key) do
+      effects when is_list(effects) ->
+        Process.put(@effects_key, [fun | effects])
+
+      nil ->
+        if Memento.Transaction.inside?() do
+          raise ArgumentError, "external effects require Observability.transaction/1"
+        else
+          fun.()
+        end
+    end
+
+    :ok
+  end
 
   @doc "Emits a small, content-free event. Call after a transaction commits."
   @spec emit([atom()], map(), map()) :: :ok
@@ -31,26 +50,37 @@ defmodule ElixIRCd.Observability do
     started = System.monotonic_time()
 
     try do
-      result =
-        Memento.transaction!(fn ->
-          Process.put(@deferred_key, [])
-          fun.()
-        end)
+      result = run_transaction(fun, started)
+
+      emit([:database, :transaction], %{count: 1, duration: System.monotonic_time() - started}, %{result: :success})
 
       @deferred_key
       |> Process.get([])
       |> Enum.reverse()
       |> Enum.each(fn {name, measurements, metadata} -> emit(name, measurements, metadata) end)
 
-      emit([:database, :transaction], %{count: 1, duration: System.monotonic_time() - started}, %{result: :success})
+      @effects_key
+      |> Process.get([])
+      |> Enum.reverse()
+      |> Enum.each(& &1.())
+
       result
-    catch
-      kind, reason ->
-        emit([:database, :transaction], %{count: 1, duration: System.monotonic_time() - started}, %{result: :failure})
-        :erlang.raise(kind, reason, __STACKTRACE__)
     after
       Process.delete(@deferred_key)
+      Process.delete(@effects_key)
     end
+  end
+
+  defp run_transaction(fun, started) do
+    Memento.transaction!(fn ->
+      Process.put(@deferred_key, [])
+      Process.put(@effects_key, [])
+      fun.()
+    end)
+  catch
+    kind, reason ->
+      emit([:database, :transaction], %{count: 1, duration: System.monotonic_time() - started}, %{result: :failure})
+      :erlang.raise(kind, reason, __STACKTRACE__)
   end
 
   @doc "Prometheus metrics derived from application and VM events."

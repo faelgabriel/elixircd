@@ -19,15 +19,13 @@ defmodule ElixIRCd.Services.Chanserv.Register do
 
   @impl true
   @spec handle(User.t(), [String.t()]) :: :ok
-  def handle(user, ["REGISTER", channel_name, password]) do
+  def handle(user, ["REGISTER", channel_name]) do
     config = get_chanserv_config()
 
     validation_result =
       validate_registration(
         user,
         channel_name,
-        password,
-        config.min_password_length,
         config.max_channels_per_user,
         config.forbidden_channels
       )
@@ -36,7 +34,6 @@ defmodule ElixIRCd.Services.Chanserv.Register do
       validation_result,
       user,
       channel_name,
-      password,
       config
     )
   end
@@ -44,7 +41,7 @@ defmodule ElixIRCd.Services.Chanserv.Register do
   def handle(user, ["REGISTER" | _command_params]) do
     notify(user, [
       "Insufficient parameters for \x02REGISTER\x02.",
-      "Syntax: \x02REGISTER <channel> <password>\x02"
+      "Syntax: \x02REGISTER <channel>\x02"
     ])
   end
 
@@ -53,33 +50,29 @@ defmodule ElixIRCd.Services.Chanserv.Register do
     chanserv_config = Application.fetch_env!(:elixircd, :services)[:chanserv]
 
     %{
-      min_password_length: chanserv_config[:min_password_length],
       max_channels_per_user: chanserv_config[:max_registered_channels_per_user],
       forbidden_channels: chanserv_config[:forbidden_channel_names]
     }
   end
 
-  @spec process_validation_result(atom() | {:error, atom()}, User.t(), String.t(), String.t(), map()) :: :ok
-  defp process_validation_result(:ok, user, channel_name, password, _config) do
+  @spec process_validation_result(atom() | {:error, atom()}, User.t(), String.t(), map()) :: :ok
+  defp process_validation_result(:ok, user, channel_name, _config) do
     case RegisteredChannels.get_by_name(channel_name) do
       {:ok, _registered_channel} ->
         notify(user, "The channel \x02#{channel_name}\x02 is already registered.")
 
       {:error, :registered_channel_not_found} ->
-        register_new_channel(user, channel_name, password)
+        register_new_channel(user, channel_name)
     end
   end
 
-  defp process_validation_result({:error, error_type}, user, channel_name, _password, config) do
+  defp process_validation_result({:error, error_type}, user, channel_name, config) do
     error_handlers = %{
       not_identified: fn ->
         "You must be identified to your nickname to use the \x02REGISTER\x02 command."
       end,
       invalid_channel_name: fn ->
         "\x02#{channel_name}\x02 is not a valid channel name."
-      end,
-      password_too_short: fn ->
-        "Password is too short. Please use at least #{config.min_password_length} characters."
       end,
       channel_name_forbidden: fn ->
         "The channel name \x02#{channel_name}\x02 cannot be registered due to network policy."
@@ -93,12 +86,12 @@ defmodule ElixIRCd.Services.Chanserv.Register do
     notify(user, error_message)
   end
 
-  @spec register_new_channel(User.t(), String.t(), String.t()) :: :ok
-  defp register_new_channel(user, channel_name, password) do
+  @spec register_new_channel(User.t(), String.t()) :: :ok
+  defp register_new_channel(user, channel_name) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name) do
       if channel_operator?(user_channel) do
-        register_channel(user, channel, password)
+        register_channel(user, channel)
       else
         notify(user, "You must be a channel operator in \x02#{channel_name}\x02 to register it.")
       end
@@ -111,14 +104,11 @@ defmodule ElixIRCd.Services.Chanserv.Register do
     end
   end
 
-  @spec register_channel(User.t(), Channel.t(), String.t()) :: :ok
-  defp register_channel(user, channel, password) do
-    password_hash = Argon2.hash_pwd_salt(password)
-
+  @spec register_channel(User.t(), Channel.t()) :: :ok
+  defp register_channel(user, channel) do
     RegisteredChannels.create(%{
       name: channel.name,
       founder: user.identified_as,
-      password_hash: password_hash,
       registered_by: user_mask(user),
       topic: channel.topic,
       settings: RegisteredChannel.Settings.new(%{persistent_topic: topic_text(channel.topic)})
@@ -126,8 +116,7 @@ defmodule ElixIRCd.Services.Chanserv.Register do
 
     notify(user, [
       "Channel \x02#{channel.name}\x02 has been registered under your account \x02#{user.identified_as}\x02.",
-      "Password accepted.",
-      "Remember your password so that you can identify to ChanServ and make changes later!"
+      "Identify to your NickServ account to manage this channel."
     ])
   end
 
@@ -156,18 +145,15 @@ defmodule ElixIRCd.Services.Chanserv.Register do
   defp topic_text(nil), do: nil
   defp topic_text(%Channel.Topic{text: text}), do: text
 
-  @spec validate_registration(User.t(), String.t(), String.t(), integer(), integer(), [String.t() | Regex.t()]) ::
+  @spec validate_registration(User.t(), String.t(), integer(), [String.t() | Regex.t()]) ::
           :ok | {:error, atom()}
-  defp validate_registration(user, channel_name, password, min_password_length, max_channels, forbidden_channels) do
+  defp validate_registration(user, channel_name, max_channels, forbidden_channels) do
     cond do
       is_nil(user.identified_as) ->
         {:error, :not_identified}
 
       !channel_name?(channel_name) ->
         {:error, :invalid_channel_name}
-
-      String.length(password) < min_password_length ->
-        {:error, :password_too_short}
 
       channel_name_forbidden?(channel_name, forbidden_channels) ->
         {:error, :channel_name_forbidden}

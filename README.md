@@ -409,7 +409,8 @@ NickServ allows users to register and manage nicknames, providing authentication
 - **RELEASE**: Release a nickname that is being held for you. ✅
 - **DROP**: Delete a registered nickname permanently. ✅
 - **INFO**: Display information about a registered nickname. ✅
-- **SET**: Configure settings for your registered nickname. ✅
+- **SET**: Configure nickname settings and change your account password. ✅
+- **RESETPASS**: Reset your account password by email. ✅
 - **ACCESS**: Manage the access list for your nickname. ✅
 - **ALIST**: Display channels or nicknames associated with your account. ✅
 - **STATUS**: Check the identification status of one or more nicknames. ✅
@@ -428,7 +429,7 @@ ChanServ allows users to register and manage channels, providing channel adminis
 - **DROP**: Delete a registered channel permanently. ✅
 - **INFO**: Display information about a registered channel. ✅
 - **SET**: Configure settings for a registered channel. ✅
-- **TRANSFER**: Transfer ownership of a registered channel to another user. ✅
+- **TRANSFER**: Transfer or claim ownership of a registered channel. ✅
 - **ACCESS**: Manage the channel access list. ✅
 - **ALIST**: Display channel access list entries. ✅
 - **FLAGS**: Manage user flags and permissions for the channel. ✅
@@ -438,12 +439,14 @@ ChanServ allows users to register and manage channels, providing channel adminis
 - **DEVOICE**: Remove voice status from a user in the channel. ✅
 - **KICK**: Kick a user from the channel. ✅
 - **BAN**: Ban a user or hostmask from the channel. ✅
+- **AKICK**: Manage persistent channel auto-kicks. ✅
 - **UNBAN**: Remove a ban on a user or hostmask. ✅
 - **INVITE**: Invite a user to the channel. ✅
 - **TOPIC**: Change the channel topic. ✅
 - **CLEAR**: Clear various channel settings (modes, bans, ops, etc.). ✅
 - **STATUS**: Check a user's access level in the channel. ✅
 - **SYNC**: Synchronize channel modes with the access list. ✅
+- **RECOVER**: Restore founder control of a channel. ✅
 
 ### IRCv3 Specifications
 

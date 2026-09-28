@@ -201,7 +201,7 @@ defmodule ElixIRCd.Config.Schema do
              {:keyword,
               [
                 enabled: :boolean,
-                min_password_length: :positive_integer,
+                successor_claim_after_days: :positive_integer,
                 max_registered_channels_per_user: :positive_integer,
                 forbidden_channel_names: {:list, :channel_pattern},
                 channel_expire_days: :positive_integer,

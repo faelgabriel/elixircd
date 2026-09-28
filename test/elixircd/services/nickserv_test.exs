@@ -22,6 +22,7 @@ defmodule ElixIRCd.Services.NickservTest do
     {"LIST", Nickserv.List},
     {"MEMO", Nickserv.Memo},
     {"SET", Nickserv.Set},
+    {"RESETPASS", Nickserv.Resetpass},
     {"ACCESS", Nickserv.Access},
     {"ALIST", Nickserv.Alist},
     {"STATUS", Nickserv.Status},

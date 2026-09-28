@@ -6,6 +6,8 @@ defmodule ElixIRCd.Utils.Nickserv do
   import ElixIRCd.Utils.Protocol, only: [chunk_message_text: 2, user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.PasswordResets
+  alias ElixIRCd.Repositories.RegisteredChannelAkicks
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
   alias ElixIRCd.Repositories.Users
@@ -228,13 +230,18 @@ defmodule ElixIRCd.Utils.Nickserv do
   """
   @spec cleanup_channel_registrations(String.t()) :: :ok
   def cleanup_channel_registrations(account_name) do
-    RegisteredChannels.get_by_successor(account_name)
-    |> Enum.each(fn channel ->
-      RegisteredChannels.update(channel, %{successor: nil})
-    end)
+    Memento.transaction!(fn ->
+      PasswordResets.delete(account_name)
+      RegisteredChannelAkicks.delete_by_account(account_name)
 
-    RegisteredChannels.get_by_founder(account_name)
-    |> Enum.each(&RegisteredChannels.delete/1)
+      RegisteredChannels.get_by_successor(account_name)
+      |> Enum.each(fn channel ->
+        RegisteredChannels.update(channel, %{successor: nil})
+      end)
+
+      RegisteredChannels.get_by_founder(account_name)
+      |> Enum.each(&RegisteredChannels.delete/1)
+    end)
 
     :ok
   end

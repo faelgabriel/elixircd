@@ -35,10 +35,12 @@ defmodule ElixIRCd.Services.Chanserv.Help do
   defp send_help_for_command(user, "STATUS"), do: send_status_help(user)
   defp send_help_for_command(user, "KICK"), do: send_kick_help(user)
   defp send_help_for_command(user, "BAN"), do: send_ban_help(user)
+  defp send_help_for_command(user, "AKICK"), do: send_akick_help(user)
   defp send_help_for_command(user, "UNBAN"), do: send_unban_help(user)
   defp send_help_for_command(user, "INVITE"), do: send_invite_help(user)
   defp send_help_for_command(user, "TOPIC"), do: send_topic_help(user)
   defp send_help_for_command(user, "SYNC"), do: send_sync_help(user)
+  defp send_help_for_command(user, "RECOVER"), do: send_recover_help(user)
   defp send_help_for_command(user, "CLEAR"), do: send_clear_help(user)
   defp send_help_for_command(user, "OP"), do: send_op_help(user)
   defp send_help_for_command(user, "DEOP"), do: send_deop_help(user)
@@ -83,10 +85,12 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "\x02STATUS       \x02- Show an account's access on a channel.",
       "\x02KICK         \x02- Kick users from a channel.",
       "\x02BAN          \x02- Set a channel ban through ChanServ.",
+      "\x02AKICK        \x02- Manage persistent channel exclusions.",
       "\x02UNBAN        \x02- Remove channel bans through ChanServ.",
       "\x02INVITE       \x02- Invite users through ChanServ.",
       "\x02TOPIC        \x02- View or change the registered topic.",
       "\x02SYNC         \x02- Synchronize live channel status with access.",
+      "\x02RECOVER      \x02- Restore founder control of a channel.",
       "\x02CLEAR        \x02- Clear bans, flags, or users from a channel.",
       "\x02OP           \x02- Grant operator status in a channel.",
       "\x02DEOP         \x02- Remove operator status in a channel.",
@@ -161,13 +165,11 @@ defmodule ElixIRCd.Services.Chanserv.Help do
 
   @spec send_register_help(User.t()) :: :ok
   defp send_register_help(user) do
-    min_password_length = Application.fetch_env!(:elixircd, :services)[:chanserv][:min_password_length]
-
     notify(user, [
       "Help for \x02REGISTER\x02:",
       format_help(
         "REGISTER",
-        ["<channel> <password>"],
+        ["<channel>"],
         "Registers a channel with ChanServ."
       ),
       "",
@@ -175,17 +177,15 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "user founder status. You must be identified with your NickServ",
       "account to register a channel.",
       " ",
-      "The <password> is used for channel operations that require",
-      "founder-level access. It must be at least #{min_password_length} characters long.",
-      "Keep it secret and secure.",
+      "Your NickServ account controls founder-level channel access.",
       " ",
       "There is a limit on how many channels you can register.",
       "Some channel names may be reserved and cannot be registered.",
       " ",
-      "Syntax: \x02REGISTER <channel> <password>\x02",
+      "Syntax: \x02REGISTER <channel>\x02",
       " ",
       "Examples:",
-      "    \x02/msg ChanServ REGISTER #mychannel mypassword\x02"
+      "    \x02/msg ChanServ REGISTER #mychannel\x02"
     ])
   end
 
@@ -604,6 +604,8 @@ defmodule ElixIRCd.Services.Chanserv.Help do
 
   @spec send_transfer_help(User.t()) :: :ok
   defp send_transfer_help(user) do
+    claim_days = Application.fetch_env!(:elixircd, :services)[:chanserv][:successor_claim_after_days]
+
     notify(user, [
       "Help for \x02TRANSFER\x02:",
       format_help(
@@ -618,7 +620,7 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "",
       "If a channel has a successor set (via SET SUCCESSOR), that user",
       "can claim ownership by using the TRANSFER command without specifying",
-      "a new founder.",
+      "a new founder after #{claim_days} days without founder account activity.",
       "",
       "Once transferred, the original founder loses all founder privileges.",
       "This action can only be reversed if the new founder transfers",
@@ -923,6 +925,28 @@ defmodule ElixIRCd.Services.Chanserv.Help do
       "Example:",
       "    \x02/msg ChanServ DEVOICE #mychannel\x02",
       "    \x02/msg ChanServ DEVOICE #mychannel helper\x02"
+    ])
+  end
+
+  @spec send_akick_help(User.t()) :: :ok
+  defp send_akick_help(user) do
+    notify(user, [
+      "Help for \x02AKICK\x02:",
+      "Maintains persistent account or hostmask exclusions for a registered channel.",
+      "An AKICK takes effect on JOIN even after the live channel is recreated.",
+      "Syntax: \x02AKICK <channel> ADD <nick|mask> [reason]\x02",
+      "Syntax: \x02AKICK <channel> DEL <nick|mask>\x02",
+      "Syntax: \x02AKICK <channel> {LIST|ENFORCE|CLEAR}\x02"
+    ])
+  end
+
+  @spec send_recover_help(User.t()) :: :ok
+  defp send_recover_help(user) do
+    notify(user, [
+      "Help for \x02RECOVER\x02:",
+      "The identified founder removes current channel operators and regains +o.",
+      "If the founder is outside the channel, ChanServ sends a recovery invite.",
+      "Syntax: \x02RECOVER <channel>\x02"
     ])
   end
 

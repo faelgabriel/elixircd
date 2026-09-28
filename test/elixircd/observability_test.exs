@@ -103,6 +103,64 @@ defmodule ElixIRCd.ObservabilityTest do
     refute_received {%{count: 1}, %{action: :oper, result: :failure}}
   end
 
+  test "external effects run after commit and are discarded on abort" do
+    assert :ok =
+             Observability.transaction(fn ->
+               Observability.defer_effect(fn -> send(self(), :committed_effect) end)
+               refute_received :committed_effect
+               :ok
+             end)
+
+    assert_received :committed_effect
+
+    assert_raise RuntimeError, fn ->
+      Observability.transaction(fn ->
+        Observability.defer_effect(fn -> send(self(), :aborted_effect) end)
+        raise "rollback"
+      end)
+    end
+
+    refute_received :aborted_effect
+  end
+
+  test "external effects execute immediately outside a transaction and reject raw transactions" do
+    assert :ok = Observability.defer_effect(fn -> send(self(), :immediate_effect) end)
+    assert_received :immediate_effect
+
+    assert_raise ArgumentError, ~r/Observability.transaction/, fn ->
+      Memento.transaction!(fn -> Observability.defer_effect(fn -> send(self(), :invalid_effect) end) end)
+    end
+
+    refute_received :invalid_effect
+  end
+
+  test "a failing post-commit effect does not report a database rollback" do
+    test_pid = self()
+    handler = "observability-postcommit-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach(
+        handler,
+        [:elixircd, :database, :transaction],
+        fn _event, _measurements, %{result: result}, _config ->
+          if self() == test_pid, do: send(test_pid, {:database_result, result})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    assert_raise RuntimeError, "post-commit failure", fn ->
+      Observability.transaction(fn ->
+        Observability.defer_effect(fn -> raise "post-commit failure" end)
+        :ok
+      end)
+    end
+
+    assert_received {:database_result, :success}
+    refute_received {:database_result, :failure}
+  end
+
   test "a raw transaction does not publish an uncommitted operational event" do
     test_pid = self()
     handler = "observability-raw-#{System.unique_integer([:positive])}"

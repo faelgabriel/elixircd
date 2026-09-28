@@ -10,13 +10,23 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
   alias ElixIRCd.Services.Nickserv.Help
 
   describe "handle/2" do
+    test "explains RESETPASS and SET PASSWORD" do
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        assert :ok = Help.handle(user, ["HELP", "RESETPASS"])
+        assert_sent_message_contains(user.pid, ~r/RESETPASS CONFIRM/)
+        assert :ok = Help.handle(user, ["HELP", "SET", "PASSWORD"])
+        assert_sent_message_contains(user.pid, ~r/SET PASSWORD/)
+      end)
+    end
+
     test "handles HELP command with no parameters" do
       Memento.transaction!(fn ->
         user = insert(:user)
 
         assert :ok = Help.handle(user, ["HELP"])
 
-        assert_sent_messages_amount(user.pid, 27)
+        assert_sent_messages_amount(user.pid, 28)
       end)
     end
 
@@ -116,7 +126,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP", "SET"])
 
-        assert_sent_messages_amount(user.pid, 35)
+        assert_sent_messages_amount(user.pid, 36)
       end)
     end
 
@@ -234,7 +244,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
 
         assert :ok = Help.handle(user, ["HELP", "FAQ"])
 
-        assert_sent_messages_amount(user.pid, 29)
+        assert_sent_messages_amount(user.pid, 30)
       end)
     end
 
@@ -266,6 +276,7 @@ defmodule ElixIRCd.Services.Nickserv.HelpTest do
       ["SET", "SECURE"],
       ["SET", "MSG"],
       ["SET", "EMAIL"],
+      ["SET", "PASSWORD"],
       ["SET", "EMAILMEMOS"],
       ["SET", "ENFORCETIME"],
       ["SET", "LANGUAGE"],

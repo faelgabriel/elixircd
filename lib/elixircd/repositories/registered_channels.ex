@@ -3,6 +3,8 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   Repository module for managing registered channels in Mnesia database.
   """
 
+  alias ElixIRCd.Repositories.RegisteredChannelAccesses
+  alias ElixIRCd.Repositories.RegisteredChannelAkicks
   alias ElixIRCd.Tables.Channel.Topic
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Utils.CaseMapping
@@ -28,6 +30,15 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
     |> case do
       nil -> {:error, :registered_channel_not_found}
       registered_channel -> {:ok, registered_channel}
+    end
+  end
+
+  @doc "Reads and write-locks a channel registration within a transaction."
+  @spec get_by_name_for_update(String.t()) :: {:ok, RegisteredChannel.t()} | {:error, :registered_channel_not_found}
+  def get_by_name_for_update(name) do
+    case Memento.Query.read(RegisteredChannel, CaseMapping.normalize(name), lock: :write) do
+      nil -> {:error, :registered_channel_not_found}
+      channel -> {:ok, channel}
     end
   end
 
@@ -91,6 +102,8 @@ defmodule ElixIRCd.Repositories.RegisteredChannels do
   """
   @spec delete(RegisteredChannel.t()) :: :ok
   def delete(registered_channel) do
+    RegisteredChannelAkicks.delete_by_channel(registered_channel.name)
+    RegisteredChannelAccesses.delete_by_channel_name(registered_channel.name)
     Memento.Query.delete_record(registered_channel)
   end
 

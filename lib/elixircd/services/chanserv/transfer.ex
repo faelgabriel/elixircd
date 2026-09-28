@@ -12,6 +12,7 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
   alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
 
@@ -33,6 +34,33 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
 
       {:error, :not_founder} ->
         notify(user, "Access denied. You are not the founder of \x02#{channel_name}\x02.")
+    end
+  end
+
+  def handle(user, [@command_name, channel_name]) do
+    result =
+      Memento.transaction!(fn ->
+        with {:ok, channel} <- RegisteredChannels.get_by_name_for_update(channel_name),
+             true <- channel.successor == user.identified_as,
+             :ok <- founder_inactive(channel.founder) do
+          RegisteredChannels.update(channel, %{founder: user.identified_as, successor: nil})
+          RegisteredChannelAccesses.delete(channel.name, user.identified_as)
+          :ok
+        else
+          {:error, :registered_channel_not_found} -> {:error, :not_found}
+          _ -> {:error, :not_eligible}
+        end
+      end)
+
+    case result do
+      :ok ->
+        notify(user, "You have claimed founder ownership of \x02#{channel_name}\x02.")
+
+      {:error, :not_found} ->
+        notify(user, "Channel \x02#{channel_name}\x02 is not registered.")
+
+      {:error, :not_eligible} ->
+        notify(user, "Successor claim is unavailable while the founder is active or you are not the successor.")
     end
   end
 
@@ -73,6 +101,18 @@ defmodule ElixIRCd.Services.Chanserv.Transfer do
 
       {:error, :registered_nick_not_found} ->
         notify(user, "The nickname \x02#{target_new_founder}\x02 is not registered.")
+    end
+  end
+
+  defp founder_inactive(account_name) do
+    days = Application.fetch_env!(:elixircd, :services)[:chanserv][:successor_claim_after_days]
+
+    with [] <- Users.get_by_identified_as(account_name),
+         {:ok, account} <- RegisteredNicks.get_by_nickname(account_name) do
+      last_active = account.last_seen_at || account.created_at
+      if DateTime.diff(DateTime.utc_now(), last_active, :day) >= days, do: :ok, else: {:error, :founder_active}
+    else
+      _ -> {:error, :founder_active}
     end
   end
 end

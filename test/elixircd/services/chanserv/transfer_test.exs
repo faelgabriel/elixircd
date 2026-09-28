@@ -11,6 +11,39 @@ defmodule ElixIRCd.Services.Chanserv.TransferTest do
   alias ElixIRCd.Services.Chanserv.Transfer
 
   describe "handle/2" do
+    test "successor claim reports a missing registration" do
+      successor = insert(:user, identified_as: "Successor")
+      assert :ok = ElixIRCd.Observability.transaction(fn -> Transfer.handle(successor, ["TRANSFER", "#missing"]) end)
+      assert_sent_message_contains(successor.pid, ~r/not registered/)
+    end
+
+    test "successor can claim only after founder inactivity" do
+      old = DateTime.add(DateTime.utc_now(), -31, :day)
+      insert(:registered_nick, nickname: "Founder", last_seen_at: old)
+      insert(:registered_nick, nickname: "Successor")
+      successor = insert(:user, identified_as: "Successor")
+      insert(:registered_channel, name: "#legacy", founder: "Founder", successor: "Successor")
+
+      assert :ok = ElixIRCd.Observability.transaction(fn -> Transfer.handle(successor, ["TRANSFER", "#legacy"]) end)
+
+      Memento.transaction!(fn ->
+        assert {:ok, %{founder: "Successor", successor: nil}} = RegisteredChannels.get_by_name("#legacy")
+      end)
+    end
+
+    test "successor cannot claim while founder is active" do
+      insert(:registered_nick, nickname: "Founder")
+      successor = insert(:user, identified_as: "Successor")
+      insert(:registered_channel, name: "#active", founder: "Founder", successor: "Successor")
+
+      assert :ok = ElixIRCd.Observability.transaction(fn -> Transfer.handle(successor, ["TRANSFER", "#active"]) end)
+      assert_sent_message_contains(successor.pid, ~r/Successor claim is unavailable/)
+
+      Memento.transaction!(fn ->
+        assert {:ok, %{founder: "Founder"}} = RegisteredChannels.get_by_name("#active")
+      end)
+    end
+
     test "handles TRANSFER command with insufficient parameters" do
       Memento.transaction!(fn ->
         user = insert(:user, identified_as: "founder")

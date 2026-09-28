@@ -347,6 +347,6 @@ defmodule ElixIRCd.Utils.Protocol do
 
   @spec valid_mask_part?(String.t()) :: boolean()
   defp valid_mask_part?(part) do
-    String.length(part) <= 64 and String.match?(part, ~r/^[a-zA-Z0-9\[\]\\`_^{|}*?.-]+$/)
+    String.length(part) <= 64 and String.match?(part, ~r/^[a-zA-Z0-9\[\]\\`_^{|}*?.~-]+$/)
   end
 end

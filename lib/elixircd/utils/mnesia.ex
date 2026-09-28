@@ -20,9 +20,11 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.Metric
   alias ElixIRCd.Tables.NickAccess
   alias ElixIRCd.Tables.Operator
+  alias ElixIRCd.Tables.PasswordReset
   alias ElixIRCd.Tables.ReadMarker
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.RegisteredChannelAccess
+  alias ElixIRCd.Tables.RegisteredChannelAkick
   alias ElixIRCd.Tables.RegisteredNick
   alias ElixIRCd.Tables.SaslSession
   alias ElixIRCd.Tables.User
@@ -56,9 +58,11 @@ defmodule ElixIRCd.Utils.Mnesia do
     Metadata,
     NickAccess,
     Operator,
+    PasswordReset,
     ReadMarker,
     RegisteredChannel,
     RegisteredChannelAccess,
+    RegisteredChannelAkick,
     RegisteredNick
   ]
 

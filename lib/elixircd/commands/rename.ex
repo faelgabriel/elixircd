@@ -17,6 +17,7 @@ defmodule ElixIRCd.Commands.Rename do
   alias ElixIRCd.Repositories.ChatHistory
   alias ElixIRCd.Repositories.ReadMarkers
   alias ElixIRCd.Repositories.RegisteredChannelAccesses
+  alias ElixIRCd.Repositories.RegisteredChannelAkicks
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
@@ -124,6 +125,7 @@ defmodule ElixIRCd.Commands.Rename do
     migrate_invites(old_key, new_key)
     migrate_registered_channel(old_key, new_key, new_name)
     migrate_registered_access(old_key, new_key)
+    RegisteredChannelAkicks.rename(old_key, new_key)
     migrate_history(old_key, new_key, new_name)
     migrate_read_markers(old_key, new_key, new_name)
     Metadata.rename_channel(old_key, new_key)

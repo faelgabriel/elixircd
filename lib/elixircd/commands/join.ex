@@ -35,6 +35,7 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Service
+  alias ElixIRCd.Services.Chanserv.Akick
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -89,15 +90,7 @@ defmodule ElixIRCd.Commands.Join do
          channel <- apply_registered_mode_lock(channel) do
       case check_modes(channel_state, channel, user, join_value) do
         :ok ->
-          user_channel =
-            UserChannels.create(%{
-              user_pid: user.pid,
-              channel_name_key: channel.name_key,
-              modes: determine_user_channel_modes(channel_state)
-            })
-
-          ChannelInvites.delete_by_user_pid_and_channel_name(user.pid, channel.name)
-          send_join_channel(user, channel, user_channel)
+          complete_join(user, channel_state, channel)
 
         {:error, error} ->
           rollback_created_channel(channel_state, channel)
@@ -107,6 +100,20 @@ defmodule ElixIRCd.Commands.Join do
       {:ok, _existing_membership} -> :ok
       {:error, error} -> send_join_channel_error(error, user, channel_name)
     end
+  end
+
+  defp complete_join(user, channel_state, channel) do
+    modes = if recovery_invite?(channel, user), do: [:o], else: determine_user_channel_modes(channel_state)
+
+    user_channel =
+      UserChannels.create(%{
+        user_pid: user.pid,
+        channel_name_key: channel.name_key,
+        modes: modes
+      })
+
+    ChannelInvites.delete_by_user_pid_and_channel_name(user.pid, channel.name)
+    send_join_channel(user, channel, user_channel)
   end
 
   @spec rollback_created_channel(channel_states(), Channel.t()) :: :ok
@@ -433,7 +440,15 @@ defmodule ElixIRCd.Commands.Join do
   end
 
   @spec check_modes(channel_states(), Channel.t(), User.t(), String.t() | nil) :: :ok | {:error, mode_error()}
-  defp check_modes(:created, channel, user, join_value) do
+  defp check_modes(_channel_state, channel, user, join_value) do
+    if recovery_invite?(channel, user) do
+      with :ok <- check_secure_only(channel, user), do: check_operator_only(channel, user)
+    else
+      check_normal_modes(channel, user, join_value)
+    end
+  end
+
+  defp check_normal_modes(channel, user, join_value) do
     with :ok <- check_user_banned(channel, user),
          :ok <- check_user_invited(channel, user),
          :ok <- check_registered_channel_restrictions(channel, user),
@@ -446,16 +461,13 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  defp check_modes(:existing, channel, user, join_value) do
-    with :ok <- check_user_banned(channel, user),
-         :ok <- check_user_invited(channel, user),
-         :ok <- check_registered_channel_restrictions(channel, user),
-         :ok <- check_registered_only_join(channel, user),
-         :ok <- check_secure_only(channel, user),
-         :ok <- check_channel_key(channel, user, join_value),
-         :ok <- check_channel_limit(channel, user),
-         :ok <- check_join_throttle(channel, user) do
-      check_operator_only(channel, user)
+  defp recovery_invite?(channel, user) do
+    with {:ok, registered} <- RegisteredChannels.get_by_name(channel.name),
+         true <- Flags.founder?(registered, user.identified_as),
+         {:ok, invite} <- ChannelInvites.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+      invite.bypass_ban == true and invite.setter == Service.mask(:chanserv)
+    else
+      _ -> false
     end
   end
 
@@ -499,6 +511,7 @@ defmodule ElixIRCd.Commands.Join do
       end
 
     cond do
+      Akick.blocked?(channel.name, user) -> {:error, :user_banned}
       not is_banned -> :ok
       is_excepted -> :ok
       has_operator_invite -> :ok
