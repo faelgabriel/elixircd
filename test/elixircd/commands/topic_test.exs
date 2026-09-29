@@ -9,9 +9,17 @@ defmodule ElixIRCd.Commands.TopicTest do
 
   alias ElixIRCd.Commands.Topic
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.RegisteredChannels
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelPayload
+  alias ElixIRCd.ServerLink.ChannelView
+  alias ElixIRCd.ServerLink.Hub
+  alias ElixIRCd.ServerLink.Replica
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.RegisteredChannel
+
+  @remote_origin "east.example"
 
   describe "handle/2" do
     test "handles TOPIC command with user not registered" do
@@ -73,6 +81,155 @@ defmodule ElixIRCd.Commands.TopicTest do
 
         assert_sent_message_contains(member.pid, ~r/ 332 | 331 /)
       end)
+    end
+
+    test "shows the selected topic of a remote-only public channel" do
+      remote = build(:channel, name: "#remote-topic", topic: build(:channel_topic, text: "Remote topic"))
+      publish_remote_view(remote)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "Viewer")
+        assert :ok = Topic.handle(user, %Message{command: "TOPIC", params: [remote.name]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 332 Viewer #remote-topic :Remote topic\r\n"},
+          {user.pid,
+           ":irc.test 333 Viewer #remote-topic #{remote.topic.setter} #{DateTime.to_unix(remote.topic.set_at)}\r\n"}
+        ])
+      end)
+    end
+
+    test "hides a secret remote-only channel topic from outsiders" do
+      remote = build(:channel, name: "#remote-secret-topic", modes: [:s])
+      publish_remote_view(remote)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "Viewer")
+        assert :ok = Topic.handle(user, %Message{command: "TOPIC", params: [remote.name]})
+        assert_sent_messages([{user.pid, ":irc.test 403 Viewer #remote-secret-topic :No such channel\r\n"}])
+      end)
+    end
+
+    test "uses the selected remote topic while preserving a losing local secret restriction" do
+      local = build(:channel, name: "#topic-collision", modes: [:s], topic: build(:channel_topic, text: "Local topic"))
+      Memento.transaction!(fn -> Memento.Query.write(local) end)
+
+      remote =
+        build(:channel,
+          name: local.name,
+          created_at: DateTime.add(local.created_at, -60),
+          topic: build(:channel_topic, text: "Selected topic")
+        )
+
+      view = publish_remote_view(remote, local)
+      assert view.origin == @remote_origin
+
+      Memento.transaction!(fn ->
+        outsider = insert(:user, nick: "Outsider")
+        member = insert(:user, nick: "Member")
+        insert(:user_channel, user: member, channel: local)
+
+        assert :ok = Topic.handle(outsider, %Message{command: "TOPIC", params: [local.name]})
+        assert_sent_messages([{outsider.pid, ":irc.test 403 Outsider #topic-collision :No such channel\r\n"}])
+
+        assert :ok = Topic.handle(member, %Message{command: "TOPIC", params: [local.name]})
+        assert_sent_message_contains(member.pid, ":irc.test 332 Member #topic-collision :Selected topic\r\n")
+
+        assert :ok = Topic.handle(member, %Message{command: "TOPIC", params: [local.name], trailing: "Wrong home"})
+
+        assert_sent_message_contains(
+          member.pid,
+          ":irc.test 437 Member #topic-collision :Channel topic is temporarily unavailable on this server\r\n"
+        )
+
+        assert Memento.Query.read(Channel, local.name_key).topic.text == "Local topic"
+      end)
+    end
+
+    test "uses the local topic when the local channel remains the selected authority" do
+      local = build(:channel, name: "#local-topic", topic: build(:channel_topic, text: "Local topic"))
+      Memento.transaction!(fn -> Memento.Query.write(local) end)
+
+      remote =
+        build(:channel,
+          name: local.name,
+          created_at: DateTime.add(local.created_at, 60),
+          topic: build(:channel_topic, text: "Later topic")
+        )
+
+      view = publish_remote_view(remote, local)
+      assert view.origin == "irc.test"
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "Viewer")
+        assert :ok = Topic.handle(user, %Message{command: "TOPIC", params: [local.name]})
+        assert_sent_message_contains(user.pid, ":irc.test 332 Viewer #local-topic :Local topic\r\n")
+      end)
+    end
+
+    test "an enabled directory without the channel cannot serve or change its local topic" do
+      previous = Application.fetch_env!(:elixircd, :server_links)
+      on_exit(fn -> Application.put_env(:elixircd, :server_links, previous) end)
+      Application.put_env(:elixircd, :server_links, Keyword.put(previous, :enabled, true))
+      ChannelDirectory.create()
+
+      {channel, user} =
+        Memento.transaction!(fn ->
+          channel = insert(:channel, name: "#unindexed-topic", topic: build(:channel_topic, text: "Local topic"))
+          user = insert(:user, nick: "Writer")
+          insert(:user_channel, user: user, channel: channel, modes: [:o])
+          {channel, user}
+        end)
+
+      Memento.transaction!(fn ->
+        assert :ok = Topic.handle(user, %Message{command: "TOPIC", params: [channel.name]})
+        assert :ok = Topic.handle(user, %Message{command: "TOPIC", params: [channel.name], trailing: "Wrong topic"})
+        assert Memento.Query.read(Channel, channel.name_key).topic.text == "Local topic"
+      end)
+
+      assert_sent_messages([
+        {user.pid,
+         ":irc.test 437 Writer #unindexed-topic :Channel topic is temporarily unavailable on this server\r\n"},
+        {user.pid, ":irc.test 437 Writer #unindexed-topic :Channel topic is temporarily unavailable on this server\r\n"}
+      ])
+    end
+
+    test "queues a remote authority TOPIC change only after the command transaction commits" do
+      {local, user} =
+        Memento.transaction!(fn ->
+          local = insert(:channel, name: "#routed-topic", topic: nil)
+          user = insert(:user, nick: "Writer")
+          insert(:user_channel, user: user, channel: local)
+          {local, user}
+        end)
+
+      remote = build(:channel, name: local.name, created_at: DateTime.add(local.created_at, -60))
+      assert publish_remote_view(remote, local).origin == @remote_origin
+      true = Process.register(self(), Hub)
+
+      try do
+        assert :ok =
+                 Observability.transaction(fn ->
+                   result = Topic.handle(user, %Message{command: "TOPIC", params: [local.name], trailing: "New topic"})
+                   refute_received {:"$gen_cast", _message}
+                   result
+                 end)
+
+        assert_receive {:"$gen_cast", {:request_topic, pid, @remote_origin, "#routed-topic", "New topic"}}
+        assert pid == user.pid
+        assert Memento.transaction!(fn -> Memento.Query.read(Channel, local.name_key).topic end) == nil
+
+        assert_raise RuntimeError, fn ->
+          Observability.transaction(fn ->
+            Topic.handle(user, %Message{command: "TOPIC", params: [local.name], trailing: "Aborted topic"})
+            raise "rollback"
+          end)
+        end
+
+        refute_received {:"$gen_cast", {:request_topic, _, _, _, "Aborted topic"}}
+      after
+        Process.unregister(Hub)
+      end
     end
 
     test "handles TOPIC command without topic message for a channel without a topic" do
@@ -280,5 +437,18 @@ defmodule ElixIRCd.Commands.TopicTest do
         assert updated_channel.topic == nil
       end)
     end
+  end
+
+  defp publish_remote_view(remote, local \\ nil) do
+    table = ChannelDirectory.create()
+    local_channels = if local, do: %{local.name_key => ChannelPayload.from_local(local)}, else: %{}
+
+    replica = %Replica{
+      channels: %{{@remote_origin, remote.name_key} => ChannelPayload.from_local(remote, @remote_origin)}
+    }
+
+    views = ChannelView.select("irc.test", local_channels, replica)
+    ChannelDirectory.sync(table, %{}, views)
+    Map.fetch!(views, remote.name_key)
   end
 end

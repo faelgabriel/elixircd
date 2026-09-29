@@ -15,6 +15,9 @@ config :elixircd,
     # A configured file must exist and be readable.
     motd: nil
   ],
+  # Native server links use mutual TLS over a separate network port. Configure
+  # the same network name on every server and pin each peer certificate.
+  server_links: [enabled: false, listen: nil, peers: []],
   # Rate Limiting Configuration
   rate_limiter: [
     # Connection Rate Limiting Configuration

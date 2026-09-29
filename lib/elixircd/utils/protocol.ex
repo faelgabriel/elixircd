@@ -33,13 +33,13 @@ defmodule ElixIRCd.Utils.Protocol do
   @doc """
   Checks if a user is an IRC operator.
   """
-  @spec irc_operator?(User.t()) :: boolean()
+  @spec irc_operator?(User.t() | map()) :: boolean()
   def irc_operator?(user), do: :o in user.modes
 
   @doc """
   Checks whether a viewer may see a user's IRC operator status, respecting +H.
   """
-  @spec irc_operator_visible?(User.t(), User.t()) :: boolean()
+  @spec irc_operator_visible?(User.t() | map(), User.t()) :: boolean()
   def irc_operator_visible?(target, viewer) do
     irc_operator?(target) and (:H not in target.modes or target.pid == viewer.pid or irc_operator?(viewer))
   end
@@ -59,7 +59,7 @@ defmodule ElixIRCd.Utils.Protocol do
   @doc """
   Determines if a user mask matches a user.
   """
-  @spec match_user_mask?(User.t(), String.t()) :: boolean()
+  @spec match_user_mask?(User.t() | map(), String.t()) :: boolean()
   def match_user_mask?(user, "$a:" <> account_pattern) do
     is_binary(user.identified_as) and match_glob?(user.identified_as, account_pattern)
   end
@@ -104,7 +104,7 @@ defmodule ElixIRCd.Utils.Protocol do
   def match_ascii_glob?(_value, _pattern), do: false
 
   @doc "Returns whether a mute extban matches a user."
-  @spec match_mute_mask?(User.t(), String.t()) :: boolean()
+  @spec match_mute_mask?(User.t() | map(), String.t()) :: boolean()
   def match_mute_mask?(user, "$m:" <> mask), do: match_user_mask?(user, mask)
   def match_mute_mask?(_user, _mask), do: false
 
@@ -224,7 +224,7 @@ defmodule ElixIRCd.Utils.Protocol do
   @doc """
   Gets the user mask from a user.
   """
-  @spec user_mask(User.t()) :: String.t()
+  @spec user_mask(User.t() | map()) :: String.t()
   def user_mask(%{registered: true} = user) when user.nick != nil and user.ident != nil and user.hostname != nil do
     format_user_mask(user.nick, user.ident, display_hostname(user))
   end
@@ -244,7 +244,7 @@ defmodule ElixIRCd.Utils.Protocol do
   @doc """
   Gets the ident and visible hostname portion of a registered user's mask.
   """
-  @spec user_host(User.t(), User.t() | nil) :: String.t()
+  @spec user_host(User.t() | map(), User.t() | nil) :: String.t()
   def user_host(%{registered: true} = user, viewer \\ nil)
       when user.ident != nil and user.hostname != nil do
     format_user_host(user.ident, display_hostname(user, viewer))
@@ -259,7 +259,7 @@ defmodule ElixIRCd.Utils.Protocol do
   @doc """
   Gets the hostname to display for a user based on +x mode and viewer permissions.
   """
-  @spec display_hostname(User.t(), User.t() | nil) :: String.t()
+  @spec display_hostname(User.t() | map(), User.t() | nil) :: String.t()
   def display_hostname(user, viewer \\ nil) do
     if :x in user.modes and user.cloaked_hostname != nil and not (viewer != nil and irc_operator?(viewer)) do
       user.cloaked_hostname

@@ -10,9 +10,40 @@ defmodule ElixIRCd.Commands.NoticeTest do
 
   alias ElixIRCd.Commands.Notice
   alias ElixIRCd.Message
+  alias ElixIRCd.ServerLink.DirectMessage.Outbound
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Hub
+  alias ElixIRCd.ServerLink.Replica
+  alias ElixIRCd.ServerLink.UserPayload
   alias ElixIRCd.Service
 
   describe "handle/2" do
+    test "stale remote +R and +T modes leave NOTICE policy to the recipient home" do
+      remote = build(:user, nick: "Remote", modes: [:R, :T])
+      uid = UserPayload.new_uid()
+      payload = UserPayload.from_local(remote, uid)
+      table = Directory.create()
+
+      replica = %{
+        Replica.new()
+        | users: %{{"east.example", uid} => payload},
+          nick_keys: %{"remote" => {"east.example", uid}}
+      }
+
+      Directory.sync(table, Replica.new(), replica)
+
+      Mimic.expect(Hub, :send_direct, fn
+        %Outbound{target_uid: ^uid, command: "NOTICE", text: "\x01VERSION\x01"} -> :ok
+      end)
+
+      Memento.transaction!(fn ->
+        sender = insert(:user, nick: "Sender", capabilities: ["echo-message"])
+        message = %Message{command: "NOTICE", params: ["Remote"], trailing: "\x01VERSION\x01"}
+        assert :ok = Notice.handle(sender, message)
+        assert_sent_messages([])
+      end)
+    end
+
     test "user mode +T blocks private CTCP notices but allows ACTION" do
       Memento.transaction!(fn ->
         sender = insert(:user)

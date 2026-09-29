@@ -34,6 +34,9 @@ defmodule ElixIRCd.Config.Types do
   def valid?(:token, value), do: valid?(:text, value) and not String.contains?(value, [" ", ":"])
   def valid?(:path, value), do: valid?(:text, value)
 
+  def valid?(:sha256_fingerprint, value),
+    do: is_binary(value) and Regex.match?(~r/\A[0-9a-fA-F]{64}\z/, value)
+
   def valid?(:hostname_label, value),
     do: is_binary(value) and Regex.match?(~r/\A[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\z/, value)
 
@@ -42,6 +45,7 @@ defmodule ElixIRCd.Config.Types do
   end
 
   def valid?(:server_hostname, value), do: valid?(:hostname, value) and byte_size(value) <= 63
+  def valid?(:server_link_host, value), do: valid?(:hostname, value) or valid?(:ip, value)
 
   def valid?(:email, value), do: valid?(:text, value) and Validation.validate_email(value) == :ok
 

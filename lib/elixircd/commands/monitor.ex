@@ -20,6 +20,8 @@ defmodule ElixIRCd.Commands.Monitor do
   alias ElixIRCd.Repositories.UserMonitors
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.UserPayload
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Monitor, as: MonitorUtils
@@ -148,9 +150,9 @@ defmodule ElixIRCd.Commands.Monitor do
       UserMonitors.create(%{user_pid: user.pid, target_nick_key: target_nick_key, target_nick: target})
     end
 
-    case Users.get_by_nick(target) do
-      {:ok, target_user} -> {[user_mask(target_user) | online_acc], offline_acc}
-      {:error, :user_not_found} -> {online_acc, [target | offline_acc]}
+    case target_mask(target) do
+      {:ok, mask} -> {[mask | online_acc], offline_acc}
+      :error -> {online_acc, [target | offline_acc]}
     end
   end
 
@@ -199,9 +201,9 @@ defmodule ElixIRCd.Commands.Monitor do
 
     {online, offline} =
       Enum.reduce(monitors, {[], []}, fn monitor, {online_acc, offline_acc} ->
-        case Users.get_by_nick(monitor.target_nick_key) do
-          {:ok, target_user} -> {[user_mask(target_user) | online_acc], offline_acc}
-          {:error, :user_not_found} -> {online_acc, [monitor.target_nick | offline_acc]}
+        case target_mask(monitor.target_nick_key) do
+          {:ok, mask} -> {[mask | online_acc], offline_acc}
+          :error -> {online_acc, [monitor.target_nick | offline_acc]}
         end
       end)
 
@@ -220,6 +222,19 @@ defmodule ElixIRCd.Commands.Monitor do
     end
 
     :ok
+  end
+
+  defp target_mask(nick) do
+    case Users.get_by_nick(nick) do
+      {:ok, user} ->
+        {:ok, user_mask(user)}
+
+      {:error, :user_not_found} ->
+        case Directory.get_by_nick(nick) do
+          {:ok, remote} -> {:ok, remote.user |> UserPayload.public_view() |> user_mask()}
+          :error -> :error
+        end
+    end
   end
 
   @spec get_max_targets() :: non_neg_integer()

@@ -20,6 +20,7 @@ defmodule ElixIRCd.Commands.Join do
       chunk_message_words: 2
     ]
 
+  alias ElixIRCd.Commands.Names
   alias ElixIRCd.History
   alias ElixIRCd.Message
   alias ElixIRCd.Metadata
@@ -34,6 +35,9 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelAdoption
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelView
   alias ElixIRCd.Service
   alias ElixIRCd.Services.Chanserv.Akick
   alias ElixIRCd.Tables.Channel
@@ -42,7 +46,7 @@ defmodule ElixIRCd.Commands.Join do
   alias ElixIRCd.Utils.Chanserv.Flags
   alias ElixIRCd.Utils.Chanserv.ModeLock
 
-  @type channel_states :: :created | :existing
+  @type channel_states :: :created | :adopted | :existing
   @type mode :: ElixIRCd.ModeRegistry.channel_mode() | {ElixIRCd.ModeRegistry.channel_mode(), String.t()}
   @type mode_error ::
           :channel_key_invalid
@@ -86,11 +90,12 @@ defmodule ElixIRCd.Commands.Join do
     with :ok <- validate_channel_name(channel_name),
          {:error, :user_channel_not_found} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name),
          :ok <- check_user_channel_limit(user, channel_name),
-         {channel_state, channel} <- get_or_create_channel(channel_name),
-         channel <- apply_registered_mode_lock(channel) do
-      case check_modes(channel_state, channel, user, join_value) do
+         {:ok, network_view} <- network_channel_view(channel_name),
+         {channel_state, %Channel{} = channel} <- get_or_create_channel(channel_name, network_view),
+         channel <- maybe_apply_registered_mode_lock(channel, network_view) do
+      case check_modes(channel_state, channel, user, join_value, network_view) do
         :ok ->
-          complete_join(user, channel_state, channel)
+          complete_join(user, channel_state, channel, network_view)
 
         {:error, error} ->
           rollback_created_channel(channel_state, channel)
@@ -102,8 +107,29 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  defp complete_join(user, channel_state, channel) do
-    modes = if recovery_invite?(channel, user), do: [:o], else: determine_user_channel_modes(channel_state)
+  defp network_channel_view(channel_name) do
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    case ChannelDirectory.get(channel_name) do
+      {:ok, %ChannelView{remote_present: true} = view} -> {:ok, view}
+      :unavailable when links_enabled? -> {:error, :remote_channel_unavailable}
+      :error when links_enabled? -> unindexed_channel_view(channel_name)
+      _ -> {:ok, nil}
+    end
+  end
+
+  defp unindexed_channel_view(channel_name) do
+    case Channels.get_by_name(channel_name) do
+      {:ok, %Channel{}} -> {:error, :remote_channel_unavailable}
+      {:error, :channel_not_found} -> {:ok, nil}
+    end
+  end
+
+  defp complete_join(user, channel_state, channel, network_view) do
+    modes =
+      if is_nil(network_view) and recovery_invite?(channel, user),
+        do: [:o],
+        else: determine_user_channel_modes(channel_state)
 
     user_channel =
       UserChannels.create(%{
@@ -113,15 +139,19 @@ defmodule ElixIRCd.Commands.Join do
       })
 
     ChannelInvites.delete_by_user_pid_and_channel_name(user.pid, channel.name)
-    send_join_channel(user, channel, user_channel)
+    send_join_channel(user, channel, user_channel, network_view)
   end
 
   @spec rollback_created_channel(channel_states(), Channel.t()) :: :ok
   defp rollback_created_channel(:created, channel), do: Channels.delete(channel)
+  defp rollback_created_channel(:adopted, channel), do: Channels.delete(channel)
   defp rollback_created_channel(:existing, _channel), do: :ok
 
-  @spec get_or_create_channel(String.t()) :: {channel_states(), Channel.t()}
-  defp get_or_create_channel(channel_name) do
+  @spec get_or_create_channel(String.t(), ChannelView.t() | nil) :: {channel_states(), Channel.t()} | {:error, atom()}
+  defp get_or_create_channel(channel_name, view) when not is_nil(view),
+    do: ChannelAdoption.get_or_create(channel_name, view)
+
+  defp get_or_create_channel(channel_name, nil) do
     Channels.get_by_name(channel_name)
     |> case do
       {:ok, channel} ->
@@ -132,6 +162,9 @@ defmodule ElixIRCd.Commands.Join do
         {:created, channel}
     end
   end
+
+  defp maybe_apply_registered_mode_lock(channel, nil), do: apply_registered_mode_lock(channel)
+  defp maybe_apply_registered_mode_lock(channel, _network_view), do: channel
 
   @spec apply_registered_mode_lock(Channel.t()) :: Channel.t()
   defp apply_registered_mode_lock(channel) do
@@ -178,10 +211,11 @@ defmodule ElixIRCd.Commands.Join do
 
   @spec determine_user_channel_modes(channel_states()) :: [ElixIRCd.ModeRegistry.membership_mode()]
   defp determine_user_channel_modes(:created), do: [:o]
+  defp determine_user_channel_modes(:adopted), do: []
   defp determine_user_channel_modes(:existing), do: []
 
-  @spec send_join_channel(User.t(), Channel.t(), UserChannel.t()) :: :ok
-  defp send_join_channel(user, channel, user_channel) do
+  @spec send_join_channel(User.t(), Channel.t(), UserChannel.t(), ChannelView.t() | nil) :: :ok
+  defp send_join_channel(user, channel, user_channel, network_view) do
     user_channels =
       UserChannels.get_by_channel_name(channel.name)
       |> filter_auditorium_users(user_channel, channel.modes)
@@ -220,11 +254,25 @@ defmodule ElixIRCd.Commands.Join do
 
     Metadata.sync_join(user, channel, users)
 
-    channel_state_messages(user, channel, user_channels)
-    |> Dispatcher.broadcast(:server, user)
+    send_channel_state(user, channel, user_channels, network_view)
 
     send_entry_message(user, channel)
     send_operator_join_notice(user, channel, user_channels)
+  end
+
+  defp send_channel_state(user, channel, user_channels, nil) do
+    channel_state_messages(user, channel, user_channels)
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_channel_state(user, channel, _user_channels, _network_view) do
+    build_topic_messages(user, channel)
+    |> Dispatcher.broadcast(:server, user)
+
+    if ReadMarkers.enabled?() and "draft/read-marker" in user.capabilities,
+      do: Dispatcher.broadcast(ReadMarkers.message(user, channel.name), :server, user)
+
+    Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
   end
 
   @doc "Builds the replies sent after JOIN, also used by channel-rename fallback."
@@ -401,6 +449,15 @@ defmodule ElixIRCd.Commands.Join do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  defp send_join_channel_error(:remote_channel_unavailable, user, channel_name) do
+    %Message{
+      command: :err_unavailresource,
+      params: [user.nick, channel_name],
+      trailing: "Channel is temporarily unavailable on this server"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
   defp send_join_channel_error(error, user, channel_name) do
     %Message{command: :err_badchanmask, params: [user.nick, channel_name], trailing: "Cannot join channel - #{error}"}
     |> Dispatcher.broadcast(:server, user)
@@ -439,24 +496,25 @@ defmodule ElixIRCd.Commands.Join do
     String.length(normalized_channel_name) <= name_length
   end
 
-  @spec check_modes(channel_states(), Channel.t(), User.t(), String.t() | nil) :: :ok | {:error, mode_error()}
-  defp check_modes(_channel_state, channel, user, join_value) do
-    if recovery_invite?(channel, user) do
+  @spec check_modes(channel_states(), Channel.t(), User.t(), String.t() | nil, ChannelView.t() | nil) ::
+          :ok | {:error, mode_error()}
+  defp check_modes(_channel_state, channel, user, join_value, network_view) do
+    if is_nil(network_view) and recovery_invite?(channel, user) do
       with :ok <- check_secure_only(channel, user), do: check_operator_only(channel, user)
     else
-      check_normal_modes(channel, user, join_value)
+      check_normal_modes(channel, user, join_value, network_view)
     end
   end
 
-  defp check_normal_modes(channel, user, join_value) do
-    with :ok <- check_user_banned(channel, user),
-         :ok <- check_user_invited(channel, user),
+  defp check_normal_modes(channel, user, join_value, network_view) do
+    with :ok <- check_user_banned(channel, user, network_view),
+         :ok <- check_user_invited(channel, user, network_view),
          :ok <- check_registered_channel_restrictions(channel, user),
          :ok <- check_registered_only_join(channel, user),
          :ok <- check_secure_only(channel, user),
          :ok <- check_channel_key(channel, user, join_value),
-         :ok <- check_channel_limit(channel, user),
-         :ok <- check_join_throttle(channel, user) do
+         :ok <- check_channel_limit(channel, user, network_view),
+         :ok <- check_join_throttle(channel, user, network_view) do
       check_operator_only(channel, user)
     end
   end
@@ -494,14 +552,14 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  @spec check_user_banned(Channel.t(), User.t()) :: :ok | {:error, :user_banned}
-  defp check_user_banned(channel, user) do
+  @spec check_user_banned(Channel.t(), User.t(), ChannelView.t() | nil) :: :ok | {:error, :user_banned}
+  defp check_user_banned(channel, user, network_view) do
     is_banned =
-      ChannelBans.get_by_channel_name_key(channel.name_key)
+      (ChannelBans.get_by_channel_name_key(channel.name_key) ++ network_lists(network_view, "b"))
       |> Enum.any?(&match_user_mask?(user, &1.mask))
 
     is_excepted =
-      ChannelExcepts.get_by_channel_name_key(channel.name_key)
+      (ChannelExcepts.get_by_channel_name_key(channel.name_key) ++ network_lists(network_view, "e"))
       |> Enum.any?(&match_user_mask?(user, &1.mask))
 
     has_operator_invite =
@@ -519,11 +577,11 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  @spec check_user_invited(Channel.t(), User.t()) :: :ok | {:error, :user_not_invited}
-  defp check_user_invited(channel, user) do
+  @spec check_user_invited(Channel.t(), User.t(), ChannelView.t() | nil) :: :ok | {:error, :user_not_invited}
+  defp check_user_invited(channel, user, network_view) do
     if :i in channel.modes do
       has_invex_exception =
-        ChannelInvexes.get_by_channel_name_key(channel.name_key)
+        (ChannelInvexes.get_by_channel_name_key(channel.name_key) ++ network_lists(network_view, "I"))
         |> Enum.any?(&match_user_mask?(user, &1.mask))
 
       if directly_invited?(channel, user) or has_invex_exception do
@@ -550,8 +608,8 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  @spec check_channel_limit(Channel.t(), User.t()) :: :ok | {:error, :channel_limit_reached}
-  defp check_channel_limit(channel, user) do
+  @spec check_channel_limit(Channel.t(), User.t(), ChannelView.t() | nil) :: :ok | {:error, :channel_limit_reached}
+  defp check_channel_limit(channel, user, network_view) do
     channel_limit =
       Enum.find_value(channel.modes, fn
         {:l, value} -> String.to_integer(value)
@@ -559,12 +617,29 @@ defmodule ElixIRCd.Commands.Join do
       end)
 
     cond do
-      directly_invited?(channel, user) -> :ok
-      is_nil(channel_limit) -> :ok
-      UserChannels.count_users_by_channel_name(channel.name) >= channel_limit -> {:error, :channel_limit_reached}
-      true -> :ok
+      directly_invited?(channel, user) ->
+        :ok
+
+      is_nil(channel_limit) ->
+        :ok
+
+      UserChannels.count_users_by_channel_name(channel.name) + remote_member_count(network_view) >= channel_limit ->
+        {:error, :channel_limit_reached}
+
+      true ->
+        :ok
     end
   end
+
+  defp network_lists(nil, _kind), do: []
+
+  defp network_lists(view, kind) do
+    for %{effective: true, entry: %{"kind" => ^kind} = entry} <- view.remote_lists,
+        do: %{mask: entry["mask"]}
+  end
+
+  defp remote_member_count(nil), do: 0
+  defp remote_member_count(view), do: length(view.remote_members)
 
   @spec directly_invited?(Channel.t(), User.t()) :: boolean()
   defp directly_invited?(channel, user) do
@@ -653,22 +728,22 @@ defmodule ElixIRCd.Commands.Join do
     end
   end
 
-  @spec check_join_throttle(Channel.t(), User.t()) :: :ok | {:error, :join_throttled}
-  defp check_join_throttle(channel, user) do
+  @spec check_join_throttle(Channel.t(), User.t(), ChannelView.t() | nil) :: :ok | {:error, :join_throttled}
+  defp check_join_throttle(channel, user, network_view) do
     if irc_operator?(user) do
       :ok
     else
-      apply_join_throttle_check(channel)
+      apply_join_throttle_check(channel, network_view)
     end
   end
 
-  @spec apply_join_throttle_check(Channel.t()) :: :ok | {:error, :join_throttled}
-  defp apply_join_throttle_check(channel) do
+  @spec apply_join_throttle_check(Channel.t(), ChannelView.t() | nil) :: :ok | {:error, :join_throttled}
+  defp apply_join_throttle_check(channel, network_view) do
     throttle_value = get_join_throttle_value(channel.modes)
 
     case throttle_value do
       nil -> :ok
-      value -> validate_join_throttle(channel.name, value)
+      value -> validate_join_throttle(channel.name, value, network_view)
     end
   end
 
@@ -680,20 +755,34 @@ defmodule ElixIRCd.Commands.Join do
     end)
   end
 
-  @spec validate_join_throttle(String.t(), String.t()) :: :ok | {:error, :join_throttled}
-  defp validate_join_throttle(channel_name, throttle_value) do
+  @spec validate_join_throttle(String.t(), String.t(), ChannelView.t() | nil) :: :ok | {:error, :join_throttled}
+  defp validate_join_throttle(channel_name, throttle_value, network_view) do
     [joins_str, seconds_str] = String.split(throttle_value, ":")
     max_joins = String.to_integer(joins_str)
     time_window = String.to_integer(seconds_str)
 
     since_time = DateTime.utc_now() |> DateTime.add(-time_window, :second)
-    recent_joins = UserChannels.count_recent_joins_by_channel_name(channel_name, since_time)
+
+    recent_joins =
+      UserChannels.count_recent_joins_by_channel_name(channel_name, since_time) +
+        recent_remote_joins(network_view, since_time)
 
     if recent_joins >= max_joins do
       {:error, :join_throttled}
     else
       :ok
     end
+  end
+
+  defp recent_remote_joins(nil, _since_time), do: 0
+
+  defp recent_remote_joins(view, since_time) do
+    Enum.count(view.remote_members, fn %{member: %{"joined_at" => joined_at}} ->
+      case DateTime.from_iso8601(joined_at) do
+        {:ok, time, _offset} -> DateTime.compare(time, since_time) != :lt
+        _ -> false
+      end
+    end)
   end
 
   @spec check_registered_only_join(Channel.t(), User.t()) :: :ok | {:error, :user_not_registered}

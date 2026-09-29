@@ -10,9 +10,12 @@ defmodule ElixIRCd.Commands.Accept do
   @behaviour ElixIRCd.Command
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.UserAcceptRemotes
   alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.RemoteUser
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
 
@@ -71,7 +74,7 @@ defmodule ElixIRCd.Commands.Accept do
   defp handle_add_single_nick(user, nick, users_by_nick, current_accepted_pids) do
     case Map.get(users_by_nick, nick) do
       nil ->
-        send_no_such_nick_error(user, nick)
+        add_remote_nick(user, nick)
 
       target_user ->
         if MapSet.member?(current_accepted_pids, target_user.pid) do
@@ -104,7 +107,7 @@ defmodule ElixIRCd.Commands.Accept do
   defp handle_remove_single_nick(user, nick, users_by_nick, current_accepted_pids) do
     case Map.get(users_by_nick, nick) do
       nil ->
-        send_no_such_nick_error(user, nick)
+        remove_remote_nick(user, nick)
 
       target_user ->
         if MapSet.member?(current_accepted_pids, target_user.pid) do
@@ -113,6 +116,59 @@ defmodule ElixIRCd.Commands.Accept do
         else
           send_not_accepted_error(user, nick)
         end
+    end
+  end
+
+  defp add_remote_nick(user, nick) do
+    case Directory.lookup_by_nick(nick) do
+      {:ok, %RemoteUser{origin: origin, uid: uid}} ->
+        identity = {origin, uid}
+
+        if UserAcceptRemotes.get_by_user_pid_and_identity(user.pid, identity) do
+          send_already_accepted_error(user, nick)
+        else
+          UserAcceptRemotes.create(user.pid, identity)
+          send_accepted_confirmation(user, nick)
+        end
+
+      :error ->
+        send_no_such_nick_error(user, nick)
+
+      :unavailable ->
+        send_missing_remote_nick_error(user, nick)
+    end
+  end
+
+  defp remove_remote_nick(user, nick) do
+    case Directory.lookup_by_nick(nick) do
+      {:ok, %RemoteUser{origin: origin, uid: uid}} ->
+        identity = {origin, uid}
+
+        if UserAcceptRemotes.get_by_user_pid_and_identity(user.pid, identity) do
+          UserAcceptRemotes.delete(user.pid, identity)
+          send_removed_confirmation(user, nick)
+        else
+          send_not_accepted_error(user, nick)
+        end
+
+      :error ->
+        send_no_such_nick_error(user, nick)
+
+      :unavailable ->
+        send_missing_remote_nick_error(user, nick)
+    end
+  end
+
+  defp send_missing_remote_nick_error(user, nick) do
+    if Application.fetch_env!(:elixircd, :server_links)[:enabled] do
+      %Message{
+        command: :err_unavailresource,
+        params: [user.nick, nick],
+        trailing: "Network user directory is unavailable"
+      }
+      |> Dispatcher.broadcast(:server, user)
+    else
+      send_no_such_nick_error(user, nick)
     end
   end
 
@@ -153,13 +209,30 @@ defmodule ElixIRCd.Commands.Accept do
   @spec display_accept_list(User.t()) :: :ok
   defp display_accept_list(user) do
     accept_list = UserAccepts.get_by_user_pid(user.pid)
+    remote_accepts = UserAcceptRemotes.get_by_user_pid(user.pid)
 
-    if accept_list == [] do
+    if accept_list == [] and remote_accepts == [] do
       send_accept_list_end(user)
     else
       send_accept_list_entries(user, accept_list)
+      send_remote_accept_list_entries(user, remote_accepts)
       send_accept_list_end(user)
     end
+  end
+
+  defp send_remote_accept_list_entries(user, accepts) do
+    Enum.each(accepts, fn accept ->
+      {origin, uid} = accept.accepted_identity
+
+      case Directory.get_by_identity(origin, uid) do
+        {:ok, %RemoteUser{user: %{"nick" => nick}}} ->
+          %Message{command: :rpl_acceptlist, params: [user.nick, nick], trailing: ""}
+          |> Dispatcher.broadcast(:server, user)
+
+        :error ->
+          :ok
+      end
+    end)
   end
 
   @spec send_accept_list_entries(User.t(), [UserAccept.t()]) :: :ok

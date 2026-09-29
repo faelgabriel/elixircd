@@ -26,6 +26,10 @@ defmodule ElixIRCd.Commands.Who do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelPayload
+  alias ElixIRCd.ServerLink.ChannelView
+  alias ElixIRCd.ServerLink.RemoteWho
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
@@ -75,10 +79,42 @@ defmodule ElixIRCd.Commands.Who do
   defp handle_who_channel(user, channel_name, query) do
     case Channels.get_by_name(channel_name) do
       {:ok, channel} ->
-        process_channel_who(user, channel, query)
+        case selected_who_channel(channel) do
+          {:ok, selected} -> process_channel_who(user, selected, query)
+          :unavailable -> :ok
+        end
 
       {:error, :channel_not_found} ->
         :ok
+    end
+
+    RemoteWho.channel_messages(user, channel_name, query)
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp selected_who_channel(%Channel{} = channel) do
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    case ChannelDirectory.get(channel.name) do
+      {:ok, %ChannelView{channel: payload}} ->
+        case ChannelPayload.to_local(payload) do
+          {:ok, attrs} ->
+            # A local +s must hide members even before the committed view catches up.
+            modes = Enum.uniq(attrs.modes ++ Enum.filter(channel.modes, &(&1 == :s)))
+            {:ok, %Channel{channel | modes: modes}}
+
+          {:error, :invalid_channel} ->
+            :unavailable
+        end
+
+      :unavailable when links_enabled? ->
+        :unavailable
+
+      :error when links_enabled? ->
+        :unavailable
+
+      _ ->
+        {:ok, channel}
     end
   end
 
@@ -122,6 +158,9 @@ defmodule ElixIRCd.Commands.Who do
     else
       process_mask_who(user, users, query)
     end
+
+    RemoteWho.mask_messages(user, mask, query)
+    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec who_mask_matches?(User.t(), User.t(), String.t()) :: boolean()

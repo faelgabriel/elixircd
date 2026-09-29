@@ -4,8 +4,12 @@ defmodule ElixIRCd.HistoryTest do
   import ElixIRCd.Factory
 
   alias ElixIRCd.History
+  alias ElixIRCd.History.RemoteIdentity
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChatHistory
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Replica
+  alias ElixIRCd.ServerLink.UserPayload
 
   test "parses every history reference form and ignores non-recordable input" do
     now = DateTime.utc_now() |> DateTime.truncate(:millisecond)
@@ -194,6 +198,66 @@ defmodule ElixIRCd.HistoryTest do
                  },
                  alice
                )
+    end)
+  end
+
+  test "resolves a connected remote target by UID before a same-named local registration" do
+    prior_links = Application.fetch_env!(:elixircd, :server_links)
+    Application.put_env(:elixircd, :server_links, Keyword.put(prior_links, :enabled, true))
+    on_exit(fn -> Application.put_env(:elixircd, :server_links, prior_links) end)
+
+    table = Directory.create()
+    origin = "east.example"
+    uid = UserPayload.new_uid()
+    remote_user = build(:user, nick: "Remote") |> UserPayload.from_local(uid)
+
+    replica = %Replica{
+      users: %{{origin, uid} => remote_user},
+      nick_keys: %{"remote" => {origin, uid}}
+    }
+
+    Directory.sync(table, Replica.new(), replica)
+
+    Memento.transaction!(fn ->
+      local = insert(:user, nick: "Local")
+      insert(:registered_nick, nickname: "Remote", account_name: "LocalAccount")
+      remote = %RemoteIdentity{origin: origin, uid: uid, nick: "Remote"}
+      identities = [History.identity_key(local), History.remote_identity_key(remote)] |> Enum.sort()
+
+      assert {:ok, %{type: :direct, key: key}} = History.target_for_request(local, "Remote")
+      assert key == "direct:" <> Enum.join(identities, "\0")
+
+      timestamp = DateTime.utc_now() |> DateTime.truncate(:millisecond) |> DateTime.to_iso8601()
+
+      assert :ok =
+               History.record_remote_outgoing(
+                 %Message{
+                   command: "PRIVMSG",
+                   params: ["Remote"],
+                   trailing: "hello",
+                   tags: %{"msgid" => "out", "time" => timestamp}
+                 },
+                 local,
+                 remote
+               )
+
+      assert :ok =
+               History.record_remote_incoming(
+                 %Message{
+                   command: "NOTICE",
+                   params: ["Local"],
+                   trailing: "reply",
+                   tags: %{"msgid" => "in", "time" => timestamp}
+                 },
+                 remote,
+                 local
+               )
+
+      assert History.query(key, "LATEST", :all, nil, 10) |> Enum.map(& &1.msgid) == ["in", "out"]
+
+      Directory.sync(table, replica, Replica.new())
+      assert {:ok, %{key: local_key}} = History.target_for_request(local, "Remote")
+      refute local_key == key
     end)
   end
 

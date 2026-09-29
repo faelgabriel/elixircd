@@ -16,6 +16,8 @@ defmodule ElixIRCd.Commands.Whois do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.RemoteWhois
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.CaseMapping
@@ -40,7 +42,8 @@ defmodule ElixIRCd.Commands.Whois do
     hostname = Application.fetch_env!(:elixircd, :server)[:hostname]
 
     if CaseMapping.normalize(server) == CaseMapping.normalize(hostname) or
-         match?({:ok, %{registered: true}}, Users.get_by_nick(server)) do
+         match?({:ok, %{registered: true}}, Users.get_by_nick(server)) or
+         remote_target_on_server?(server, target_nick) do
       handle(user, %Message{command: @command, params: [target_nick]})
     else
       %Message{command: :err_nosuchserver, params: [user.nick, server], trailing: "No such server"}
@@ -51,10 +54,27 @@ defmodule ElixIRCd.Commands.Whois do
   def handle(user, %{command: @command, params: [target_nick]}) do
     {target_user, target_user_channels_display} = get_target_user(user, target_nick)
 
-    whois_message(user, target_nick, target_user, target_user_channels_display)
+    case target_user do
+      nil -> send_remote_or_unknown(user, target_nick)
+      _ -> whois_message(user, target_nick, target_user, target_user_channels_display)
+    end
 
     %Message{command: :rpl_endofwhois, params: [user.nick, target_nick], trailing: "End of /WHOIS list."}
     |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_remote_or_unknown(user, target_nick) do
+    case Directory.get_by_nick(target_nick) do
+      {:ok, remote} -> RemoteWhois.messages(user, remote) |> Dispatcher.broadcast(:server, user)
+      :error -> whois_message(user, target_nick, nil, [])
+    end
+  end
+
+  defp remote_target_on_server?(server, target_nick) do
+    case Directory.get_by_nick(target_nick) do
+      {:ok, %{origin: origin}} -> CaseMapping.normalize(server) == CaseMapping.normalize(origin)
+      :error -> false
+    end
   end
 
   @doc """

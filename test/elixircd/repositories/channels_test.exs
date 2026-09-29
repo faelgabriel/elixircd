@@ -7,6 +7,7 @@ defmodule ElixIRCd.Repositories.ChannelsTest do
 
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.ChannelIdentity
 
   describe "create/1" do
     test "creates a new channel" do
@@ -72,5 +73,20 @@ defmodule ElixIRCd.Repositories.ChannelsTest do
 
       assert 2 == Memento.transaction!(fn -> Channels.count_all() end)
     end
+  end
+
+  test "adopted channel identity follows rename and is removed on deletion" do
+    Memento.transaction!(fn ->
+      channel = Channels.create(%{name: "#original", creator: "remote.example"})
+      assert %ChannelIdentity{creator: "remote.example"} = Memento.Query.read(ChannelIdentity, channel.name_key)
+
+      renamed = Channel.update(channel, %{name: "#renamed"})
+      assert ^renamed = Channels.replace(channel, renamed)
+      assert nil == Memento.Query.read(ChannelIdentity, channel.name_key)
+      assert %ChannelIdentity{creator: "remote.example"} = Memento.Query.read(ChannelIdentity, renamed.name_key)
+
+      assert :ok = Channels.delete_by_name(renamed.name)
+      assert nil == Memento.Query.read(ChannelIdentity, renamed.name_key)
+    end)
   end
 end

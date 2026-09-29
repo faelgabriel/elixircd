@@ -14,9 +14,11 @@ defmodule ElixIRCd.Commands.Names do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelDirectory
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Targets
 
   @impl true
@@ -38,9 +40,35 @@ defmodule ElixIRCd.Commands.Names do
 
   @spec handle_all_names(User.t()) :: :ok
   defp handle_all_names(user) do
-    Channels.get_all()
+    views = ChannelDirectory.all()
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    if links_enabled? and views == :unavailable do
+      send_end_of_names(user, "*")
+    else
+      send_all_visible_names(user, views)
+    end
+  end
+
+  defp send_all_visible_names(user, views) do
+    local_channels = Channels.get_all()
+
+    local_channels
     |> Enum.sort_by(& &1.name_key)
     |> Enum.each(&handle_channel_names_silent(user, &1))
+
+    local_keys = MapSet.new(local_channels, & &1.name_key)
+
+    case views do
+      views when is_list(views) ->
+        views
+        |> Enum.reject(&MapSet.member?(local_keys, CaseMapping.normalize(&1.channel["name"])))
+        |> Enum.sort_by(&CaseMapping.normalize(&1.channel["name"]))
+        |> Enum.each(&handle_remote_channel_names_silent(user, &1))
+
+      :unavailable ->
+        :ok
+    end
 
     handle_free_users(user)
     send_end_of_names(user, "*")
@@ -50,12 +78,42 @@ defmodule ElixIRCd.Commands.Names do
   defp handle_single_channel_names(user, channel_name) do
     case Channels.get_by_name(channel_name) do
       {:ok, channel} -> handle_existing_channel(user, channel)
-      {:error, :channel_not_found} -> :ok
+      {:error, :channel_not_found} -> handle_remote_channel_names(user, channel_name)
     end
   end
 
   defp handle_existing_channel(user, channel) do
-    if channel_visible_to_user?(channel, user), do: send_names_reply(user, channel)
+    view = ChannelDirectory.get(channel.name)
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    if not links_enabled? or match?({:ok, _}, view) do
+      modes = channel_modes(channel, view)
+
+      if channel_visible_to_user?(channel.name, modes, user) do
+        send_names_reply(
+          user,
+          channel.name,
+          modes,
+          UserChannels.get_by_channel_name(channel.name),
+          remote_members(view)
+        )
+      end
+    end
+  end
+
+  defp handle_remote_channel_names(user, channel_name) do
+    case ChannelDirectory.get(channel_name) do
+      {:ok, view} -> handle_remote_channel_names_silent(user, view)
+      _ -> :ok
+    end
+  end
+
+  defp handle_remote_channel_names_silent(user, view) do
+    name = view.channel["name"]
+    modes = channel_modes(nil, {:ok, view})
+
+    if channel_visible_to_user?(name, modes, user),
+      do: send_names_reply(user, name, modes, [], view.remote_members)
   end
 
   @spec send_end_of_names(User.t(), String.t()) :: :ok
@@ -66,23 +124,20 @@ defmodule ElixIRCd.Commands.Names do
 
   @spec handle_channel_names_silent(User.t(), Channel.t()) :: :ok
   defp handle_channel_names_silent(user, channel) do
-    if channel_visible_to_user?(channel, user) do
-      send_names_reply(user, channel)
-    end
-
+    handle_existing_channel(user, channel)
     :ok
   end
 
-  @spec channel_visible_to_user?(Channel.t(), User.t()) :: boolean()
-  defp channel_visible_to_user?(channel, user) do
+  @spec channel_visible_to_user?(String.t(), [String.t()], User.t()) :: boolean()
+  defp channel_visible_to_user?(channel_name, modes, user) do
     is_member =
-      case UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+      case UserChannels.get_by_user_pid_and_channel_name(user.pid, channel_name) do
         {:ok, _user_channel} -> true
         {:error, :user_channel_not_found} -> false
       end
 
-    is_secret = :s in channel.modes
-    is_private = :p in channel.modes
+    is_secret = "s" in modes
+    is_private = "p" in modes
 
     cond do
       is_member -> true
@@ -92,13 +147,13 @@ defmodule ElixIRCd.Commands.Names do
     end
   end
 
-  @spec send_names_reply(User.t(), Channel.t()) :: :ok
-  defp send_names_reply(user, channel) do
-    user_channels = UserChannels.get_by_channel_name(channel.name)
+  @spec send_names_reply(User.t(), String.t(), [String.t()], [UserChannel.t()], [map()]) :: :ok
+  defp send_names_reply(user, channel_name, modes, user_channels, remote_members) do
     users_by_pid = get_users_by_pid(user_channels)
 
     visible_nicks =
       get_visible_nick_pairs(user, user_channels, users_by_pid)
+      |> Kernel.++(get_visible_remote_nick_pairs(user, user_channels, remote_members))
       |> get_sorted_nicks()
 
     # 366 always terminates the reply for a visible channel; 353 is only sent with content.
@@ -108,8 +163,8 @@ defmodule ElixIRCd.Commands.Names do
       else
         params =
           if Application.fetch_env!(:elixircd, :compatibility)[:rfc1459_names],
-            do: [user.nick, channel.name],
-            else: [user.nick, get_channel_status(channel), channel.name]
+            do: [user.nick, channel_name],
+            else: [user.nick, get_channel_status(modes), channel_name]
 
         names_message = %Message{
           prefix: Dispatcher.server_prefix(),
@@ -124,13 +179,72 @@ defmodule ElixIRCd.Commands.Names do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec get_channel_status(Channel.t()) :: String.t()
-  defp get_channel_status(channel) do
+  @spec get_channel_status([String.t()]) :: String.t()
+  defp get_channel_status(modes) do
     cond do
-      :s in channel.modes -> "@"
-      :p in channel.modes -> "*"
+      "s" in modes -> "@"
+      "p" in modes -> "*"
       true -> "="
     end
+  end
+
+  defp channel_modes(channel, {:ok, view}) do
+    selected = Enum.map(view.channel["modes"], & &1["name"])
+
+    case channel do
+      nil -> selected
+      _ -> Enum.uniq(selected ++ Enum.filter(channel_modes(channel, :error), &(&1 in ["s", "p"])))
+    end
+  end
+
+  defp channel_modes(channel, _view) do
+    Enum.map(channel.modes, fn
+      {mode, _parameter} -> Atom.to_string(mode)
+      mode -> Atom.to_string(mode)
+    end)
+  end
+
+  defp remote_members({:ok, view}), do: view.remote_members
+  defp remote_members(_view), do: []
+
+  defp get_visible_remote_nick_pairs(user, local_members, remote_members) do
+    is_operator = :o in user.modes
+    is_member = Enum.any?(local_members, &(&1.user_pid == user.pid))
+    use_extended_names = "userhost-in-names" in user.capabilities
+    use_multi_prefix = "multi-prefix" in user.capabilities
+
+    Enum.flat_map(
+      remote_members,
+      &visible_remote_nick_pair(&1, is_operator or is_member, use_extended_names, use_multi_prefix)
+    )
+  end
+
+  defp visible_remote_nick_pair(%{effective_modes: modes, user: remote_user}, privileged?, extended?, multi?) do
+    if privileged? or "i" not in remote_user["modes"] do
+      prefix = remote_prefix(modes, multi?)
+      nick = remote_user["nick"]
+      display = if extended?, do: remote_mask(remote_user), else: nick
+      [{prefix <> display, prefix <> nick, nick}]
+    else
+      []
+    end
+  end
+
+  defp remote_prefix(modes, true) do
+    if("o" in modes, do: "@", else: "") <> if "v" in modes, do: "+", else: ""
+  end
+
+  defp remote_prefix(modes, false) do
+    cond do
+      "o" in modes -> "@"
+      "v" in modes -> "+"
+      true -> ""
+    end
+  end
+
+  defp remote_mask(user) do
+    hostname = if "x" in user["modes"], do: user["cloaked_hostname"] || user["hostname"], else: user["hostname"]
+    "#{user["nick"]}!#{user["ident"]}@#{hostname}"
   end
 
   @spec get_users_by_pid([UserChannel.t()]) :: %{pid() => User.t()}

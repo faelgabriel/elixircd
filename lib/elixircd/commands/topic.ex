@@ -10,12 +10,17 @@ defmodule ElixIRCd.Commands.Topic do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1, user_reply: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredChannelAccesses
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelPayload
+  alias ElixIRCd.ServerLink.Hub
+  alias ElixIRCd.ServerLink.TopicMutation
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.RegisteredChannel
   alias ElixIRCd.Tables.User
@@ -28,6 +33,8 @@ defmodule ElixIRCd.Commands.Topic do
           | :user_channel_not_found
           | :user_is_not_operator
           | :topic_too_long
+          | :remote_topic_unavailable
+          | :network_directory_unavailable
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -44,11 +51,10 @@ defmodule ElixIRCd.Commands.Topic do
 
   @impl true
   def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: nil}) do
-    Channels.get_by_name(channel_name)
+    selected_channel(channel_name)
     |> case do
       {:ok, channel} ->
-        # Secret (+s) channels hide topic and existence from non-members, like in NAMES.
-        if :s in channel.modes and not channel_member?(user, channel) do
+        if secret_channel?(channel) and not channel_member?(user, channel) do
           send_nosuchchannel_error(user, channel_name)
         else
           send_channel_topic(channel, user)
@@ -56,6 +62,9 @@ defmodule ElixIRCd.Commands.Topic do
 
       {:error, :channel_not_found} ->
         send_nosuchchannel_error(user, channel_name)
+
+      {:error, :network_directory_unavailable} ->
+        send_network_unavailable(user, channel_name)
     end
   end
 
@@ -63,17 +72,80 @@ defmodule ElixIRCd.Commands.Topic do
   def handle(user, %{command: "TOPIC", params: [channel_name | _rest], trailing: new_topic_text}) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
-         :ok <- check_user_permission(channel, user, user_channel),
-         :ok <- check_topic_length(new_topic_text) do
-      updated_topic = normalize_topic(new_topic_text, user)
-      updated_channel = Channels.update(channel, %{topic: updated_topic})
-      sync_registered_channel_topic(channel.name, updated_topic)
-      user_channels = UserChannels.get_by_channel_name(channel.name)
-
-      send_channel_topic_change(updated_channel, user, user_channels)
+         :ok <- check_topic_length(new_topic_text),
+         {:ok, authority} <- network_topic_authority(channel.name) do
+      case authority do
+        :local -> change_local_topic(channel, user, user_channel, new_topic_text)
+        {:remote, origin} -> request_remote_topic(user, origin, channel.name, new_topic_text)
+      end
     else
       {:error, error} -> send_channel_topic_error(error, user, channel_name)
     end
+  end
+
+  defp change_local_topic(channel, user, user_channel, text) do
+    case check_user_permission(channel, user, user_channel) do
+      :ok ->
+        updated_topic = normalize_topic(text, user)
+        updated_channel = Channels.update(channel, %{topic: updated_topic})
+        TopicMutation.sync_registered_channel_topic(channel.name, updated_topic)
+        user_channels = UserChannels.get_by_channel_name(channel.name)
+        send_channel_topic_change(updated_channel, user, user_channels)
+
+      {:error, error} ->
+        send_channel_topic_error(error, user, channel.name)
+    end
+  end
+
+  defp request_remote_topic(user, origin, channel_name, text) do
+    Observability.defer_effect(fn ->
+      if Hub.request_topic(user.pid, origin, channel_name, text) == :unavailable,
+        do: send_network_unavailable(user, channel_name)
+    end)
+  end
+
+  defp selected_channel(channel_name) do
+    local = Channels.get_by_name(channel_name)
+    local_id = Application.fetch_env!(:elixircd, :server)[:hostname]
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    case ChannelDirectory.get(channel_name) do
+      {:ok, %{origin: ^local_id}} -> local
+      {:ok, view} -> remote_channel(view)
+      :unavailable when links_enabled? -> {:error, :network_directory_unavailable}
+      :error when links_enabled? -> {:error, :network_directory_unavailable}
+      _ -> local
+    end
+  end
+
+  defp network_topic_authority(channel_name) do
+    local_id = Application.fetch_env!(:elixircd, :server)[:hostname]
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    case ChannelDirectory.get(channel_name) do
+      {:ok, %{origin: ^local_id}} -> {:ok, :local}
+      {:ok, %{origin: origin}} -> {:ok, {:remote, origin}}
+      :unavailable when links_enabled? -> {:error, :network_directory_unavailable}
+      :error when links_enabled? -> {:error, :network_directory_unavailable}
+      _ -> {:ok, :local}
+    end
+  end
+
+  defp remote_channel(view) do
+    case ChannelPayload.to_local(view.channel) do
+      {:ok, attrs} -> {:ok, attrs |> Map.delete(:creator) |> Channel.new()}
+      {:error, :invalid_channel} -> {:error, :channel_not_found}
+    end
+  end
+
+  defp secret_channel?(channel) do
+    local_secret? =
+      case Channels.get_by_name(channel.name) do
+        {:ok, local} -> :s in local.modes
+        _ -> false
+      end
+
+    :s in channel.modes or local_secret?
   end
 
   @spec check_user_permission(Channel.t(), User.t(), UserChannel.t()) ::
@@ -176,6 +248,15 @@ defmodule ElixIRCd.Commands.Topic do
     |> Dispatcher.broadcast(:server, user)
   end
 
+  defp send_network_unavailable(user, channel_name) do
+    %Message{
+      command: :err_unavailresource,
+      params: [user.nick, channel_name],
+      trailing: "Channel topic is temporarily unavailable on this server"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
   @spec send_channel_topic_change(Channel.t(), User.t(), [UserChannel.t()]) :: :ok
   defp send_channel_topic_change(%{topic: topic} = channel, user, to_user_channels) do
     user_pids = Enum.map(to_user_channels, & &1.user_pid)
@@ -225,17 +306,9 @@ defmodule ElixIRCd.Commands.Topic do
     |> Dispatcher.broadcast(:server, user)
   end
 
-  @spec sync_registered_channel_topic(String.t(), Channel.Topic.t() | nil) :: :ok
-  defp sync_registered_channel_topic(channel_name, topic) do
-    case RegisteredChannels.get_by_name(channel_name) do
-      {:ok, registered_channel} ->
-        RegisteredChannels.update_topic(registered_channel, topic)
-        :ok
-
-      {:error, :registered_channel_not_found} ->
-        :ok
-    end
-  end
+  defp send_channel_topic_error(error, user, channel_name)
+       when error in [:remote_topic_unavailable, :network_directory_unavailable],
+       do: send_network_unavailable(user, channel_name)
 
   @spec topic_text(Channel.Topic.t() | nil) :: String.t()
   defp topic_text(nil), do: ""

@@ -8,8 +8,140 @@ defmodule ElixIRCd.Commands.NamesTest do
 
   alias ElixIRCd.Commands.Names
   alias ElixIRCd.Message
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.Utils.CaseMapping
 
   describe "handle/2" do
+    test "NAMES does not expose an unindexed local channel while linking is enabled" do
+      old_links = Application.fetch_env!(:elixircd, :server_links)
+      on_exit(fn -> Application.put_env(:elixircd, :server_links, old_links) end)
+      Application.put_env(:elixircd, :server_links, Keyword.put(old_links, :enabled, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#unindexed-names")
+        insert(:user_channel, user: user, channel: channel)
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
+        assert_sent_messages([{user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of /NAMES list\r\n"}])
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: []})
+        assert_sent_messages([{user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}])
+      end)
+
+      ChannelDirectory.create()
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#missing-view")
+        insert(:user_channel, user: user, channel: channel)
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: [channel.name]})
+        assert_sent_messages([{user.pid, ":irc.test 366 #{user.nick} #{channel.name} :End of /NAMES list\r\n"}])
+      end)
+    end
+
+    test "shows committed remote members and hides private channels and invisible outsiders" do
+      table = ChannelDirectory.create()
+
+      visible_user = %{
+        "nick" => "Remote",
+        "ident" => "~remote",
+        "hostname" => "real.example",
+        "cloaked_hostname" => "cloak.example",
+        "modes" => ["x"]
+      }
+
+      hidden_user = %{visible_user | "nick" => "Hidden", "modes" => ["i"]}
+      open_name = "#remote"
+      secret_name = "#secret-remote"
+
+      entries = %{
+        CaseMapping.normalize(open_name) => %{
+          channel: %{"name" => open_name, "modes" => []},
+          remote_members: [
+            %{user: visible_user, effective_modes: ["o", "v"]},
+            %{user: hidden_user, effective_modes: []}
+          ]
+        },
+        CaseMapping.normalize(secret_name) => %{
+          channel: %{"name" => secret_name, "modes" => [%{"name" => "s"}]},
+          remote_members: [%{user: visible_user, effective_modes: []}]
+        }
+      }
+
+      ChannelDirectory.sync(table, %{}, entries)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, capabilities: ["userhost-in-names", "multi-prefix"])
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: [open_name]})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} = #remote :@+Remote!~remote@cloak.example\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} #remote :End of /NAMES list\r\n"}
+        ])
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: [secret_name]})
+        assert_sent_messages([{user.pid, ":irc.test 366 #{user.nick} #secret-remote :End of /NAMES list\r\n"}])
+
+        assert :ok = Names.handle(user, %Message{command: "NAMES", params: []})
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 353 #{user.nick} = #remote :@+Remote!~remote@cloak.example\r\n"},
+          {user.pid, ":irc.test 366 #{user.nick} * :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
+    test "merges local and remote members and uses selected channel secrecy" do
+      table = ChannelDirectory.create()
+
+      Memento.transaction!(fn ->
+        viewer = insert(:user, nick: "Viewer")
+        outsider = insert(:user, nick: "Outsider")
+        channel = insert(:channel, name: "#shared")
+        insert(:user_channel, user: viewer, channel: channel)
+
+        remote = %{"nick" => "Remote", "ident" => "~remote", "hostname" => "remote.example", "modes" => []}
+
+        ChannelDirectory.sync(table, %{}, %{
+          channel.name_key => %{
+            channel: %{"name" => channel.name, "modes" => [%{"name" => "s"}]},
+            remote_members: [%{user: remote, effective_modes: ["o"]}]
+          }
+        })
+
+        assert :ok = Names.handle(viewer, %Message{command: "NAMES", params: [channel.name]})
+
+        assert_sent_messages([
+          {viewer.pid, ":irc.test 353 Viewer @ #shared :@Remote Viewer\r\n"},
+          {viewer.pid, ":irc.test 366 Viewer #shared :End of /NAMES list\r\n"}
+        ])
+
+        assert :ok = Names.handle(outsider, %Message{command: "NAMES", params: [channel.name]})
+        assert_sent_messages([{outsider.pid, ":irc.test 366 Outsider #shared :End of /NAMES list\r\n"}])
+      end)
+    end
+
+    test "a recent local secret mode still hides a channel before the directory catches up" do
+      table = ChannelDirectory.create()
+
+      Memento.transaction!(fn ->
+        outsider = insert(:user, nick: "Outsider")
+        channel = insert(:channel, name: "#recent-secret", modes: [:s])
+
+        ChannelDirectory.sync(table, %{}, %{
+          channel.name_key => %{channel: %{"name" => channel.name, "modes" => []}, remote_members: []}
+        })
+
+        assert :ok = Names.handle(outsider, %Message{command: "NAMES", params: [channel.name]})
+
+        assert_sent_messages([
+          {outsider.pid, ":irc.test 366 Outsider #recent-secret :End of /NAMES list\r\n"}
+        ])
+      end)
+    end
+
     for {caps, prefix} <- [{["userhost-in-names"], "@"}, {["userhost-in-names", "multi-prefix"], "@+"}],
         {channel_modes, status} <- [{[], "="}, {[:s], "@"}, {[:p], "*"}] do
       test "NAMES honors hostmasks, prefixes and channel status #{inspect({caps, channel_modes})}" do

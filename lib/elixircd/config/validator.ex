@@ -140,6 +140,7 @@ defmodule ElixIRCd.Config.Validator do
         "duplicate prefix"
       ) ++
       error_unless(length(ports) == length(Enum.uniq(ports)), "elixircd.listeners", "duplicate port") ++
+      server_link_relationships(config, ports) ++
       error_unless(
         not config[:capabilities][:sts] or
           Enum.any?(listeners, fn {kind, opts} -> kind == :tls and opts[:port] == config[:sts][:port] end),
@@ -153,6 +154,37 @@ defmodule ElixIRCd.Config.Validator do
       ) ++
       capability_relationships(config, capabilities) ++
       unique_operators(config[:operators]) ++ resource_paths(config)
+  end
+
+  defp server_link_relationships(config, irc_ports) do
+    links = config[:server_links]
+    peers = links[:peers]
+    ids = Enum.map(peers, &String.downcase(&1.id))
+
+    error_unless(not links[:enabled] or links[:listen] != nil, "elixircd.server_links.listen", "required when enabled") ++
+      error_unless(
+        links[:listen] == nil or links[:listen][:port] not in irc_ports,
+        "elixircd.server_links.listen.port",
+        "must not reuse an IRC listener port"
+      ) ++
+      error_unless(ids == Enum.uniq(ids), "elixircd.server_links.peers", "duplicate peer id") ++
+      error_unless(
+        Enum.all?(ids, &(&1 != String.downcase(config[:server][:hostname]))),
+        "elixircd.server_links.peers",
+        "must not include this server"
+      ) ++
+      error_unless(
+        not links[:enabled] or
+          (config[:server][:hostname] == String.downcase(config[:server][:hostname]) and
+             Enum.all?(peers, &(&1.id == String.downcase(&1.id)))),
+        "elixircd.server_links",
+        "server and peer IDs must use lowercase hostnames"
+      ) ++
+      error_unless(
+        links[:enabled] or (links[:listen] == nil and peers == []),
+        "elixircd.server_links",
+        "listen and peers require enabled: true"
+      )
   end
 
   defp capability_relationships(config, capabilities) do
@@ -222,11 +254,15 @@ defmodule ElixIRCd.Config.Validator do
         _ -> []
       end)
 
+    pairs = if config[:server_links][:listen], do: [config[:server_links][:listen] | pairs], else: pairs
+
     roles =
       [{config[:cloaking][:cloak_key_file], :cloak}] ++
         Enum.flat_map(pairs, fn opts ->
-          [{opts[:keyfile], :key}, {opts[:certfile], :certificate}]
+          [{opts[:keyfile], :key}, {opts[:certfile], :certificate}, {opts[:cacertfile], :ca}]
         end)
+
+    roles = Enum.reject(roles, fn {path, _role} -> is_nil(path) end)
 
     roles
     |> Enum.group_by(fn {path, _role} -> Path.expand(path) end, &elem(&1, 1))

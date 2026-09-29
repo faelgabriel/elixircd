@@ -104,5 +104,20 @@ defmodule ElixIRCd.Commands.PartTest do
         assert {:ok, %Channel{}} = Channels.get_by_name(channel.name)
       end)
     end
+
+    test "an auditorium PART keeps hidden local members and acknowledges the leaver" do
+      Memento.transaction!(fn ->
+        leaving = insert(:user, nick: "Leaving")
+        remaining = insert(:user, nick: "Remaining")
+        channel = insert(:channel, modes: [:u])
+        insert(:user_channel, user: leaving, channel: channel)
+        insert(:user_channel, user: remaining, channel: channel)
+
+        assert :ok = Part.handle(leaving, %Message{command: "PART", params: [channel.name]})
+
+        assert_sent_messages([{leaving.pid, ":#{user_mask(leaving)} PART #{channel.name}\r\n"}])
+        assert {:ok, %Channel{}} = Channels.get_by_name(channel.name)
+      end)
+    end
   end
 end

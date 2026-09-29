@@ -8,7 +8,11 @@ defmodule ElixIRCd.Commands.AcceptTest do
 
   alias ElixIRCd.Commands.Accept
   alias ElixIRCd.Message
+  alias ElixIRCd.Repositories.UserAcceptRemotes
   alias ElixIRCd.Repositories.UserAccepts
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Replica
+  alias ElixIRCd.ServerLink.UserPayload
   alias ElixIRCd.Tables.User
 
   describe "handle/2" do
@@ -64,6 +68,54 @@ defmodule ElixIRCd.Commands.AcceptTest do
            ":irc.test 287 #{user.nick} #{target_user.nick} :#{target_user.nick} has been added to your accept list\r\n"}
         ])
       end)
+    end
+
+    test "remote ACCEPT follows a stable UID across nickname changes and can be removed" do
+      table = Directory.create()
+      uid = UserPayload.new_uid()
+      remote = build(:user, nick: "Remote") |> UserPayload.from_local(uid)
+      old = Replica.new()
+      present = %{old | users: %{{"east.example", uid} => remote}, nick_keys: %{"remote" => {"east.example", uid}}}
+      Directory.sync(table, old, present)
+
+      user = Memento.transaction!(fn -> insert(:user, nick: "Local", modes: [:g]) end)
+
+      Memento.transaction!(fn ->
+        assert :ok = Accept.handle(user, %Message{command: "ACCEPT", params: ["Remote"]})
+
+        assert %ElixIRCd.Tables.UserAcceptRemote{} =
+                 UserAcceptRemotes.get_by_user_pid_and_identity(user.pid, {"east.example", uid})
+
+        assert :ok = Accept.handle(user, %Message{command: "ACCEPT", params: ["Remote"]})
+      end)
+
+      assert_sent_message_contains(user.pid, ~r/287 Local Remote :Remote has been added/)
+      assert_sent_message_contains(user.pid, ~r/458 Local Remote :User is already on your accept list/)
+      assert [%{uid: ^uid}] = Directory.all()
+
+      renamed_user = %{remote | "nick" => "Renamed"}
+
+      renamed = %{
+        present
+        | users: %{{"east.example", uid} => renamed_user},
+          nick_keys: %{"renamed" => {"east.example", uid}}
+      }
+
+      Directory.sync(table, present, renamed)
+      assert {:ok, %{user: %{"nick" => "Renamed"}}} = Directory.get_by_identity("east.example", uid)
+
+      Memento.transaction!(fn ->
+        assert :ok = Accept.handle(user, %Message{command: "ACCEPT", params: ["*"]})
+        assert :ok = Accept.handle(user, %Message{command: "ACCEPT", params: ["-Renamed"]})
+        assert nil == UserAcceptRemotes.get_by_user_pid_and_identity(user.pid, {"east.example", uid})
+      end)
+
+      assert_sent_message_contains(user.pid, ~r/281 Local Renamed/)
+      assert_sent_message_contains(user.pid, ~r/288 Local Renamed :Renamed has been removed/)
+
+      Directory.sync(table, renamed, old)
+      assert :error = Directory.get_by_identity("east.example", uid)
+      assert Directory.all() == []
     end
 
     test "handles ACCEPT command adding user that doesn't exist" do

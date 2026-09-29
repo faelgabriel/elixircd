@@ -11,14 +11,27 @@ defmodule ElixIRCd.Commands.Invite do
   import ElixIRCd.Utils.Protocol, only: [channel_name?: 1, user_mask: 1]
 
   alias ElixIRCd.Message
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
+  alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelView
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Hub
+  alias ElixIRCd.ServerLink.InviteMutation
+  alias ElixIRCd.ServerLink.InviteMutation.ChannelRef
+  alias ElixIRCd.ServerLink.InviteMutation.LocalNotice
+  alias ElixIRCd.ServerLink.InviteMutation.Outbound
+  alias ElixIRCd.ServerLink.RemoteUser
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.ChannelIdentity
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
+  alias ElixIRCd.Utils.CaseMapping
 
   @type invite_errors ::
           :target_user_not_found
@@ -26,6 +39,7 @@ defmodule ElixIRCd.Commands.Invite do
           | :user_channel_not_found
           | :user_is_not_operator
           | :user_already_on_channel
+          | :network_directory_unavailable
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -57,15 +71,93 @@ defmodule ElixIRCd.Commands.Invite do
   end
 
   defp handle_modern_order(user, target_nick, channel_name) do
-    with {:ok, target_user} <- get_target_user(target_nick),
+    with {:ok, target_user} <- locate_target(target_nick),
          {:ok, channel} <- Channels.get_by_name(channel_name),
          {:ok, user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
-         :ok <- check_user_permission(user_channel, channel),
-         :ok <- check_target_user_on_channel(target_user, channel) do
-      add_channel_invite(user, target_user, channel, user_channel)
-      send_user_invite_success(user, target_user, channel)
+         :ok <- check_network_identity(channel),
+         :ok <- check_user_permission(user_channel, channel) do
+      invite_target(user, target_user, channel, user_channel)
     else
       {:error, error} -> send_user_invite_error(error, user, target_nick, channel_name)
+    end
+  end
+
+  defp invite_target(user, %User{} = target, channel, user_channel) do
+    case check_target_user_on_channel(target, channel) do
+      :ok ->
+        add_channel_invite(user, target, channel, user_channel)
+        send_user_invite_success(user, target, channel)
+        announce_local_invite(user, target, channel)
+
+      {:error, error} ->
+        send_user_invite_error(error, user, target.nick, channel.name)
+    end
+  end
+
+  defp invite_target(user, %RemoteUser{} = target, channel, _user_channel) do
+    with :ok <- check_remote_registration(channel),
+         :ok <- check_remote_target_membership(channel, target) do
+      request = %Outbound{
+        sender_pid: user.pid,
+        target_origin: target.origin,
+        target_uid: target.uid,
+        target_nick: target.user["nick"],
+        channel: channel.name
+      }
+
+      Observability.defer_effect(fn -> dispatch_remote_invite(request) end)
+    else
+      {:error, error} -> send_user_invite_error(error, user, target.user["nick"], channel.name)
+    end
+  end
+
+  defp announce_local_invite(user, target, channel) do
+    if Application.fetch_env!(:elixircd, :server_links)[:enabled] do
+      local_id = Application.fetch_env!(:elixircd, :server)[:hostname]
+
+      creator =
+        case Memento.Query.read(ChannelIdentity, channel.name_key) do
+          %ChannelIdentity{creator: creator} -> creator
+          nil -> local_id
+        end
+
+      notice = %LocalNotice{
+        sender_pid: user.pid,
+        sender_mask: user_mask(user),
+        sender_account: user.identified_as,
+        target_pid: target.pid,
+        target_nick: target.nick,
+        channel: channel.name,
+        channel_ref: %ChannelRef{creator: creator, created_at: DateTime.to_iso8601(channel.created_at)}
+      }
+
+      Observability.defer_effect(fn -> Hub.announce_invite(notice) end)
+    end
+
+    :ok
+  end
+
+  defp dispatch_remote_invite(%Outbound{} = request) do
+    if Hub.request_invite(request) == :unavailable,
+      do: InviteMutation.reply(request.sender_pid, request.channel, request.target_nick, "stale_channel")
+  end
+
+  defp check_remote_registration(channel) do
+    case RegisteredChannels.get_by_name(channel.name) do
+      {:ok, _registered} -> {:error, :network_directory_unavailable}
+      {:error, :registered_channel_not_found} -> :ok
+    end
+  end
+
+  defp check_remote_target_membership(channel, target) do
+    case ChannelDirectory.get(channel.name) do
+      {:ok, %ChannelView{remote_members: members}} ->
+        if Enum.any?(members, &(&1.origin == target.origin and &1.member["uid"] == target.uid)),
+          do: {:error, :user_already_on_channel},
+          else: :ok
+
+      _ ->
+        {:error, :network_directory_unavailable}
     end
   end
 
@@ -89,6 +181,59 @@ defmodule ElixIRCd.Commands.Invite do
     case Users.get_by_nick(target_nick) do
       {:ok, target_user} -> {:ok, target_user}
       {:error, :user_not_found} -> {:error, :target_user_not_found}
+    end
+  end
+
+  defp locate_target(target_nick) do
+    local = Users.get_by_nick(target_nick)
+
+    if Application.fetch_env!(:elixircd, :server_links)[:enabled] do
+      case {local, Directory.lookup_by_nick(target_nick)} do
+        {{:ok, _user}, {:ok, _remote}} -> {:error, :network_directory_unavailable}
+        {_local, {:ok, remote}} -> {:ok, remote}
+        {{:ok, user}, :error} -> {:ok, user}
+        {{:error, :user_not_found}, :error} -> {:error, :target_user_not_found}
+        {_local, :unavailable} -> {:error, :network_directory_unavailable}
+      end
+    else
+      get_target_user(target_nick)
+    end
+  end
+
+  defp check_network_identity(channel) do
+    if Application.fetch_env!(:elixircd, :server_links)[:enabled] do
+      check_linked_network_identity(channel)
+    else
+      :ok
+    end
+  end
+
+  defp check_linked_network_identity(channel) do
+    case ChannelDirectory.get(channel.name) do
+      {:ok, %ChannelView{channel: selected}} ->
+        if same_network_identity?(channel, selected), do: :ok, else: {:error, :network_directory_unavailable}
+
+      _ ->
+        {:error, :network_directory_unavailable}
+    end
+  end
+
+  defp same_network_identity?(channel, selected) do
+    local_id = Application.fetch_env!(:elixircd, :server)[:hostname]
+
+    creator =
+      case Memento.Query.read(ChannelIdentity, channel.name_key) do
+        %ChannelIdentity{creator: creator} -> creator
+        nil -> local_id
+      end
+
+    case DateTime.from_iso8601(selected["created_at"]) do
+      {:ok, timestamp, _offset} ->
+        creator == selected["creator"] and DateTime.compare(channel.created_at, timestamp) == :eq and
+          CaseMapping.normalize(selected["name"]) == channel.name_key
+
+      _ ->
+        false
     end
   end
 
@@ -135,12 +280,26 @@ defmodule ElixIRCd.Commands.Invite do
       |> Enum.flat_map(fn invite ->
         case Channels.get_by_name(invite.channel_name_key) do
           {:ok, channel} -> [%Message{command: :rpl_invitelist, params: [user.nick, channel.name]}]
-          {:error, :channel_not_found} -> []
+          {:error, :channel_not_found} -> remote_invite_list_entry(user, invite.channel_name_key)
         end
       end)
 
     invite_messages ++
       [%Message{command: :rpl_endofinvitelist, params: [user.nick], trailing: "End of /INVITE list"}]
+  end
+
+  defp remote_invite_list_entry(user, channel_key) do
+    if Application.fetch_env!(:elixircd, :server_links)[:enabled] do
+      case ChannelDirectory.get(channel_key) do
+        {:ok, %ChannelView{channel: %{"name" => name}}} ->
+          [%Message{command: :rpl_invitelist, params: [user.nick, name]}]
+
+        _ ->
+          []
+      end
+    else
+      []
+    end
   end
 
   @spec send_user_invite_success(User.t(), User.t(), Channel.t()) :: :ok
@@ -204,6 +363,15 @@ defmodule ElixIRCd.Commands.Invite do
       command: :err_useronchannel,
       params: [user.nick, target_nick, channel_name],
       trailing: "is already on channel"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_user_invite_error(:network_directory_unavailable, user, _target_nick, channel_name) do
+    %Message{
+      command: :err_unavailresource,
+      params: [user.nick, channel_name],
+      trailing: "Channel invitations are temporarily unavailable on this network"
     }
     |> Dispatcher.broadcast(:server, user)
   end
