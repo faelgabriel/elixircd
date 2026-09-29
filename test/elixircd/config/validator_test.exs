@@ -15,6 +15,33 @@ defmodule ElixIRCd.Config.ValidatorTest do
     assert Enum.sort(Keyword.keys(config)) == Enum.sort(Keyword.keys(Schema.fields()))
   end
 
+  test "server links require a separate listener and unique pinned peers", %{config: config} do
+    listen = [
+      port: 7000,
+      bind_ip: {127, 0, 0, 1},
+      certfile: "data/link.pem",
+      keyfile: "data/link.key",
+      cacertfile: "data/link-ca.pem"
+    ]
+
+    peer = %{id: "west.example", host: "127.0.0.1", port: 7001, certificate_sha256: String.duplicate("a", 64)}
+    configured = Keyword.put(config, :server_links, enabled: true, listen: listen, peers: [peer])
+
+    assert :ok = Validator.validate(configured)
+    assert {:error, errors} = Validator.validate(put_in(configured, [:server_links, :listen, :port], 6667))
+    assert Enum.any?(errors, &String.contains?(&1, "server_links.listen.port"))
+
+    for invalid <- [
+          put_in(configured, [:server_links, :listen], nil),
+          put_in(configured, [:server_links, :peers], [peer, %{peer | id: "WEST.EXAMPLE"}]),
+          put_in(configured, [:server_links, :peers], [%{peer | id: "irc.test"}]),
+          put_in(configured, [:server_links, :peers], [%{peer | certificate_sha256: "invalid"}]),
+          put_in(configured, [:server_links, :listen, :certfile], "data/link.key")
+        ] do
+      assert {:error, _} = Validator.validate(invalid)
+    end
+  end
+
   test "every field in the shipped configuration is required, including nullable fields", %{config: config} do
     for path <- keyword_paths(config) do
       invalid = delete_field(config, path)

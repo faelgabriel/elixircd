@@ -10,6 +10,9 @@ defmodule ElixIRCd.Commands.MonitorTest do
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.UserMonitors
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Replica
+  alias ElixIRCd.ServerLink.UserPayload
   alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Monitor, as: MonitorUtils
 
@@ -86,6 +89,30 @@ defmodule ElixIRCd.Commands.MonitorTest do
         assert :ok = Monitor.handle(user, message)
 
         assert_sent_messages_count_containing(user.pid, ~r/730.*TargetNick/, 1)
+      end)
+    end
+
+    test "MONITOR add and status resolve a committed remote nickname" do
+      remote = build(:user, nick: "RemoteNick", hostname: "east.example")
+      uid = UserPayload.new_uid()
+      payload = UserPayload.from_local(remote, uid)
+      table = Directory.create()
+
+      replica = %{
+        Replica.new()
+        | users: %{{"east.example", uid} => payload},
+          nick_keys: %{"remotenick" => {"east.example", uid}}
+      }
+
+      Directory.sync(table, Replica.new(), replica)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "Watcher")
+        assert :ok = Monitor.handle(user, %Message{command: "MONITOR", params: ["+RemoteNick"]})
+        assert_sent_message_contains(user.pid, ~r/ 730 Watcher :RemoteNick!~username@east\.example\r\n/)
+
+        assert :ok = Monitor.handle(user, %Message{command: "MONITOR", params: ["S"]})
+        assert_sent_messages_count_containing(user.pid, ~r/ 730 Watcher :RemoteNick!~username@east\.example\r\n/, 2)
       end)
     end
 

@@ -8,8 +8,10 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.ChannelBan
   alias ElixIRCd.Tables.ChannelExcept
+  alias ElixIRCd.Tables.ChannelIdentity
   alias ElixIRCd.Tables.ChannelInvex
   alias ElixIRCd.Tables.ChannelInvite
+  alias ElixIRCd.Tables.ChannelKickMarker
   alias ElixIRCd.Tables.ChatHistory
   alias ElixIRCd.Tables.ClientBatch
   alias ElixIRCd.Tables.HistoricalUser
@@ -29,6 +31,7 @@ defmodule ElixIRCd.Utils.Mnesia do
   alias ElixIRCd.Tables.SaslSession
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserAccept
+  alias ElixIRCd.Tables.UserAcceptRemote
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Tables.UserMonitor
   alias ElixIRCd.Tables.UserSilence
@@ -37,8 +40,10 @@ defmodule ElixIRCd.Utils.Mnesia do
     Channel,
     ChannelBan,
     ChannelExcept,
+    ChannelIdentity,
     ChannelInvex,
     ChannelInvite,
+    ChannelKickMarker,
     ClientBatch,
     HistoricalUser,
     Metric,
@@ -46,6 +51,7 @@ defmodule ElixIRCd.Utils.Mnesia do
     SaslSession,
     User,
     UserAccept,
+    UserAcceptRemote,
     UserChannel,
     UserMonitor,
     UserSilence

@@ -80,6 +80,8 @@ defmodule ElixIRCd.Config.Resources do
         _ -> []
       end)
 
+    pairs = if config[:server_links][:listen], do: [config[:server_links][:listen] | pairs], else: pairs
+
     Enum.each(pairs, fn opts -> if opts[:cacertfile], do: validate_ca!(opts[:cacertfile]) end)
     mailer = config[ElixIRCd.Utils.Mailer]
     if mailer[:adapter] == Bamboo.Mua and mailer[:ssl][:cacertfile], do: validate_ca!(mailer[:ssl][:cacertfile])

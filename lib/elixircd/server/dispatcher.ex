@@ -6,6 +6,7 @@ defmodule ElixIRCd.Server.Dispatcher do
   import ElixIRCd.Utils.Protocol, only: [user_mask: 1]
 
   alias ElixIRCd.History
+  alias ElixIRCd.History.RemoteIdentity
   alias ElixIRCd.Message
   alias ElixIRCd.Observability
   alias ElixIRCd.Server.Connection
@@ -124,11 +125,37 @@ defmodule ElixIRCd.Server.Dispatcher do
     if ElixIRCd.Multiline.collecting?() do
       ElixIRCd.Multiline.collect(messages, sender, targets)
     else
-      do_broadcast_with_echo(messages, sender, targets)
+      do_broadcast_with_echo(messages, sender, targets, :local, nil, nil)
     end
   end
 
-  defp do_broadcast_with_echo(messages, sender, targets) do
+  @doc "Echoes an accepted remote direct message and records it under the authenticated remote UID."
+  @spec broadcast_with_echo_remote_history(Message.t(), User.t(), RemoteIdentity.t(), String.t(), String.t()) :: :ok
+  def broadcast_with_echo_remote_history(
+        %Message{} = message,
+        %User{} = sender,
+        %RemoteIdentity{} = remote,
+        msgid,
+        sent_at
+      ) do
+    do_broadcast_with_echo(message, sender, [], remote, msgid, sent_at)
+  end
+
+  @doc "Delivers an authenticated remote direct message and records its remote sender identity."
+  @spec broadcast_remote_direct(Message.t(), RemoteIdentity.t(), User.t()) :: :ok
+  def broadcast_remote_direct(%Message{} = message, %RemoteIdentity{} = remote, %User{} = recipient) do
+    prepared =
+      message
+      |> prepare_message(nil, message_tags_capable?(recipient) or History.enabled?())
+      |> maybe_put_history_time()
+
+    History.record_remote_incoming(prepared, remote, recipient)
+    observe_delivery(prepared, 1)
+    broadcast_to_target(prepared, recipient, nil)
+    :ok
+  end
+
+  defp do_broadcast_with_echo(messages, sender, targets, history_target, msgid, sent_at) do
     delivery_targets =
       targets
       |> List.wrap()
@@ -144,9 +171,7 @@ defmodule ElixIRCd.Server.Dispatcher do
         Enum.any?(delivery_targets, &message_tags_capable?/1)
 
     Enum.each(List.wrap(messages), fn message ->
-      prepared = prepare_message(message, sender, any_message_tags? or History.enabled?())
-      prepared = maybe_put_history_time(prepared)
-      History.record(prepared, sender)
+      prepared = prepare_echo_message(message, sender, any_message_tags?, history_target, msgid, sent_at)
       observe_delivery(prepared, length(delivery_targets) + if(separate_echo?, do: 1, else: 0))
       send_delivery_messages(prepared, delivery_targets, sender)
 
@@ -156,6 +181,25 @@ defmodule ElixIRCd.Server.Dispatcher do
     if self_delivery?, do: ResponseContext.mark_response_satisfied(sender.pid)
 
     :ok
+  end
+
+  defp prepare_echo_message(message, sender, any_message_tags?, history_target, msgid, sent_at) do
+    prepared = prepare_message(message, sender, any_message_tags? or History.enabled?())
+    prepared = prepared |> put_remote_delivery_tags(msgid, sent_at) |> maybe_put_history_time()
+    record_echo_history(prepared, sender, history_target)
+    prepared
+  end
+
+  defp put_remote_delivery_tags(prepared, nil, nil), do: prepared
+
+  defp put_remote_delivery_tags(prepared, msgid, sent_at) do
+    %{prepared | tags: prepared.tags |> Map.put("msgid", msgid) |> Map.put("time", sent_at)}
+  end
+
+  defp record_echo_history(prepared, sender, :local), do: History.record(prepared, sender)
+
+  defp record_echo_history(prepared, sender, %RemoteIdentity{} = remote) do
+    History.record_remote_outgoing(prepared, sender, remote)
   end
 
   defp observe_delivery(%Message{command: command}, recipients) when command in ["PRIVMSG", "NOTICE", "TAGMSG"] do

@@ -12,14 +12,25 @@ defmodule ElixIRCd.Commands.List do
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelPayload
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
+  alias ElixIRCd.Utils.CaseMapping
   alias ElixIRCd.Utils.Protocol
 
-  @type detailed_channel :: %{
-          channel: Channel.t(),
-          users_count: integer()
-        }
+  defmodule DetailedChannel do
+    @moduledoc "A channel and its effective network member count for LIST filtering."
+
+    alias ElixIRCd.Tables.Channel
+
+    @enforce_keys [:channel, :users_count]
+    defstruct [:channel, :users_count]
+
+    @type t :: %__MODULE__{channel: Channel.t(), users_count: non_neg_integer()}
+  end
+
+  @type detailed_channel :: DetailedChannel.t()
 
   @type filter ::
           {:users_greater, integer()}
@@ -60,20 +71,54 @@ defmodule ElixIRCd.Commands.List do
 
   @spec handle_list(String.t(), User.t()) :: [detailed_channel()]
   defp handle_list(search_string, user) do
+    case network_views() do
+      :unavailable -> []
+      views -> filter_network_channels(views, search_string, user)
+    end
+  end
+
+  defp filter_network_channels(views, search_string, user) do
     {general_filters, channel_name_filters} = parse_filters(search_string)
+    exact_keys = MapSet.new(channel_name_filters, fn {:exact_name, name} -> CaseMapping.normalize(name) end)
 
-    channels =
-      channel_name_filters
-      |> Enum.map(fn {:exact_name, name} -> name end)
-      |> case do
-        [] -> Channels.get_all()
-        channel_names -> Channels.get_by_names(channel_names)
-      end
-
-    channels
+    views
+    |> network_channels()
+    |> Enum.filter(&(MapSet.size(exact_keys) == 0 or MapSet.member?(exact_keys, &1.name_key)))
     |> filter_out_hidden_channels(user)
-    |> convert_to_detailed_channels()
+    |> convert_to_detailed_channels(views)
     |> apply_general_filters(general_filters)
+  end
+
+  defp network_views do
+    case ChannelDirectory.all() do
+      views when is_list(views) -> Map.new(views, &{CaseMapping.normalize(&1.channel["name"]), &1})
+      :unavailable -> if(Application.fetch_env!(:elixircd, :server_links)[:enabled], do: :unavailable, else: %{})
+    end
+  end
+
+  defp network_channels(views) do
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    local =
+      Channels.get_all()
+      |> Enum.filter(&(not links_enabled? or Map.has_key?(views, &1.name_key)))
+      |> Map.new(&{&1.name_key, &1})
+
+    local_id = Application.fetch_env!(:elixircd, :server)[:hostname]
+
+    Enum.reduce(views, local, fn {key, view}, channels ->
+      add_remote_channel(channels, key, view, local_id)
+    end)
+    |> Map.values()
+  end
+
+  defp add_remote_channel(channels, _key, %{origin: local_id}, local_id), do: channels
+
+  defp add_remote_channel(channels, key, view, _local_id) do
+    case ChannelPayload.to_local(view.channel) do
+      {:ok, attrs} -> Map.put(channels, key, attrs |> Map.delete(:creator) |> Channel.new())
+      {:error, :invalid_channel} -> channels
+    end
   end
 
   @spec parse_filters(String.t()) :: {[filter()], [filter()]}
@@ -137,7 +182,14 @@ defmodule ElixIRCd.Commands.List do
 
   @spec hidden_by_modes?(Channel.t(), [String.t()]) :: boolean()
   defp hidden_by_modes?(channel, user_channel_names) do
-    (:p in channel.modes or :s in channel.modes) and not Enum.member?(user_channel_names, channel.name_key)
+    local_hidden? =
+      case Channels.get_by_name(channel.name) do
+        {:ok, local} -> :p in local.modes or :s in local.modes
+        _ -> false
+      end
+
+    (:p in channel.modes or :s in channel.modes or local_hidden?) and
+      not Enum.member?(user_channel_names, channel.name_key)
   end
 
   @spec registered_channel_private?(Channel.t(), User.t()) :: boolean()
@@ -152,8 +204,8 @@ defmodule ElixIRCd.Commands.List do
     end
   end
 
-  @spec convert_to_detailed_channels([Channel.t()]) :: [detailed_channel()]
-  defp convert_to_detailed_channels(channels) do
+  @spec convert_to_detailed_channels([Channel.t()], map()) :: [detailed_channel()]
+  defp convert_to_detailed_channels(channels, views) do
     channels_with_users_count =
       channels
       |> Enum.map(& &1.name)
@@ -161,7 +213,13 @@ defmodule ElixIRCd.Commands.List do
       |> Map.new()
 
     Enum.map(channels, fn channel ->
-      %{channel: channel, users_count: Map.get(channels_with_users_count, channel.name)}
+      remote_count =
+        case Map.get(views, channel.name_key) do
+          nil -> 0
+          view -> length(view.remote_members)
+        end
+
+      %DetailedChannel{channel: channel, users_count: Map.get(channels_with_users_count, channel.name) + remote_count}
     end)
   end
 

@@ -10,10 +10,74 @@ defmodule ElixIRCd.Commands.PrivmsgTest do
 
   alias ElixIRCd.Commands.Privmsg
   alias ElixIRCd.Message
+  alias ElixIRCd.ServerLink.DirectMessage.Outbound
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Hub
+  alias ElixIRCd.ServerLink.Replica
+  alias ElixIRCd.ServerLink.UserPayload
   alias ElixIRCd.Service
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
+    test "remote +g recipient is routed to its home before any away reply" do
+      remote = build(:user, nick: "RemoteAway", hostname: "east.example", away_message: "Back later", modes: [:g])
+      uid = UserPayload.new_uid()
+      payload = UserPayload.from_local(remote, uid)
+      table = Directory.create()
+
+      replica = %{
+        Replica.new()
+        | users: %{{"east.example", uid} => payload},
+          nick_keys: %{"remoteaway" => {"east.example", uid}}
+      }
+
+      Directory.sync(table, Replica.new(), replica)
+
+      Mimic.expect(Hub, :send_direct, fn
+        %Outbound{
+          target_origin: "east.example",
+          target_uid: ^uid,
+          target_nick: "RemoteAway",
+          command: "PRIVMSG",
+          text: "hello",
+          tags: %{}
+        } ->
+          :ok
+      end)
+
+      Memento.transaction!(fn ->
+        sender = insert(:user, nick: "Sender", capabilities: ["echo-message"])
+        assert :ok = Privmsg.handle(sender, %Message{command: "PRIVMSG", params: ["RemoteAway"], trailing: "hello"})
+        assert_sent_messages([])
+      end)
+    end
+
+    test "stale remote +R and +T modes do not reject a PRIVMSG at its source" do
+      remote = build(:user, nick: "Remote", modes: [:R, :T])
+      uid = UserPayload.new_uid()
+      payload = UserPayload.from_local(remote, uid)
+      table = Directory.create()
+
+      replica = %{
+        Replica.new()
+        | users: %{{"east.example", uid} => payload},
+          nick_keys: %{"remote" => {"east.example", uid}}
+      }
+
+      Directory.sync(table, Replica.new(), replica)
+
+      Mimic.expect(Hub, :send_direct, fn
+        %Outbound{target_uid: ^uid, command: "PRIVMSG", text: "\x01VERSION\x01"} -> :ok
+      end)
+
+      Memento.transaction!(fn ->
+        sender = insert(:user, nick: "Sender")
+        message = %Message{command: "PRIVMSG", params: ["Remote"], trailing: "\x01VERSION\x01"}
+        assert :ok = Privmsg.handle(sender, message)
+        assert_sent_messages([])
+      end)
+    end
+
     test "user mode +T blocks private CTCP but allows ACTION" do
       Memento.transaction!(fn ->
         sender = insert(:user)

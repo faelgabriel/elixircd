@@ -5,12 +5,33 @@ defmodule ElixIRCd.Multiline do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ClientBatches
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelMessage
+  alias ElixIRCd.ServerLink.ChannelMessage.Outbound, as: ChannelOutbound
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.ClientBatch
   alias ElixIRCd.Tables.User
 
   @concat_tag "draft/multiline-concat"
   @delivery_key {__MODULE__, :delivery}
+
+  defmodule Delivery do
+    @moduledoc "One in-progress client multiline delivery and its deferred linked-channel lines."
+
+    alias ElixIRCd.Message
+    alias ElixIRCd.ServerLink.ChannelMessage.Outbound
+    alias ElixIRCd.Tables.ClientBatch
+    alias ElixIRCd.Tables.User
+
+    @enforce_keys [:batch]
+    defstruct [:batch, records: [], failed: false, linked_outbound: []]
+
+    @type t :: %__MODULE__{
+            batch: ClientBatch.t(),
+            records: [{Message.t(), [User.t()]}],
+            failed: boolean(),
+            linked_outbound: [Outbound.t()]
+          }
+  end
 
   @doc "Captures a message into the connection's active client batch when applicable."
   @spec capture(User.t(), Message.t()) :: :continue | :handled
@@ -91,7 +112,15 @@ defmodule ElixIRCd.Multiline do
 
   @doc "Reports whether the current command process is collecting atomic multiline delivery."
   @spec collecting?() :: boolean()
-  def collecting?, do: is_map(Process.get(@delivery_key))
+  def collecting?, do: match?(%Delivery{}, Process.get(@delivery_key))
+
+  @doc "Retains a linked-channel line until the entire multiline batch passes validation."
+  @spec collect_linked(ChannelOutbound.t()) :: :ok
+  def collect_linked(%ChannelOutbound{} = outbound) do
+    %Delivery{} = state = Process.get(@delivery_key)
+    Process.put(@delivery_key, %{state | linked_outbound: state.linked_outbound ++ [outbound]})
+    :ok
+  end
 
   @doc "Collects prepared delivery records while validating an atomic multiline message."
   @spec collect(Message.t() | [Message.t()], User.t(), User.t() | [User.t()]) :: :ok
@@ -203,7 +232,7 @@ defmodule ElixIRCd.Multiline do
 
   defp deliver(user, %ClientBatch{} = batch) do
     previous = Process.get(@delivery_key)
-    Process.put(@delivery_key, %{batch: batch, records: [], failed: false})
+    Process.put(@delivery_key, %Delivery{batch: batch})
 
     try do
       _delivery_result =
@@ -222,9 +251,12 @@ defmodule ElixIRCd.Multiline do
 
       state = Process.get(@delivery_key)
 
-      if state.failed,
-        do: fail(user, "MULTILINE_INVALID", [], "Multiline message could not be delivered"),
-        else: send_collected(user, batch, state.records)
+      if state.failed do
+        fail(user, "MULTILINE_INVALID", [], "Multiline message could not be delivered")
+      else
+        send_collected(user, batch, state.records)
+        ChannelMessage.flush_local(user, state.linked_outbound)
+      end
     after
       if previous, do: Process.put(@delivery_key, previous), else: Process.delete(@delivery_key)
     end

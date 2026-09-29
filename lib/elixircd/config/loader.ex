@@ -31,6 +31,7 @@ defmodule ElixIRCd.Config.Loader do
     read_marker: false
   ]
   @legacy_section_defaults [
+    server_links: [enabled: false, listen: nil, peers: []],
     observability: [enabled: true, port: 9568, bind_ip: {127, 0, 0, 1}],
     compatibility: [
       legacy_invite_order: false,
@@ -154,7 +155,7 @@ defmodule ElixIRCd.Config.Loader do
   defp validate_reload!(config, path, :reload) do
     errors =
       Enum.flat_map(
-        [[:listeners], [:settings, :case_mapping], [:server, :hostname], [:observability]],
+        [[:listeners], [:server_links], [:settings, :case_mapping], [:server, :hostname], [:observability]],
         fn keys ->
           [section | rest] = keys
           old = Enum.reduce(rest, Application.get_env(:elixircd, section), fn key, value -> value[key] end)

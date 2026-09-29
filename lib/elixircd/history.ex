@@ -11,6 +11,7 @@ defmodule ElixIRCd.History do
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
   alias ElixIRCd.Server.ResponseContext
+  alias ElixIRCd.ServerLink.Directory
   alias ElixIRCd.Tables.ChatHistory
   alias ElixIRCd.Tables.ClientBatch
   alias ElixIRCd.Tables.User
@@ -21,6 +22,15 @@ defmodule ElixIRCd.History do
   @playback_event_commands ["JOIN", "PART", "KICK", "MODE", "NICK", "QUIT", "RENAME", "TOPIC", "TAGMSG"]
 
   @type history_reference :: :all | {:msgid, String.t()} | {:timestamp, DateTime.t()}
+
+  defmodule RemoteIdentity do
+    @moduledoc "A remote user's home and UID, kept separate from local account and nickname identities."
+
+    @enforce_keys [:origin, :uid, :nick]
+    defstruct [:origin, :uid, :nick]
+
+    @type t :: %__MODULE__{origin: String.t(), uid: String.t(), nick: String.t()}
+  end
 
   @doc "Whether persistent history is enabled."
   @spec enabled?() :: boolean()
@@ -45,6 +55,22 @@ defmodule ElixIRCd.History do
   end
 
   def record(_message, _sender), do: :ok
+
+  @doc "Records an accepted message from a local sender to one authenticated remote UID."
+  @spec record_remote_outgoing(Message.t(), User.t(), RemoteIdentity.t()) :: :ok
+  def record_remote_outgoing(%Message{} = message, %User{} = sender, %RemoteIdentity{} = remote) do
+    transactional(fn ->
+      do_record_remote(message, identity_key(sender), remote_identity_key(remote), remote.nick, :outgoing)
+    end)
+  end
+
+  @doc "Records an accepted message from one authenticated remote UID to a local recipient."
+  @spec record_remote_incoming(Message.t(), RemoteIdentity.t(), User.t()) :: :ok
+  def record_remote_incoming(%Message{} = message, %RemoteIdentity{} = remote, %User{} = recipient) do
+    transactional(fn ->
+      do_record_remote(message, remote_identity_key(remote), identity_key(recipient), remote.nick, :incoming)
+    end)
+  end
 
   @doc "Records a channel-scoped event whose wire form does not identify its channel."
   @spec record_channel_event(Message.t(), User.t(), String.t()) :: :ok
@@ -184,6 +210,36 @@ defmodule ElixIRCd.History do
     :ok
   end
 
+  defp do_record_remote(message, sender_identity, recipient_identity, target_name, direction) do
+    if enabled?() and persist_message?(message) and message.command in @message_commands do
+      with true <- is_binary(sender_identity) and is_binary(recipient_identity),
+           msgid when is_binary(msgid) <- message.tags["msgid"],
+           timestamp when is_binary(timestamp) <- message.tags["time"],
+           {:ok, occurred_at, _offset} <- DateTime.from_iso8601(timestamp) do
+        target_key = direct_key(sender_identity, recipient_identity)
+
+        HistoryRepository.create(%{
+          id: {target_key, DateTime.to_unix(occurred_at, :microsecond), msgid},
+          target_type: :direct,
+          target_key: target_key,
+          target_name: target_name,
+          msgid: msgid,
+          sender_account_key: sender_identity,
+          recipient_account_key: recipient_identity,
+          message: message,
+          occurred_at: occurred_at
+        })
+
+        prune_target(target_key, occurred_at)
+        Observability.defer([:history], %{count: 1}, %{operation: :write_remote_direct, direction: direction})
+      else
+        _ -> :ok
+      end
+    end
+
+    :ok
+  end
+
   @doc "Resolves and authorizes a target for a CHATHISTORY request."
   @spec target_for_request(User.t(), String.t()) :: {:ok, map()} | {:error, :invalid_target}
   def target_for_request(%User{} = user, target_name) do
@@ -198,7 +254,7 @@ defmodule ElixIRCd.History do
         _ -> {:error, :invalid_target}
       end
     else
-      with {:ok, target_identity} <- resolve_identity(target_name),
+      with {:ok, target_identity} <- resolve_request_identity(target_name),
            requester_identity when is_binary(requester_identity) <- identity_key(user) do
         key = direct_key(requester_identity, target_identity)
         {:ok, %{type: :direct, key: key, name: target_name}}
@@ -329,6 +385,23 @@ defmodule ElixIRCd.History do
     end
   end
 
+  defp resolve_request_identity(nickname) do
+    if Application.fetch_env!(:elixircd, :server_links)[:enabled] do
+      case Directory.lookup_by_nick(nickname) do
+        {:ok, remote} ->
+          {:ok, remote_identity_key(%RemoteIdentity{origin: remote.origin, uid: remote.uid, nick: remote.user["nick"]})}
+
+        :error ->
+          resolve_identity(nickname)
+
+        :unavailable ->
+          {:error, :identity_not_found}
+      end
+    else
+      resolve_identity(nickname)
+    end
+  end
+
   defp resolve_registered_identity(nickname) do
     case RegisteredNicks.get_by_nickname(nickname) do
       {:ok, registered_nick} -> {:ok, "account:" <> CaseMapping.normalize(registered_nick.account_name)}
@@ -350,6 +423,10 @@ defmodule ElixIRCd.History do
   end
 
   def identity_key(_user), do: nil
+
+  @doc "Returns a remote session identity that cannot alias a local account or nickname."
+  @spec remote_identity_key(RemoteIdentity.t()) :: String.t()
+  def remote_identity_key(%RemoteIdentity{origin: origin, uid: uid}), do: "remote:" <> origin <> ":" <> uid
 
   @spec direct_key(String.t(), String.t()) :: String.t()
   defp direct_key(left, right), do: "direct:" <> Enum.join(Enum.sort([left, right]), "\0")

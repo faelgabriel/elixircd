@@ -13,9 +13,54 @@ defmodule ElixIRCd.Commands.JoinTest do
   alias ElixIRCd.Repositories.ChannelInvites
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.UserChannels
+  alias ElixIRCd.ServerLink.ChannelDirectory
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
+    test "JOIN fails closed if linking is enabled but the channel index is unavailable" do
+      old_links = Application.fetch_env!(:elixircd, :server_links)
+      on_exit(fn -> Application.put_env(:elixircd, :server_links, old_links) end)
+      Application.put_env(:elixircd, :server_links, Keyword.put(old_links, :enabled, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: ["#unindexed"]})
+        assert {:error, :channel_not_found} = Channels.get_by_name("#unindexed")
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 437 #{user.nick} #unindexed :Channel is temporarily unavailable on this server\r\n"}
+        ])
+      end)
+    end
+
+    test "JOIN rejects an unindexed local channel while allowing a new channel" do
+      old_links = Application.fetch_env!(:elixircd, :server_links)
+      on_exit(fn -> Application.put_env(:elixircd, :server_links, old_links) end)
+      Application.put_env(:elixircd, :server_links, Keyword.put(old_links, :enabled, true))
+      ChannelDirectory.create()
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        channel = insert(:channel, name: "#unindexed-existing")
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: [channel.name]})
+
+        assert {:error, :user_channel_not_found} =
+                 UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name)
+
+        assert_sent_messages([
+          {user.pid,
+           ":irc.test 437 #{user.nick} #{channel.name} :Channel is temporarily unavailable on this server\r\n"}
+        ])
+
+        assert :ok = Join.handle(user, %Message{command: "JOIN", params: ["#new-linked-channel"]})
+
+        assert {:ok, _membership} =
+                 UserChannels.get_by_user_pid_and_channel_name(user.pid, "#new-linked-channel")
+      end)
+    end
+
     for list_mode <- [:channel_ban, :channel_except, :channel_invex] do
       test "JOIN does not equate ident caret and tilde in #{list_mode}" do
         Memento.transaction!(fn ->

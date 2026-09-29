@@ -4,6 +4,7 @@ defmodule ElixIRCd.Repositories.Channels do
   """
 
   alias ElixIRCd.Tables.Channel
+  alias ElixIRCd.Tables.ChannelIdentity
   alias ElixIRCd.Utils.CaseMapping
 
   @doc """
@@ -11,8 +12,10 @@ defmodule ElixIRCd.Repositories.Channels do
   """
   @spec create(map()) :: Channel.t()
   def create(attrs) do
-    Channel.new(attrs)
-    |> Memento.Query.write()
+    creator = Map.get(attrs, :creator)
+    channel = attrs |> Map.delete(:creator) |> Channel.new() |> Memento.Query.write()
+    if creator, do: Memento.Query.write(ChannelIdentity.new(channel.name_key, creator))
+    channel
   end
 
   @doc """
@@ -21,6 +24,7 @@ defmodule ElixIRCd.Repositories.Channels do
   @spec delete(Channel.t()) :: :ok
   def delete(channel) do
     Memento.Query.delete_record(channel)
+    Memento.Query.delete(ChannelIdentity, channel.name_key)
   end
 
   @doc """
@@ -30,6 +34,7 @@ defmodule ElixIRCd.Repositories.Channels do
   def delete_by_name(name) do
     name_key = CaseMapping.normalize(name)
     Memento.Query.delete(Channel, name_key)
+    Memento.Query.delete(ChannelIdentity, name_key)
   end
 
   @doc """
@@ -44,8 +49,12 @@ defmodule ElixIRCd.Repositories.Channels do
   @doc "Replaces a channel, including when its normalized name key changes."
   @spec replace(Channel.t(), Channel.t()) :: Channel.t()
   def replace(old, new) do
+    identity = Memento.Query.read(ChannelIdentity, old.name_key)
     Memento.Query.delete_record(old)
-    Memento.Query.write(new)
+    Memento.Query.delete(ChannelIdentity, old.name_key)
+    written = Memento.Query.write(new)
+    if identity, do: Memento.Query.write(%{identity | name_key: new.name_key})
+    written
   end
 
   @doc """

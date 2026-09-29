@@ -13,21 +13,31 @@ defmodule ElixIRCd.Commands.Mode do
   alias ElixIRCd.Commands.Mode.UserModes
   alias ElixIRCd.Message
   alias ElixIRCd.ModeRegistry
-  alias ElixIRCd.Repositories.ChannelBans
-  alias ElixIRCd.Repositories.ChannelExcepts
-  alias ElixIRCd.Repositories.ChannelInvexes
+  alias ElixIRCd.Observability
   alias ElixIRCd.Repositories.Channels
   alias ElixIRCd.Repositories.RegisteredChannels
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelList
+  alias ElixIRCd.ServerLink.ChannelPayload
+  alias ElixIRCd.ServerLink.ChannelView
+  alias ElixIRCd.ServerLink.Hub
+  alias ElixIRCd.ServerLink.ModeMutation.Outbound
   alias ElixIRCd.StandardReply
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
   alias ElixIRCd.Tables.UserChannel
   alias ElixIRCd.Utils.Chanserv.ModeLock
 
-  @type channel_mode_errors :: :channel_not_found | :user_channel_not_found | :user_is_not_operator | :too_many_modes
+  @type channel_mode_errors ::
+          :channel_not_found
+          | :user_channel_not_found
+          | :user_is_not_operator
+          | :too_many_modes
+          | :network_directory_unavailable
+          | :remote_mode_unavailable
 
   @impl true
   @spec handle(User.t(), Message.t()) :: :ok
@@ -60,18 +70,19 @@ defmodule ElixIRCd.Commands.Mode do
   @spec handle_channel_mode(User.t(), String.t(), String.t() | nil, list(String.t()) | nil) :: :ok
   defp handle_channel_mode(user, channel_name, nil, nil) do
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name) do
+         {:ok, _user_channel} <- UserChannels.get_by_user_pid_and_channel_name(user.pid, channel.name),
+         {:ok, selected} <- selected_mode_channel(channel) do
       mode_params =
-        case ChannelModes.display_modes(channel.modes) do
+        case ChannelModes.display_modes(selected.modes) do
           "" -> ["+"]
           modes -> String.split(modes, " ")
         end
 
       [
-        %Message{command: :rpl_channelmodeis, params: [user.nick, channel.name | mode_params]},
+        %Message{command: :rpl_channelmodeis, params: [user.nick, selected.name | mode_params]},
         %Message{
           command: :rpl_creationtime,
-          params: [user.nick, channel.name, to_string(DateTime.to_unix(channel.created_at))]
+          params: [user.nick, selected.name, to_string(DateTime.to_unix(selected.created_at))]
         }
       ]
       |> Dispatcher.broadcast(:server, user)
@@ -102,6 +113,31 @@ defmodule ElixIRCd.Commands.Mode do
     end
   end
 
+  defp selected_mode_channel(channel) do
+    local_id = Application.fetch_env!(:elixircd, :server)[:hostname]
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    case ChannelDirectory.get(channel.name) do
+      {:ok, %ChannelView{origin: ^local_id}} ->
+        {:ok, channel}
+
+      {:ok, %ChannelView{channel: payload}} ->
+        case ChannelPayload.to_local(payload) do
+          {:ok, attrs} -> {:ok, %{channel | modes: attrs.modes, created_at: attrs.created_at}}
+          {:error, :invalid_channel} -> {:error, :network_directory_unavailable}
+        end
+
+      :unavailable when links_enabled? ->
+        {:error, :network_directory_unavailable}
+
+      :error when links_enabled? ->
+        {:error, :network_directory_unavailable}
+
+      _ ->
+        {:ok, channel}
+    end
+  end
+
   @spec process_channel_mode_changes(
           User.t(),
           UserChannel.t(),
@@ -111,7 +147,15 @@ defmodule ElixIRCd.Commands.Mode do
           [ModeRegistry.channel_mode()],
           [String.t()]
         ) :: :ok
-  defp process_channel_mode_changes(user, _user_channel, channel, _channel_name, [], listing_modes, invalid_modes)
+  defp process_channel_mode_changes(
+         user,
+         _user_channel,
+         channel,
+         _channel_name,
+         [],
+         listing_modes,
+         invalid_modes
+       )
        when listing_modes != [] do
     send_channel_mode_listing(listing_modes, user, channel)
     send_invalid_modes(invalid_modes, user)
@@ -128,15 +172,58 @@ defmodule ElixIRCd.Commands.Mode do
        ) do
     case check_user_permission(user_channel) do
       :ok ->
-        {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_modes)
+        case network_mode_authority(channel.name) do
+          :ok ->
+            {updated_channel, applied_changes} = ChannelModes.apply_mode_changes(user, channel, validated_modes)
 
-        broadcast_channel_mode_changes(user, updated_channel, applied_changes)
-        enforce_registered_mode_lock(updated_channel)
-        send_channel_mode_listing(listing_modes, user, updated_channel)
-        send_invalid_modes(invalid_modes, user)
+            broadcast_channel_mode_changes(user, updated_channel, applied_changes)
+            enforce_registered_mode_lock(updated_channel)
+            send_channel_mode_listing(listing_modes, user, updated_channel)
+            send_invalid_modes(invalid_modes, user)
+
+          {:remote, origin} ->
+            request_remote_mode(user, origin, channel, validated_modes)
+            send_channel_mode_listing(listing_modes, user, channel)
+            send_invalid_modes(invalid_modes, user)
+
+          {:error, error} ->
+            send_channel_mode_error(error, user, channel_name)
+        end
 
       {:error, error} ->
         send_channel_mode_error(error, user, channel_name)
+    end
+  end
+
+  defp request_remote_mode(_user, _origin, _channel, []), do: :ok
+
+  defp request_remote_mode(user, origin, channel, mode_changes) do
+    {mode_string, values} = ChannelModes.encode_mode_changes(mode_changes)
+
+    request = %Outbound{
+      sender_pid: user.pid,
+      authority: origin,
+      channel: channel.name,
+      mode_string: mode_string,
+      values: values
+    }
+
+    Observability.defer_effect(fn ->
+      if Hub.request_mode(request) == :unavailable,
+        do: send_channel_mode_error(:remote_mode_unavailable, user, channel.name)
+    end)
+  end
+
+  defp network_mode_authority(channel_name) do
+    local_id = Application.fetch_env!(:elixircd, :server)[:hostname]
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    case ChannelDirectory.get(channel_name) do
+      {:ok, %ChannelView{origin: ^local_id}} -> :ok
+      {:ok, %ChannelView{origin: origin}} -> {:remote, origin}
+      :unavailable when links_enabled? -> {:error, :network_directory_unavailable}
+      :error when links_enabled? -> {:error, :network_directory_unavailable}
+      _ -> :ok
     end
   end
 
@@ -197,99 +284,53 @@ defmodule ElixIRCd.Commands.Mode do
   end
 
   @spec send_ban_list(User.t(), Channel.t()) :: :ok
-  defp send_ban_list(user, channel) do
-    created_timestamp =
-      channel.created_at
-      |> DateTime.to_unix()
-      |> Integer.to_string()
-
-    max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
-    max_entries = Map.fetch!(max_list_entries, :b)
-
-    channel_bans = ChannelBans.get_by_channel_name_key(channel.name_key)
-    total_entries = length(channel_bans)
-
-    Enum.take(channel_bans, max_entries)
-    |> Enum.each(fn channel_ban ->
-      %Message{
-        command: :rpl_banlist,
-        params: [user.nick, channel.name, channel_ban.mask, channel_ban.setter, created_timestamp]
-      }
-      |> Dispatcher.broadcast(:server, user)
-    end)
-
-    if total_entries > max_entries do
-      description = "Ban list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
-
-      send_list_truncated(user, channel, "b", description)
-    end
-
-    %Message{command: :rpl_endofbanlist, params: [user.nick, channel.name], trailing: "End of channel ban list"}
-    |> Dispatcher.broadcast(:server, user)
-  end
+  defp send_ban_list(user, channel),
+    do: send_channel_list(user, channel, :b, :rpl_banlist, :rpl_endofbanlist, "Ban", "End of channel ban list")
 
   @spec send_except_list(User.t(), Channel.t()) :: :ok
-  defp send_except_list(user, channel) do
-    created_timestamp =
-      channel.created_at
-      |> DateTime.to_unix()
-      |> Integer.to_string()
-
-    max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
-    max_entries = Map.fetch!(max_list_entries, :e)
-
-    channel_excepts = ChannelExcepts.get_by_channel_name_key(channel.name_key)
-    total_entries = length(channel_excepts)
-
-    Enum.take(channel_excepts, max_entries)
-    |> Enum.each(fn channel_except ->
-      %Message{
-        command: :rpl_exceptlist,
-        params: [user.nick, channel.name, channel_except.mask, channel_except.setter, created_timestamp]
-      }
-      |> Dispatcher.broadcast(:server, user)
-    end)
-
-    if total_entries > max_entries do
-      description = "Except list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
-
-      send_list_truncated(user, channel, "e", description)
-    end
-
-    %Message{command: :rpl_endofexceptlist, params: [user.nick, channel.name], trailing: "End of channel except list"}
-    |> Dispatcher.broadcast(:server, user)
-  end
+  defp send_except_list(user, channel),
+    do:
+      send_channel_list(
+        user,
+        channel,
+        :e,
+        :rpl_exceptlist,
+        :rpl_endofexceptlist,
+        "Except",
+        "End of channel except list"
+      )
 
   @spec send_invex_list(User.t(), Channel.t()) :: :ok
-  defp send_invex_list(user, channel) do
-    created_timestamp =
-      channel.created_at
-      |> DateTime.to_unix()
-      |> Integer.to_string()
+  defp send_invex_list(user, channel),
+    do: send_channel_list(user, channel, :I, :rpl_invexlist, :rpl_endofinvexlist, "Invex", "End of channel invex list")
 
-    max_list_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries]
-    max_entries = Map.fetch!(max_list_entries, :I)
+  defp send_channel_list(user, channel, kind, item_command, end_command, label, ending) do
+    case ChannelList.read(channel, kind) do
+      {:ok, entries} ->
+        max_entries = Application.fetch_env!(:elixircd, :channel)[:max_list_entries] |> Map.fetch!(kind)
 
-    channel_invexes = ChannelInvexes.get_by_channel_name_key(channel.name_key)
-    total_entries = length(channel_invexes)
+        entries
+        |> Enum.take(max_entries)
+        |> Enum.each(fn %ChannelList.Entry{} = entry ->
+          timestamp = entry.set_at |> DateTime.to_unix() |> Integer.to_string()
 
-    Enum.take(channel_invexes, max_entries)
-    |> Enum.each(fn channel_invex ->
-      %Message{
-        command: :rpl_invexlist,
-        params: [user.nick, channel.name, channel_invex.mask, channel_invex.setter, created_timestamp]
-      }
-      |> Dispatcher.broadcast(:server, user)
-    end)
+          %Message{command: item_command, params: [user.nick, channel.name, entry.mask, entry.setter, timestamp]}
+          |> Dispatcher.broadcast(:server, user)
+        end)
 
-    if total_entries > max_entries do
-      description = "Invex list for #{channel.name} too long, showing first #{max_entries} of #{total_entries} entries"
+        if length(entries) > max_entries do
+          description =
+            "#{label} list for #{channel.name} too long, showing first #{max_entries} of #{length(entries)} entries"
 
-      send_list_truncated(user, channel, "I", description)
+          send_list_truncated(user, channel, Atom.to_string(kind), description)
+        end
+
+        %Message{command: end_command, params: [user.nick, channel.name], trailing: ending}
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :network_directory_unavailable} ->
+        send_channel_mode_error(:network_directory_unavailable, user, channel.name)
     end
-
-    %Message{command: :rpl_endofinvexlist, params: [user.nick, channel.name], trailing: "End of channel invex list"}
-    |> Dispatcher.broadcast(:server, user)
   end
 
   @spec send_list_truncated(User.t(), Channel.t(), String.t(), String.t()) :: :ok
@@ -323,6 +364,24 @@ defmodule ElixIRCd.Commands.Mode do
       command: :err_chanoprivsneeded,
       params: [user.nick, channel_name],
       trailing: "You're not a channel operator"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_channel_mode_error(:network_directory_unavailable, user, channel_name) do
+    %Message{
+      command: :err_unavailresource,
+      params: [user.nick, channel_name],
+      trailing: "Channel state is temporarily unavailable on this server"
+    }
+    |> Dispatcher.broadcast(:server, user)
+  end
+
+  defp send_channel_mode_error(:remote_mode_unavailable, user, channel_name) do
+    %Message{
+      command: :err_unavailresource,
+      params: [user.nick, channel_name],
+      trailing: "Channel modes are temporarily unavailable on this server"
     }
     |> Dispatcher.broadcast(:server, user)
   end

@@ -8,6 +8,9 @@ defmodule ElixIRCd.Commands.WhoTest do
 
   alias ElixIRCd.Commands.Who
   alias ElixIRCd.Message
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelPayload
+  alias ElixIRCd.ServerLink.ChannelView
 
   describe "WHOX and hidden operator regressions" do
     setup do
@@ -70,6 +73,39 @@ defmodule ElixIRCd.Commands.WhoTest do
   end
 
   describe "handle/2" do
+    test "WHO hides local members when a linked channel is unindexed or selected secret" do
+      old_links = Application.fetch_env!(:elixircd, :server_links)
+      on_exit(fn -> Application.put_env(:elixircd, :server_links, old_links) end)
+      Application.put_env(:elixircd, :server_links, Keyword.put(old_links, :enabled, true))
+      table = ChannelDirectory.create()
+
+      Memento.transaction!(fn ->
+        viewer = insert(:user, nick: "Viewer")
+        target = insert(:user, nick: "Target")
+        channel = insert(:channel, name: "#selected-secret")
+        insert(:user_channel, user: target, channel: channel)
+
+        assert :ok = Who.handle(viewer, %Message{command: "WHO", params: [channel.name]})
+        assert_sent_messages([{viewer.pid, ":irc.test 315 Viewer #{channel.name} :End of WHO list\r\n"}])
+
+        selected = build(:channel, name: channel.name, modes: [:s])
+
+        ChannelDirectory.sync(table, %{}, %{
+          channel.name_key => %ChannelView{
+            origin: "east.example",
+            channel: ChannelPayload.from_local(selected, "east.example"),
+            remote_present: true
+          }
+        })
+
+        assert :ok = Who.handle(viewer, %Message{command: "WHO", params: [channel.name]})
+        assert_sent_messages([{viewer.pid, ":irc.test 315 Viewer #{channel.name} :End of WHO list\r\n"}])
+
+        assert :ok = Who.handle(target, %Message{command: "WHO", params: [channel.name]})
+        assert_sent_message_contains(target.pid, ~r/ 352 Target #selected-secret /)
+      end)
+    end
+
     test "handles WHO command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)

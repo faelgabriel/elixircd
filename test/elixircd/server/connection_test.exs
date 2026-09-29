@@ -11,6 +11,7 @@ defmodule ElixIRCd.Server.ConnectionTest do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.SaslSessions
+  alias ElixIRCd.Repositories.UserAcceptRemotes
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Connection
   alias ElixIRCd.Server.RateLimiter
@@ -558,6 +559,15 @@ defmodule ElixIRCd.Server.ConnectionTest do
   end
 
   describe "handle_disconnect/3" do
+    test "removes remote ACCEPT permissions when their local owner disconnects" do
+      user = insert(:user)
+      identity = {"east.example", String.duplicate("a", 32)}
+      Memento.transaction!(fn -> UserAcceptRemotes.create(user.pid, identity) end)
+
+      assert :ok = Connection.handle_disconnect(user.pid, user.transport, "Client quit")
+      assert [] == Memento.transaction!(fn -> UserAcceptRemotes.get_by_user_pid(user.pid) end)
+    end
+
     test "classifies operational close reasons without using the client supplied reason as a metric label" do
       test_pid = self()
       handler = "connection-close-#{System.unique_integer([:positive])}"

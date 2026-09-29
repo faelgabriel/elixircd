@@ -9,6 +9,44 @@ defmodule ElixIRCd.Commands.BatchTest do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.ChatHistory
   alias ElixIRCd.Repositories.RegisteredNicks
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Hub
+  alias ElixIRCd.ServerLink.Replica
+  alias ElixIRCd.ServerLink.UserPayload
+
+  test "rejects remote multiline without sending any partial line over S2S" do
+    uid = UserPayload.new_uid()
+    remote = build(:user, nick: "Remote") |> UserPayload.from_local(uid)
+    table = Directory.create()
+
+    replica = %{
+      Replica.new()
+      | users: %{{"east.example", uid} => remote},
+        nick_keys: %{"remote" => {"east.example", uid}}
+    }
+
+    Directory.sync(table, Replica.new(), replica)
+    test_pid = self()
+    Mimic.stub(Hub, :send_direct, fn _outbound -> send(test_pid, :unexpected_remote_line) end)
+
+    Memento.transaction!(fn ->
+      sender = insert(:user, nick: "Alice", capabilities: ["message-tags", "batch", "draft/multiline"])
+
+      for command <- ["PRIVMSG", "NOTICE"] do
+        start = %Message{command: "BATCH", params: ["+remote", "draft/multiline", "Remote"]}
+        line = %Message{command: command, params: ["Remote"], trailing: "hello", tags: %{"batch" => "remote"}}
+        finish = %Message{command: "BATCH", params: ["-remote"]}
+
+        assert :ok = Command.dispatch(sender, start)
+        assert :ok = Command.dispatch(sender, line)
+        assert :ok = Command.dispatch(sender, finish)
+      end
+
+      assert_sent_messages_count_containing(sender.pid, ~r/ FAIL BATCH MULTILINE_INVALID /, 2)
+    end)
+
+    refute_received :unexpected_remote_line
+  end
 
   test "delivers multiline as a shared batch and a coherent legacy fallback" do
     Memento.transaction!(fn ->

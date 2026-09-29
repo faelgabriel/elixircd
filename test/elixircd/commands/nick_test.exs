@@ -17,6 +17,23 @@ defmodule ElixIRCd.Commands.NickTest do
   alias ElixIRCd.Tables.RegisteredNick.Settings
 
   describe "handle/2" do
+    test "NICK fails closed if linking is enabled but the nickname index is unavailable" do
+      old_links = Application.fetch_env!(:elixircd, :server_links)
+      on_exit(fn -> Application.put_env(:elixircd, :server_links, old_links) end)
+      Application.put_env(:elixircd, :server_links, Keyword.put(old_links, :enabled, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "oldnick")
+        assert :ok = Nick.handle(user, %Message{command: "NICK", params: ["newnick"]})
+        assert {:ok, persisted} = Users.get_by_pid(user.pid)
+        assert persisted.nick == "oldnick"
+
+        assert_sent_messages([
+          {user.pid, ":irc.test 437 oldnick newnick :Nickname is temporarily unavailable on this server\r\n"}
+        ])
+      end)
+    end
+
     test "handles concurrent NICK commands for case-equivalent nicknames" do
       users = Memento.transaction!(fn -> [insert(:user), insert(:user)] end)
       parent = self()

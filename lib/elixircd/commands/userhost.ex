@@ -12,6 +12,8 @@ defmodule ElixIRCd.Commands.Userhost do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.UserPayload
   alias ElixIRCd.Tables.User
 
   @command "USERHOST"
@@ -45,15 +47,22 @@ defmodule ElixIRCd.Commands.Userhost do
   defp fetch_userhost_info(target_nick, viewer) do
     case Users.get_by_nick(target_nick) do
       {:ok, %{registered: true} = user} ->
-        oper = if irc_operator_visible?(user, viewer), do: "*", else: ""
-        presence = if user.away_message, do: "-", else: "+"
-        "#{user.nick}#{oper}=#{presence}#{user_host(user, viewer)}"
+        format_userhost(user, viewer)
 
       {:ok, %{registered: false}} ->
         nil
 
       {:error, :user_not_found} ->
-        nil
+        case Directory.get_by_nick(target_nick) do
+          {:ok, remote} -> format_userhost(UserPayload.public_view(remote.user), viewer)
+          :error -> nil
+        end
     end
+  end
+
+  defp format_userhost(user, viewer) do
+    oper = if irc_operator_visible?(user, viewer), do: "*", else: ""
+    presence = if user.away_message, do: "-", else: "+"
+    "#{user.nick}#{oper}=#{presence}#{user_host(user, viewer)}"
   end
 end

@@ -9,17 +9,13 @@ defmodule ElixIRCd.Commands.Privmsg do
 
   import ElixIRCd.Utils.MessageFilter,
     only: [
-      check_channel_mute: 3,
-      check_registered_only_speak: 3,
       filter_op_moderated_users: 3,
       private_ctcp_blocked?: 2,
       should_silence_message?: 2
     ]
 
-  import ElixIRCd.Utils.MessageText, only: [contains_formatting?: 1, ctcp_message?: 1, ctcp_action?: 1]
-
   import ElixIRCd.Utils.Protocol,
-    only: [channel_name?: 1, channel_operator?: 1, channel_voice?: 1, service_name?: 1]
+    only: [channel_name?: 1, service_name?: 1]
 
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Channels
@@ -28,6 +24,10 @@ defmodule ElixIRCd.Commands.Privmsg do
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.ChannelMessage
+  alias ElixIRCd.ServerLink.ChannelMessage.LocalSelection
+  alias ElixIRCd.ServerLink.DirectMessage
+  alias ElixIRCd.ServerLink.Directory
   alias ElixIRCd.Service
   alias ElixIRCd.Tables.Channel
   alias ElixIRCd.Tables.User
@@ -105,17 +105,23 @@ defmodule ElixIRCd.Commands.Privmsg do
   @spec handle_channel_message(User.t(), String.t(), String.t(), Message.tags(), String.t(), String.t() | nil) :: :ok
   defp handle_channel_message(user, channel_name, message_text, message_tags, wire_target, status_prefix) do
     with_channel_message_permissions(user, channel_name, message_text, fn channel, user_channel ->
-      channel_users_without_user =
-        UserChannels.get_by_channel_name(channel.name)
-        |> Enum.reject(&(&1.user_pid == user.pid))
-        |> maybe_filter_status(status_prefix)
-        |> filter_op_moderated_users(user_channel, channel.modes)
+      if Application.fetch_env!(:elixircd, :server_links)[:enabled] and not ElixIRCd.Multiline.collecting?() do
+        ChannelMessage.queue_local(user, channel, wire_target, "PRIVMSG", message_text, message_tags)
+      else
+        channel_users_without_user =
+          UserChannels.get_by_channel_name(channel.name)
+          |> Enum.reject(&(&1.user_pid == user.pid))
+          |> maybe_filter_status(status_prefix)
+          |> filter_op_moderated_users(user_channel, channel.modes)
 
-      user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
-      users = Users.get_by_pids(user_pids)
+        user_pids = Enum.map(channel_users_without_user, & &1.user_pid)
+        users = Users.get_by_pids(user_pids)
 
-      %Message{command: "PRIVMSG", params: [wire_target], trailing: message_text, tags: message_tags}
-      |> Dispatcher.broadcast_with_echo(user, users)
+        %Message{command: "PRIVMSG", params: [wire_target], trailing: message_text, tags: message_tags}
+        |> Dispatcher.broadcast_with_echo(user, users)
+
+        ChannelMessage.send_from_local(user, channel.name, wire_target, "PRIVMSG", message_text, message_tags)
+      end
     end)
   end
 
@@ -140,12 +146,9 @@ defmodule ElixIRCd.Commands.Privmsg do
     user_channel = get_user_channel(user.pid, channel_name)
 
     with {:ok, channel} <- Channels.get_by_name(channel_name),
-         :ok <- check_user_channel_modes(channel, user, user_channel),
-         :ok <- check_channel_mute(channel, user, user_channel),
-         :ok <- check_registered_only_speak(channel, user, user_channel),
-         :ok <- check_ctcp(channel, user, user_channel, message_text),
-         :ok <- check_formatting(channel, user, message_text) do
-      on_success.(channel, user_channel)
+         {:ok, %LocalSelection{channel: selected, view: view}} <- ChannelMessage.select_local(channel),
+         :ok <- ChannelMessage.check_local_permissions(selected, view, user, user_channel, "PRIVMSG", message_text) do
+      on_success.(selected, user_channel)
     else
       {:error, :channel_not_found} ->
         %Message{command: :err_nosuchchannel, params: [user.nick, channel_name], trailing: "No such channel"}
@@ -161,6 +164,14 @@ defmodule ElixIRCd.Commands.Privmsg do
 
       {:error, :user_can_not_send} ->
         %Message{command: :err_cannotsendtochan, params: [user.nick, channel_name], trailing: "Cannot send to channel"}
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :network_directory_unavailable} ->
+        %Message{
+          command: :err_unavailresource,
+          params: [user.nick, channel_name],
+          trailing: "Channel state is temporarily unavailable on this network"
+        }
         |> Dispatcher.broadcast(:server, user)
 
       {:error, :user_muted} ->
@@ -252,8 +263,19 @@ defmodule ElixIRCd.Commands.Privmsg do
   defp handle_user_message(user, target_nick, message_text, message_tags) do
     case Users.get_by_nick(target_nick) do
       {:ok, target_user} -> send_user_message(user, target_user, target_nick, message_text, message_tags)
-      {:error, :user_not_found} -> handle_user_not_found(user, target_nick)
+      {:error, :user_not_found} -> send_remote_user_message(user, target_nick, message_text, message_tags)
     end
+  end
+
+  defp send_remote_user_message(user, target_nick, message_text, message_tags) do
+    case Directory.get_by_nick(target_nick) do
+      {:ok, remote} -> deliver_remote_user_message(user, remote, message_text, message_tags)
+      :error -> handle_user_not_found(user, target_nick)
+    end
+  end
+
+  defp deliver_remote_user_message(user, remote, message_text, message_tags) do
+    DirectMessage.send_from_local(user, remote, "PRIVMSG", message_text, message_tags)
   end
 
   @spec send_user_message(User.t(), User.t(), String.t(), String.t(), Message.tags()) :: :ok
@@ -333,87 +355,4 @@ defmodule ElixIRCd.Commands.Privmsg do
   @spec extract_command_list(Message.t()) :: [String.t()]
   defp extract_command_list(%{trailing: trailing}) when trailing != nil, do: String.split(trailing, " ")
   defp extract_command_list(%{params: [_ | rest_params]}) when rest_params != [], do: rest_params
-
-  @spec check_user_channel_modes(Channel.t(), User.t(), UserChannel.t() | nil) ::
-          :ok | {:error, :user_can_not_send} | {:error, :delay_message_blocked, integer()}
-  # When user is not in channel
-  defp check_user_channel_modes(channel, _user, nil) do
-    if :m in channel.modes or :n in channel.modes do
-      {:error, :user_can_not_send}
-    else
-      :ok
-    end
-  end
-
-  # When user is in channel
-  defp check_user_channel_modes(channel, _user, user_channel) do
-    if :m in channel.modes do
-      with :ok <- check_channel_moderated(channel, user_channel) do
-        check_delay_message(channel, user_channel)
-      end
-    else
-      check_delay_message(channel, user_channel)
-    end
-  end
-
-  @spec check_channel_moderated(Channel.t(), UserChannel.t()) :: :ok | {:error, :user_can_not_send}
-  defp check_channel_moderated(channel, user_channel) do
-    if :m in channel.modes and not (channel_operator?(user_channel) or channel_voice?(user_channel)) do
-      {:error, :user_can_not_send}
-    else
-      :ok
-    end
-  end
-
-  @spec check_ctcp(Channel.t(), User.t(), UserChannel.t() | nil, String.t()) :: :ok | {:error, :ctcp_blocked}
-  defp check_ctcp(channel, _user, user_channel, message_text) do
-    if :C in channel.modes and ctcp_message?(message_text) and not ctcp_action?(message_text) and
-         not user_can_send_ctcp?(user_channel) do
-      {:error, :ctcp_blocked}
-    else
-      :ok
-    end
-  end
-
-  @spec user_can_send_ctcp?(UserChannel.t() | nil) :: boolean()
-  defp user_can_send_ctcp?(nil), do: false
-
-  defp user_can_send_ctcp?(user_channel) do
-    channel_operator?(user_channel) or channel_voice?(user_channel)
-  end
-
-  @spec check_formatting(Channel.t(), User.t(), String.t()) :: :ok | {:error, :formatting_blocked}
-  defp check_formatting(channel, _user, message_text) do
-    if :c in channel.modes and contains_formatting?(message_text) do
-      {:error, :formatting_blocked}
-    else
-      :ok
-    end
-  end
-
-  @spec check_delay_message(Channel.t(), UserChannel.t()) :: :ok | {:error, :delay_message_blocked, integer()}
-  defp check_delay_message(%{modes: modes}, user_channel) do
-    with delay when is_integer(delay) <- extract_delay_mode_value(modes),
-         false <- channel_operator?(user_channel) or channel_voice?(user_channel),
-         false <- enough_delay_time_passed?(user_channel, delay) do
-      {:error, :delay_message_blocked, delay}
-    else
-      _ -> :ok
-    end
-  end
-
-  @spec extract_delay_mode_value([ElixIRCd.Commands.Mode.ChannelModes.mode()]) :: integer() | nil
-  defp extract_delay_mode_value(modes) do
-    Enum.find_value(modes, fn
-      {:d, value} -> String.to_integer(value)
-      _ -> nil
-    end)
-  end
-
-  @spec enough_delay_time_passed?(UserChannel.t(), integer()) :: boolean()
-  defp enough_delay_time_passed?(user_channel, delay) do
-    join_time = DateTime.to_unix(user_channel.created_at, :second)
-    now = DateTime.to_unix(DateTime.utc_now(), :second)
-    now >= join_time + delay
-  end
 end

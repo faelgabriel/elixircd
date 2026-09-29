@@ -19,6 +19,7 @@ defmodule ElixIRCd.Commands.Nick do
   alias ElixIRCd.Server.Handshake
   alias ElixIRCd.Server.NickChange
   alias ElixIRCd.Server.NickEnforcement
+  alias ElixIRCd.ServerLink.Directory
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -55,6 +56,14 @@ defmodule ElixIRCd.Commands.Nick do
           command: :err_nicknameinuse,
           params: [user_reply(user), input_nick],
           trailing: "Nickname is already in use"
+        }
+        |> Dispatcher.broadcast(:server, user)
+
+      {:error, :network_directory_unavailable} ->
+        %Message{
+          command: :err_unavailresource,
+          params: [user_reply(user), input_nick],
+          trailing: "Nickname is temporarily unavailable on this server"
         }
         |> Dispatcher.broadcast(:server, user)
 
@@ -110,12 +119,28 @@ defmodule ElixIRCd.Commands.Nick do
     :ok
   end
 
-  @spec check_nick_in_use(User.t(), String.t()) :: :ok | {:error, :nick_in_use}
+  @spec check_nick_in_use(User.t(), String.t()) ::
+          :ok | {:error, :nick_in_use | :network_directory_unavailable}
   defp check_nick_in_use(user, input_nick) do
     case Users.get_by_nick(input_nick) do
-      {:ok, %{pid: pid}} when pid == user.pid -> :ok
-      {:ok, _user} -> {:error, :nick_in_use}
-      {:error, :user_not_found} -> :ok
+      {:ok, %{pid: pid}} when pid == user.pid ->
+        :ok
+
+      {:ok, _user} ->
+        {:error, :nick_in_use}
+
+      {:error, :user_not_found} ->
+        check_remote_nick_in_use(input_nick)
+    end
+  end
+
+  defp check_remote_nick_in_use(input_nick) do
+    links_enabled? = Application.fetch_env!(:elixircd, :server_links)[:enabled]
+
+    case Directory.lookup_by_nick(input_nick) do
+      {:ok, _remote} -> {:error, :nick_in_use}
+      :unavailable when links_enabled? -> {:error, :network_directory_unavailable}
+      _ -> :ok
     end
   end
 

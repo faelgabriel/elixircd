@@ -39,6 +39,7 @@ defmodule ElixIRCd.ObservabilityTest do
       assert children == [
                ElixIRCd.Server.RateLimiter,
                ElixIRCd.Server.NickEnforcement,
+               ElixIRCd.ServerLink.Supervisor,
                ElixIRCd.Server.Listeners,
                ElixIRCd.JobQueue
              ]

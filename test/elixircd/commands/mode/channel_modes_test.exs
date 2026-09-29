@@ -138,6 +138,13 @@ defmodule ElixIRCd.Commands.Mode.ChannelModesTest do
     end
   end
 
+  test "routed mode encoding preserves ordered signs and exact parameter values" do
+    changes = [{:add, :n}, {:add, {:k, "secret"}}, {:remove, {:b, "bad!*@*"}}, {:add, :t}]
+
+    assert {"+nk-b+t", ["secret", "bad!*@*"]} = ChannelModes.encode_mode_changes(changes)
+    assert {^changes, []} = ChannelModes.parse_mode_changes("+nk-b+t", ["secret", "bad!*@*"])
+  end
+
   describe "parse_mode_changes/2" do
     test "handles mode string not starting with plus or minus" do
       mode_string = "lnt"

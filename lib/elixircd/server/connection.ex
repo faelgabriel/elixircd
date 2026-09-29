@@ -20,6 +20,7 @@ defmodule ElixIRCd.Server.Connection do
   alias ElixIRCd.Repositories.Metrics
   alias ElixIRCd.Repositories.ReadMarkers
   alias ElixIRCd.Repositories.SaslSessions
+  alias ElixIRCd.Repositories.UserAcceptRemotes
   alias ElixIRCd.Repositories.UserAccepts
   alias ElixIRCd.Repositories.UserChannels
   alias ElixIRCd.Repositories.UserMonitors
@@ -490,6 +491,7 @@ defmodule ElixIRCd.Server.Connection do
     ChannelInvites.delete_by_user_pid(user.pid)
     UserChannels.delete_by_user_pid(user.pid)
     UserAccepts.delete_by_user_pid(user.pid)
+    UserAcceptRemotes.delete_by_user_pid(user.pid)
     UserAccepts.delete_by_accepted_user_pid(user.pid)
     UserSilences.delete_by_user_pid(user.pid)
     UserMonitors.delete_by_user_pid(user.pid)

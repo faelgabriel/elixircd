@@ -28,6 +28,7 @@ defmodule ElixIRCd do
     children = [
       ElixIRCd.Server.RateLimiter,
       ElixIRCd.Server.NickEnforcement,
+      ElixIRCd.ServerLink.Supervisor,
       ElixIRCd.Server.Listeners,
       ElixIRCd.JobQueue
     ]

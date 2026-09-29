@@ -12,6 +12,7 @@ defmodule ElixIRCd.Commands.Ison do
   alias ElixIRCd.Message
   alias ElixIRCd.Repositories.Users
   alias ElixIRCd.Server.Dispatcher
+  alias ElixIRCd.ServerLink.Directory
   alias ElixIRCd.Tables.User
 
   @impl true
@@ -42,8 +43,14 @@ defmodule ElixIRCd.Commands.Ison do
   @spec fetch_user_nick(String.t()) :: String.t() | nil
   defp fetch_user_nick(target_nick) do
     case Users.get_by_nick(target_nick) do
-      {:ok, user} -> user.nick
-      {:error, :user_not_found} -> nil
+      {:ok, user} ->
+        user.nick
+
+      {:error, :user_not_found} ->
+        case Directory.get_by_nick(target_nick) do
+          {:ok, remote} -> remote.user["nick"]
+          :error -> nil
+        end
     end
   end
 end

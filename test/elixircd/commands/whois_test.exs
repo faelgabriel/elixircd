@@ -8,8 +8,77 @@ defmodule ElixIRCd.Commands.WhoisTest do
 
   alias ElixIRCd.Commands.Whois
   alias ElixIRCd.Message
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.Directory
+  alias ElixIRCd.ServerLink.Replica
+  alias ElixIRCd.ServerLink.UserPayload
+  alias ElixIRCd.Utils.CaseMapping
 
   describe "handle/2" do
+    test "WHOIS reports a remote user's replicated identity and visible channel" do
+      nick_table = Directory.create()
+      channel_table = ChannelDirectory.create()
+      uid = String.duplicate("a", 32)
+
+      remote_user =
+        build(:user,
+          nick: "Remote",
+          ident: "~remote",
+          hostname: "real.example",
+          cloaked_hostname: "cloak.example",
+          modes: [:r, :x, :B],
+          identified_as: "account",
+          away_message: "stepped away"
+        )
+
+      payload = UserPayload.from_local(remote_user, uid)
+      old = Replica.new()
+
+      current = %{
+        old
+        | users: %{{"east.example", uid} => payload},
+          nick_keys: %{CaseMapping.normalize("Remote") => {"east.example", uid}}
+      }
+
+      Directory.sync(nick_table, old, current)
+
+      channel_view = fn name, modes, status ->
+        %{
+          channel: %{"name" => name, "modes" => Enum.map(modes, &%{"name" => &1})},
+          remote_members: [%{origin: "east.example", member: %{"uid" => uid}, effective_modes: status}]
+        }
+      end
+
+      ChannelDirectory.sync(channel_table, %{}, %{
+        CaseMapping.normalize("#public") => channel_view.("#public", [], ["o"]),
+        CaseMapping.normalize("#secret") => channel_view.("#secret", ["s"], [])
+      })
+
+      Memento.transaction!(fn ->
+        viewer = insert(:user, nick: "Viewer")
+        assert :ok = Whois.handle(viewer, %Message{command: "WHOIS", params: ["Remote"]})
+        assert_sent_message_contains(viewer.pid, ~r/ 311 Viewer Remote ~remote cloak\.example \* /)
+        assert_sent_message_contains(viewer.pid, ~r/ 307 Viewer Remote /)
+        assert_sent_message_contains(viewer.pid, ~r/ 330 Viewer Remote account /)
+        assert_sent_message_contains(viewer.pid, ~r/ 335 Viewer Remote /)
+        assert_sent_message_contains(viewer.pid, ":irc.test 319 Viewer Remote :@#public\r\n")
+        assert_sent_messages_count_containing(viewer.pid, "#secret", 0)
+        assert_sent_message_contains(viewer.pid, ~r/ 312 Viewer Remote east\.example /)
+        assert_sent_message_contains(viewer.pid, ~r/ 301 Viewer Remote :stepped away/)
+        assert_sent_message_contains(viewer.pid, ~r/ 318 Viewer Remote /)
+        assert_sent_messages_count_containing(viewer.pid, ~r/ 317 /, 0)
+
+        assert :ok = Whois.handle(viewer, %Message{command: "WHOIS", params: ["east.example", "Remote"]})
+        assert_sent_message_contains(viewer.pid, ~r/ 311 Viewer Remote /)
+
+        operator = insert(:user, nick: "Oper", modes: [:o])
+        assert :ok = Whois.handle(operator, %Message{command: "WHOIS", params: ["Remote"]})
+        assert_sent_message_contains(operator.pid, ~r/ 311 Oper Remote ~remote real\.example \* /)
+        assert_sent_message_contains(operator.pid, ~r/ 338 Oper Remote real\.example /)
+        assert_sent_message_contains(operator.pid, ~r/ 379 Oper Remote :is using modes \+Brx/)
+      end)
+    end
+
     for {modes, wire_modes} <- [{[], ""}, {[:w, :i], "iw"}, {[:s, :o, :H], "Hos"}] do
       test "WHOIS shows own modes #{inspect(modes)} without capability negotiation" do
         Memento.transaction!(fn ->

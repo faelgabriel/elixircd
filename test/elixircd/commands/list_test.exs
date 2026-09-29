@@ -8,9 +8,84 @@ defmodule ElixIRCd.Commands.ListTest do
 
   alias ElixIRCd.Commands.List
   alias ElixIRCd.Message
+  alias ElixIRCd.ServerLink.ChannelDirectory
+  alias ElixIRCd.ServerLink.ChannelPayload
+  alias ElixIRCd.ServerLink.UserPayload
   alias ElixIRCd.Tables.RegisteredChannel.Settings
 
   describe "handle/2" do
+    test "LIST omits local channels without a network index entry while linking is enabled" do
+      old_links = Application.fetch_env!(:elixircd, :server_links)
+      on_exit(fn -> Application.put_env(:elixircd, :server_links, old_links) end)
+      Application.put_env(:elixircd, :server_links, Keyword.put(old_links, :enabled, true))
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        insert(:channel, name: "#unindexed-list")
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: []})
+        assert_sent_messages([{user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}])
+      end)
+
+      ChannelDirectory.create()
+
+      Memento.transaction!(fn ->
+        user = insert(:user)
+        insert(:channel, name: "#missing-list-view")
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: []})
+        assert_sent_messages([{user.pid, ":irc.test 323 #{user.nick} :End of LIST\r\n"}])
+      end)
+    end
+
+    test "LIST includes remote-only channels and applies member count and name filters" do
+      channel = build(:channel, name: "#network", modes: [:n])
+      publish_remote_channel(channel, 2)
+
+      Memento.transaction!(fn ->
+        user = insert(:user, nick: "Viewer")
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: []})
+        assert_sent_message_contains(user.pid, ":irc.test 322 Viewer #network 2 :#{channel.topic.text}\r\n")
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: ["#network,>1"]})
+        assert_sent_message_contains(user.pid, ":irc.test 322 Viewer #network 2 :#{channel.topic.text}\r\n")
+
+        assert :ok = List.handle(user, %Message{command: "LIST", params: [">2"]})
+        assert_sent_messages_count_containing(user.pid, ~r/ 322 /, 2)
+      end)
+    end
+
+    test "LIST uses selected metadata and total membership while preserving local privacy" do
+      remote = build(:channel, name: "#collision", modes: [:n])
+      publish_remote_channel(remote, 1)
+
+      Memento.transaction!(fn ->
+        local = insert(:channel, name: remote.name, modes: [:s], topic: build(:channel_topic, text: "Local"))
+        member = insert(:user, nick: "Member")
+        outsider = insert(:user, nick: "Outsider")
+        insert(:user_channel, user: member, channel: local)
+
+        assert :ok = List.handle(outsider, %Message{command: "LIST", params: []})
+        assert_sent_messages_count_containing(outsider.pid, ~r/ 322 /, 0)
+
+        assert :ok = List.handle(member, %Message{command: "LIST", params: []})
+        assert_sent_message_contains(member.pid, ":irc.test 322 Member #collision 2 :#{remote.topic.text}\r\n")
+        assert_sent_messages_count_containing(member.pid, ~r/ 322 /, 1)
+      end)
+    end
+
+    test "LIST hides a remote-only secret channel from outsiders" do
+      channel = build(:channel, name: "#remote-secret", modes: [:s])
+      publish_remote_channel(channel, 1)
+
+      Memento.transaction!(fn ->
+        outsider = insert(:user, nick: "Outsider")
+        assert :ok = List.handle(outsider, %Message{command: "LIST", params: [channel.name]})
+        assert_sent_messages([{outsider.pid, ":irc.test 323 Outsider :End of LIST\r\n"}])
+      end)
+    end
+
     test "handles LIST command with user not registered" do
       Memento.transaction!(fn ->
         user = insert(:user, registered: false)
@@ -299,5 +374,31 @@ defmodule ElixIRCd.Commands.ListTest do
         ])
       end)
     end
+  end
+
+  defp publish_remote_channel(channel, count) do
+    table = ChannelDirectory.create()
+
+    view = %{
+      origin: "east.example",
+      channel: ChannelPayload.from_local(channel, "east.example"),
+      remote_present: true,
+      remote_members:
+        Enum.map(1..count, fn number ->
+          uid = number |> Integer.to_string(16) |> String.pad_leading(32, "0")
+          remote = build(:user, nick: "Remote#{number}")
+
+          %{
+            origin: "east.example",
+            user: UserPayload.from_local(remote, uid),
+            member: %{"uid" => uid},
+            effective_modes: []
+          }
+        end),
+      remote_lists: [],
+      remote_invites: []
+    }
+
+    ChannelDirectory.sync(table, %{}, %{channel.name_key => view})
   end
 end
