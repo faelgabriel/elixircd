@@ -63,6 +63,21 @@ defmodule ElixIRCd.Commands.Rehash do
     %Message{command: :rpl_rehashing, params: [user.nick, "elixircd.exs"], trailing: "Rehashing"}
     |> Dispatcher.broadcast(:server, user)
 
+    case reload(user.identified_as || user.nick, fn -> complete_rehashing(user) end) do
+      :ok -> :ok
+      :error -> configuration_error(user)
+      {:error, error} -> configuration_error(user, error)
+    end
+  end
+
+  @doc "Reloads the running server through the same path used by the IRC command."
+  @spec run_cli() :: :ok | :error | {:error, Error.t()}
+  def run_cli do
+    Observability.transaction(fn -> reload("local-cli", fn -> :ok end) end)
+  end
+
+  @spec reload(String.t(), (-> :ok)) :: :ok | :error | {:error, Error.t()}
+  defp reload(actor, before_notifications) do
     old_features = Isupport.feature_tokens()
     monitor_was_enabled = Monitor.enabled?()
     old_caps = Application.fetch_env!(:elixircd, :capabilities)
@@ -73,21 +88,20 @@ defmodule ElixIRCd.Commands.Rehash do
       :ok ->
         Observability.defer([:config, :reload], %{count: 1}, %{result: :success})
 
-        Logger.info("configuration reloaded",
-          event: "audit.rehash",
-          actor: user.identified_as || user.nick,
-          result: :success
-        )
-
-        complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts, old_capability_maps)
+        Logger.info("configuration reloaded", event: "audit.rehash", actor: actor, result: :success)
+        :ok = before_notifications.()
+        notify_sts_changes(old_caps, old_sts)
+        notify_capability_changes(old_capability_maps)
+        clear_disabled_monitor_lists(monitor_was_enabled)
+        Isupport.notify_changes(old_features)
 
       :error ->
         Observability.defer([:config, :reload], %{count: 1}, %{result: :failure})
-        configuration_error(user)
+        :error
 
       {:error, error} ->
         Observability.defer([:config, :reload], %{count: 1}, %{result: :failure})
-        configuration_error(user, error)
+        {:error, error}
     end
   end
 
@@ -130,8 +144,8 @@ defmodule ElixIRCd.Commands.Rehash do
     end)
   end
 
-  @spec complete_rehashing(User.t(), [String.t()], boolean(), keyword(), keyword(), map()) :: :ok
-  defp complete_rehashing(user, old_features, monitor_was_enabled, old_caps, old_sts, old_capability_maps) do
+  @spec complete_rehashing(User.t()) :: :ok
+  defp complete_rehashing(user) do
     description = "Rehashing completed"
     reply = %StandardReply{type: :note, command: "REHASH", code: "REHASH_COMPLETE", description: description}
     fallback = %Message{command: "NOTICE", params: [user.nick], trailing: description}
@@ -141,10 +155,6 @@ defmodule ElixIRCd.Commands.Rehash do
     # Finish the logical response under the negotiated capabilities before
     # announcing their removal. CAP DEL must never interrupt an open batch.
     ResponseContext.flush(user)
-    notify_sts_changes(old_caps, old_sts)
-    notify_capability_changes(old_capability_maps)
-    clear_disabled_monitor_lists(monitor_was_enabled)
-    Isupport.notify_changes(old_features)
   end
 
   @spec clear_disabled_monitor_lists(boolean()) :: :ok

@@ -67,7 +67,16 @@ docker exec -it <container_name> /app/bin/elixircd remote
 
 # Gracefully stop the running system
 docker exec <container_name> /app/bin/elixircd stop
+
+# Validate the configuration file and referenced resources without changing the server
+docker exec <container_name> /app/bin/elixircd config check
+
+# Apply supported configuration changes to the running server
+docker exec <container_name> /app/bin/elixircd rehash
 ```
+
+`config check` checks the file and referenced resources. `rehash` also checks live restrictions, such as settings that
+require a restart, and reports an error without applying an invalid configuration.
 
 #### Configuration
 

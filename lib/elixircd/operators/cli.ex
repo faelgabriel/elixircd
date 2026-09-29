@@ -1,6 +1,7 @@
 defmodule ElixIRCd.Operators.CLI do
   @moduledoc "Operator commands for the administrative release CLI."
 
+  alias ElixIRCd.CLI.Remote
   alias ElixIRCd.Operators
 
   @commands [
@@ -29,13 +30,13 @@ defmodule ElixIRCd.Operators.CLI do
   end
 
   def run(["list"]) do
-    with {:ok, server_node} <- connect() do
+    with {:ok, server_node} <- Remote.connect("oper") do
       format_list(Operators.Remote.call(server_node, :list, []))
     end
   end
 
   def run([action, name]) when action in ["add", "passwd"] do
-    with {:ok, server_node} <- connect(),
+    with {:ok, server_node} <- Remote.connect("oper"),
          {:ok, password} <- password_with_confirmation() do
       hash = Argon2.hash_pwd_salt(password)
       operation = if action == "add", do: :add, else: :rotate
@@ -44,7 +45,7 @@ defmodule ElixIRCd.Operators.CLI do
   end
 
   def run([action, name]) when action in ["disable", "enable", "remove"] do
-    with {:ok, server_node} <- connect() do
+    with {:ok, server_node} <- Remote.connect("oper") do
       operation =
         case action do
           "disable" -> :disable
@@ -129,53 +130,6 @@ defmodule ElixIRCd.Operators.CLI do
 
       _ ->
         {:error, "Could not read a password from the terminal"}
-    end
-  end
-
-  @spec connect() :: {:ok, node()} | {:error, String.t()}
-  defp connect do
-    with {:ok, server_node, cli_node, name_domain} <- release_nodes(),
-         {:ok, _pid} <- Node.start(cli_node, name_domain: name_domain),
-         true <- Node.connect(server_node) do
-      {:ok, server_node}
-    else
-      _ ->
-        {:error, "Cannot connect to the running ElixIRCd node; check server availability and local node distribution"}
-    end
-  end
-
-  @spec release_nodes() :: {:ok, node(), node(), :longnames | :shortnames} | :error
-  # The release script exports its default node name and distribution mode for
-  # this one-command VM, even when neither was set by the operator.
-  # Distributed Erlang requires node names as atoms, including the generated CLI name.
-  # sobelow_skip ["DOS.StringToAtom"]
-  defp release_nodes do
-    distribution = System.get_env("RELEASE_DISTRIBUTION")
-
-    with true <- distribution in ["name", "sname"],
-         {:ok, server, host} <- node_parts(System.get_env("RELEASE_NODE")) do
-      name_domain = if distribution == "name", do: :longnames, else: :shortnames
-      suffix = Base.encode16(:crypto.strong_rand_bytes(4), case: :lower)
-      cli = "elixircd-oper-cli-#{suffix}"
-      cli = if name_domain == :longnames, do: "#{cli}@#{host}", else: cli
-      {:ok, String.to_atom("#{server}@#{host}"), String.to_atom(cli), name_domain}
-    else
-      _ -> :error
-    end
-  end
-
-  @spec node_parts(String.t() | nil) :: {:ok, String.t(), String.t()} | :error
-  defp node_parts(name) do
-    case String.split(name || "", "@") do
-      [server, host] when server != "" and host != "" ->
-        {:ok, server, host}
-
-      [server] when server != "" ->
-        {:ok, host} = :inet.gethostname()
-        {:ok, server, List.to_string(host)}
-
-      _ ->
-        :error
     end
   end
 

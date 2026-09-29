@@ -2,7 +2,9 @@ defmodule ElixIRCd.CLI do
   @moduledoc "Entrypoint for administrative commands in the release."
 
   @commands %{
-    "oper" => {ElixIRCd.Operators.CLI, "Manage IRC operators"}
+    "config" => {ElixIRCd.CLI.Config, "Check configuration"},
+    "oper" => {ElixIRCd.Operators.CLI, "Manage IRC operators"},
+    "rehash" => {ElixIRCd.CLI.Rehash, "Reload running server configuration"}
   }
 
   @doc "Runs a command and returns text to print or an error."

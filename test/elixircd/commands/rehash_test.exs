@@ -17,6 +17,37 @@ defmodule ElixIRCd.Commands.RehashTest do
   alias ElixIRCd.Utils.Nickserv
   alias ElixIRCd.Utils.System
 
+  describe "run_cli/0" do
+    test "reloads through the IRC path and announces changed features to connected clients" do
+      original = Application.fetch_env!(:elixircd, :whox)
+      on_exit(fn -> Application.put_env(:elixircd, :whox, original) end)
+      Application.put_env(:elixircd, :whox, enabled: false)
+      client = insert(:user)
+
+      expect(System, :load_configurations, fn ->
+        Application.put_env(:elixircd, :whox, enabled: true)
+        :ok
+      end)
+
+      assert :ok = Rehash.run_cli()
+      assert_sent_message_contains(client.pid, ~r/ 005 .* WHOX :are supported by this server\r\n$/)
+    end
+
+    test "returns a safe configuration error without announcing a change" do
+      client = insert(:user, capabilities: ["cap-notify"])
+
+      expect(System, :load_configurations, fn ->
+        raise Error, path: "config/elixircd.exs", errors: ["elixircd.listeners: change requires server restart"]
+      end)
+
+      capture_log(fn ->
+        assert {:error, %Error{errors: ["elixircd.listeners: change requires server restart"]}} = Rehash.run_cli()
+      end)
+
+      assert_sent_messages_amount(client.pid, 0)
+    end
+  end
+
   describe "handle/2" do
     test "accepts the local hostname case-insensitively" do
       previous_level = Logger.level()
